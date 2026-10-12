@@ -1,0 +1,47 @@
+{
+  "skeletal-system": {
+    "source_collection": "1: Skeletal system",
+    "hierarchy_collection": "Skeletal system",
+    "title": "Hệ xương"
+  },
+  "muscular-insertions": {
+    "source_collection": "2: Muscular insertions",
+    "hierarchy_collection": "Muscular insertions",
+    "title": "Nguyên ủy và bám tận cơ"
+  },
+  "joints": {
+    "source_collection": "3: Joints",
+    "hierarchy_collection": "Arthrology",
+    "title": "Khớp"
+  },
+  "muscular-system": {
+    "source_collection": "4: Muscular system",
+    "hierarchy_collection": "Muscular system",
+    "title": "Hệ cơ"
+  },
+  "cardiovascular-system": {
+    "source_collection": "5: Cardiovascular system",
+    "hierarchy_collection": "Cardiovascular system",
+    "title": "Hệ tim mạch"
+  },
+  "lymphoid-organs": {
+    "source_collection": "6: Lymphoid organs",
+    "hierarchy_collection": "Lymphoid system",
+    "title": "Cơ quan bạch huyết"
+  },
+  "nervous-system": {
+    "source_collection": "7: Nervous system & Sense organs",
+    "hierarchy_collection": "Nervous system",
+    "title": "Hệ thần kinh và giác quan"
+  },
+  "visceral-systems": {
+    "source_collection": "8: Visceral systems",
+    "hierarchy_collection": "Visceral systems",
+    "title": "Các hệ nội tạng"
+  },
+  "body-regions": {
+    "source_collection": "9: Regions of human body",
+    "hierarchy_collection": "Regions of human body",
+    "title": "Các vùng cơ thể"
+  }
+}
