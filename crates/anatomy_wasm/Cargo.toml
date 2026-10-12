@@ -9,4 +9,10 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 anatomy_core.workspace = true
+anatomy_renderer.workspace = true
+serde_json.workspace = true
 wasm-bindgen.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = "=0.3.104"
+web-sys = { version = "=0.3.104", features = ["HtmlCanvasElement", "WebGl2RenderingContext", "WebGlProgram", "WebGlShader", "WebGlBuffer", "WebGlVertexArrayObject", "WebGlUniformLocation", "WebGlFramebuffer", "WebGlTexture", "WebGlRenderbuffer"] }
