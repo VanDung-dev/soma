@@ -1,0 +1,10 @@
+[package]
+name = "anatomy_renderer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+glam.workspace = true
+gltf = { version = "1.4", default-features = false, features = ["utils", "extras"] }
+serde_json.workspace = true
