@@ -44,6 +44,52 @@ pub struct Scene {
 }
 
 impl Scene {
+    pub fn merge(scenes: Vec<Self>) -> Result<Self, String> {
+        let mut known = HashSet::new();
+        let mut parts = Vec::new();
+        for scene in scenes {
+            let ids: HashSet<_> = scene.parts.iter().map(|p| p.source_id.clone()).collect();
+            // A structure can belong to several systems; keep all its primitives only once.
+            parts.extend(
+                scene
+                    .parts
+                    .into_iter()
+                    .filter(|p| !known.contains(&p.source_id)),
+            );
+            known.extend(ids);
+        }
+        let bounds = parts
+            .iter()
+            .map(|p| p.bounds)
+            .reduce(Bounds::union)
+            .ok_or("Empty geometry")?;
+        Ok(Self {
+            parts,
+            bounds,
+            selected: String::new(),
+        })
+    }
+
+    pub fn set_visibility(&mut self, ids: &[String]) -> Result<(), String> {
+        let visible: HashSet<_> = ids.iter().map(String::as_str).collect();
+        let known: HashSet<_> = self
+            .parts
+            .iter()
+            .filter(|p| p.active)
+            .map(|p| p.source_id.as_str())
+            .collect();
+        if visible.len() != ids.len() || !visible.is_subset(&known) {
+            return Err("Unknown or duplicate visible structure ID".into());
+        }
+        for part in &mut self.parts {
+            part.visible = part.active && visible.contains(part.source_id.as_str());
+        }
+        if !visible.contains(self.selected.as_str()) {
+            self.selected.clear();
+        }
+        Ok(())
+    }
+
     pub fn from_glb(bytes: &[u8], expected: &[String]) -> Result<Self, String> {
         let gltf = gltf::Gltf::from_slice(bytes).map_err(|e| e.to_string())?;
         let blob = gltf.blob.as_deref().ok_or("GLB has no binary buffer")?;
@@ -374,12 +420,12 @@ impl Camera {
             ) * self.distance
     }
     pub fn matrix(&self) -> Mat4 {
-        Mat4::perspective_rh_gl(
+        glam::camera::rh::proj::opengl::perspective(
             38_f32.to_radians(),
             self.aspect,
             (self.view.radius() / 100.0).max(1e-6),
             self.radius * 100.0,
-        ) * Mat4::look_at_rh(self.eye(), self.target, Vec3::Y)
+        ) * glam::camera::rh::view::look_at_mat4(self.eye(), self.target, Vec3::Y)
     }
 }
 
@@ -389,11 +435,13 @@ mod tests {
     use std::path::Path;
 
     #[test]
-    fn loads_all_real_packages_and_preserves_materials_and_identity() {
+    fn merges_real_packages_and_preserves_world_geometry_materials_and_identity() {
         let folder =
             Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/public/models/z-anatomy");
         let manifest: serde_json::Value =
             serde_json::from_slice(&std::fs::read(folder.join("manifest.json")).unwrap()).unwrap();
+        let mut scenes = Vec::new();
+        let mut originals = std::collections::HashMap::new();
         for model in manifest["models"].as_array().unwrap() {
             let ids: Vec<String> = serde_json::from_value(model["source_ids"].clone()).unwrap();
             let scene = Scene::from_glb(
@@ -412,7 +460,41 @@ mod tests {
             if model["file"] == "muscular-system.glb" {
                 assert!(scene.parts.iter().any(|p| p.blend && p.color[3] < 1.0));
             }
+            for part in &scene.parts {
+                if let Some(vertices) = originals.get(&part.source_id) {
+                    assert_eq!(
+                        &part.vertices, vertices,
+                        "Shared structure moved between systems: {}",
+                        part.source_id
+                    );
+                } else {
+                    originals.insert(part.source_id.clone(), part.vertices.clone());
+                }
+            }
+            scenes.push(scene);
         }
+        let mut scene = Scene::merge(scenes).unwrap();
+        assert_eq!(scene.visible_count(), 3874);
+        let bounds = scene.bounds;
+        let id = scene.parts[0].source_id.clone();
+        scene.select(&id).unwrap();
+        scene.set_visibility(&[]).unwrap();
+        assert_eq!(scene.visible_count(), 0);
+        assert!(scene.selected.is_empty());
+        assert!(scene.set_visibility(&["unknown".into()]).is_err());
+        assert_eq!(scene.visible_count(), 0);
+        assert!(scene.set_visibility(&[id.clone(), id.clone()]).is_err());
+        scene.set_visibility(&[id]).unwrap();
+        assert_eq!(scene.visible_count(), 1);
+        let ids: Vec<_> = originals.keys().cloned().collect();
+        scene.set_visibility(&ids).unwrap();
+        assert_eq!(scene.visible_count(), 3874);
+        assert_eq!(scene.bounds.min, bounds.min);
+        assert_eq!(scene.bounds.max, bounds.max);
+        for part in &scene.parts {
+            assert_eq!(part.vertices, originals[&part.source_id]);
+        }
+        assert!(Scene::merge(Vec::new()).is_err());
     }
 
     #[test]
@@ -515,7 +597,9 @@ mod tests {
             .as_array_mut()
             .unwrap()
             .push(primitive);
-        let mut scene = Scene::from_glb(&rebuild(&multiple), &ids).unwrap();
+        let scene = Scene::from_glb(&rebuild(&multiple), &ids).unwrap();
+        let duplicate = Scene::from_glb(&rebuild(&multiple), &ids).unwrap();
+        let mut scene = Scene::merge(vec![scene, duplicate]).unwrap();
         let id = scene.parts[0].source_id.clone();
         scene.subset(std::slice::from_ref(&id)).unwrap();
         scene.select(&id).unwrap();

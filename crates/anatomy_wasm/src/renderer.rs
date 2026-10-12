@@ -116,6 +116,42 @@ impl AnatomyViewer {
     ) -> Result<AnatomyViewer, JsValue> {
         let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
         let scene = Scene::from_glb(bytes, &ids).map_err(js_error)?;
+        Self::from_scene(canvas, scene)
+    }
+
+    #[wasm_bindgen(js_name = fromPackages)]
+    pub fn from_packages(
+        canvas: HtmlCanvasElement,
+        packages: js_sys::Array,
+        ids_json: &str,
+    ) -> Result<AnatomyViewer, JsValue> {
+        let ids: Vec<Vec<String>> = serde_json::from_str(ids_json).map_err(js_error)?;
+        if packages.length() as usize != ids.len() {
+            return Err(js_error("Package and metadata counts differ"));
+        }
+        let mut scenes = Vec::new();
+        for (package, expected) in packages.iter().zip(ids) {
+            if !package.is_instance_of::<js_sys::Uint8Array>() {
+                return Err(js_error("Invalid GLB package"));
+            }
+            scenes.push(
+                Scene::from_glb(&js_sys::Uint8Array::new(&package).to_vec(), &expected)
+                    .map_err(js_error)?,
+            );
+        }
+        Self::from_scene(canvas, Scene::merge(scenes).map_err(js_error)?)
+    }
+
+    pub fn set_visibility(&mut self, ids_json: &str) -> Result<(), JsValue> {
+        let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
+        self.scene.set_visibility(&ids).map_err(js_error)?;
+        self.render();
+        Ok(())
+    }
+}
+
+impl AnatomyViewer {
+    fn from_scene(canvas: HtmlCanvasElement, scene: Scene) -> Result<Self, JsValue> {
         let gl: Gl = canvas
             .get_context("webgl2")?
             .ok_or_else(|| js_error("WebGL2 is unavailable"))?
@@ -226,7 +262,10 @@ impl AnatomyViewer {
         }
         Ok(viewer)
     }
+}
 
+#[wasm_bindgen]
+impl AnatomyViewer {
     pub fn resize(&mut self, width: u32, height: u32) -> Result<(), JsValue> {
         let gl = &self.gpu.gl;
         let limit = gl
