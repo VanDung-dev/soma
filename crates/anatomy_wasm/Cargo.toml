@@ -1,0 +1,12 @@
+[package]
+name = "anatomy_wasm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+anatomy_core.workspace = true
+wasm-bindgen.workspace = true
