@@ -10,14 +10,21 @@ export interface StudyTarget { id: string; title: string; source_name: string; g
 
 export interface Model { path: string; scope: string }
 
+let wasm: Promise<typeof import("./wasm/anatomy_wasm.js")> | undefined;
+
+export function getWasm() {
+  return wasm ??= import("./wasm/anatomy_wasm.js").then(async module => {
+    await module.default();
+    return module;
+  });
+}
+
 export async function getCatalog(): Promise<Catalog> {
   let json: string;
   if (isTauri()) {
     json = await invoke<string>("get_catalog");
   } else {
-    const wasm = await import("./wasm/anatomy_wasm.js");
-    await wasm.default();
-    json = wasm.get_catalog();
+    json = (await getWasm()).get_catalog();
   }
   return JSON.parse(json) as Catalog;
 }
