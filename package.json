@@ -1,0 +1,15 @@
+{
+  "name": "human-atlas-workspace",
+  "private": true,
+  "workspaces": ["apps/web"],
+  "scripts": {
+    "wasm:build": "wasm-pack build crates/anatomy_wasm --target web --out-dir ../../apps/web/src/wasm --release --no-opt",
+    "dev": "npm run dev --workspace apps/web",
+    "build": "npm run build --workspace apps/web",
+    "check": "npm run check --workspace apps/web",
+    "test": "npm run test --workspace apps/web",
+    "desktop:dev": "npm run desktop:dev --workspace apps/web",
+    "desktop:build": "npm run desktop:build --workspace apps/web"
+  },
+  "engines": { "node": ">=22.12.0" }
+}
