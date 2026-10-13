@@ -1414,7 +1414,7 @@
       "file": "skeletal-system.glb",
       "metadata_file": "skeletal-system.json",
       "structures": 277,
-      "definitions": 146,
+      "definitions": 156,
       "source_ids": [
         "za:01e1daf784598dbd",
         "za:02313f6964fcd377",
@@ -1702,16 +1702,16 @@
       "catalog_nodes": 308,
       "primitives": 277,
       "triangles": 702011,
-      "bytes": 11354764,
-      "sha256": "12c44cb5722b3d62e06dee616303b34f26138bd46cce3af41bd791127515c860",
-      "metadata_bytes": 2503271,
-      "metadata_sha256": "e8988915e337f1dd62d703abddf78df666e70ab3e22f33ae85885c4d313cc73e"
+      "bytes": 11355304,
+      "sha256": "870c9caeb78ba866b58d41427a529ad3ac7b5be085df682221ee1b59ea0fae0a",
+      "metadata_bytes": 2565419,
+      "metadata_sha256": "302966288280b5b29d1cc92a1eeaa5602121732d6c2c419fd8493b2556d1f4ba"
     },
     {
       "file": "muscular-insertions.glb",
       "metadata_file": "muscular-insertions.json",
       "structures": 705,
-      "definitions": 128,
+      "definitions": 130,
       "source_ids": [
         "za:003b06eda82de9de",
         "za:00ed331d3d5da7db",
@@ -2427,10 +2427,10 @@
       "catalog_nodes": 91,
       "primitives": 705,
       "triangles": 931484,
-      "bytes": 15132896,
-      "sha256": "4e878276ac9ba1e505f1eb6a8ebe6b49d8f3f243d3559d8d296ba14c000f7966",
-      "metadata_bytes": 633235,
-      "metadata_sha256": "2de3d1ac568987675265bc7efccea5496505dbd0901450eea0c8ea3bcd386155"
+      "bytes": 15133156,
+      "sha256": "98856e5509e561f14cc93286fd2bf335996b0317048b1ca94d6eb0d0931f296c",
+      "metadata_bytes": 646953,
+      "metadata_sha256": "ea06c4f988e97d84e4802e8f70b7906e057567e7c7635407905d33d3f3e4e5c3"
     },
     {
       "file": "joints.glb",
@@ -2862,14 +2862,14 @@
       "triangles": 358055,
       "bytes": 7091968,
       "sha256": "81f435f1caf3f04ba60587eea78932b4ce20069af92f3ce048f0e9d3888c9bc1",
-      "metadata_bytes": 881424,
-      "metadata_sha256": "c441d33cde18537471c3474310584404eb3af3318a1982ef06ddc6bc422a8283"
+      "metadata_bytes": 884496,
+      "metadata_sha256": "6ccdaf9f1afe1c1a5a17dcd59e59f6d86fdd6336612ecbd10ff9ec666d02787c"
     },
     {
       "file": "muscular-system.glb",
       "metadata_file": "muscular-system.json",
       "structures": 683,
-      "definitions": 277,
+      "definitions": 278,
       "source_ids": [
         "za:007976f72a5c4d1f",
         "za:00a91a0bbec8ea9d",
@@ -3563,10 +3563,10 @@
       "catalog_nodes": 196,
       "primitives": 683,
       "triangles": 2323575,
-      "bytes": 40132480,
-      "sha256": "30107653bf84a7ca5ee569af6d1f7c5627be4bc677dcc930170ebf5ca773b4cb",
-      "metadata_bytes": 1360128,
-      "metadata_sha256": "4ceb41e582698ade12eafc4ae0cd14b307d84a24252ef87e1cc7d1b4b4384172"
+      "bytes": 40132544,
+      "sha256": "7fbda0f9098b4384e216354ace851ebd480b1e099b17d88a86729f9797aea0aa",
+      "metadata_bytes": 1390089,
+      "metadata_sha256": "daa4a3bed8467f626c0ce33e4572593b2183ce674eda5e3b785d24c5b3cd789b"
     },
     {
       "file": "cardiovascular-system.glb",
@@ -4261,8 +4261,8 @@
       "triangles": 3843768,
       "bytes": 61378560,
       "sha256": "7f144c8ef2b20107d79a43b48a2382bcac23b4620e8bc868a2121d9b6fecf97d",
-      "metadata_bytes": 1022585,
-      "metadata_sha256": "138eab873de4fe6da9296ec5de7226ff35cbdcf7dcb9d7afb99ff396848dcc55"
+      "metadata_bytes": 1290279,
+      "metadata_sha256": "174f97752349fb23f97e8d67a201819f4b14922262de6884d669ec1dd78bc483"
     },
     {
       "file": "lymphoid-organs.glb",
@@ -4451,7 +4451,7 @@
       "file": "nervous-system.glb",
       "metadata_file": "nervous-system.json",
       "structures": 582,
-      "definitions": 263,
+      "definitions": 264,
       "source_ids": [
         "za:000693f70b3e6bc7",
         "za:00127d04d737063f",
@@ -5044,16 +5044,16 @@
       "catalog_nodes": 489,
       "primitives": 582,
       "triangles": 2406786,
-      "bytes": 39694612,
-      "sha256": "b5de78a707239db22025c2bfb4ed83bf8b890cef64f29d82e62b51d489313ce6",
-      "metadata_bytes": 2898232,
-      "metadata_sha256": "d319966d7c6cb0cd0d41d3fcedcd20cd46c02ed90aa63e379a4cefe98360836a"
+      "bytes": 39694632,
+      "sha256": "0732379bc5c00bc006491e56a1a35db8d1d69b5875a0917c803bc7d5054831eb",
+      "metadata_bytes": 2928805,
+      "metadata_sha256": "75d28c4dce7735bef3662c9da84c4c19d7a05f85bfe53035325d0e7400df5f01"
     },
     {
       "file": "visceral-systems.glb",
       "metadata_file": "visceral-systems.json",
       "structures": 119,
-      "definitions": 95,
+      "definitions": 98,
       "source_ids": [
         "za:035c20b45f92da30",
         "za:042615d3793795d5",
@@ -5183,10 +5183,10 @@
       "catalog_nodes": 313,
       "primitives": 119,
       "triangles": 714303,
-      "bytes": 12929072,
-      "sha256": "3c9cec761b2bcca1e8785e56c5a7f6c78d6276b18ec56ed62c2b7fb86221a2f9",
-      "metadata_bytes": 2282817,
-      "metadata_sha256": "20e09950017194f57ae143e8e8faa1de40dd4add9fc76519da8e3c731b61f060"
+      "bytes": 12929352,
+      "sha256": "ba40a1aab00c23ef7d20066ad216cc150832b7aef74d72dbdb73d1f50c836b02",
+      "metadata_bytes": 2538194,
+      "metadata_sha256": "31eb27163fe732b02a5fd4d22bd6bf6f67b653b09ecaf6fc764a0104adf92cb6"
     },
     {
       "file": "body-regions.glb",
@@ -5461,12 +5461,12 @@
       "triangles": 135204,
       "bytes": 2840396,
       "sha256": "5e1dd3f0d14fe8b6f7b6ab021a8cc1368929a5e194b6c05c4651c2e95165eff7",
-      "metadata_bytes": 381692,
-      "metadata_sha256": "82e0a106821ed67784e0f930c19dfe6c55bd589f4b6a39b54e052c80b7091235"
+      "metadata_bytes": 383453,
+      "metadata_sha256": "6c85861c70de3c0ab91cf1eb7c94326bf5ba9c31254f85b7ed267770a2f61eb5"
     }
   ],
   "unique_structures": 3874,
-  "structures_with_definitions": 2685,
+  "structures_with_definitions": 2716,
   "fallback_materials": [
     "Dentine",
     "Missing material"

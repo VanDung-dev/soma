@@ -25,9 +25,20 @@ const manifest = JSON.parse(await readFile(join(stage, 'manifest.json')));
 const catalog = JSON.parse(await readFile(join(stage, 'catalog.json')));
 assert.equal(manifest.models.length, 9);
 assert.equal(catalog.groups.length, 9);
+assert.equal(catalog.schema_version, 3);
 assert.equal(catalog.targets.filter(t => !t.parent_id).length, 9);
+const availableIds = new Set(manifest.models.flatMap(model => model.source_ids));
+for (const target of catalog.targets) {
+  assert(target.structure_ids.every(id => availableIds.has(id)), target.id);
+  if (target.parent_id) {
+    const parent = catalog.targets.find(entry => entry.id === target.parent_id);
+    assert(parent && parent.group_id === target.group_id && target.structure_ids.every(id => parent.structure_ids.includes(id)), target.id);
+  }
+}
 for (const model of manifest.models) {
-  assert(catalog.targets.some(t => t.model?.path === `models/z-anatomy/${model.file}`), model.file);
+  const target = catalog.targets.find(t => t.model?.path === `models/z-anatomy/${model.file}`);
+  assert(target, model.file);
+  assert.deepEqual(target.model.structure_ids, model.source_ids);
   const bytes = await readFile(join(stage, model.file));
   const metadata = await readFile(join(stage, model.metadata_file));
   const report = await validator.validateBytes(new Uint8Array(bytes), { uri: model.file });
@@ -37,6 +48,9 @@ for (const model of manifest.models) {
   assert.deepEqual(gltf.nodes.filter(n => n.extras?.source_id).map(n => n.extras.source_id).sort(), model.source_ids);
   const pkg = JSON.parse(metadata);
   assert.deepEqual(pkg.structures.map(s => s.source_id).sort(), model.source_ids);
+  for (const entry of catalog.targets.filter(t => t.group_id === target.group_id)) {
+    assert(!entry.definition_key || pkg.collection_definitions[entry.definition_key]?.text.trim(), entry.id);
+  }
   model.primitives = gltf.meshes.reduce((sum, mesh) => sum + mesh.primitives.length, 0);
   model.triangles = gltf.meshes.reduce((sum, mesh) => sum + mesh.primitives.reduce((n, p) => n + (gltf.accessors[p.indices ?? p.attributes.POSITION].count / 3), 0), 0);
   model.bytes = bytes.length;

@@ -31,6 +31,52 @@ def definition_key(obj):
     name = obj.data.name
     return re.sub(r'\.(?:[oi]?[lr]|o|i)$', '', name)
 
+# These source text keys differ from collection labels; keep the original text and provenance.
+definition_aliases = {
+    'Cartilages': 'Cartilage',
+    'Interlobular sulci': 'Interlobar sulci',
+    'Costal cartilage of first rib': 'Costal cartilage of 1st rib',
+    'Costal cartilage of second rib': 'Costal cartilage of 2nd rib',
+    'Costal cartilage of third rib': 'Costal cartilage of 3rd rib',
+    'Costal cartilage of fourth rib': 'Costal cartilage of 4th rib',
+    'Costal cartilage of fifth rib': 'Costal cartilage of 5th rib',
+    'Costal cartilage of sixth rib': 'Costal cartilage of 6th rib',
+    'Costal cartilage of seventh rib': 'Costal cartilage of 7th rib',
+    'Costal cartilage of eighth rib': 'Costal cartilage of 8th rib',
+    'Costal cartilage of ninth rib': 'Costal cartilage of 9th rib',
+    'Costal cartilage of tenth rib': 'Costal cartilage of 10th rib',
+    'Fascia': 'Fasciae',
+    'Cervical fascia': 'Cervical fasciae',
+    'Fascia of abdomen': 'Fasciae of abdomen',
+    'Fascia of lower limb': 'Fasciae of lower limb',
+    'Cranial syndesmosis': 'Cranial syndesmoses',
+    'Bifurcate ligament': 'Bifurcated ligament',
+    'Cuboidonavicular joint': 'Cuboideonavicular joint',
+    'Rotator cuff muscles': 'Rotator cuff muscle',
+    'Commissural fibres of telencephalon': 'Commissural fibers of telencephalon',
+    'Neo-cortex': 'Neocortex',
+    'Automatic division of peripheral nervous system': 'Autonomic division of peripheral nervous system',
+    'Lacrimal canliculus': 'Lacrimal canaliculus',
+    'Vestibule': 'Vestibule ',
+    'Caecum': 'Cecum',
+    'Tracheobronchial tree': 'Traqueobronchial tree',
+    'Right pulonary artery': 'Right pulmonary artery',
+    'Skin appendages': 'Skin appendage',
+    'Tendon sheath of upper limb': 'Tendon sheaths of upper limb',
+}
+
+def source_label(name):
+    return name.strip().rstrip("'")
+
+def resolve_definition(*names):
+    for name in names:
+        if name in texts: return name
+    for name in names:
+        name = source_label(name)
+        if name in texts: return name
+        if definition_aliases.get(name) in texts: return definition_aliases[name]
+    return ''
+
 def principled(tree, visited=None):
     if not tree: return None
     visited = set() if visited is None else visited
@@ -103,18 +149,34 @@ for obj in source_objects:
     for material in original_materials: mesh.materials.append(web_material(material))
     if not mesh.materials: mesh.materials.append(web_material(None))
     key = definition_key(obj)
+    object_name = re.sub(r'\.(?:[oi]?[lr]|o|i)$', '', obj.name)
+    if key not in texts and object_name in texts: key = object_name
+    text_key = resolve_definition(key, object_name)
     side = re.search(r'\.([oi]?)([lr])$', obj.name)
     geometry[obj.name] = {'mesh': mesh, 'matrix': obj.matrix_world.copy(), 'meta': {
         'source_id': 'za:' + hashlib.sha256(obj.name.encode()).hexdigest()[:16],
         'source_name': key,
         'source_object': obj.name,
-        'definition_key': key if key in texts else '',
+        'definition_key': text_key,
         'latin': translations.get(key, ''),
         'laterality': {'l': 'left', 'r': 'right'}[side[2]] if side else '',
         'collections': sorted(c.name for c in obj.users_collection),
         'source_parent': obj.parent.name if obj.parent else '',
     }}
 assert len({g['meta']['source_id'] for g in geometry.values()}) == len(geometry)
+
+# Source .g objects assemble multipart structures even when their collection is empty.
+group_geometry = {}
+for obj in source_objects:
+    if obj.name not in geometry: continue
+    ancestor = obj.parent
+    visited = {obj.name}
+    while ancestor:
+        assert ancestor.name not in visited, f'Object parent cycle: {obj.name}'
+        visited.add(ancestor.name)
+        if ancestor.name.endswith('.g'):
+            group_geometry.setdefault(ancestor.name, set()).add(obj.name)
+        ancestor = ancestor.parent
 
 scene = bpy.data.scenes.new('Web export')
 scene.unit_settings.system = 'METRIC'
@@ -124,7 +186,7 @@ addon_utils.enable('io_scene_gltf2')
 def definition(key):
     return {'text': texts[key], 'links': sorted(set(re.findall(r'https?://[^\s<>"\]]+', texts[key])))}
 
-catalog = {'schema_version': 2, 'groups': [], 'targets': []}
+catalog = {'schema_version': 3, 'groups': [], 'targets': []}
 covered = set()
 manifest = {'source': 'Z-Anatomy', 'source_file': 'Z-Anatomy/Startup.blend', 'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(), 'selections_sha256': hashlib.sha256(selection_bytes).hexdigest(), 'blender': bpy.app.version_string, 'units': 'metres', 'up_axis': 'Y', 'license': 'CC BY-SA 4.0; upstream third-party notices also apply', 'excluded_objects': excluded, 'models': []}
 for name, recipe in selections.items():
@@ -143,21 +205,26 @@ for name, recipe in selections.items():
         collection = source_collections[collection_name]
         path = (*path, collection_name)
         node_id = 'collection:' + hashlib.sha256((name + '/' + '/'.join(path)).encode()).hexdigest()[:16]
-        key = collection.get('English', collection_name)
-        key = key if key in texts else collection_name if collection_name in texts else ''
+        key = resolve_definition(collection.get('English', collection_name), collection_name)
         node = {'id': node_id, 'title': collection_name, 'source_name': collection_name, 'group_id': group_id, 'structure_ids': [], 'definition_key': key}
         if parent_id: node['parent_id'] = parent_id
         else:
             node['title'] = recipe['title']
             node['source_name'] = recipe['source_collection']
-            node['model'] = {'path': 'models/z-anatomy/' + name + '.glb', 'scope': 'Khám phá cấu trúc theo cây phân nhóm của Z-Anatomy.'}
+            node['model'] = {'path': 'models/z-anatomy/' + name + '.glb', 'scope': 'Khám phá cấu trúc theo cây phân nhóm của Z-Anatomy.', 'structure_ids': sorted(geometry[n]['meta']['source_id'] for n in names)}
         nodes.append(node)
-        matches = {o.name for o in collection.all_objects} & names
+        matches = {o.name for o in collection.all_objects} & geometry.keys()
         # Named leaf folders can be empty while the corresponding mesh belongs to their parent.
-        matches.update(n for n in names if geometry[n]['meta']['source_name'] == collection_name)
+        labels = {source_label(collection_name), source_label(collection.get('English', collection_name)), key}
+        labels.discard('')
+        matches.update(n for n in names if source_label(geometry[n]['meta']['source_name']) in labels or source_label(re.sub(r'\.(?:[oi]?[lr]|o|i)$', '', n)) in labels or source_label(geometry[n]['meta']['definition_key']) in labels)
+        # Attachments parented to a bone are not parts of that bone's assembly.
+        for label in labels:
+            matches.update(n for n in group_geometry.get(label + '.g', set())
+                           if n in names or selections['muscular-insertions']['source_collection'] not in geometry[n]['meta']['collections'])
         for child in collection.children:
             matches.update(collect(child.name, node_id, path))
-        if not parent_id: matches = names.copy()
+        if not parent_id: matches.update(names)
         node['structure_ids'] = sorted(geometry[n]['meta']['source_id'] for n in matches)
         if key: collection_definitions[key] = definition(key)
         return matches
