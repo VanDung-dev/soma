@@ -40,6 +40,8 @@ pub struct StudyTarget {
 pub struct Model {
     pub path: String,
     pub scope: String,
+    /// IDs physically stored in this asset; study folders may also reference other assets.
+    pub structure_ids: Vec<String>,
 }
 
 #[derive(Debug, Error)]
@@ -63,7 +65,7 @@ pub enum CatalogError {
 impl Catalog {
     pub fn from_json(json: &str) -> Result<Self, CatalogError> {
         let catalog: Self = serde_json::from_str(json)?;
-        if catalog.schema_version != 2 {
+        if catalog.schema_version != 3 {
             return Err(CatalogError::UnsupportedVersion(catalog.schema_version));
         }
         let mut ids = HashSet::new();
@@ -82,6 +84,12 @@ impl Catalog {
         }
         let groups: HashSet<_> = catalog.groups.iter().map(|g| &g.id).collect();
         let targets: HashMap<_, _> = catalog.targets.iter().map(|t| (&t.id, t)).collect();
+        let asset_members: HashSet<_> = catalog
+            .targets
+            .iter()
+            .filter_map(|t| t.model.as_ref())
+            .flat_map(|m| &m.structure_ids)
+            .collect();
         for target in &catalog.targets {
             if !groups.contains(&target.group_id) {
                 return Err(CatalogError::UnknownGroup {
@@ -92,6 +100,7 @@ impl Catalog {
             let members: HashSet<_> = target.structure_ids.iter().collect();
             if target.source_name.trim().is_empty()
                 || members.len() != target.structure_ids.len()
+                || !members.is_subset(&asset_members)
                 || !members.iter().all(|id| {
                     id.strip_prefix("za:")
                         .is_some_and(|s| s.len() == 16 && s.bytes().all(|b| b.is_ascii_hexdigit()))
@@ -127,6 +136,10 @@ impl Catalog {
             if let Some(model) = &target.model {
                 let filename = model.path.strip_prefix("models/z-anatomy/");
                 if model.scope.trim().is_empty()
+                    || model.structure_ids.is_empty()
+                    || model.structure_ids.iter().collect::<HashSet<_>>().len()
+                        != model.structure_ids.len()
+                    || !model.structure_ids.iter().all(|id| members.contains(id))
                     || !filename.is_some_and(|name| {
                         name.ends_with(".glb")
                             && name.len() > 4
@@ -246,6 +259,57 @@ mod tests {
             assert!(matches!(
                 changed(edit),
                 Err(CatalogError::InvalidHierarchy(_))
+            ));
+        }
+    }
+
+    #[test]
+    fn source_folders_can_reference_geometry_from_another_asset() {
+        let catalog = Catalog::from_json(STARTER).unwrap();
+        let thorax = catalog
+            .targets
+            .iter()
+            .find(|t| t.source_name == "Thorax")
+            .unwrap();
+        let root = catalog
+            .targets
+            .iter()
+            .find(|t| t.group_id == thorax.group_id && t.model.is_some())
+            .unwrap();
+        assert!(!thorax.structure_ids.is_empty());
+        assert!(
+            thorax.structure_ids.iter().any(|id| !root
+                .model
+                .as_ref()
+                .unwrap()
+                .structure_ids
+                .contains(id))
+        );
+        assert!(matches!(
+            changed(|v| {
+                v["targets"][0]["structure_ids"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push("za:ffffffffffffffff".into());
+            }),
+            Err(CatalogError::InvalidHierarchy(_))
+        ));
+        for edit in [
+            (|v: &mut serde_json::Value| {
+                v["targets"][0]["model"]["structure_ids"] = serde_json::json!([])
+            }) as fn(&mut serde_json::Value),
+            |v| {
+                v["targets"][0]["model"]["structure_ids"] =
+                    serde_json::json!(["za:ffffffffffffffff"])
+            },
+            |v| {
+                let id = v["targets"][0]["model"]["structure_ids"][0].clone();
+                v["targets"][0]["model"]["structure_ids"] = serde_json::json!([id.clone(), id]);
+            },
+        ] {
+            assert!(matches!(
+                changed(edit),
+                Err(CatalogError::InvalidModel(_) | CatalogError::InvalidHierarchy(_))
             ));
         }
     }
