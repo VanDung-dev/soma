@@ -9,6 +9,7 @@ const manifest = JSON.parse(await readFile(new URL('manifest.json', folder)));
 const selectionBytes = await readFile(new URL('../../../content/z-anatomy-selections.json', import.meta.url));
 const selections = JSON.parse(selectionBytes);
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+const availableIds = new Set(manifest.models.flatMap(m => m.source_ids));
 test('Z-Anatomy preserves geometry, structure identity, definitions and materials', async () => {
   assert.equal(manifest.source, 'Z-Anatomy');
   assert.equal(manifest.models.length, 9);
@@ -39,9 +40,10 @@ test('Z-Anatomy preserves geometry, structure identity, definitions and material
     assert.equal(Object.keys(pkg.definitions).length, record.definitions);
     const entries = catalog.targets.filter(t => t.group_id === target.group_id);
     assert.equal(entries.length, record.catalog_nodes);
-    assert.deepEqual(target.structure_ids, record.source_ids);
+    assert.deepEqual(target.model.structure_ids, record.source_ids);
+    assert(record.source_ids.every(id => target.structure_ids.includes(id)));
     for (const entry of entries) {
-      assert(entry.structure_ids.every(id => record.source_ids.includes(id)));
+      assert(entry.structure_ids.every(id => availableIds.has(id)));
       if (entry.definition_key) assert(pkg.collection_definitions[entry.definition_key]);
       if (entry.parent_id) {
         const parent = entries.find(t => t.id === entry.parent_id);
@@ -74,7 +76,7 @@ test('Z-Anatomy preserves geometry, structure identity, definitions and material
   }
   assert.equal(inventory.size, manifest.unique_structures); assert.equal(inventory.size, 3874);
   assert.equal([...inventory.values()].filter(s => s.definition_key).length, manifest.structures_with_definitions);
-  assert.equal(manifest.structures_with_definitions, 2685);
+  assert.equal(manifest.structures_with_definitions, 2716);
   assert.equal(inventory.size + manifest.excluded_objects.length, 4224);
   assert.equal(manifest.repaired_meshes.length, 29);
   assert(manifest.repaired_meshes.every(m => inventory.has('za:' + hash(m.object).slice(0, 16)) && m.before.vertices > 0 && m.after.polygons > 0));
@@ -86,7 +88,7 @@ test('Z-Anatomy preserves geometry, structure identity, definitions and material
 });
 
 test('navigation follows nine source roots and keeps deep, scoped categories', async () => {
-  assert.equal(catalog.schema_version, 2);
+  assert.equal(catalog.schema_version, 3);
   assert.equal(catalog.targets.length, 1981);
   const roots = catalog.targets.filter(t => !t.parent_id);
   assert.deepEqual(roots.map(t => t.source_name), Object.values(selections).map(s => s.source_collection));
@@ -107,4 +109,46 @@ test('navigation follows nine source roots and keeps deep, scoped categories', a
     maxDepth = Math.max(maxDepth, seen.size);
   }
   assert.equal(maxDepth, 10);
+});
+
+test('source definition aliases and cross-asset folders restore existing data', async () => {
+  const muscular = JSON.parse(await readFile(new URL('muscular-system.json', folder)));
+  const fascia = catalog.targets.find(t => t.source_name === 'Fascia');
+  assert.equal(fascia.definition_key, 'Fasciae');
+  assert(muscular.collection_definitions[fascia.definition_key].text.includes('A fascia'));
+  const visceral = JSON.parse(await readFile(new URL('visceral-systems.json', folder)));
+  const mucosa = catalog.targets.find(t => t.source_name === 'Mucosa of stomach');
+  const mesh = visceral.structures.find(s => s.source_object === 'Mucosa of stomach');
+  assert.equal(mesh.source_name, 'Mucosa of stomach');
+  assert.equal(mesh.definition_key, 'Mucosa of stomach');
+  assert(mucosa.structure_ids.includes(mesh.source_id));
+  const skeletal = JSON.parse(await readFile(new URL('skeletal-system.json', folder)));
+  const costal = skeletal.structures.filter(s => s.source_name === 'Costal cartilage of second rib');
+  assert.equal(costal.length, 2);
+  assert(costal.every(s => s.definition_key === 'Costal cartilage of 2nd rib'));
+  for (const [name, count] of [['Biceps brachii muscle', 4], ['Triceps brachii muscle', 6], ['Levator ani', 8]]) {
+    const target = catalog.targets.find(t => t.source_name === name);
+    assert.equal(target.structure_ids.length, count, name);
+    assert(target.structure_ids.every(id => muscular.structures.some(s => s.source_id === id)), name);
+  }
+  const thymus = catalog.targets.find(t => t.source_name === 'Thymus' && t.group_id === 'group:visceral-systems');
+  const lymphoid = JSON.parse(await readFile(new URL('lymphoid-organs.json', folder)));
+  assert.equal(thymus.structure_ids.length, 2);
+  assert(thymus.structure_ids.every(id => lymphoid.structures.some(s => s.source_id === id)));
+  const phalanges = catalog.targets.find(t => t.source_name === 'Phalanges of foot');
+  const attachments = manifest.models.find(m => m.file === 'muscular-insertions.glb');
+  assert.equal(phalanges.structure_ids.length, 28);
+  assert(!phalanges.structure_ids.some(id => attachments.source_ids.includes(id)), 'Bone assemblies must not include muscle attachment meshes');
+  for (const name of ['Thorax', 'Abdomen', 'Pelvis']) {
+    const target = catalog.targets.find(t => t.source_name === name);
+    const root = catalog.targets.find(t => t.group_id === target.group_id && t.model);
+    assert(target.structure_ids.length && target.definition_key, name);
+    assert(target.structure_ids.some(id => !root.model.structure_ids.includes(id)), name);
+    assert(target.structure_ids.every(id => availableIds.has(id)), name);
+  }
+  const pronator = catalog.targets.find(t => t.source_name === 'Pronator teres');
+  assert.equal(pronator.structure_ids.length, 0, 'Do not replace a missing whole muscle with its attachment mesh');
+  const bursa = catalog.targets.find(t => t.source_name === 'Synovial bursa');
+  assert.equal(bursa.structure_ids.length, 0);
+  assert.equal(bursa.definition_key, '', 'No fabricated source definition');
 });
