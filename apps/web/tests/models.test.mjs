@@ -64,6 +64,11 @@ test('Z-Anatomy preserves geometry, structure identity, definitions and material
       assert(d.links.every(link => /^https?:\/\//.test(link)));
     }
     for (const material of gltf.materials) colors.add(JSON.stringify(material.pbrMetallicRoughness?.baseColorFactor));
+    const fascia = gltf.materials.find(m => m.name === 'Fascia · Web PBR');
+    if (fascia) {
+      assert.equal(fascia.alphaMode, 'BLEND', 'Fascia must not hide the muscles as an opaque shell');
+      assert(Math.abs(fascia.pbrMetallicRoughness.baseColorFactor[3] - 0.15) < 1e-6, 'Preserve the source Fascia transparent-mix factor of 0.85');
+    }
     assert.equal(gltf.meshes.reduce((n, m) => n + m.primitives.length, 0), record.primitives);
     assert.equal(gltf.meshes.reduce((n, m) => n + m.primitives.reduce((s, p) => s + gltf.accessors[p.indices ?? p.attributes.POSITION].count / 3, 0), 0), record.triangles);
   }
