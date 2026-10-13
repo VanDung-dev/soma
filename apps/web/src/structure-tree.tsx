@@ -46,9 +46,11 @@ function Folder({ target, childrenById, structures, props }: { target: StudyTarg
   return <li data-target-id={target.id}>
     <div className={`tree-row folder-row${props.targetId === target.id ? " is-selected" : ""}`}>
       <button className="folder-toggle" aria-label={`${open ? "Đóng" : "Mở"} ${target.title}`} aria-expanded={open} onClick={() => setOpen(!open)}>{open ? "▾" : "▸"}</button>
-      <VisibilityCheckbox ids={target.structure_ids} label={target.title} {...props} />
+      {target.structure_ids.length > 0
+        ? <VisibilityCheckbox ids={target.structure_ids} label={target.title} {...props} />
+        : <span className="tree-no-model" aria-hidden="true">—</span>}
       <button className="tree-name" onClick={() => props.onTarget(target.id)} aria-current={props.targetId === target.id ? "true" : undefined}>
-        <span aria-hidden="true">▱ </span>{target.title}<small>{target.structure_ids.length ? `${target.structure_ids.length} cấu trúc` : "Chưa có hình học"}</small>
+        <span aria-hidden="true">▱ </span>{target.title}<small>{target.structure_ids.length ? `${target.structure_ids.length} cấu trúc` : "Chỉ có tài liệu · Không có mô hình"}</small>
       </button>
     </div>
     {open && <ul>

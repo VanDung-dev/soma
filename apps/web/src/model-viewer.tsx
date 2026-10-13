@@ -294,6 +294,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       <aside className="information-panel" aria-label="Thông tin bộ phận">
         <p className="eyebrow">THÔNG TIN GIẢI PHẪU</p>
         <h2>{selectedPart ? selectedPart.source_name + side(selectedPart) : target?.title ?? "Khám phá cơ thể"}</h2>
+        {!selectedPart && target && !target.structure_ids.length && <p>Nhánh này có nội dung tham khảo nhưng chưa có mô hình 3D gắn kèm trong dữ liệu nguồn.</p>}
         {selectedPart ? <>
           {selectedPart.latin && <p className="latin-name">{selectedPart.latin}</p>}
           <p className="collection-names">{selectedPart.collections.filter(name => !/^\d:/.test(name)).join(" · ")}</p>
