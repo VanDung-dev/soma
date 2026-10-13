@@ -46,6 +46,20 @@ def principled(tree, visited=None):
 
 materials = {}
 fallback_materials = set()
+def material_alpha(bsdf):
+    alpha = float(bsdf.inputs['Alpha'].default_value)
+    # shortcut: static, directly linked Transparent mixes; bake dynamic/procedural opacity when assets require it.
+    for link in bsdf.outputs['BSDF'].links:
+        mix = link.to_node
+        if mix.type != 'MIX_SHADER' or mix.inputs[0].is_linked or not mix.outputs[0].is_linked:
+            continue
+        first = link.to_socket == mix.inputs[1]
+        other = mix.inputs[2 if first else 1]
+        if len(other.links) == 1 and other.links[0].from_node.type == 'BSDF_TRANSPARENT':
+            factor = min(1.0, max(0.0, float(mix.inputs[0].default_value)))
+            alpha *= 1.0 - factor if first else factor
+    return alpha
+
 def web_material(original):
     # shortcut: retain static PBR inputs; bake procedural shaders when visual parity is required.
     name = original.name if original else 'Missing material'
@@ -54,7 +68,7 @@ def web_material(original):
     if bsdf:
         color = tuple(bsdf.inputs['Base Color'].default_value)
         roughness = float(bsdf.inputs['Roughness'].default_value)
-        alpha = float(bsdf.inputs['Alpha'].default_value)
+        alpha = material_alpha(bsdf)
     else:
         color = tuple(original.diffuse_color) if original else (0.6, 0.4, 0.3, 1)
         roughness, alpha = 0.65, 1

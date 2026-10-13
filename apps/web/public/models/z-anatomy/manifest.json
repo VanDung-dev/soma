@@ -3563,8 +3563,8 @@
       "catalog_nodes": 196,
       "primitives": 683,
       "triangles": 2323575,
-      "bytes": 40132444,
-      "sha256": "898522016129b5cec8342c00462f973a86787b5a2185c9130f3846d0ca19a4e8",
+      "bytes": 40132480,
+      "sha256": "30107653bf84a7ca5ee569af6d1f7c5627be4bc677dcc930170ebf5ca773b4cb",
       "metadata_bytes": 1360128,
       "metadata_sha256": "4ceb41e582698ade12eafc4ae0cd14b307d84a24252ef87e1cc7d1b4b4384172"
     },
@@ -5044,8 +5044,8 @@
       "catalog_nodes": 489,
       "primitives": 582,
       "triangles": 2406786,
-      "bytes": 39694548,
-      "sha256": "1d025db1c5e4d55a634f767a59cdd86d85932152006966804909dbc2fb3e95d2",
+      "bytes": 39694612,
+      "sha256": "b5de78a707239db22025c2bfb4ed83bf8b890cef64f29d82e62b51d489313ce6",
       "metadata_bytes": 2898232,
       "metadata_sha256": "d319966d7c6cb0cd0d41d3fcedcd20cd46c02ed90aa63e379a4cefe98360836a"
     },
@@ -5183,8 +5183,8 @@
       "catalog_nodes": 313,
       "primitives": 119,
       "triangles": 714303,
-      "bytes": 12929000,
-      "sha256": "d88ca9f6d679d304115698bf596b04af4597f1358081c147183c441b3d6611e6",
+      "bytes": 12929072,
+      "sha256": "3c9cec761b2bcca1e8785e56c5a7f6c78d6276b18ec56ed62c2b7fb86221a2f9",
       "metadata_bytes": 2282817,
       "metadata_sha256": "20e09950017194f57ae143e8e8faa1de40dd4add9fc76519da8e3c731b61f060"
     },
