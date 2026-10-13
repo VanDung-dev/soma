@@ -1,4 +1,4 @@
-use anatomy_renderer::{Camera, Scene};
+use anatomy_renderer::{Camera, PackedScene, Reconstruction, Scene};
 use js_sys::{Float32Array, Uint32Array};
 use wasm_bindgen::{JsCast, prelude::*};
 use web_sys::{
@@ -19,10 +19,46 @@ struct Resources {
     program: Option<WebGlProgram>,
     sphere_program: Option<WebGlProgram>,
     buffers: Vec<WebGlBuffer>,
-    vao: Option<WebGlVertexArrayObject>,
+    vaos: Vec<WebGlVertexArrayObject>,
     framebuffer: Option<WebGlFramebuffer>,
     texture: Option<WebGlTexture>,
     depth: Option<WebGlRenderbuffer>,
+}
+
+impl Resources {
+    fn upload(&mut self, vertices: Float32Array, indices: Uint32Array) -> Result<usize, JsValue> {
+        let gl = &self.gl;
+        let vao = gl
+            .create_vertex_array()
+            .ok_or_else(|| js_error("Cannot allocate vertex array"))?;
+        self.vaos.push(vao);
+        gl.bind_vertex_array(self.vaos.last());
+        for (target, data) in [
+            (
+                Gl::ARRAY_BUFFER,
+                vertices.unchecked_into::<js_sys::Object>(),
+            ),
+            (
+                Gl::ELEMENT_ARRAY_BUFFER,
+                indices.unchecked_into::<js_sys::Object>(),
+            ),
+        ] {
+            let buffer = gl
+                .create_buffer()
+                .ok_or_else(|| js_error("Cannot allocate geometry buffer"))?;
+            self.buffers.push(buffer);
+            gl.bind_buffer(target, self.buffers.last());
+            gl.buffer_data_with_array_buffer_view(target, &data, Gl::STATIC_DRAW);
+        }
+        gl.enable_vertex_attrib_array(0);
+        gl.vertex_attrib_pointer_with_i32(0, 3, Gl::FLOAT, false, 24, 0);
+        gl.enable_vertex_attrib_array(1);
+        gl.vertex_attrib_pointer_with_i32(1, 3, Gl::FLOAT, false, 24, 12);
+        if gl.get_error() != Gl::NO_ERROR {
+            return Err(js_error("GPU geometry upload failed"));
+        }
+        Ok(self.vaos.len() - 1)
+    }
 }
 
 impl Drop for Resources {
@@ -30,7 +66,9 @@ impl Drop for Resources {
         for b in &self.buffers {
             self.gl.delete_buffer(Some(b));
         }
-        self.gl.delete_vertex_array(self.vao.as_ref());
+        for vao in &self.vaos {
+            self.gl.delete_vertex_array(Some(vao));
+        }
         self.gl.delete_program(self.program.as_ref());
         self.gl.delete_program(self.sphere_program.as_ref());
         self.gl.delete_framebuffer(self.framebuffer.as_ref());
@@ -56,6 +94,7 @@ struct Uniforms {
     selected: WebGlUniformLocation,
     picking: WebGlUniformLocation,
     pick_color: WebGlUniformLocation,
+    reveal: WebGlUniformLocation,
 }
 
 struct SphereUniforms {
@@ -70,7 +109,8 @@ pub struct AnatomyViewer {
     camera: Camera,
     uniforms: Uniforms,
     sphere_uniforms: SphereUniforms,
-    draws: Vec<(i32, i32)>,
+    draws: Vec<(usize, i32, i32)>,
+    reconstruction: Reconstruction,
     canvas: HtmlCanvasElement,
 }
 
@@ -93,33 +133,96 @@ impl AnatomyViewer {
         packages: js_sys::Array,
         ids_json: &str,
     ) -> Result<AnatomyViewer, JsValue> {
-        let ids: Vec<Vec<String>> = serde_json::from_str(ids_json).map_err(js_error)?;
-        if packages.length() as usize != ids.len() {
-            return Err(js_error("Package and metadata counts differ"));
+        Self::from_scene(canvas, load_packages(packages, ids_json)?)
+    }
+
+    #[wasm_bindgen(js_name = fromPrepared)]
+    pub fn from_prepared(
+        canvas: HtmlCanvasElement,
+        prepared: js_sys::Array,
+    ) -> Result<AnatomyViewer, JsValue> {
+        let (packed, vertices, indices) = prepared_buffers(prepared)?;
+        Self::from_buffers(canvas, packed, vertices, indices)
+    }
+
+    pub fn begin_reconstruction(&mut self, now: f64, animate: bool) -> Result<(), JsValue> {
+        let mut reconstruction = Reconstruction::default();
+        reconstruction
+            .append(&self.scene.parts, self.scene.bounds, now, animate)
+            .map_err(js_error)?;
+        self.reconstruction = reconstruction;
+        Ok(())
+    }
+
+    #[wasm_bindgen(js_name = appendPrepared)]
+    pub fn append_prepared(
+        &mut self,
+        prepared: js_sys::Array,
+        now: f64,
+        animate: bool,
+    ) -> Result<(), JsValue> {
+        self.reconstruction.check_time(now).map_err(js_error)?;
+        let (packed, vertices, indices) = prepared_buffers(prepared)?;
+        let vao = self.gpu.upload(vertices, indices)?;
+        let first = self.scene.parts.len();
+        for index in self.scene.append(packed.scene) {
+            let (count, offset) = packed.draws[index];
+            self.draws.push((vao, count, offset));
         }
-        let mut scenes = Vec::new();
-        for (package, expected) in packages.iter().zip(ids) {
-            if !package.is_instance_of::<js_sys::Uint8Array>() {
-                return Err(js_error("Invalid GLB package"));
-            }
-            scenes.push(
-                Scene::from_glb(&js_sys::Uint8Array::new(&package).to_vec(), &expected)
-                    .map_err(js_error)?,
-            );
-        }
-        Self::from_scene(canvas, Scene::merge(scenes).map_err(js_error)?)
+        self.reconstruction
+            .append(&self.scene.parts[first..], self.scene.bounds, now, animate)
+            .map_err(js_error)?;
+        self.camera = Camera::new(self.scene.bounds);
+        self.camera
+            .resize(self.canvas.width(), self.canvas.height());
+        Ok(())
+    }
+
+    pub fn render_reconstruction(&mut self, now: f64) -> Result<bool, JsValue> {
+        let active = self.reconstruction.advance(now).map_err(js_error)?;
+        self.draw(false);
+        Ok(active)
+    }
+
+    pub fn finish_reconstruction(&mut self) {
+        self.reconstruction.finish();
+    }
+
+    /// The host calls render once after batching mutations for the next frame.
+    pub fn change_visibility(&mut self, ids_json: &str, shown: bool) -> Result<(), JsValue> {
+        let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
+        self.scene.change_visibility(&ids, shown).map_err(js_error)
     }
 
     pub fn set_visibility(&mut self, ids_json: &str) -> Result<(), JsValue> {
         let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
         self.scene.set_visibility(&ids).map_err(js_error)?;
-        self.render();
         Ok(())
     }
 }
 
 impl AnatomyViewer {
     fn from_scene(canvas: HtmlCanvasElement, scene: Scene) -> Result<Self, JsValue> {
+        let (packed, vertices, indices) = scene.pack().map_err(js_error)?;
+        Self::from_buffers(
+            canvas,
+            packed,
+            Float32Array::from(vertices.as_slice()),
+            Uint32Array::from(indices.as_slice()),
+        )
+    }
+
+    fn from_buffers(
+        canvas: HtmlCanvasElement,
+        packed: PackedScene,
+        vertices: Float32Array,
+        indices: Uint32Array,
+    ) -> Result<Self, JsValue> {
+        packed
+            .validate(vertices.length() as usize, indices.length() as usize)
+            .map_err(js_error)?;
+        // Only prepare_packages output crosses this internal worker interface; GLB validation runs there.
+        let PackedScene { scene, draws, .. } = packed;
         let gl: Gl = canvas
             .get_context("webgl2")?
             .ok_or_else(|| js_error("WebGL2 is unavailable"))?
@@ -129,7 +232,7 @@ impl AnatomyViewer {
             program: None,
             sphere_program: None,
             buffers: Vec::new(),
-            vao: None,
+            vaos: Vec::new(),
             framebuffer: None,
             texture: None,
             depth: None,
@@ -152,6 +255,7 @@ impl AnatomyViewer {
             selected: location("selected")?,
             picking: location("picking")?,
             pick_color: location("pick_color")?,
+            reveal: location("reveal")?,
         };
         let sphere_location = |name: &str| {
             gl.get_uniform_location(gpu.sphere_program.as_ref().unwrap(), name)
@@ -161,57 +265,7 @@ impl AnatomyViewer {
             inverse: sphere_location("inverse_projection")?,
             origin: sphere_location("sphere_origin")?,
         };
-        gpu.vao = Some(
-            gl.create_vertex_array()
-                .ok_or_else(|| js_error("Cannot allocate vertex array"))?,
-        );
-        gl.bind_vertex_array(gpu.vao.as_ref());
-        let mut vertices = Vec::new();
-        let mut indices = Vec::new();
-        let mut draws = Vec::new();
-        for part in &scene.parts {
-            let base = u32::try_from(vertices.len() / 6).map_err(js_error)?;
-            let offset = i32::try_from(
-                indices
-                    .len()
-                    .checked_mul(4)
-                    .ok_or_else(|| js_error("Index buffer too large"))?,
-            )
-            .map_err(js_error)?;
-            draws.push((i32::try_from(part.indices.len()).map_err(js_error)?, offset));
-            vertices.extend_from_slice(&part.vertices);
-            for index in &part.indices {
-                indices.push(
-                    index
-                        .checked_add(base)
-                        .ok_or_else(|| js_error("Vertex buffer too large"))?,
-                );
-            }
-        }
-        for (target, data) in [
-            (
-                Gl::ARRAY_BUFFER,
-                Float32Array::from(vertices.as_slice()).unchecked_into::<js_sys::Object>(),
-            ),
-            (
-                Gl::ELEMENT_ARRAY_BUFFER,
-                Uint32Array::from(indices.as_slice()).unchecked_into::<js_sys::Object>(),
-            ),
-        ] {
-            let buffer = gl
-                .create_buffer()
-                .ok_or_else(|| js_error("Cannot allocate geometry buffer"))?;
-            gl.bind_buffer(target, Some(&buffer));
-            gpu.buffers.push(buffer);
-            gl.buffer_data_with_array_buffer_view(target, &data, Gl::STATIC_DRAW);
-        }
-        gl.enable_vertex_attrib_array(0);
-        gl.vertex_attrib_pointer_with_i32(0, 3, Gl::FLOAT, false, 24, 0);
-        gl.enable_vertex_attrib_array(1);
-        gl.vertex_attrib_pointer_with_i32(1, 3, Gl::FLOAT, false, 24, 12);
-        if gl.get_error() != Gl::NO_ERROR {
-            return Err(js_error("GPU geometry upload failed"));
-        }
+        gpu.upload(vertices, indices)?;
         gpu.framebuffer = Some(
             gl.create_framebuffer()
                 .ok_or_else(|| js_error("Cannot allocate picking framebuffer"))?,
@@ -225,21 +279,24 @@ impl AnatomyViewer {
                 .ok_or_else(|| js_error("Cannot allocate picking depth buffer"))?,
         );
         let camera = Camera::new(scene.bounds);
+        let mut reconstruction = Reconstruction::default();
+        reconstruction
+            .append(&scene.parts, scene.bounds, 0.0, false)
+            .map_err(js_error)?;
         let mut viewer = Self {
             gpu,
             scene,
             camera,
             uniforms,
             sphere_uniforms,
-            draws,
+            draws: draws
+                .into_iter()
+                .map(|(count, offset)| (0, count, offset))
+                .collect(),
+            reconstruction,
             canvas,
         };
         viewer.resize(viewer.canvas.width().max(1), viewer.canvas.height().max(1))?;
-        // Geometry is GPU resident after upload; retain only bounds, material and identity on the CPU.
-        for part in &mut viewer.scene.parts {
-            part.vertices = Vec::new();
-            part.indices = Vec::new();
-        }
         Ok(viewer)
     }
 }
@@ -298,7 +355,6 @@ impl AnatomyViewer {
         if !complete || gl.get_error() != Gl::NO_ERROR {
             return Err(js_error("Picking framebuffer allocation failed"));
         }
-        self.render();
         Ok(())
     }
 
@@ -307,12 +363,10 @@ impl AnatomyViewer {
         if let Some(bounds) = self.scene.subset(&ids).map_err(js_error)? {
             self.camera.fit(bounds);
         }
-        self.render();
         Ok(())
     }
     pub fn select(&mut self, id: &str) -> Result<(), JsValue> {
         self.scene.select(id).map_err(js_error)?;
-        self.render();
         Ok(())
     }
     pub fn inspect(&mut self, action: &str) -> Result<(), JsValue> {
@@ -321,22 +375,18 @@ impl AnatomyViewer {
         } else if let Some(bounds) = self.scene.inspect(action).map_err(js_error)? {
             self.camera.fit(bounds);
         }
-        self.render();
         Ok(())
     }
     pub fn rotate(&mut self, yaw: f32, pitch: f32) -> Result<(), JsValue> {
         self.camera.rotate(yaw, pitch).map_err(js_error)?;
-        self.render();
         Ok(())
     }
     pub fn zoom(&mut self, factor: f32) -> Result<(), JsValue> {
         self.camera.zoom(factor).map_err(js_error)?;
-        self.render();
         Ok(())
     }
     pub fn pan(&mut self, x: f32, y: f32) -> Result<(), JsValue> {
         self.camera.pan(x, y).map_err(js_error)?;
-        self.render();
         Ok(())
     }
     pub fn visible_count(&self) -> usize {
@@ -375,7 +425,6 @@ impl AnatomyViewer {
         if result.is_ok() {
             self.scene.select(&id).map_err(js_error)?;
         }
-        self.render();
         result?;
         Ok(id)
     }
@@ -391,7 +440,7 @@ impl AnatomyViewer {
         let u = &self.sphere_uniforms;
         let matrix = self.camera.matrix();
         gl.use_program(self.gpu.sphere_program.as_ref());
-        gl.bind_vertex_array(self.gpu.vao.as_ref());
+        gl.bind_vertex_array(self.gpu.vaos.first());
         gl.disable(Gl::CULL_FACE);
         gl.enable(Gl::BLEND);
         gl.blend_func_separate(
@@ -441,7 +490,7 @@ impl AnatomyViewer {
             self.draw_sphere();
         }
         gl.use_program(self.gpu.program.as_ref());
-        gl.bind_vertex_array(self.gpu.vao.as_ref());
+        gl.bind_vertex_array(self.gpu.vaos.first());
         gl.uniform_matrix4fv_with_f32_array(
             Some(&u.projection),
             false,
@@ -457,7 +506,7 @@ impl AnatomyViewer {
             .parts
             .iter()
             .enumerate()
-            .filter(|(_, p)| p.visible)
+            .filter(|(i, p)| p.visible && self.reconstruction.opacity(*i) > 0.0)
             .map(|(i, _)| i)
             .collect();
         if !picking {
@@ -476,6 +525,7 @@ impl AnatomyViewer {
                 })
             });
         }
+        let mut bound_vao = usize::MAX;
         for i in order {
             let p = &self.scene.parts[i];
             if p.double_sided {
@@ -512,12 +562,71 @@ impl AnatomyViewer {
                 ((index >> 8) & 255) as f32 / 255.0,
                 ((index >> 16) & 255) as f32 / 255.0,
             );
-            let (count, offset) = self.draws[i];
+            gl.uniform1f(Some(&u.reveal), self.reconstruction.opacity(i));
+            let (vao, count, offset) = self.draws[i];
+            if bound_vao != vao {
+                gl.bind_vertex_array(Some(&self.gpu.vaos[vao]));
+                bound_vao = vao;
+            }
             gl.draw_elements_with_i32(Gl::TRIANGLES, count, Gl::UNSIGNED_INT, offset);
         }
         gl.depth_mask(true);
         gl.disable(Gl::BLEND);
     }
+}
+
+fn prepared_buffers(
+    prepared: js_sys::Array,
+) -> Result<(PackedScene, Float32Array, Uint32Array), JsValue> {
+    if prepared.length() != 3
+        || !prepared.get(0).is_instance_of::<Float32Array>()
+        || !prepared.get(1).is_instance_of::<Uint32Array>()
+    {
+        return Err(js_error("Invalid prepared geometry buffers"));
+    }
+    let descriptor = prepared
+        .get(2)
+        .as_string()
+        .ok_or_else(|| js_error("Missing scene descriptor"))?;
+    let packed: PackedScene = serde_json::from_str(&descriptor).map_err(js_error)?;
+    let vertices: Float32Array = prepared.get(0).unchecked_into();
+    let indices: Uint32Array = prepared.get(1).unchecked_into();
+    packed
+        .validate(vertices.length() as usize, indices.length() as usize)
+        .map_err(js_error)?;
+    Ok((packed, vertices, indices))
+}
+
+fn load_packages(packages: js_sys::Array, ids_json: &str) -> Result<Scene, JsValue> {
+    let ids: Vec<Vec<String>> = serde_json::from_str(ids_json).map_err(js_error)?;
+    if packages.length() as usize != ids.len() {
+        return Err(js_error("Package and metadata counts differ"));
+    }
+    let mut scenes = Vec::new();
+    for (package, expected) in packages.iter().zip(ids) {
+        if !package.is_instance_of::<js_sys::Uint8Array>() {
+            return Err(js_error("Invalid GLB package"));
+        }
+        scenes.push(
+            Scene::from_glb(&js_sys::Uint8Array::new(&package).to_vec(), &expected)
+                .map_err(js_error)?,
+        );
+    }
+    Scene::merge(scenes).map_err(js_error)
+}
+
+#[wasm_bindgen]
+pub fn prepare_packages(packages: js_sys::Array, ids_json: &str) -> Result<js_sys::Array, JsValue> {
+    let (packed, vertices, indices) = load_packages(packages, ids_json)?
+        .pack()
+        .map_err(js_error)?;
+    let result = js_sys::Array::new();
+    result.push(&Float32Array::from(vertices.as_slice()));
+    result.push(&Uint32Array::from(indices.as_slice()));
+    result.push(&JsValue::from_str(
+        &serde_json::to_string(&packed).map_err(js_error)?,
+    ));
+    Ok(result)
 }
 
 fn js_error(error: impl std::fmt::Display) -> JsValue {

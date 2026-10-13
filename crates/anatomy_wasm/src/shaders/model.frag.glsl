@@ -11,11 +11,18 @@ uniform float alpha_cutoff;
 uniform bool selected;
 uniform bool picking;
 uniform vec3 pick_color;
+uniform float reveal;
 out vec4 output_color;
 vec3 srgb(vec3 c) {
     return mix(c * 12.92, 1.055 * pow(max(c, vec3(0.0)), vec3(1.0/2.4)) - 0.055, step(vec3(0.0031308), c));
 }
 void main() {
+    // Ordered dithering fades opaque geometry without changing depth or material blending.
+    if (reveal < 1.0) {
+        const float threshold[16] = float[16](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0);
+        ivec2 pixel = ivec2(gl_FragCoord.xy) % 4;
+        if (reveal <= (threshold[pixel.y * 4 + pixel.x] + 0.5) / 16.0) discard;
+    }
     if (base_color.a <= 0.0 || base_color.a < alpha_cutoff) discard;
     if (picking) { output_color = vec4(pick_color, 1.0); return; }
     vec3 n = normalize(world_normal) * (gl_FrontFacing ? 1.0 : -1.0);
@@ -41,5 +48,6 @@ void main() {
     vec3 color = base_color.rgb * (ambient + fill * 0.16)
         + (diffuse + specular) * nl * vec3(3.2, 3.0, 2.8) + rim * vec3(0.13, 0.17, 0.20);
     if (selected) color += vec3(0.093, 0.045, 0.007);
+    color += (1.0 - reveal) * vec3(0.12, 0.20, 0.16);
     output_color = vec4(srgb(clamp(color, 0.0, 1.0)), base_color.a);
 }
