@@ -350,6 +350,7 @@ pub struct Camera {
     pub distance: f32,
     pub aspect: f32,
     radius: f32,
+    center: Vec3,
     view: Bounds,
 }
 
@@ -362,6 +363,7 @@ impl Camera {
             distance: 1.0,
             aspect: 1.0,
             radius: bounds.radius(),
+            center: bounds.center(),
             view: bounds,
         };
         camera.fit(bounds);
@@ -370,11 +372,13 @@ impl Camera {
     pub fn fit(&mut self, bounds: Bounds) {
         self.view = bounds;
         self.target = bounds.center();
-        self.yaw = 0.0;
-        self.pitch = 0.0;
+        self.yaw = -0.32;
+        self.pitch = 0.12;
         let fov = 38_f32.to_radians();
         let limiting = fov.min(2.0 * ((fov * 0.5).tan() * self.aspect).atan());
-        self.distance = bounds.radius().max(self.radius * 1e-6) / (limiting * 0.5).sin() * 1.12;
+        self.distance = (bounds.radius().max(self.radius * 1e-6) / (limiting * 0.5).sin() * 1.12)
+            .min(self.enclosure_radius() * 0.9);
+        self.constrain_eye();
     }
     pub fn resize(&mut self, width: u32, height: u32) {
         self.aspect = width.max(1) as f32 / height.max(1) as f32;
@@ -389,6 +393,7 @@ impl Camera {
         }
         self.yaw = (self.yaw + yaw).rem_euclid(std::f32::consts::TAU);
         self.pitch = (self.pitch + pitch).clamp(-1.55, 1.55);
+        self.constrain_eye();
         Ok(())
     }
     pub fn zoom(&mut self, factor: f32) -> Result<(), String> {
@@ -397,8 +402,9 @@ impl Camera {
         }
         self.distance = (self.distance * factor).clamp(
             self.view.radius().max(self.radius * 1e-6) * 0.1,
-            self.radius * 15.0,
+            self.enclosure_radius() * 0.9,
         );
+        self.constrain_eye();
         Ok(())
     }
     pub fn pan(&mut self, x: f32, y: f32) -> Result<(), String> {
@@ -408,24 +414,52 @@ impl Camera {
         let forward = (self.target - self.eye()).normalize();
         let right = forward.cross(Vec3::Y).normalize();
         let up = right.cross(forward);
-        self.target += (right * x + up * y) * self.distance * (19_f32.to_radians()).tan() * 2.0;
+        let next =
+            self.target + (right * x + up * y) * self.distance * (19_f32.to_radians()).tan() * 2.0;
+        if !next.is_finite() || !(next + self.orbit_offset()).is_finite() {
+            return Err("Camera pan exceeds finite coordinates".into());
+        }
+        self.target = next;
+        self.constrain_eye();
         Ok(())
     }
+    pub fn enclosure_radius(&self) -> f32 {
+        self.radius * 6.0
+    }
+    fn constrain_eye(&mut self) {
+        let offset = self.orbit_offset();
+        let delta = self.target + offset - self.center;
+        let scale = delta.abs().max_element();
+        if scale > 0.0 {
+            // Normalize after scaling so even very large, finite pan inputs remain bounded.
+            let direction = delta / scale;
+            let length = direction.length();
+            let limit = self.enclosure_radius() * 0.9;
+            if scale > limit / length {
+                self.target = self.center + direction / length * limit - offset;
+            }
+        }
+    }
     pub fn eye(&self) -> Vec3 {
-        self.target
-            + Vec3::new(
-                self.yaw.sin() * self.pitch.cos(),
-                self.pitch.sin(),
-                self.yaw.cos() * self.pitch.cos(),
-            ) * self.distance
+        self.target + self.orbit_offset()
+    }
+    fn orbit_offset(&self) -> Vec3 {
+        Vec3::new(
+            self.yaw.sin() * self.pitch.cos(),
+            self.pitch.sin(),
+            self.yaw.cos() * self.pitch.cos(),
+        ) * self.distance
     }
     pub fn matrix(&self) -> Mat4 {
-        glam::camera::rh::proj::opengl::perspective(
-            38_f32.to_radians(),
-            self.aspect,
-            (self.view.radius() / 100.0).max(1e-6),
-            self.radius * 100.0,
-        ) * glam::camera::rh::view::look_at_mat4(self.eye(), self.target, Vec3::Y)
+        // Raise the composition slightly without moving anatomy or the enclosure in world space.
+        Mat4::from_translation(Vec3::new(0.0, 0.04, 0.0))
+            * glam::camera::rh::proj::opengl::perspective(
+                38_f32.to_radians(),
+                self.aspect,
+                (self.view.radius() / 100.0).max(1e-6),
+                self.radius * 100.0,
+            )
+            * glam::camera::rh::view::look_at_mat4(self.eye(), self.target, Vec3::Y)
     }
 }
 
@@ -611,12 +645,53 @@ mod tests {
     }
 
     #[test]
+    fn camera_stays_ten_percent_inside_the_fixed_enclosure() {
+        let bounds = Bounds {
+            min: Vec3::new(-0.4, 0.0, -0.3),
+            max: Vec3::new(0.4, 1.8, 0.3),
+        };
+        let mut camera = Camera::new(bounds);
+        let limit = camera.enclosure_radius() * 0.9;
+        let check = |camera: &Camera| {
+            assert!(camera.eye().is_finite());
+            assert!(camera.matrix().is_finite());
+            assert!(camera.eye().distance(bounds.center()) <= limit + limit * 1e-5);
+        };
+        camera.zoom(f32::MAX).unwrap();
+        assert!((camera.eye().distance(bounds.center()) - limit).abs() < 1e-5);
+        check(&camera);
+        for (x, y) in [(100.0, -100.0), (-100.0, 100.0), (1e10, -1e10)] {
+            camera.pan(x, y).unwrap();
+            check(&camera);
+            for pitch in [-3.0, 0.7, 3.0] {
+                camera.rotate(1.2, pitch).unwrap();
+                check(&camera);
+                camera.zoom(100.0).unwrap();
+                check(&camera);
+                camera.zoom(0.001).unwrap();
+                check(&camera);
+            }
+        }
+        camera.zoom(f32::MAX).unwrap();
+        let previous = camera.eye();
+        assert!(camera.pan(f32::MAX, f32::MAX).is_err());
+        assert_eq!(camera.eye(), previous);
+        camera.resize(200, 1600);
+        check(&camera);
+        camera.reset();
+        check(&camera);
+        assert!(camera.target.distance(bounds.center()) < 1e-5);
+    }
+
+    #[test]
     fn camera_fits_narrow_viewports_and_rejects_invalid_inputs() {
         let bounds = Bounds {
             min: Vec3::splat(-1.0),
             max: Vec3::splat(1.0),
         };
         let mut camera = Camera::new(bounds);
+        let initial_yaw = camera.yaw;
+        let initial_pitch = camera.pitch;
         let wide_distance = camera.distance;
         camera.resize(390, 480);
         assert!(camera.distance > wide_distance);
@@ -626,7 +701,19 @@ mod tests {
         assert!(camera.rotate(f32::NAN, 0.0).is_err());
         assert!(camera.pan(f32::INFINITY, 0.0).is_err());
         camera.reset();
-        assert_eq!(camera.yaw, 0.0);
-        assert_eq!(camera.pitch, 0.0);
+        assert_eq!(camera.yaw, initial_yaw);
+        assert_eq!(camera.pitch, initial_pitch);
+        assert!(camera.eye().x < camera.target.x);
+        assert!(camera.eye().y > camera.target.y);
+        let check_frame = |camera: &Camera| {
+            let center = camera.matrix().project_point3(camera.target);
+            assert!(center.x.abs() < 1e-5);
+            assert!((center.y - 0.04).abs() < 1e-5);
+        };
+        check_frame(&camera);
+        camera.rotate(0.6, -0.3).unwrap();
+        camera.zoom(0.8).unwrap();
+        camera.pan(0.1, -0.2).unwrap();
+        check_frame(&camera);
     }
 }
