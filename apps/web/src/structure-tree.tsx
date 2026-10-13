@@ -41,16 +41,20 @@ export function StructureTree(props: TreeProps) {
 function Folder({ target, childrenById, structures, props }: { target: StudyTarget; childrenById: Map<string | undefined, StudyTarget[]>; structures: Map<string, Structure>; props: TreeProps }) {
   const [open, setOpen] = useState(false);
   const children = childrenById.get(target.id) ?? [];
+  // System toggles follow Blender display collections; subfolders retain anatomical cross-references.
+  const ids = target.model?.structure_ids ?? target.structure_ids;
   const nestedIds = new Set(children.flatMap(child => child.structure_ids));
-  const directIds = target.structure_ids.filter(id => !nestedIds.has(id));
+  const directIds = ids.filter(id => !nestedIds.has(id));
   return <li data-target-id={target.id}>
     <div className={`tree-row folder-row${props.targetId === target.id ? " is-selected" : ""}`}>
       <button className="folder-toggle" aria-label={`${open ? "Đóng" : "Mở"} ${target.title}`} aria-expanded={open} onClick={() => setOpen(!open)}>{open ? "▾" : "▸"}</button>
-      {target.structure_ids.length > 0
-        ? <VisibilityCheckbox ids={target.structure_ids} label={target.title} {...props} />
+      {ids.length > 0
+        ? <VisibilityCheckbox ids={ids} label={target.title} {...props} />
         : <span className="tree-no-model" aria-hidden="true">—</span>}
       <button className="tree-name" onClick={() => props.onTarget(target.id)} aria-current={props.targetId === target.id ? "true" : undefined}>
-        <span aria-hidden="true">▱ </span>{target.title}<small>{target.structure_ids.length ? `${target.structure_ids.length} cấu trúc` : "Chỉ có tài liệu · Không có mô hình"}</small>
+        <span aria-hidden="true">▱ </span>{target.title}<small>{ids.length
+          ? `${ids.length} cấu trúc${target.definition_key ? "" : " · Chưa có mô tả"}`
+          : target.definition_key ? "Chỉ có mô tả · Không có mô hình" : "Chưa có mô hình và mô tả"}</small>
       </button>
     </div>
     {open && <ul>
@@ -62,7 +66,7 @@ function Folder({ target, childrenById, structures, props }: { target: StudyTarg
         return <li key={id} className={`tree-row part-row${props.selected === id ? " is-selected" : ""}`} data-structure-id={id}>
           <VisibilityCheckbox ids={[id]} label={title} {...props} />
           <button className="tree-name" disabled={props.disabled} aria-current={props.selected === id ? "true" : undefined}
-            onClick={() => props.onSelect(id)} onFocus={() => props.onSelect(id)}>{title}</button>
+            onClick={() => props.onSelect(id)} onFocus={() => props.onSelect(id)}>{title}{!part.definition_key && <small>Chưa có mô tả</small>}</button>
         </li>;
       })}
     </ul>}

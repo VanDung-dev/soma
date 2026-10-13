@@ -8,7 +8,7 @@ export interface Catalog {
 
 export interface StudyTarget { id: string; title: string; source_name: string; group_id: string; parent_id?: string; structure_ids: string[]; definition_key: string; model?: Model }
 
-export interface Model { path: string; scope: string }
+export interface Model { path: string; scope: string; structure_ids: string[] }
 
 let wasm: Promise<typeof import("./wasm/anatomy_wasm.js")> | undefined;
 

@@ -184,6 +184,8 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
             || !metadata.collection_definitions || typeof metadata.collection_definitions !== "object" || Array.isArray(metadata.collection_definitions)
             || ![...Object.values(metadata.definitions), ...Object.values(metadata.collection_definitions)].every(d => d && typeof d.text === "string" && Array.isArray(d.links) && d.links.every(link => typeof link === "string" && /^https?:\/\//.test(link)))
             || !metadata.structures.every(s => !s.definition_key || Object.hasOwn(metadata.definitions, s.definition_key))) throw new Error("Metadata không hợp lệ");
+          if (JSON.stringify(metadata.structures.map(s => s.source_id).sort()) !== JSON.stringify(model.structure_ids.slice().sort())
+            || !catalog.targets.filter(t => t.group_id === root.group_id).every(t => !t.definition_key || metadata.collection_definitions[t.definition_key]?.text.trim())) throw new Error("Metadata không khớp catalog");
           return { bytes: new Uint8Array(await response.arrayBuffer()), metadata };
         }).map(promise => promise.catch(cause => ({ cause })));
         if (disposed) return;
@@ -263,7 +265,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     <>
       <aside className="catalog-panel" aria-label="Cây cấu trúc giải phẫu">
         <div className="catalog-heading"><h2>Cấu trúc</h2><span>{catalog.groups.length} hệ</span></div>
-        <p className="tree-help">Mở thư mục để xem các nhánh. Checkbox áp dụng cho toàn bộ cấu trúc trong nhánh, kể cả khi nằm ở nhiều thư mục.</p>
+        <p className="tree-help">Checkbox cấp hệ bật đúng bộ mô hình như Blender. Mở thư mục để xem các nhánh; nhánh con có thể liên kết đến cấu trúc thuộc hệ khác.</p>
         <div className="tree-actions">
           <button disabled={building || error} onClick={() => changeVisibility(meshes.map(p => p.source_id), true)}>Hiện tất cả</button>
           <button disabled={building || error} onClick={() => changeVisibility(meshes.map(p => p.source_id), false)}>Ẩn tất cả</button>
@@ -294,7 +296,9 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       <aside className="information-panel" aria-label="Thông tin bộ phận">
         <p className="eyebrow">THÔNG TIN GIẢI PHẪU</p>
         <h2>{selectedPart ? selectedPart.source_name + side(selectedPart) : target?.title ?? "Khám phá cơ thể"}</h2>
-        {!selectedPart && target && !target.structure_ids.length && <p>Nhánh này có nội dung tham khảo nhưng chưa có mô hình 3D gắn kèm trong dữ liệu nguồn.</p>}
+        {!selectedPart && target && !target.structure_ids.length && <p>{target.definition_key
+          ? "Nhánh này có mô tả từ nguồn nhưng chưa có mô hình 3D được liên kết."
+          : "Nhánh này chưa có mô hình 3D hoặc mô tả riêng được liên kết từ nguồn."}</p>}
         {selectedPart ? <>
           {selectedPart.latin && <p className="latin-name">{selectedPart.latin}</p>}
           <p className="collection-names">{selectedPart.collections.filter(name => !/^\d:/.test(name)).join(" · ")}</p>
