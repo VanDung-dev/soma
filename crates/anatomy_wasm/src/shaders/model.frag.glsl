@@ -3,18 +3,59 @@ precision highp float;
 in vec3 world_position;
 in vec3 world_normal;
 uniform vec3 eye;
-uniform vec3 camera_target;
+uniform mat3 light_basis;
 uniform vec4 base_color;
 uniform float roughness;
 uniform float metallic;
+uniform float specular;
+uniform float subsurface;
 uniform float alpha_cutoff;
 uniform bool selected;
 uniform bool picking;
 uniform vec3 pick_color;
 uniform float reveal;
+uniform bool shadow_pass;
+uniform mat4 shadow_projection;
+uniform sampler2D shadow_map;
+uniform vec2 shadow_texel;
 out vec4 output_color;
-vec3 srgb(vec3 c) {
-    return mix(c * 12.92, 1.055 * pow(max(c, vec3(0.0)), vec3(1.0/2.4)) - 0.055, step(vec3(0.0031308), c));
+vec3 filmic(vec3 c) {
+    // shortcut: fit of Blender's neutral Filmic sRGB curve; use the full OCIO transform for gamut/desaturation parity.
+    vec3 t = clamp((log2(max(c, vec3(1e-8))) + 12.473931188) / 16.5, 0.0, 1.0);
+    return clamp((((((((-102.04061665 * t + 408.97662030) * t - 642.50026899) * t + 499.88273434) * t
+        - 205.19915519) * t + 46.48331889) * t - 4.88997052) * t + 0.28946802) * t - 0.00255819, 0.0, 1.0);
+}
+vec3 sunlight(vec3 n, vec3 v, vec3 l, vec3 radiance) {
+    float nl = max(dot(n, l), 0.0), nv = max(dot(n, v), 0.0001);
+    vec3 h = normalize(v + l);
+    float nh = max(dot(n, h), 0.0), vh = max(dot(v, h), 0.0);
+    float a = max(roughness * roughness, 0.0025), a2 = a * a;
+    float d = a2 / max(3.14159265 * pow(nh * nh * (a2 - 1.0) + 1.0, 2.0), 0.000001);
+    float k = pow(roughness + 1.0, 2.0) / 8.0;
+    float g = nv / (nv * (1.0-k) + k) * nl / max(nl * (1.0-k) + k, 0.0001);
+    vec3 f0 = mix(vec3(specular), base_color.rgb, metallic);
+    vec3 f = f0 + (1.0-f0) * pow(1.0-vh, 5.0);
+    vec3 diffuse = (1.0-f) * (1.0-metallic) * base_color.rgb / 3.14159265;
+    vec3 reflection = d * g * f / max(4.0 * nv * nl, 0.0001);
+    // shortcut: wrapped diffuse approximates source subsurface weight; thickness-aware scattering needs a separate pass.
+    float scatter = mix(nl, max((dot(n, l) + 0.5) / 1.5, 0.0), subsurface * 0.5);
+    return (diffuse * scatter + reflection * nl) * radiance;
+}
+float sunlight_visibility(vec3 n, vec3 light) {
+    vec4 position = shadow_projection * vec4(world_position + n * 0.001, 1.0);
+    if (position.w == 0.0) return 1.0;
+    vec3 uv = position.xyz / position.w * 0.5 + 0.5;
+    if (any(lessThan(uv, vec3(0.0))) || any(greaterThan(uv, vec3(1.0)))) return 1.0;
+    // Match bias to map resolution so grazing surfaces do not shadow their own triangles.
+    float bias = max(0.0005, 2.0 * max(shadow_texel.x, shadow_texel.y)
+        * (1.0 - dot(n, light)));
+    float visible = 0.0;
+    for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+        vec3 encoded_depth = texture(shadow_map, uv.xy + vec2(x, y) * shadow_texel).rgb;
+        float depth = dot(encoded_depth, vec3(1.0, 1.0 / 255.0, 1.0 / 65025.0));
+        visible += step(uv.z - bias, depth);
+    }
+    return visible / 9.0;
 }
 void main() {
     // Ordered dithering fades opaque geometry without changing depth or material blending.
@@ -24,30 +65,22 @@ void main() {
         if (reveal <= (threshold[pixel.y * 4 + pixel.x] + 0.5) / 16.0) discard;
     }
     if (base_color.a <= 0.0 || base_color.a < alpha_cutoff) discard;
+    if (shadow_pass) {
+        vec3 encoded_depth = fract(min(gl_FragCoord.z, 0.999999) * vec3(1.0, 255.0, 65025.0));
+        encoded_depth -= encoded_depth.yzz * vec3(1.0 / 255.0, 1.0 / 255.0, 0.0);
+        output_color = vec4(encoded_depth, 1.0); return;
+    }
     if (picking) { output_color = vec4(pick_color, 1.0); return; }
     vec3 n = normalize(world_normal) * (gl_FrontFacing ? 1.0 : -1.0);
     vec3 v = normalize(eye - world_position);
-    vec3 l = normalize(eye - camera_target);
-    vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), l));
-    vec3 up = cross(l, right);
-    vec3 h = normalize(v + l);
-    float nl = max(dot(n, l), 0.0), nv = max(dot(n, v), 0.0001);
-    float nh = max(dot(n, h), 0.0), vh = max(dot(v, h), 0.0);
-    float a = max(roughness * roughness, 0.0025), a2 = a * a;
-    float d = a2 / max(3.14159265 * pow(nh * nh * (a2 - 1.0) + 1.0, 2.0), 0.000001);
-    float k = pow(roughness + 1.0, 2.0) / 8.0;
-    float g = nv / (nv * (1.0-k) + k) * nl / max(nl * (1.0-k) + k, 0.0001);
-    vec3 f0 = mix(vec3(0.04), base_color.rgb, metallic);
-    vec3 f = f0 + (1.0-f0) * pow(1.0-vh, 5.0);
-    vec3 diffuse = (1.0-f) * (1.0-metallic) * base_color.rgb / 3.14159265;
-    vec3 specular = d * g * f / max(4.0 * nv * nl, 0.0001);
-    float sky = dot(n, up) * 0.5 + 0.5;
-    vec3 ambient = mix(vec3(0.12, 0.10, 0.09), vec3(0.30, 0.33, 0.36), sky);
-    float fill = max(dot(n, normalize(l + right * 0.6 + up * 0.3)), 0.0);
-    float rim = pow(1.0-nv, 3.0) * max(dot(n, normalize(l - right * 1.6 + up * 0.4)), 0.0);
-    vec3 color = base_color.rgb * (ambient + fill * 0.16)
-        + (diffuse + specular) * nl * vec3(3.2, 3.0, 2.8) + rim * vec3(0.13, 0.17, 0.20);
+    // Keep Startup.blend's light colors/energies with the rig oriented to the camera.
+    vec3 key_light = light_basis * normalize(vec3(0.707107, 0.500000, 0.500000));
+    vec3 color = sunlight(n, v, key_light, 5.0 * vec3(1.0, 0.970922, 0.587642)) * sunlight_visibility(n, key_light)
+        + sunlight(n, v, light_basis * normalize(vec3(-0.591979, -0.361874, -0.720144)), 3.0 * vec3(1.0, 0.634049, 0.341307))
+        + sunlight(n, v, light_basis * normalize(vec3(-0.241563, -0.850124, 0.467906)), 0.5 * vec3(0.726669, 0.377571, 1.0));
+    float sky = dot(n, light_basis[1]) * 0.5 + 0.5;
+    color += base_color.rgb * (1.0-metallic) * mix(vec3(0.06, 0.05, 0.04), vec3(0.16, 0.18, 0.21), sky);
     if (selected) color += vec3(0.093, 0.045, 0.007);
     color += (1.0 - reveal) * vec3(0.12, 0.20, 0.16);
-    output_color = vec4(srgb(clamp(color, 0.0, 1.0)), base_color.a);
+    output_color = vec4(filmic(max(color, vec3(0.0))), base_color.a);
 }

@@ -1,5 +1,6 @@
 use anatomy_renderer::{Camera, PackedScene, Reconstruction, Scene};
 use js_sys::{Float32Array, Uint32Array};
+use std::cell::Cell;
 use wasm_bindgen::{JsCast, prelude::*};
 use web_sys::{
     HtmlCanvasElement, WebGl2RenderingContext as Gl, WebGlBuffer, WebGlFramebuffer, WebGlProgram,
@@ -86,15 +87,21 @@ impl Drop for Resources {
 struct Uniforms {
     projection: WebGlUniformLocation,
     eye: WebGlUniformLocation,
-    camera_target: WebGlUniformLocation,
+    light_basis: WebGlUniformLocation,
     color: WebGlUniformLocation,
     roughness: WebGlUniformLocation,
     metallic: WebGlUniformLocation,
+    specular: WebGlUniformLocation,
+    subsurface: WebGlUniformLocation,
     cutoff: WebGlUniformLocation,
     selected: WebGlUniformLocation,
     picking: WebGlUniformLocation,
     pick_color: WebGlUniformLocation,
     reveal: WebGlUniformLocation,
+    shadow_pass: WebGlUniformLocation,
+    shadow_projection: WebGlUniformLocation,
+    shadow_map: WebGlUniformLocation,
+    shadow_texel: WebGlUniformLocation,
 }
 
 struct SphereUniforms {
@@ -111,6 +118,7 @@ pub struct AnatomyViewer {
     sphere_uniforms: SphereUniforms,
     draws: Vec<(usize, i32, i32)>,
     reconstruction: Reconstruction,
+    shadow_cached: Cell<bool>,
     canvas: HtmlCanvasElement,
 }
 
@@ -151,6 +159,7 @@ impl AnatomyViewer {
             .append(&self.scene.parts, self.scene.bounds, now, animate)
             .map_err(js_error)?;
         self.reconstruction = reconstruction;
+        self.shadow_cached.set(false);
         Ok(())
     }
 
@@ -173,6 +182,7 @@ impl AnatomyViewer {
             .append(&self.scene.parts[first..], self.scene.bounds, now, animate)
             .map_err(js_error)?;
         self.camera = Camera::new(self.scene.bounds);
+        self.shadow_cached.set(false);
         self.camera
             .resize(self.canvas.width(), self.canvas.height());
         Ok(())
@@ -180,23 +190,30 @@ impl AnatomyViewer {
 
     pub fn render_reconstruction(&mut self, now: f64) -> Result<bool, JsValue> {
         let active = self.reconstruction.advance(now).map_err(js_error)?;
+        self.shadow_cached.set(false);
         self.draw(false);
         Ok(active)
     }
 
     pub fn finish_reconstruction(&mut self) {
         self.reconstruction.finish();
+        self.shadow_cached.set(false);
     }
 
     /// The host calls render once after batching mutations for the next frame.
     pub fn change_visibility(&mut self, ids_json: &str, shown: bool) -> Result<(), JsValue> {
         let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
-        self.scene.change_visibility(&ids, shown).map_err(js_error)
+        self.scene
+            .change_visibility(&ids, shown)
+            .map_err(js_error)?;
+        self.shadow_cached.set(false);
+        Ok(())
     }
 
     pub fn set_visibility(&mut self, ids_json: &str) -> Result<(), JsValue> {
         let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
         self.scene.set_visibility(&ids).map_err(js_error)?;
+        self.shadow_cached.set(false);
         Ok(())
     }
 }
@@ -247,15 +264,21 @@ impl AnatomyViewer {
         let uniforms = Uniforms {
             projection: location("view_projection")?,
             eye: location("eye")?,
-            camera_target: location("camera_target")?,
+            light_basis: location("light_basis")?,
             color: location("base_color")?,
             roughness: location("roughness")?,
             metallic: location("metallic")?,
+            specular: location("specular")?,
+            subsurface: location("subsurface")?,
             cutoff: location("alpha_cutoff")?,
             selected: location("selected")?,
             picking: location("picking")?,
             pick_color: location("pick_color")?,
             reveal: location("reveal")?,
+            shadow_pass: location("shadow_pass")?,
+            shadow_projection: location("shadow_projection")?,
+            shadow_map: location("shadow_map")?,
+            shadow_texel: location("shadow_texel")?,
         };
         let sphere_location = |name: &str| {
             gl.get_uniform_location(gpu.sphere_program.as_ref().unwrap(), name)
@@ -294,6 +317,7 @@ impl AnatomyViewer {
                 .map(|(count, offset)| (0, count, offset))
                 .collect(),
             reconstruction,
+            shadow_cached: Cell::new(false),
             canvas,
         };
         viewer.resize(viewer.canvas.width().max(1), viewer.canvas.height().max(1))?;
@@ -313,6 +337,7 @@ impl AnatomyViewer {
             return Err(js_error("Invalid viewport dimensions"));
         }
         self.canvas.set_width(width);
+        self.shadow_cached.set(false);
         self.canvas.set_height(height);
         self.camera.resize(width, height);
         gl.bind_texture(Gl::TEXTURE_2D, self.gpu.texture.as_ref());
@@ -363,6 +388,7 @@ impl AnatomyViewer {
         if let Some(bounds) = self.scene.subset(&ids).map_err(js_error)? {
             self.camera.fit(bounds);
         }
+        self.shadow_cached.set(false);
         Ok(())
     }
     pub fn select(&mut self, id: &str) -> Result<(), JsValue> {
@@ -375,10 +401,12 @@ impl AnatomyViewer {
         } else if let Some(bounds) = self.scene.inspect(action).map_err(js_error)? {
             self.camera.fit(bounds);
         }
+        self.shadow_cached.set(false);
         Ok(())
     }
     pub fn rotate(&mut self, yaw: f32, pitch: f32) -> Result<(), JsValue> {
         self.camera.rotate(yaw, pitch).map_err(js_error)?;
+        self.shadow_cached.set(false);
         Ok(())
     }
     pub fn zoom(&mut self, factor: f32) -> Result<(), JsValue> {
@@ -472,6 +500,19 @@ impl AnatomyViewer {
 
     fn draw(&self, picking: bool) {
         let gl = &self.gpu.gl;
+        if picking {
+            self.shadow_cached.set(false);
+        } else if !self.shadow_cached.replace(true) {
+            // Picking rewrites IDs on demand; reuse its framebuffer for the key light's shadow map.
+            gl.bind_framebuffer(Gl::FRAMEBUFFER, self.gpu.framebuffer.as_ref());
+            self.draw_pass(false, true);
+            gl.bind_framebuffer(Gl::FRAMEBUFFER, None);
+        }
+        self.draw_pass(picking, false);
+    }
+
+    fn draw_pass(&self, picking: bool, shadow_pass: bool) {
+        let gl = &self.gpu.gl;
         let u = &self.uniforms;
         gl.viewport(
             0,
@@ -484,32 +525,73 @@ impl AnatomyViewer {
         gl.depth_func(Gl::LEQUAL);
         gl.disable(Gl::BLEND);
         gl.disable(Gl::DITHER);
-        gl.clear_color(0.0, 0.0, 0.0, 0.0);
+        if shadow_pass {
+            gl.clear_color(1.0, 1.0, 1.0, 1.0);
+        } else {
+            gl.clear_color(0.0, 0.0, 0.0, 0.0);
+        }
         gl.clear(Gl::COLOR_BUFFER_BIT | Gl::DEPTH_BUFFER_BIT);
-        if !picking {
+        if !picking && !shadow_pass {
             self.draw_sphere();
         }
         gl.use_program(self.gpu.program.as_ref());
+        let light_basis = self.camera.light_basis();
+        gl.uniform_matrix3fv_with_f32_array(
+            Some(&u.light_basis),
+            false,
+            &light_basis.to_cols_array(),
+        );
+        let shadow_projection = self.scene.bounds.shadow_matrix(
+            light_basis.x_axis * std::f32::consts::FRAC_1_SQRT_2
+                + light_basis.y_axis * 0.5
+                + light_basis.z_axis * 0.5,
+        );
+        gl.uniform_matrix4fv_with_f32_array(
+            Some(&u.shadow_projection),
+            false,
+            &shadow_projection.to_cols_array(),
+        );
+        gl.uniform1i(Some(&u.shadow_pass), i32::from(shadow_pass));
+        gl.uniform1i(Some(&u.shadow_map), 0);
+        gl.uniform2f(
+            Some(&u.shadow_texel),
+            1.0 / self.canvas.width() as f32,
+            1.0 / self.canvas.height() as f32,
+        );
+        gl.active_texture(Gl::TEXTURE0);
+        gl.bind_texture(
+            Gl::TEXTURE_2D,
+            if picking || shadow_pass {
+                None
+            } else {
+                self.gpu.texture.as_ref()
+            },
+        );
         gl.bind_vertex_array(self.gpu.vaos.first());
         gl.uniform_matrix4fv_with_f32_array(
             Some(&u.projection),
             false,
-            &self.camera.matrix().to_cols_array(),
+            &if shadow_pass {
+                shadow_projection
+            } else {
+                self.camera.matrix()
+            }
+            .to_cols_array(),
         );
         let eye = self.camera.eye();
         gl.uniform3f(Some(&u.eye), eye.x, eye.y, eye.z);
-        let target = self.camera.target;
-        gl.uniform3f(Some(&u.camera_target), target.x, target.y, target.z);
         gl.uniform1i(Some(&u.picking), i32::from(picking));
         let mut order: Vec<_> = self
             .scene
             .parts
             .iter()
             .enumerate()
-            .filter(|(i, p)| p.visible && self.reconstruction.opacity(*i) > 0.0)
+            .filter(|(i, p)| {
+                p.visible && (!shadow_pass || !p.blend) && self.reconstruction.opacity(*i) > 0.0
+            })
             .map(|(i, _)| i)
             .collect();
-        if !picking {
+        if !picking && !shadow_pass {
             order.sort_by(|&a, &b| {
                 let a = &self.scene.parts[a];
                 let b = &self.scene.parts[b];
@@ -550,6 +632,8 @@ impl AnatomyViewer {
             gl.uniform4fv_with_f32_array(Some(&u.color), &p.color);
             gl.uniform1f(Some(&u.roughness), p.roughness);
             gl.uniform1f(Some(&u.metallic), p.metallic);
+            gl.uniform1f(Some(&u.specular), p.specular);
+            gl.uniform1f(Some(&u.subsurface), p.subsurface);
             gl.uniform1f(Some(&u.cutoff), p.alpha_cutoff);
             gl.uniform1i(
                 Some(&u.selected),
