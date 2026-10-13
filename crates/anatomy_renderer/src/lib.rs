@@ -1,7 +1,9 @@
 use glam::{Mat3, Mat4, Vec3};
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Bounds {
     pub min: Vec3,
     pub max: Vec3,
@@ -22,9 +24,13 @@ impl Bounds {
     }
 }
 
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Primitive {
     pub source_id: String,
+    #[serde(skip)]
     pub vertices: Vec<f32>,
+    #[serde(skip)]
     pub indices: Vec<u32>,
     pub bounds: Bounds,
     pub color: [f32; 4],
@@ -37,13 +43,123 @@ pub struct Primitive {
     pub visible: bool,
 }
 
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Scene {
     pub parts: Vec<Primitive>,
     pub bounds: Bounds,
     pub selected: String,
 }
 
+/// Geometry is transferred separately from this small worker-produced descriptor.
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PackedScene {
+    pub scene: Scene,
+    pub draws: Vec<(i32, i32)>,
+    pub vertex_count: usize,
+    pub index_count: usize,
+}
+
+impl PackedScene {
+    pub fn validate(&self, vertex_floats: usize, index_count: usize) -> Result<(), String> {
+        let bounds_valid =
+            |b: Bounds| b.min.is_finite() && b.max.is_finite() && b.min.cmple(b.max).all();
+        if self.scene.parts.is_empty()
+            || self.draws.len() != self.scene.parts.len()
+            || vertex_floats == 0
+            || !vertex_floats.is_multiple_of(6)
+            || self.vertex_count != vertex_floats / 6
+            || self.index_count != index_count
+            || !bounds_valid(self.scene.bounds)
+            || !self.scene.bounds.radius().is_finite()
+            || self.scene.bounds.radius() <= 0.0
+            || !self.scene.selected.is_empty()
+            || self.scene.parts.iter().any(|p| {
+                p.source_id.is_empty()
+                    || !bounds_valid(p.bounds)
+                    || p.color
+                        .iter()
+                        .any(|v| !v.is_finite() || !(0.0..=1.0).contains(v))
+                    || !p.roughness.is_finite()
+                    || !(0.0..=1.0).contains(&p.roughness)
+                    || !p.metallic.is_finite()
+                    || !(0.0..=1.0).contains(&p.metallic)
+                    || !p.alpha_cutoff.is_finite()
+                    || !(0.0..=1.0).contains(&p.alpha_cutoff)
+                    || !p.active
+                    || !p.visible
+            })
+        {
+            return Err("Invalid prepared scene descriptor".into());
+        }
+        let mut end = 0usize;
+        for &(count, offset) in &self.draws {
+            if count <= 0
+                || count % 3 != 0
+                || offset < 0
+                || end.checked_mul(4) != Some(offset as usize)
+            {
+                return Err("Invalid prepared draw range".into());
+            }
+            end = end
+                .checked_add(count as usize)
+                .ok_or("Index buffer too large")?;
+        }
+        if end != index_count {
+            return Err("Prepared index count differs".into());
+        }
+        Ok(())
+    }
+}
+
 impl Scene {
+    /// Return incoming primitive indices so GPU draw ranges stay paired after deduplication.
+    pub fn append(&mut self, incoming: Self) -> Vec<usize> {
+        let known: HashSet<_> = self.parts.iter().map(|p| p.source_id.clone()).collect();
+        let mut added = Vec::new();
+        for (index, part) in incoming.parts.into_iter().enumerate() {
+            if !known.contains(&part.source_id) {
+                self.bounds = self.bounds.union(part.bounds);
+                self.parts.push(part);
+                added.push(index);
+            }
+        }
+        added
+    }
+
+    pub fn pack(mut self) -> Result<(PackedScene, Vec<f32>, Vec<u32>), String> {
+        let mut vertices = Vec::new();
+        let mut indices: Vec<u32> = Vec::new();
+        let mut draws = Vec::new();
+        for part in &mut self.parts {
+            let base = u32::try_from(vertices.len() / 6).map_err(|e| e.to_string())?;
+            let offset = i32::try_from(
+                indices
+                    .len()
+                    .checked_mul(4)
+                    .ok_or("Index buffer too large")?,
+            )
+            .map_err(|e| e.to_string())?;
+            draws.push((
+                i32::try_from(part.indices.len()).map_err(|e| e.to_string())?,
+                offset,
+            ));
+            vertices.append(&mut std::mem::take(&mut part.vertices));
+            for index in std::mem::take(&mut part.indices) {
+                indices.push(index.checked_add(base).ok_or("Vertex buffer too large")?);
+            }
+        }
+        let packed = PackedScene {
+            scene: self,
+            draws,
+            vertex_count: vertices.len() / 6,
+            index_count: indices.len(),
+        };
+        packed.validate(vertices.len(), indices.len())?;
+        Ok((packed, vertices, indices))
+    }
+
     pub fn merge(scenes: Vec<Self>) -> Result<Self, String> {
         let mut known = HashSet::new();
         let mut parts = Vec::new();
@@ -85,6 +201,28 @@ impl Scene {
             part.visible = part.active && visible.contains(part.source_id.as_str());
         }
         if !visible.contains(self.selected.as_str()) {
+            self.selected.clear();
+        }
+        Ok(())
+    }
+
+    pub fn change_visibility(&mut self, ids: &[String], shown: bool) -> Result<(), String> {
+        let changed: HashSet<_> = ids.iter().map(String::as_str).collect();
+        let known: HashSet<_> = self
+            .parts
+            .iter()
+            .filter(|p| p.active)
+            .map(|p| p.source_id.as_str())
+            .collect();
+        if changed.len() != ids.len() || !changed.is_subset(&known) {
+            return Err("Unknown or duplicate visible structure ID".into());
+        }
+        for part in &mut self.parts {
+            if changed.contains(part.source_id.as_str()) {
+                part.visible = shown;
+            }
+        }
+        if !shown && changed.contains(self.selected.as_str()) {
             self.selected.clear();
         }
         Ok(())
@@ -343,6 +481,56 @@ fn load_node(
     Ok(())
 }
 
+#[derive(Default)]
+pub struct Reconstruction {
+    starts: Vec<f64>,
+    time: f64,
+    batches: usize,
+}
+
+impl Reconstruction {
+    pub fn check_time(&self, now: f64) -> Result<(), String> {
+        if !now.is_finite() || now < self.time {
+            return Err("Invalid reconstruction timestamp".into());
+        }
+        Ok(())
+    }
+    pub fn append(
+        &mut self,
+        parts: &[Primitive],
+        bounds: Bounds,
+        now: f64,
+        animate: bool,
+    ) -> Result<(), String> {
+        self.check_time(now)?;
+        self.time = now;
+        let height = (bounds.max.y - bounds.min.y).max(f32::EPSILON);
+        for part in parts {
+            let start = if animate {
+                let level = ((part.bounds.center().y - bounds.min.y) / height).clamp(0.0, 1.0);
+                now + level as f64 * 1100.0 + self.batches.min(8) as f64 * 120.0
+            } else {
+                now - 300.0
+            };
+            self.starts.push(start);
+        }
+        self.batches += 1;
+        Ok(())
+    }
+    pub fn opacity(&self, index: usize) -> f32 {
+        let t = ((self.time - self.starts[index]) / 300.0).clamp(0.0, 1.0) as f32;
+        t * t * (3.0 - 2.0 * t)
+    }
+    pub fn advance(&mut self, now: f64) -> Result<bool, String> {
+        self.check_time(now)?;
+        self.time = now;
+        Ok(self.starts.iter().any(|start| now < start + 300.0))
+    }
+    pub fn finish(&mut self) {
+        self.starts.fill(self.time - 300.0);
+    }
+}
+
 pub struct Camera {
     pub target: Vec3,
     pub yaw: f32,
@@ -475,6 +663,7 @@ mod tests {
         let manifest: serde_json::Value =
             serde_json::from_slice(&std::fs::read(folder.join("manifest.json")).unwrap()).unwrap();
         let mut scenes = Vec::new();
+        let mut streamed: Option<Scene> = None;
         let mut originals = std::collections::HashMap::new();
         for model in manifest["models"].as_array().unwrap() {
             let ids: Vec<String> = serde_json::from_value(model["source_ids"].clone()).unwrap();
@@ -505,10 +694,40 @@ mod tests {
                     originals.insert(part.source_id.clone(), part.vertices.clone());
                 }
             }
+            let incoming: Scene =
+                serde_json::from_str(&serde_json::to_string(&scene).unwrap()).unwrap();
+            if let Some(streamed) = &mut streamed {
+                let before = streamed.parts.len();
+                let added = streamed.append(incoming);
+                assert_eq!(streamed.parts.len(), before + added.len());
+                for (part, index) in streamed.parts[before..].iter().zip(added) {
+                    assert_eq!(part.source_id, scene.parts[index].source_id);
+                    assert_eq!(part.bounds.min, scene.parts[index].bounds.min);
+                }
+            } else {
+                streamed = Some(incoming);
+            }
             scenes.push(scene);
         }
         let mut scene = Scene::merge(scenes).unwrap();
         assert_eq!(scene.visible_count(), 3874);
+        let mut streamed = streamed.unwrap();
+        assert_eq!(streamed.visible_count(), scene.visible_count());
+        assert_eq!(streamed.bounds.min, scene.bounds.min);
+        assert_eq!(streamed.bounds.max, scene.bounds.max);
+        assert_eq!(
+            streamed
+                .parts
+                .iter()
+                .map(|p| &p.source_id)
+                .collect::<Vec<_>>(),
+            scene.parts.iter().map(|p| &p.source_id).collect::<Vec<_>>()
+        );
+        let duplicate: Scene =
+            serde_json::from_str(&serde_json::to_string(&scene).unwrap()).unwrap();
+        streamed.set_visibility(&[]).unwrap();
+        assert!(streamed.append(duplicate).is_empty());
+        assert_eq!(streamed.visible_count(), 0);
         let bounds = scene.bounds;
         let id = scene.parts[0].source_id.clone();
         scene.select(&id).unwrap();
@@ -529,6 +748,73 @@ mod tests {
             assert_eq!(part.vertices, originals[&part.source_id]);
         }
         assert!(Scene::merge(Vec::new()).is_err());
+    }
+
+    #[test]
+    fn reconstruction_reveals_feet_before_head_and_finishes_without_changing_visibility() {
+        let folder =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/public/models/z-anatomy");
+        let meta: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(folder.join("body-regions.json")).unwrap())
+                .unwrap();
+        let ids: Vec<String> = meta["structures"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| s["source_id"].as_str().unwrap().into())
+            .collect();
+        let scene = Scene::from_glb(
+            &std::fs::read(folder.join("body-regions.glb")).unwrap(),
+            &ids,
+        )
+        .unwrap();
+        let mut reconstruction = Reconstruction::default();
+        reconstruction
+            .append(&scene.parts, scene.bounds, 1000.0, true)
+            .unwrap();
+        assert!((0..scene.parts.len()).all(|i| reconstruction.opacity(i) == 0.0));
+        assert!(reconstruction.advance(1550.0).unwrap());
+        let low = (0..scene.parts.len())
+            .min_by(|&a, &b| {
+                scene.parts[a]
+                    .bounds
+                    .center()
+                    .y
+                    .total_cmp(&scene.parts[b].bounds.center().y)
+            })
+            .unwrap();
+        let high = (0..scene.parts.len())
+            .max_by(|&a, &b| {
+                scene.parts[a]
+                    .bounds
+                    .center()
+                    .y
+                    .total_cmp(&scene.parts[b].bounds.center().y)
+            })
+            .unwrap();
+        assert!(reconstruction.opacity(low) > reconstruction.opacity(high));
+        let before = reconstruction.opacity(low);
+        assert!(reconstruction.advance(f64::NAN).is_err());
+        assert!(reconstruction.advance(1500.0).is_err());
+        assert_eq!(reconstruction.opacity(low), before);
+        reconstruction
+            .append(&scene.parts, scene.bounds, 1600.0, true)
+            .unwrap();
+        assert!(reconstruction.opacity(low) >= before);
+        assert!(!reconstruction.advance(5000.0).unwrap());
+        assert!((0..scene.parts.len() * 2).all(|i| reconstruction.opacity(i) == 1.0));
+        assert_eq!(scene.visible_count(), ids.len());
+        let mut reduced = Reconstruction::default();
+        reduced
+            .append(&scene.parts, scene.bounds, 1000.0, false)
+            .unwrap();
+        assert!(!reduced.advance(1000.0).unwrap());
+        assert!((0..scene.parts.len()).all(|i| reduced.opacity(i) == 1.0));
+        reconstruction
+            .append(&scene.parts, scene.bounds, 5000.0, true)
+            .unwrap();
+        reconstruction.finish();
+        assert!(!reconstruction.advance(5000.0).unwrap());
     }
 
     #[test]
@@ -553,6 +839,26 @@ mod tests {
         scene.subset(&scoped).unwrap();
         assert_eq!(scene.visible_count(), 2);
         assert!(scene.select(&ids[2]).is_err());
+        scene.select(&ids[0]).unwrap();
+        scene.change_visibility(&[ids[0].clone()], false).unwrap();
+        assert_eq!(scene.visible_count(), 1);
+        assert!(scene.selected.is_empty());
+        scene.select(&ids[1]).unwrap();
+        assert!(
+            scene
+                .change_visibility(&[ids[1].clone(), "unknown".into()], false)
+                .is_err()
+        );
+        assert!(
+            scene
+                .change_visibility(&[ids[1].clone(), ids[1].clone()], false)
+                .is_err()
+        );
+        assert!(scene.change_visibility(&[ids[2].clone()], true).is_err());
+        assert_eq!(scene.visible_count(), 1);
+        assert_eq!(scene.selected, ids[1]);
+        scene.change_visibility(&[ids[0].clone()], true).unwrap();
+        assert_eq!(scene.visible_count(), 2);
         scene.select(&ids[0]).unwrap();
         scene.inspect("isolate").unwrap();
         assert_eq!(scene.visible_count(), 1);
@@ -642,6 +948,68 @@ mod tests {
         assert_eq!(scene.visible_count(), 1);
         scene.inspect("hide").unwrap();
         assert_eq!(scene.visible_count(), 0);
+    }
+
+    #[test]
+    fn worker_packing_preserves_geometry_and_validates_transfer_ranges() {
+        let folder =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/public/models/z-anatomy");
+        let metadata: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(folder.join("body-regions.json")).unwrap())
+                .unwrap();
+        let ids: Vec<String> = metadata["structures"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| s["source_id"].as_str().unwrap().to_owned())
+            .collect();
+        let scene = Scene::from_glb(
+            &std::fs::read(folder.join("body-regions.glb")).unwrap(),
+            &ids,
+        )
+        .unwrap();
+        let vertices: Vec<_> = scene
+            .parts
+            .iter()
+            .flat_map(|p| p.vertices.iter().copied())
+            .collect();
+        let mut indices = Vec::new();
+        let mut base = 0u32;
+        for part in &scene.parts {
+            indices.extend(part.indices.iter().map(|i| i + base));
+            base += (part.vertices.len() / 6) as u32;
+        }
+        let bounds = scene.bounds;
+        let (packed, transferred_vertices, transferred_indices) = scene.pack().unwrap();
+        assert_eq!(transferred_vertices, vertices);
+        assert_eq!(transferred_indices, indices);
+        assert!(
+            packed
+                .scene
+                .parts
+                .iter()
+                .all(|p| p.vertices.is_empty() && p.indices.is_empty())
+        );
+        assert_eq!(packed.scene.bounds.min, bounds.min);
+        assert_eq!(packed.scene.bounds.max, bounds.max);
+        let mut restored: PackedScene =
+            serde_json::from_str(&serde_json::to_string(&packed).unwrap()).unwrap();
+        restored.validate(vertices.len(), indices.len()).unwrap();
+        assert!(
+            restored
+                .validate(vertices.len() - 1, indices.len())
+                .is_err()
+        );
+        assert!(
+            restored
+                .validate(vertices.len(), indices.len() - 1)
+                .is_err()
+        );
+        restored.draws[0].1 = 4;
+        assert!(restored.validate(vertices.len(), indices.len()).is_err());
+        restored.draws[0].1 = 0;
+        restored.scene.parts[0].bounds.max.x = f32::NAN;
+        assert!(restored.validate(vertices.len(), indices.len()).is_err());
     }
 
     #[test]
