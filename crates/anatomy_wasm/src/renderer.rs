@@ -6,58 +6,18 @@ use web_sys::{
     WebGlRenderbuffer, WebGlShader, WebGlTexture, WebGlUniformLocation, WebGlVertexArrayObject,
 };
 
-const VERTEX: &str = r#"#version 300 es
-layout(location=0) in vec3 position;
-layout(location=1) in vec3 normal;
-uniform mat4 view_projection;
-out vec3 world_position;
-out vec3 world_normal;
-void main() {
-    world_position = position; world_normal = normal;
-    gl_Position = view_projection * vec4(position, 1.0);
-}"#;
+const VERTEX: &str = include_str!("shaders/model.vert.glsl");
 
-const FRAGMENT: &str = r#"#version 300 es
-precision highp float;
-in vec3 world_position;
-in vec3 world_normal;
-uniform vec3 eye;
-uniform vec4 base_color;
-uniform float roughness;
-uniform float metallic;
-uniform float alpha_cutoff;
-uniform bool selected;
-uniform bool picking;
-uniform vec3 pick_color;
-out vec4 output_color;
-vec3 srgb(vec3 c) {
-    return mix(c * 12.92, 1.055 * pow(max(c, vec3(0.0)), vec3(1.0/2.4)) - 0.055, step(vec3(0.0031308), c));
-}
-void main() {
-    if (base_color.a <= 0.0 || base_color.a < alpha_cutoff) discard;
-    if (picking) { output_color = vec4(pick_color, 1.0); return; }
-    vec3 n = normalize(world_normal) * (gl_FrontFacing ? 1.0 : -1.0);
-    vec3 v = normalize(eye - world_position);
-    vec3 l = normalize(vec3(2.0, 3.0, 4.0));
-    vec3 h = normalize(v + l);
-    float nl = max(dot(n, l), 0.0), nv = max(dot(n, v), 0.0001);
-    float nh = max(dot(n, h), 0.0), vh = max(dot(v, h), 0.0);
-    float a = max(roughness * roughness, 0.0025), a2 = a * a;
-    float d = a2 / max(3.14159265 * pow(nh * nh * (a2 - 1.0) + 1.0, 2.0), 0.000001);
-    float k = pow(roughness + 1.0, 2.0) / 8.0;
-    float g = nv / (nv * (1.0-k) + k) * nl / max(nl * (1.0-k) + k, 0.0001);
-    vec3 f0 = mix(vec3(0.04), base_color.rgb, metallic);
-    vec3 f = f0 + (1.0-f0) * pow(1.0-vh, 5.0);
-    vec3 diffuse = (1.0-f) * (1.0-metallic) * base_color.rgb / 3.14159265;
-    vec3 specular = d * g * f / max(4.0 * nv * nl, 0.0001);
-    vec3 color = base_color.rgb * 0.55 + (diffuse + specular) * nl * 3.0;
-    if (selected) color += vec3(0.093, 0.045, 0.007);
-    output_color = vec4(srgb(clamp(color, 0.0, 1.0)), base_color.a);
-}"#;
+const FRAGMENT: &str = include_str!("shaders/model.frag.glsl");
+
+const SPHERE_VERTEX: &str = include_str!("shaders/sphere.vert.glsl");
+
+const SPHERE_FRAGMENT: &str = include_str!("shaders/sphere.frag.glsl");
 
 struct Resources {
     gl: Gl,
     program: Option<WebGlProgram>,
+    sphere_program: Option<WebGlProgram>,
     buffers: Vec<WebGlBuffer>,
     vao: Option<WebGlVertexArrayObject>,
     framebuffer: Option<WebGlFramebuffer>,
@@ -72,6 +32,7 @@ impl Drop for Resources {
         }
         self.gl.delete_vertex_array(self.vao.as_ref());
         self.gl.delete_program(self.program.as_ref());
+        self.gl.delete_program(self.sphere_program.as_ref());
         self.gl.delete_framebuffer(self.framebuffer.as_ref());
         self.gl.delete_texture(self.texture.as_ref());
         self.gl.delete_renderbuffer(self.depth.as_ref());
@@ -87,6 +48,7 @@ impl Drop for Resources {
 struct Uniforms {
     projection: WebGlUniformLocation,
     eye: WebGlUniformLocation,
+    camera_target: WebGlUniformLocation,
     color: WebGlUniformLocation,
     roughness: WebGlUniformLocation,
     metallic: WebGlUniformLocation,
@@ -96,12 +58,18 @@ struct Uniforms {
     pick_color: WebGlUniformLocation,
 }
 
+struct SphereUniforms {
+    inverse: WebGlUniformLocation,
+    origin: WebGlUniformLocation,
+}
+
 #[wasm_bindgen]
 pub struct AnatomyViewer {
     gpu: Resources,
     scene: Scene,
     camera: Camera,
     uniforms: Uniforms,
+    sphere_uniforms: SphereUniforms,
     draws: Vec<(i32, i32)>,
     canvas: HtmlCanvasElement,
 }
@@ -159,13 +127,15 @@ impl AnatomyViewer {
         let mut gpu = Resources {
             gl: gl.clone(),
             program: None,
+            sphere_program: None,
             buffers: Vec::new(),
             vao: None,
             framebuffer: None,
             texture: None,
             depth: None,
         };
-        gpu.program = Some(program(&gl)?);
+        gpu.program = Some(program(&gl, VERTEX, FRAGMENT)?);
+        gpu.sphere_program = Some(program(&gl, SPHERE_VERTEX, SPHERE_FRAGMENT)?);
         let p = gpu.program.as_ref().unwrap();
         let location = |name: &str| {
             gl.get_uniform_location(p, name)
@@ -174,6 +144,7 @@ impl AnatomyViewer {
         let uniforms = Uniforms {
             projection: location("view_projection")?,
             eye: location("eye")?,
+            camera_target: location("camera_target")?,
             color: location("base_color")?,
             roughness: location("roughness")?,
             metallic: location("metallic")?,
@@ -181,6 +152,14 @@ impl AnatomyViewer {
             selected: location("selected")?,
             picking: location("picking")?,
             pick_color: location("pick_color")?,
+        };
+        let sphere_location = |name: &str| {
+            gl.get_uniform_location(gpu.sphere_program.as_ref().unwrap(), name)
+                .ok_or_else(|| js_error(format!("Missing sphere uniform: {name}")))
+        };
+        let sphere_uniforms = SphereUniforms {
+            inverse: sphere_location("inverse_projection")?,
+            origin: sphere_location("sphere_origin")?,
         };
         gpu.vao = Some(
             gl.create_vertex_array()
@@ -251,6 +230,7 @@ impl AnatomyViewer {
             scene,
             camera,
             uniforms,
+            sphere_uniforms,
             draws,
             canvas,
         };
@@ -406,6 +386,41 @@ impl AnatomyViewer {
 }
 
 impl AnatomyViewer {
+    fn draw_sphere(&self) {
+        let gl = &self.gpu.gl;
+        let u = &self.sphere_uniforms;
+        let matrix = self.camera.matrix();
+        gl.use_program(self.gpu.sphere_program.as_ref());
+        gl.bind_vertex_array(self.gpu.vao.as_ref());
+        gl.disable(Gl::CULL_FACE);
+        gl.enable(Gl::BLEND);
+        gl.blend_func_separate(
+            Gl::SRC_ALPHA,
+            Gl::ONE_MINUS_SRC_ALPHA,
+            Gl::ONE,
+            Gl::ONE_MINUS_SRC_ALPHA,
+        );
+        gl.uniform_matrix4fv_with_f32_array(
+            Some(&u.inverse),
+            false,
+            &matrix.inverse().to_cols_array(),
+        );
+        let bounds = self.scene.bounds;
+        let center = bounds.center();
+        gl.uniform4f(
+            Some(&u.origin),
+            center.x,
+            center.y,
+            center.z,
+            self.camera.enclosure_radius(),
+        );
+        // The enclosure is a backdrop; it never occludes anatomy or participates in picking.
+        gl.depth_mask(false);
+        gl.draw_arrays(Gl::TRIANGLES, 0, 3);
+        gl.depth_mask(true);
+        gl.disable(Gl::BLEND);
+    }
+
     fn draw(&self, picking: bool) {
         let gl = &self.gpu.gl;
         let u = &self.uniforms;
@@ -422,6 +437,9 @@ impl AnatomyViewer {
         gl.disable(Gl::DITHER);
         gl.clear_color(0.0, 0.0, 0.0, 0.0);
         gl.clear(Gl::COLOR_BUFFER_BIT | Gl::DEPTH_BUFFER_BIT);
+        if !picking {
+            self.draw_sphere();
+        }
         gl.use_program(self.gpu.program.as_ref());
         gl.bind_vertex_array(self.gpu.vao.as_ref());
         gl.uniform_matrix4fv_with_f32_array(
@@ -431,6 +449,8 @@ impl AnatomyViewer {
         );
         let eye = self.camera.eye();
         gl.uniform3f(Some(&u.eye), eye.x, eye.y, eye.z);
+        let target = self.camera.target;
+        gl.uniform3f(Some(&u.camera_target), target.x, target.y, target.z);
         gl.uniform1i(Some(&u.picking), i32::from(picking));
         let mut order: Vec<_> = self
             .scene
@@ -522,9 +542,9 @@ fn shader(gl: &Gl, kind: u32, source: &str) -> Result<WebGlShader, JsValue> {
     Ok(shader)
 }
 
-fn program(gl: &Gl) -> Result<WebGlProgram, JsValue> {
-    let vertex = shader(gl, Gl::VERTEX_SHADER, VERTEX)?;
-    let fragment = match shader(gl, Gl::FRAGMENT_SHADER, FRAGMENT) {
+fn program(gl: &Gl, vertex_source: &str, fragment_source: &str) -> Result<WebGlProgram, JsValue> {
+    let vertex = shader(gl, Gl::VERTEX_SHADER, vertex_source)?;
+    let fragment = match shader(gl, Gl::FRAGMENT_SHADER, fragment_source) {
         Ok(s) => s,
         Err(e) => {
             gl.delete_shader(Some(&vertex));
