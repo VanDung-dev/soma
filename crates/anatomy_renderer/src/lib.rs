@@ -16,6 +16,18 @@ impl Bounds {
     pub fn radius(self) -> f32 {
         (self.max - self.min).length() * 0.5
     }
+    pub fn shadow_matrix(self, light: Vec3) -> Mat4 {
+        let radius = self.radius().max(0.001) * 1.01;
+        let center = self.center();
+        glam::camera::rh::proj::opengl::orthographic(
+            -radius,
+            radius,
+            -radius,
+            radius,
+            radius,
+            radius * 3.0,
+        ) * glam::camera::rh::view::look_at_mat4(center + light * radius * 2.0, center, Vec3::Y)
+    }
     fn union(self, other: Self) -> Self {
         Self {
             min: self.min.min(other.min),
@@ -36,11 +48,29 @@ pub struct Primitive {
     pub color: [f32; 4],
     pub roughness: f32,
     pub metallic: f32,
+    pub specular: f32,
+    pub subsurface: f32,
     pub double_sided: bool,
     pub blend: bool,
     pub alpha_cutoff: f32,
     pub active: bool,
     pub visible: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(default)]
+struct Surface {
+    source_specular: f32,
+    source_subsurface: f32,
+}
+
+impl Default for Surface {
+    fn default() -> Self {
+        Self {
+            source_specular: 0.04,
+            source_subsurface: 0.0,
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize)]
@@ -85,6 +115,10 @@ impl PackedScene {
                     || !(0.0..=1.0).contains(&p.roughness)
                     || !p.metallic.is_finite()
                     || !(0.0..=1.0).contains(&p.metallic)
+                    || !p.specular.is_finite()
+                    || !(0.0..=1.0).contains(&p.specular)
+                    || !p.subsurface.is_finite()
+                    || !(0.0..=1.0).contains(&p.subsurface)
                     || !p.alpha_cutoff.is_finite()
                     || !(0.0..=1.0).contains(&p.alpha_cutoff)
                     || !p.active
@@ -454,6 +488,20 @@ fn load_node(
             }
             let material = primitive.material();
             let pbr = material.pbr_metallic_roughness();
+            let surface: Surface = material
+                .extras()
+                .as_ref()
+                .map(|extras| serde_json::from_str(extras.get()))
+                .transpose()
+                .map_err(|e| format!("Invalid material parameters: {e}"))?
+                .unwrap_or_default();
+            if !surface.source_specular.is_finite()
+                || !(0.0..=1.0).contains(&surface.source_specular)
+                || !surface.source_subsurface.is_finite()
+                || !(0.0..=1.0).contains(&surface.source_subsurface)
+            {
+                return Err("Invalid material parameters".into());
+            }
             parts.push(Primitive {
                 source_id: id.into(),
                 vertices,
@@ -462,6 +510,8 @@ fn load_node(
                 color: pbr.base_color_factor(),
                 roughness: pbr.roughness_factor(),
                 metallic: pbr.metallic_factor(),
+                specular: surface.source_specular,
+                subsurface: surface.source_subsurface,
                 double_sided: material.double_sided(),
                 blend: material.alpha_mode() == gltf::material::AlphaMode::Blend,
                 alpha_cutoff: if material.alpha_mode() == gltf::material::AlphaMode::Mask {
@@ -631,6 +681,9 @@ impl Camera {
     pub fn eye(&self) -> Vec3 {
         self.target + self.orbit_offset()
     }
+    pub fn light_basis(&self) -> Mat3 {
+        Mat3::from_rotation_y(self.yaw) * Mat3::from_rotation_x(-self.pitch)
+    }
     fn orbit_offset(&self) -> Vec3 {
         Vec3::new(
             self.yaw.sin() * self.pitch.cos(),
@@ -655,6 +708,63 @@ impl Camera {
 mod tests {
     use super::*;
     use std::path::Path;
+
+    #[test]
+    fn shadow_projection_covers_anatomy_and_orders_occluders() {
+        for bounds in [
+            Bounds {
+                min: Vec3::new(-0.4, -0.9, -0.2),
+                max: Vec3::new(0.4, 0.9, 0.2),
+            },
+            Bounds {
+                min: Vec3::ZERO,
+                max: Vec3::ZERO,
+            },
+        ] {
+            for (yaw, pitch) in [(0.0, 0.0), (std::f32::consts::PI, 1.55), (2.0, -1.55)] {
+                let mut camera = Camera::new(bounds);
+                camera.yaw = yaw;
+                camera.pitch = pitch;
+                let light =
+                    camera.light_basis() * Vec3::new(std::f32::consts::FRAC_1_SQRT_2, 0.5, 0.5);
+                let matrix = bounds.shadow_matrix(light);
+                assert!(matrix.is_finite());
+                for x in [bounds.min.x, bounds.max.x] {
+                    for y in [bounds.min.y, bounds.max.y] {
+                        for z in [bounds.min.z, bounds.max.z] {
+                            assert!(
+                                matrix
+                                    .project_point3(Vec3::new(x, y, z))
+                                    .abs()
+                                    .max_element()
+                                    <= 1.0
+                            );
+                        }
+                    }
+                }
+                let front = matrix.project_point3(bounds.center() + light * 0.0001);
+                let back = matrix.project_point3(bounds.center());
+                assert!(front.z < back.z);
+            }
+        }
+    }
+
+    #[test]
+    fn lights_follow_camera_orbit_and_ignore_pan_and_zoom() {
+        let mut camera = Camera::new(Bounds {
+            min: Vec3::splat(-1.0),
+            max: Vec3::splat(1.0),
+        });
+        for (yaw, pitch) in [(0.0, 0.0), (std::f32::consts::PI, 1.4), (2.0, -2.8)] {
+            camera.rotate(yaw, pitch).unwrap();
+            let basis = camera.light_basis();
+            assert!((basis.z_axis - (camera.eye() - camera.target).normalize()).length() < 1e-5);
+            assert!((basis.determinant() - 1.0).abs() < 1e-5);
+            camera.pan(0.1, -0.1).unwrap();
+            camera.zoom(0.8).unwrap();
+            assert_eq!(camera.light_basis(), basis);
+        }
+    }
 
     #[test]
     fn merges_real_packages_and_preserves_world_geometry_materials_and_identity() {
@@ -683,15 +793,21 @@ mod tests {
             if model["file"] == "muscular-system.glb" {
                 assert!(scene.parts.iter().any(|p| p.blend && p.color[3] < 1.0));
             }
+            let mut package = std::collections::HashMap::<_, Vec<_>>::new();
             for part in &scene.parts {
-                if let Some(vertices) = originals.get(&part.source_id) {
-                    assert_eq!(
-                        &part.vertices, vertices,
-                        "Shared structure moved between systems: {}",
-                        part.source_id
+                package
+                    .entry(part.source_id.clone())
+                    .or_default()
+                    .push((part.color, part.vertices.clone()));
+            }
+            for (id, primitives) in package {
+                if let Some(expected) = originals.get(&id) {
+                    assert!(
+                        &primitives == expected,
+                        "Shared structure changed between systems: {id}"
                     );
                 } else {
-                    originals.insert(part.source_id.clone(), part.vertices.clone());
+                    originals.insert(id, primitives);
                 }
             }
             let incoming: Scene =
@@ -745,7 +861,11 @@ mod tests {
         assert_eq!(scene.bounds.min, bounds.min);
         assert_eq!(scene.bounds.max, bounds.max);
         for part in &scene.parts {
-            assert_eq!(part.vertices, originals[&part.source_id]);
+            assert!(
+                originals[&part.source_id]
+                    .iter()
+                    .any(|(color, vertices)| *color == part.color && *vertices == part.vertices)
+            );
         }
         assert!(Scene::merge(Vec::new()).is_err());
     }
@@ -929,6 +1049,12 @@ mod tests {
             result
         };
         let mut invalid = document.clone();
+        invalid["materials"][0]["extras"]["source_specular"] = serde_json::json!(-0.1);
+        assert!(Scene::from_glb(&rebuild(&invalid), &ids).is_err());
+        invalid = document.clone();
+        invalid["materials"][0]["extras"]["source_subsurface"] = serde_json::json!(1.1);
+        assert!(Scene::from_glb(&rebuild(&invalid), &ids).is_err());
+        invalid = document.clone();
         invalid["accessors"][accessor]["byteOffset"] = serde_json::json!(bytes.len());
         assert!(Scene::from_glb(&rebuild(&invalid), &ids).is_err());
         let mut multiple = document;
