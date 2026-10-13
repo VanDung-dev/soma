@@ -183,8 +183,8 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       </aside>
       <main id="workspace" tabIndex={-1}>
         <header className="workspace-header"><span>HUMAN ATLAS</span><span>Giải phẫu người</span></header>
-        <h1>Cơ thể trong tổng thể</h1>
-        <p className="workspace-intro">Các bộ phận giữ tọa độ gốc. Tích vào cây cấu trúc để ẩn hoặc hiện cùng lúc.</p>
+        <h1>Không gian giải phẫu</h1>
+        <p className="workspace-intro">Xoay để khám phá chiều sâu · Tích vào cây cấu trúc để ẩn hoặc hiện bộ phận.</p>
         <section className="model-space" aria-label="Mô hình giải phẫu">
           <div className="model-canvas" ref={host} />
           <p className={`model-status${error ? " model-error" : ""}`} role={error ? "alert" : "status"}>{!error && meshes.length ? `${visibleIds.size}/${meshes.length} cấu trúc đang hiện` : status}</p>
