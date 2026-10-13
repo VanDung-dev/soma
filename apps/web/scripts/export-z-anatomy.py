@@ -92,6 +92,32 @@ def principled(tree, visited=None):
 
 materials = {}
 fallback_materials = set()
+def material_value(socket, visited=frozenset()):
+    if not socket.is_linked:
+        value = socket.default_value
+        return float(value) if isinstance(value, (int, float)) else tuple(value)
+    key = socket.as_pointer()
+    if key in visited: return None
+    visited = visited | {key}
+    link = socket.links[0]
+    node = link.from_node
+    if node.type == 'RGB': return tuple(link.from_socket.default_value)
+    if node.type == 'REROUTE': return material_value(node.inputs[0], visited)
+    if node.type == 'GAMMA':
+        color = material_value(node.inputs['Color'], visited)
+        gamma = material_value(node.inputs['Gamma'], visited)
+        if color is not None and gamma is not None:
+            return tuple(max(c, 0) ** gamma for c in color[:3]) + (color[3],)
+    if node.type == 'MIX' and node.data_type == 'RGBA' and node.blend_type == 'MIX':
+        factor = material_value(node.inputs[0], visited)
+        first = material_value(node.inputs[6], visited)
+        second = material_value(node.inputs[7], visited)
+        if factor is not None and first is not None and second is not None:
+            if node.clamp_factor: factor = min(1, max(0, factor))
+            color = tuple(a * (1-factor) + b * factor for a, b in zip(first, second))
+            return tuple(min(1, max(0, c)) for c in color) if node.clamp_result else color
+    return None
+
 def material_alpha(bsdf):
     alpha = float(bsdf.inputs['Alpha'].default_value)
     # shortcut: static, directly linked Transparent mixes; bake dynamic/procedural opacity when assets require it.
@@ -107,12 +133,15 @@ def material_alpha(bsdf):
     return alpha
 
 def web_material(original):
-    # shortcut: retain static PBR inputs; bake procedural shaders when visual parity is required.
+    # shortcut: resolve constant color nodes; bake spatial/object-driven nodes for complete material parity.
     name = original.name if original else 'Missing material'
     if name in materials: return materials[name]
     bsdf = principled(original.node_tree if original else None)
     if bsdf:
-        color = tuple(bsdf.inputs['Base Color'].default_value)
+        color = material_value(bsdf.inputs['Base Color'])
+        if color is None:
+            color = tuple(bsdf.inputs['Base Color'].default_value)
+            fallback_materials.add(name)
         roughness = float(bsdf.inputs['Roughness'].default_value)
         alpha = material_alpha(bsdf)
     else:
@@ -124,8 +153,12 @@ def web_material(original):
     shader = material.node_tree.nodes.get('Principled BSDF')
     shader.inputs['Base Color'].default_value = color
     shader.inputs['Roughness'].default_value = roughness
-    shader.inputs['Metallic'].default_value = 0
+    shader.inputs['Metallic'].default_value = float(bsdf.inputs['Metallic'].default_value) if bsdf else 0
     shader.inputs['Alpha'].default_value = alpha
+    ior = float(bsdf.inputs['IOR'].default_value) if bsdf else 1.5
+    specular = float(bsdf.inputs['Specular IOR Level'].default_value) if bsdf else 0.5
+    material['source_specular'] = 2 * specular * ((ior - 1) / (ior + 1)) ** 2
+    material['source_subsurface'] = float(bsdf.inputs['Subsurface Weight'].default_value) if bsdf else 0
     if alpha < 1: material.surface_render_method = 'DITHERED'
     materials[name] = material
     return material
@@ -145,8 +178,8 @@ for obj in source_objects:
         continue
     assert all(all(abs(v) < 100 for v in vertex.co) for vertex in mesh.vertices), obj.name
     original_materials = list(mesh.materials)
-    mesh.materials.clear()
-    for material in original_materials: mesh.materials.append(web_material(material))
+    # Replace slots in place: clearing them resets polygon material_index and erases cartilage/tendon surfaces.
+    for index, material in enumerate(original_materials): mesh.materials[index] = web_material(material)
     if not mesh.materials: mesh.materials.append(web_material(None))
     key = definition_key(obj)
     object_name = re.sub(r'\.(?:[oi]?[lr]|o|i)$', '', obj.name)
