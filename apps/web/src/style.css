@@ -31,6 +31,7 @@ h1 { position: absolute; z-index: 1; top: 24px; left: 50%; transform: translateX
 .model-canvas canvas { display: block; width: 100%; height: 100%; }
 .model-status { position: absolute; z-index: 1; bottom: 100px; left: 50%; transform: translateX(-50%); margin: 0; font-size: 11px; color: #526259; padding: 7px 12px; border-radius: 20px; background: rgba(251,249,242,.86); pointer-events: none; }
 .model-error { color: var(--accent); }
+.model-progress { position: absolute; z-index: 1; bottom: 90px; left: 50%; transform: translateX(-50%); width: 180px; height: 4px; accent-color: #526259; }
 .model-controls { position: absolute; z-index: 2; bottom: 48px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; padding: 8px; border: 1px solid rgba(255,255,255,.85); border-radius: 14px; background: rgba(251,249,242,.94); box-shadow: 0 10px 28px rgba(39,52,45,.12); backdrop-filter: blur(12px); }
 .model-controls button, .tree-actions button { border: 1px solid #d7d5cc; border-radius: 6px; background: #fffdf8; color: #4b504b; padding: 9px 10px; font-size: 11px; white-space: nowrap; }
 .model-controls button:hover, .tree-actions button:hover { background: #e7ddd2; }
@@ -69,6 +70,7 @@ h1 { position: absolute; z-index: 1; top: 24px; left: 50%; transform: translateX
   .model-help { width: 90%; bottom: 12px; }
   .model-controls { width: max-content; max-width: 94%; flex-wrap: wrap; justify-content: center; bottom: 56px; }
   .model-status { bottom: 140px; white-space: nowrap; }
+  .model-progress { bottom: 130px; }
   .information-panel, .catalog-panel { position: relative; inset: auto; width: 100%; overflow-y: visible; scrollbar-gutter: auto; margin-top: 16px; }
   .information-panel { order: 1; }
   .catalog-panel { order: 2; }
