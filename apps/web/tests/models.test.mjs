@@ -32,6 +32,14 @@ test('Z-Anatomy preserves geometry, structure identity, definitions and material
     assert.equal(report.issues.numErrors, 0, JSON.stringify(report.issues.messages));
     assert.equal(report.issues.numWarnings, 0, JSON.stringify(report.issues.messages));
     const gltf = JSON.parse(bytes.subarray(20, 20 + bytes.readUInt32LE(12)));
+    if (record.file === 'skeletal-system.glb') {
+      for (const name of ['Femur.l · Web', 'Femur.r · Web']) {
+        const node = gltf.nodes.find(n => n.name === name);
+        assert.deepEqual(gltf.meshes[node.mesh].primitives.map(p => gltf.materials[p.material].name).sort(), ['Bone · Web PBR', 'Cartilage · Web PBR'], 'Articular surfaces must retain their own material');
+      }
+      const bone = gltf.materials.find(m => m.name === 'Bone · Web PBR');
+      assert(Math.abs(bone.pbrMetallicRoughness.metallicFactor - 0.4903846085) < 1e-6, 'Preserve source bone reflectance');
+    }
     const pkg = JSON.parse(metadataBytes), nodes = gltf.nodes.filter(n => n.extras?.source_id);
     assert(gltf.meshes.every(m => m.primitives.every(p => (p.mode ?? 4) === 4)));
     assert.deepEqual(nodes.map(n => n.extras.source_id).sort(), record.source_ids);
@@ -65,7 +73,17 @@ test('Z-Anatomy preserves geometry, structure identity, definitions and material
       assert.equal(typeof d.text, 'string'); assert(d.text.length);
       assert(d.links.every(link => /^https?:\/\//.test(link)));
     }
-    for (const material of gltf.materials) colors.add(JSON.stringify(material.pbrMetallicRoughness?.baseColorFactor));
+    for (const material of gltf.materials) {
+      colors.add(JSON.stringify(material.pbrMetallicRoughness?.baseColorFactor));
+      for (const key of ['source_specular', 'source_subsurface']) {
+        assert(Number.isFinite(material.extras[key]) && material.extras[key] >= 0 && material.extras[key] <= 1, `${material.name}: ${key}`);
+      }
+      if (material.name === 'Cartilage · Web PBR') assert.equal(material.extras.source_subsurface, 1);
+      if (material.name === 'Ductus · Web PBR') {
+        const expected = [0.338579, 0.301595, 0.137033, 1];
+        assert(material.pbrMetallicRoughness.baseColorFactor.every((v, i) => Math.abs(v - expected[i]) < 1e-5));
+      }
+    }
     const fascia = gltf.materials.find(m => m.name === 'Fascia · Web PBR');
     if (fascia) {
       assert.equal(fascia.alphaMode, 'BLEND', 'Fascia must not hide the muscles as an opaque shell');
