@@ -10,7 +10,7 @@ const selectionBytes = await readFile(new URL('../../../content/z-anatomy-select
 const selections = JSON.parse(selectionBytes);
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const availableIds = new Set(manifest.models.flatMap(m => m.source_ids));
-test('Z-Anatomy preserves geometry, structure identity, definitions and materials', async () => {
+test('Z-Anatomy preserves geometry, structure identity, names and materials', async () => {
   assert.equal(manifest.source, 'Z-Anatomy');
   assert.equal(manifest.models.length, 9);
   assert.equal(hash(selectionBytes), manifest.selections_sha256);
@@ -45,14 +45,14 @@ test('Z-Anatomy preserves geometry, structure identity, definitions and material
     assert.deepEqual(nodes.map(n => n.extras.source_id).sort(), record.source_ids);
     assert.deepEqual(pkg.structures.map(s => s.source_id).sort(), record.source_ids);
     assert.equal(new Set(record.source_ids).size, record.structures);
-    assert.equal(Object.keys(pkg.definitions).length, record.definitions);
+    assert(!('definitions' in pkg) && !('collection_definitions' in pkg));
     const entries = catalog.targets.filter(t => t.group_id === target.group_id);
     assert.equal(entries.length, record.catalog_nodes);
     assert.deepEqual(target.model.structure_ids, record.source_ids);
     assert(record.source_ids.every(id => target.structure_ids.includes(id)));
     for (const entry of entries) {
       assert(entry.structure_ids.every(id => availableIds.has(id)));
-      if (entry.definition_key) assert(pkg.collection_definitions[entry.definition_key]);
+      assert(!('definition_key' in entry));
       if (entry.parent_id) {
         const parent = entries.find(t => t.id === entry.parent_id);
         assert(parent);
@@ -67,11 +67,7 @@ test('Z-Anatomy preserves geometry, structure identity, definitions and material
       assert.deepEqual(nodes.find(n => n.extras.source_id === s.source_id).extras, s);
       if (inventory.has(s.source_id)) assert.deepEqual(inventory.get(s.source_id), s);
       inventory.set(s.source_id, s);
-      if (s.definition_key) assert(pkg.definitions[s.definition_key]);
-    }
-    for (const d of [...Object.values(pkg.definitions), ...Object.values(pkg.collection_definitions)]) {
-      assert.equal(typeof d.text, 'string'); assert(d.text.length);
-      assert(d.links.every(link => /^https?:\/\//.test(link)));
+      assert(!('definition_key' in s));
     }
     for (const material of gltf.materials) {
       colors.add(JSON.stringify(material.pbrMetallicRoughness?.baseColorFactor));
@@ -93,20 +89,23 @@ test('Z-Anatomy preserves geometry, structure identity, definitions and material
     assert.equal(gltf.meshes.reduce((n, m) => n + m.primitives.reduce((s, p) => s + gltf.accessors[p.indices ?? p.attributes.POSITION].count / 3, 0), 0), record.triangles);
   }
   assert.equal(inventory.size, manifest.unique_structures); assert.equal(inventory.size, 3874);
-  assert.equal([...inventory.values()].filter(s => s.definition_key).length, manifest.structures_with_definitions);
-  assert.equal(manifest.structures_with_definitions, 2716);
+  assert(!('structures_with_definitions' in manifest));
   assert.equal(inventory.size + manifest.excluded_objects.length, 4224);
   assert.equal(manifest.repaired_meshes.length, 29);
   assert(manifest.repaired_meshes.every(m => inventory.has('za:' + hash(m.object).slice(0, 16)) && m.before.vertices > 0 && m.after.polygons > 0));
   assert(colors.size > 10);
   assert(manifest.excluded_objects.every(o => o.object && o.reason));
   const heart = JSON.parse(await readFile(new URL('cardiovascular-system.json', folder)));
-  assert(heart.structures.some(s => s.source_name === 'Right atrium' && s.definition_key === 'Right atrium'));
-  assert(heart.definitions['Right atrium'].links.some(link => link.includes('wikipedia.org')));
+  assert(heart.structures.some(s => s.source_name === 'Right atrium'));
+  const names = JSON.parse(await readFile(new URL('../../../content/anatomy-names.json', import.meta.url)));
+  assert.equal(names.length, 2053);
+  assert.equal(new Set(names.map(entry => entry.name)).size, names.length);
+  assert.deepEqual(names.flatMap(entry => entry.structure_ids).sort(), [...inventory.keys()].sort());
+  for (const entry of names) assert(entry.structure_ids.every(id => inventory.get(id).source_name === entry.name));
 });
 
 test('navigation follows nine source roots and keeps deep, scoped categories', async () => {
-  assert.equal(catalog.schema_version, 3);
+  assert.equal(catalog.schema_version, 4);
   assert.equal(catalog.targets.length, 1981);
   const roots = catalog.targets.filter(t => !t.parent_id);
   assert.deepEqual(roots.map(t => t.source_name), Object.values(selections).map(s => s.source_collection));
@@ -118,8 +117,7 @@ test('navigation follows nine source roots and keeps deep, scoped categories', a
   assert.equal(atrium.structure_ids.length, 1);
   const pkg = JSON.parse(await readFile(new URL('cardiovascular-system.json', folder)));
   assert.equal(pkg.structures.find(s => s.source_id === atrium.structure_ids[0]).source_name, 'Right atrium');
-  assert(pkg.collection_definitions[atrium.definition_key].text.length);
-  assert(catalog.targets.some(t => t.structure_ids.length === 0 && t.definition_key));
+  assert(catalog.targets.some(t => t.structure_ids.length === 0));
   let maxDepth = 0;
   for (const t of catalog.targets) {
     const seen = new Set(); let entry = t;
@@ -129,21 +127,19 @@ test('navigation follows nine source roots and keeps deep, scoped categories', a
   assert.equal(maxDepth, 10);
 });
 
-test('source definition aliases and cross-asset folders restore existing data', async () => {
+test('names and cross-asset folders remain independent of descriptions', async () => {
   const muscular = JSON.parse(await readFile(new URL('muscular-system.json', folder)));
   const fascia = catalog.targets.find(t => t.source_name === 'Fascia');
-  assert.equal(fascia.definition_key, 'Fasciae');
-  assert(muscular.collection_definitions[fascia.definition_key].text.includes('A fascia'));
+  assert(fascia.structure_ids.length > 0);
   const visceral = JSON.parse(await readFile(new URL('visceral-systems.json', folder)));
   const mucosa = catalog.targets.find(t => t.source_name === 'Mucosa of stomach');
   const mesh = visceral.structures.find(s => s.source_object === 'Mucosa of stomach');
   assert.equal(mesh.source_name, 'Mucosa of stomach');
-  assert.equal(mesh.definition_key, 'Mucosa of stomach');
   assert(mucosa.structure_ids.includes(mesh.source_id));
   const skeletal = JSON.parse(await readFile(new URL('skeletal-system.json', folder)));
   const costal = skeletal.structures.filter(s => s.source_name === 'Costal cartilage of second rib');
   assert.equal(costal.length, 2);
-  assert(costal.every(s => s.definition_key === 'Costal cartilage of 2nd rib'));
+  assert(costal.every(s => !('definition_key' in s)));
   for (const [name, count] of [['Biceps brachii muscle', 4], ['Triceps brachii muscle', 6], ['Levator ani', 8]]) {
     const target = catalog.targets.find(t => t.source_name === name);
     assert.equal(target.structure_ids.length, count, name);
@@ -160,7 +156,7 @@ test('source definition aliases and cross-asset folders restore existing data', 
   for (const name of ['Thorax', 'Abdomen', 'Pelvis']) {
     const target = catalog.targets.find(t => t.source_name === name);
     const root = catalog.targets.find(t => t.group_id === target.group_id && t.model);
-    assert(target.structure_ids.length && target.definition_key, name);
+    assert(target.structure_ids.length, name);
     assert(target.structure_ids.some(id => !root.model.structure_ids.includes(id)), name);
     assert(target.structure_ids.every(id => availableIds.has(id)), name);
   }
@@ -168,5 +164,5 @@ test('source definition aliases and cross-asset folders restore existing data', 
   assert.equal(pronator.structure_ids.length, 0, 'Do not replace a missing whole muscle with its attachment mesh');
   const bursa = catalog.targets.find(t => t.source_name === 'Synovial bursa');
   assert.equal(bursa.structure_ids.length, 0);
-  assert.equal(bursa.definition_key, '', 'No fabricated source definition');
+  assert(!('definition_key' in bursa));
 });
