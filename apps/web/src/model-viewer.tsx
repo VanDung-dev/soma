@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { getWasm } from "./core";
 import type { Catalog } from "./core";
 import { StructureTree } from "./structure-tree";
+import { ModelControls } from "./model-controls";
 import type { AnatomyViewer } from "./wasm/anatomy_wasm";
 
 export interface Structure { source_id: string; source_name: string; source_object: string; definition_key: string; latin: string; laterality: string; collections: string[] }
@@ -64,7 +65,8 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     const container = host.current!;
     const canvas = document.createElement("canvas");
     canvas.setAttribute("role", "img");
-    canvas.setAttribute("aria-label", "Mô hình 3D cơ thể người. Kéo để xoay, cuộn để phóng to, trỏ vào để xem thông tin. Cây cấu trúc và nút điều khiển hỗ trợ bàn phím.");
+    canvas.tabIndex = 0;
+    canvas.setAttribute("aria-label", "Mô hình 3D cơ thể người. W A S D để di chuyển góc nhìn, phím mũi tên để xoay, E để phóng to, Q để thu nhỏ, R để đặt lại. Kéo để xoay, cuộn để phóng to, trỏ vào để xem thông tin.");
     container.appendChild(canvas);
     const abort = new AbortController();
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -92,6 +94,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     let dragged = false;
     const pointerDown = (event: PointerEvent) => {
       if (loading.current || animating.current) return;
+      canvas.focus({ preventScroll: true });
       clearTimeout(hoverTimer); hoverTimer = 0; hoverEvent = undefined;
       canvas.setPointerCapture(event.pointerId);
       const point = { x: event.clientX, y: event.clientY };
@@ -280,18 +283,12 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         <p className="workspace-intro">Xoay để khám phá chiều sâu · Tích vào cây cấu trúc để ẩn hoặc hiện bộ phận.</p>
         <section className="model-space" aria-label="Mô hình giải phẫu">
           <div className="model-canvas" ref={host} aria-busy={building && !error} />
-          <p className={`model-status${error ? " model-error" : ""}`} role={error ? "alert" : "status"}>{!error && !building && meshes.length ? `${visibleIds.size}/${meshes.length} cấu trúc đang hiện` : status}</p>
-          {building && !error && <progress className="model-progress" aria-label="Các hệ giải phẫu đã nạp" value={loadedSystems} max={roots.length} />}
-          <div className="model-controls" aria-label="Điều khiển mô hình">
-            <button disabled={building || error} onClick={() => operate(renderer => renderer.rotate(-Math.PI / 8, 0))}>Xoay trái</button>
-            <button disabled={building || error} onClick={() => operate(renderer => renderer.rotate(Math.PI / 8, 0))}>Xoay phải</button>
-            <button disabled={building || error} onClick={() => operate(renderer => renderer.rotate(0, Math.PI / 8))}>Xoay lên</button>
-            <button disabled={building || error} onClick={() => operate(renderer => renderer.zoom(1 / 1.2))}>Phóng to</button>
-            <button disabled={building || error} onClick={() => operate(renderer => renderer.zoom(1.2))}>Thu nhỏ</button>
-            <button disabled={building || error} onClick={() => operate(renderer => renderer.inspect("reset"))}>Đặt lại góc nhìn</button>
+          <div className="model-hud">
+            <p className={`model-status${error ? " model-error" : ""}`} role={error ? "alert" : "status"}>{!error && !building && meshes.length ? `${visibleIds.size}/${meshes.length} cấu trúc đang hiện` : status}</p>
+            {building && !error && <progress className="model-progress" aria-label="Các hệ giải phẫu đã nạp" value={loadedSystems} max={roots.length} />}
+            <ModelControls disabled={building || error} onOperate={operate} />
           </div>
         </section>
-        <p className="model-help">Kéo để xoay · Cuộn để phóng to · Shift + kéo để di chuyển · Trỏ vào để xem thông tin</p>
       </main>
       <aside className="information-panel" aria-label="Thông tin bộ phận">
         <p className="eyebrow">THÔNG TIN GIẢI PHẪU</p>
