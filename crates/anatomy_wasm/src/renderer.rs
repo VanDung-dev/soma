@@ -14,16 +14,21 @@ const FRAGMENT: &str = include_str!("shaders/model.frag.glsl");
 const SPHERE_VERTEX: &str = include_str!("shaders/sphere.vert.glsl");
 
 const SPHERE_FRAGMENT: &str = include_str!("shaders/sphere.frag.glsl");
+const OUTLINE_VERTEX: &str = include_str!("shaders/outline.vert.glsl");
+const OUTLINE_FRAGMENT: &str = include_str!("shaders/outline.frag.glsl");
 
 struct Resources {
     gl: Gl,
     program: Option<WebGlProgram>,
     sphere_program: Option<WebGlProgram>,
+    outline_program: Option<WebGlProgram>,
     buffers: Vec<WebGlBuffer>,
     vaos: Vec<WebGlVertexArrayObject>,
     framebuffer: Option<WebGlFramebuffer>,
     texture: Option<WebGlTexture>,
     depth: Option<WebGlRenderbuffer>,
+    outline_framebuffer: Option<WebGlFramebuffer>,
+    outline_texture: Option<WebGlTexture>,
 }
 
 impl Resources {
@@ -72,9 +77,13 @@ impl Drop for Resources {
         }
         self.gl.delete_program(self.program.as_ref());
         self.gl.delete_program(self.sphere_program.as_ref());
+        self.gl.delete_program(self.outline_program.as_ref());
         self.gl.delete_framebuffer(self.framebuffer.as_ref());
         self.gl.delete_texture(self.texture.as_ref());
         self.gl.delete_renderbuffer(self.depth.as_ref());
+        self.gl
+            .delete_framebuffer(self.outline_framebuffer.as_ref());
+        self.gl.delete_texture(self.outline_texture.as_ref());
         if let Ok(Some(extension)) = self.gl.get_extension("WEBGL_lose_context")
             && let Ok(function) = js_sys::Reflect::get(&extension, &"loseContext".into())
             && let Some(function) = function.dyn_ref::<js_sys::Function>()
@@ -109,6 +118,11 @@ struct SphereUniforms {
     origin: WebGlUniformLocation,
 }
 
+struct OutlineUniforms {
+    mask: WebGlUniformLocation,
+    texel: WebGlUniformLocation,
+}
+
 #[wasm_bindgen]
 pub struct AnatomyViewer {
     gpu: Resources,
@@ -116,6 +130,7 @@ pub struct AnatomyViewer {
     camera: Camera,
     uniforms: Uniforms,
     sphere_uniforms: SphereUniforms,
+    outline_uniforms: OutlineUniforms,
     draws: Vec<(usize, i32, i32)>,
     reconstruction: Reconstruction,
     shadow_cached: Cell<bool>,
@@ -248,14 +263,18 @@ impl AnatomyViewer {
             gl: gl.clone(),
             program: None,
             sphere_program: None,
+            outline_program: None,
             buffers: Vec::new(),
             vaos: Vec::new(),
             framebuffer: None,
             texture: None,
             depth: None,
+            outline_framebuffer: None,
+            outline_texture: None,
         };
         gpu.program = Some(program(&gl, VERTEX, FRAGMENT)?);
         gpu.sphere_program = Some(program(&gl, SPHERE_VERTEX, SPHERE_FRAGMENT)?);
+        gpu.outline_program = Some(program(&gl, OUTLINE_VERTEX, OUTLINE_FRAGMENT)?);
         let p = gpu.program.as_ref().unwrap();
         let location = |name: &str| {
             gl.get_uniform_location(p, name)
@@ -288,6 +307,14 @@ impl AnatomyViewer {
             inverse: sphere_location("inverse_projection")?,
             origin: sphere_location("sphere_origin")?,
         };
+        let outline_location = |name: &str| {
+            gl.get_uniform_location(gpu.outline_program.as_ref().unwrap(), name)
+                .ok_or_else(|| js_error(format!("Missing outline uniform: {name}")))
+        };
+        let outline_uniforms = OutlineUniforms {
+            mask: outline_location("selection_mask")?,
+            texel: outline_location("texel")?,
+        };
         gpu.upload(vertices, indices)?;
         gpu.framebuffer = Some(
             gl.create_framebuffer()
@@ -301,6 +328,14 @@ impl AnatomyViewer {
             gl.create_renderbuffer()
                 .ok_or_else(|| js_error("Cannot allocate picking depth buffer"))?,
         );
+        gpu.outline_framebuffer = Some(
+            gl.create_framebuffer()
+                .ok_or_else(|| js_error("Cannot allocate outline framebuffer"))?,
+        );
+        gpu.outline_texture = Some(
+            gl.create_texture()
+                .ok_or_else(|| js_error("Cannot allocate outline texture"))?,
+        );
         let camera = Camera::new(scene.bounds);
         let mut reconstruction = Reconstruction::default();
         reconstruction
@@ -312,6 +347,7 @@ impl AnatomyViewer {
             camera,
             uniforms,
             sphere_uniforms,
+            outline_uniforms,
             draws: draws
                 .into_iter()
                 .map(|(count, offset)| (0, count, offset))
@@ -379,6 +415,38 @@ impl AnatomyViewer {
         gl.bind_framebuffer(Gl::FRAMEBUFFER, None);
         if !complete || gl.get_error() != Gl::NO_ERROR {
             return Err(js_error("Picking framebuffer allocation failed"));
+        }
+        gl.bind_texture(Gl::TEXTURE_2D, self.gpu.outline_texture.as_ref());
+        for parameter in [Gl::TEXTURE_MIN_FILTER, Gl::TEXTURE_MAG_FILTER] {
+            gl.tex_parameteri(Gl::TEXTURE_2D, parameter, Gl::LINEAR as i32);
+        }
+        for parameter in [Gl::TEXTURE_WRAP_S, Gl::TEXTURE_WRAP_T] {
+            gl.tex_parameteri(Gl::TEXTURE_2D, parameter, Gl::CLAMP_TO_EDGE as i32);
+        }
+        gl.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
+            Gl::TEXTURE_2D,
+            0,
+            Gl::RGBA8 as i32,
+            width as i32,
+            height as i32,
+            0,
+            Gl::RGBA,
+            Gl::UNSIGNED_BYTE,
+            None,
+        )?;
+        gl.bind_framebuffer(Gl::FRAMEBUFFER, self.gpu.outline_framebuffer.as_ref());
+        gl.framebuffer_texture_2d(
+            Gl::FRAMEBUFFER,
+            Gl::COLOR_ATTACHMENT0,
+            Gl::TEXTURE_2D,
+            self.gpu.outline_texture.as_ref(),
+            0,
+        );
+        let complete = gl.check_framebuffer_status(Gl::FRAMEBUFFER) == Gl::FRAMEBUFFER_COMPLETE;
+        gl.bind_framebuffer(Gl::FRAMEBUFFER, None);
+        gl.bind_texture(Gl::TEXTURE_2D, None);
+        if !complete || gl.get_error() != Gl::NO_ERROR {
+            return Err(js_error("Outline framebuffer allocation failed"));
         }
         Ok(())
     }
@@ -509,6 +577,68 @@ impl AnatomyViewer {
             gl.bind_framebuffer(Gl::FRAMEBUFFER, None);
         }
         self.draw_pass(picking, false);
+        if !picking && !self.scene.selected.is_empty() {
+            self.draw_outline();
+        }
+    }
+
+    fn draw_outline(&self) {
+        let gl = &self.gpu.gl;
+        let u = &self.uniforms;
+        gl.bind_framebuffer(Gl::FRAMEBUFFER, self.gpu.outline_framebuffer.as_ref());
+        gl.bind_texture(Gl::TEXTURE_2D, None);
+        gl.disable(Gl::DEPTH_TEST);
+        gl.disable(Gl::CULL_FACE);
+        gl.disable(Gl::BLEND);
+        gl.clear_color(0.0, 0.0, 0.0, 0.0);
+        gl.clear(Gl::COLOR_BUFFER_BIT);
+        gl.use_program(self.gpu.program.as_ref());
+        gl.uniform_matrix4fv_with_f32_array(
+            Some(&u.projection),
+            false,
+            &self.camera.matrix().to_cols_array(),
+        );
+        gl.uniform1i(Some(&u.shadow_pass), 0);
+        gl.uniform1i(Some(&u.picking), 1);
+        gl.uniform3f(Some(&u.pick_color), 1.0, 1.0, 1.0);
+        for (i, part) in self.scene.parts.iter().enumerate() {
+            if !part.visible || part.source_id != self.scene.selected {
+                continue;
+            }
+            gl.uniform4fv_with_f32_array(Some(&u.color), &part.color);
+            gl.uniform1f(Some(&u.cutoff), part.alpha_cutoff);
+            gl.uniform1f(Some(&u.reveal), self.reconstruction.opacity(i));
+            let (vao, count, offset) = self.draws[i];
+            gl.bind_vertex_array(Some(&self.gpu.vaos[vao]));
+            gl.draw_elements_with_i32(Gl::TRIANGLES, count, Gl::UNSIGNED_INT, offset);
+        }
+        gl.bind_framebuffer(Gl::FRAMEBUFFER, None);
+        gl.use_program(self.gpu.outline_program.as_ref());
+        gl.bind_texture(Gl::TEXTURE_2D, self.gpu.outline_texture.as_ref());
+        gl.uniform1i(Some(&self.outline_uniforms.mask), 0);
+        let css_width = self.canvas.client_width();
+        let ratio = if css_width > 0 {
+            self.canvas.width() as f32 / css_width as f32
+        } else {
+            1.0
+        };
+        gl.uniform2f(
+            Some(&self.outline_uniforms.texel),
+            ratio / self.canvas.width() as f32,
+            ratio / self.canvas.height() as f32,
+        );
+        gl.enable(Gl::BLEND);
+        gl.blend_func_separate(
+            Gl::SRC_ALPHA,
+            Gl::ONE_MINUS_SRC_ALPHA,
+            Gl::ONE,
+            Gl::ONE_MINUS_SRC_ALPHA,
+        );
+        gl.depth_mask(false);
+        gl.draw_arrays(Gl::TRIANGLES, 0, 3);
+        gl.depth_mask(true);
+        gl.disable(Gl::BLEND);
+        gl.bind_texture(Gl::TEXTURE_2D, None);
     }
 
     fn draw_pass(&self, picking: bool, shadow_pass: bool) {
