@@ -23,6 +23,13 @@ test('Wikipedia reader opens mapped articles and leaves unmapped structures expl
     assert(html.includes('sandbox="allow-scripts allow-same-origin"'));
     assert(html.includes('chưa được đối chiếu độc lập'));
     assert(html.includes('chỉ phục vụ tham khảo'));
+    assert.match(html, /<h3>Wikipedia<button[^>]+aria-label="Thông tin về Wikipedia"/);
+    assert(html.includes('aria-expanded="false"'));
+    assert.match(html, /class="reader-notes" hidden=""/);
+    assert(html.includes('<details class="reference-mapping"><summary>Về liên kết tham khảo</summary>'));
+    assert(html.includes('target="_blank" rel="noreferrer"'));
+    assert(html.indexOf('<iframe') < html.indexOf('class="reader-actions"'));
+    assert(html.indexOf('class="reference-notice"') > html.indexOf('class="reader-note"'));
     const missing = renderToStaticMarkup(createElement(WikipediaReader, { name: 'Unmapped <part> & name' }));
     assert(!missing.includes('<iframe'));
     assert(missing.includes('Chưa gắn bài Wikipedia'));
