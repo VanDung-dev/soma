@@ -19,20 +19,26 @@ selection_bytes = (root / 'content/z-anatomy-selections.json').read_bytes()
 selections = json.loads(selection_bytes)
 source_objects = list(bpy.data.objects)
 source_collections = dict(bpy.data.collections.items())
-texts = {t.name: t.as_string().strip() for t in bpy.data.texts if t.as_string().strip()}
+translation_text = bpy.data.texts.get('Translations')
 translations = {}
-for row in csv.DictReader(io.StringIO(texts.get('Translations', '')), delimiter=';'):
+for row in csv.DictReader(io.StringIO(translation_text.as_string() if translation_text else ''), delimiter=';'):
     translations[row['English']] = row.get('Latin', '')
 
 def eligible(obj):
     return obj.type in {'MESH', 'CURVE'} and not re.search(r'\.(j|t|g|st)$|-profile', obj.name, re.I) and any(re.match(r'^[1-9]:', c.name) for c in obj.users_collection)
 
-def definition_key(obj):
-    name = obj.data.name
-    return re.sub(r'\.(?:[oi]?[lr]|o|i)$', '', name)
+def structure_name(obj):
+    object_name = re.sub(r'\.(?:[oi]?[lr]|o|i)$', '', obj.name)
+    # These source meshes use generic or reused datablock names.
+    if object_name in {'Coccygeus muscle', 'Descending part of trapezius muscle',
+                       'Transverse part of trapezius muscle', 'Mucosa of stomach',
+                       'Lateral basal segmental bronchus of left lung (BIX)',
+                       'Medial basal segmental bronchus of right lung (BVII)'}:
+        return object_name
+    return re.sub(r'\.(?:[oi]?[lr]|o|i)$', '', obj.data.name)
 
-# These source text keys differ from collection labels; keep the original text and provenance.
-definition_aliases = {
+# Anatomical spelling variants used only for hierarchy matching.
+name_aliases = {
     'Cartilages': 'Cartilage',
     'Interlobular sulci': 'Interlobar sulci',
     'Costal cartilage of first rib': 'Costal cartilage of 1st rib',
@@ -68,14 +74,9 @@ definition_aliases = {
 def source_label(name):
     return name.strip().rstrip("'")
 
-def resolve_definition(*names):
-    for name in names:
-        if name in texts: return name
-    for name in names:
-        name = source_label(name)
-        if name in texts: return name
-        if definition_aliases.get(name) in texts: return definition_aliases[name]
-    return ''
+def matching_labels(*names):
+    labels = {source_label(name) for name in names}
+    return labels | {source_label(name_aliases[name]) for name in labels if name in name_aliases}
 
 def principled(tree, visited=None):
     if not tree: return None
@@ -181,16 +182,12 @@ for obj in source_objects:
     # Replace slots in place: clearing them resets polygon material_index and erases cartilage/tendon surfaces.
     for index, material in enumerate(original_materials): mesh.materials[index] = web_material(material)
     if not mesh.materials: mesh.materials.append(web_material(None))
-    key = definition_key(obj)
-    object_name = re.sub(r'\.(?:[oi]?[lr]|o|i)$', '', obj.name)
-    if key not in texts and object_name in texts: key = object_name
-    text_key = resolve_definition(key, object_name)
+    key = structure_name(obj)
     side = re.search(r'\.([oi]?)([lr])$', obj.name)
     geometry[obj.name] = {'mesh': mesh, 'matrix': obj.matrix_world.copy(), 'meta': {
         'source_id': 'za:' + hashlib.sha256(obj.name.encode()).hexdigest()[:16],
         'source_name': key,
         'source_object': obj.name,
-        'definition_key': text_key,
         'latin': translations.get(key, ''),
         'laterality': {'l': 'left', 'r': 'right'}[side[2]] if side else '',
         'collections': sorted(c.name for c in obj.users_collection),
@@ -216,10 +213,7 @@ scene.unit_settings.system = 'METRIC'
 scene.unit_settings.scale_length = 1
 bpy.context.window.scene = scene
 addon_utils.enable('io_scene_gltf2')
-def definition(key):
-    return {'text': texts[key], 'links': sorted(set(re.findall(r'https?://[^\s<>"\]]+', texts[key])))}
-
-catalog = {'schema_version': 3, 'groups': [], 'targets': []}
+catalog = {'schema_version': 4, 'groups': [], 'targets': []}
 covered = set()
 manifest = {'source': 'Z-Anatomy', 'source_file': 'Z-Anatomy/Startup.blend', 'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(), 'selections_sha256': hashlib.sha256(selection_bytes).hexdigest(), 'blender': bpy.app.version_string, 'units': 'metres', 'up_axis': 'Y', 'license': 'CC BY-SA 4.0; upstream third-party notices also apply', 'excluded_objects': excluded, 'models': []}
 for name, recipe in selections.items():
@@ -229,8 +223,6 @@ for name, recipe in selections.items():
     covered.update(names)
     group_id = 'group:' + name
     catalog['groups'].append({'id': group_id, 'title': recipe['title']})
-    definitions = {}
-    collection_definitions = {}
     nodes = []
 
     def collect(collection_name, parent_id=None, path=()):
@@ -238,8 +230,7 @@ for name, recipe in selections.items():
         collection = source_collections[collection_name]
         path = (*path, collection_name)
         node_id = 'collection:' + hashlib.sha256((name + '/' + '/'.join(path)).encode()).hexdigest()[:16]
-        key = resolve_definition(collection.get('English', collection_name), collection_name)
-        node = {'id': node_id, 'title': collection_name, 'source_name': collection_name, 'group_id': group_id, 'structure_ids': [], 'definition_key': key}
+        node = {'id': node_id, 'title': collection_name, 'source_name': collection_name, 'group_id': group_id, 'structure_ids': []}
         if parent_id: node['parent_id'] = parent_id
         else:
             node['title'] = recipe['title']
@@ -248,9 +239,9 @@ for name, recipe in selections.items():
         nodes.append(node)
         matches = {o.name for o in collection.all_objects} & geometry.keys()
         # Named leaf folders can be empty while the corresponding mesh belongs to their parent.
-        labels = {source_label(collection_name), source_label(collection.get('English', collection_name)), key}
+        labels = matching_labels(collection_name, collection.get('English', collection_name))
         labels.discard('')
-        matches.update(n for n in names if source_label(geometry[n]['meta']['source_name']) in labels or source_label(re.sub(r'\.(?:[oi]?[lr]|o|i)$', '', n)) in labels or source_label(geometry[n]['meta']['definition_key']) in labels)
+        matches.update(n for n in names if source_label(geometry[n]['meta']['source_name']) in labels or source_label(re.sub(r'\.(?:[oi]?[lr]|o|i)$', '', n)) in labels or bool(matching_labels(geometry[n]['meta']['source_name']) & labels))
         # Attachments parented to a bone are not parts of that bone's assembly.
         for label in labels:
             matches.update(n for n in group_geometry.get(label + '.g', set())
@@ -259,7 +250,6 @@ for name, recipe in selections.items():
             matches.update(collect(child.name, node_id, path))
         if not parent_id: matches.update(names)
         node['structure_ids'] = sorted(geometry[n]['meta']['source_id'] for n in matches)
-        if key: collection_definitions[key] = definition(key)
         return matches
 
     collect(recipe['hierarchy_collection'])
@@ -273,18 +263,14 @@ for name, recipe in selections.items():
         scene.collection.objects.link(obj)
         obj.select_set(True)
         exported.append(obj)
-        key = g['meta']['definition_key']
-        if key:
-            definitions[key] = definition(key)
     assert bpy.ops.export_scene.gltf(filepath=str(output / (name + '.glb')), export_format='GLB', use_selection=True, use_active_scene=True, export_extras=True, export_animations=False, export_texcoords=False, export_vertex_color='NONE', export_cameras=False, export_lights=False) == {'FINISHED'}
     for obj in exported: bpy.data.objects.remove(obj, do_unlink=True)
-    package = {'source': 'Z-Anatomy', 'structures': [geometry[n]['meta'] for n in sorted(names)], 'definitions': definitions, 'collection_definitions': collection_definitions}
+    package = {'source': 'Z-Anatomy', 'structures': [geometry[n]['meta'] for n in sorted(names)]}
     (output / (name + '.json')).write_text(json.dumps(package, ensure_ascii=False), encoding='utf8')
-    manifest['models'].append({'file': name + '.glb', 'metadata_file': name + '.json', 'structures': len(names), 'definitions': len(definitions), 'source_ids': sorted(geometry[n]['meta']['source_id'] for n in names), 'selection': recipe, 'catalog_nodes': len(nodes)})
-    print(f'EXPORTED {name}: {len(names)} structures, {len(definitions)} definitions', flush=True)
+    manifest['models'].append({'file': name + '.glb', 'metadata_file': name + '.json', 'structures': len(names), 'source_ids': sorted(geometry[n]['meta']['source_id'] for n in names), 'selection': recipe, 'catalog_nodes': len(nodes)})
+    print(f'EXPORTED {name}: {len(names)} structures', flush=True)
 assert covered == geometry.keys(), f'Unselected anatomy: {sorted(geometry.keys() - covered)}'
 manifest['unique_structures'] = len(covered)
-manifest['structures_with_definitions'] = sum(bool(g['meta']['definition_key']) for g in geometry.values())
 manifest['fallback_materials'] = sorted(fallback_materials)
 manifest['repaired_meshes'] = repaired
 (output / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf8')

@@ -1,4 +1,4 @@
-# Z-Anatomy assets and definitions
+# Z-Anatomy assets and names
 
 These GLB and JSON packages are derived from the locally supplied `Z-Anatomy/Startup.blend`. The original file is not modified. Its SHA-256, the selection recipe checksum, Blender version and each generated file checksum are recorded in `manifest.json`.
 
@@ -17,7 +17,7 @@ Upstream also identifies these third-party inputs:
 
 The upstream general license does not remove the noncommercial conditions of individual contributions. The supplied blend does not provide a complete, independently verified object-to-license mapping. Preserve these notices with redistribution and resolve component terms before commercial distribution. A credited contribution is not proof that its geometry is present in this particular blend.
 
-Definitions are copied as plain English text from Blender text blocks, with any matching Latin terms from its `Translations` table. They are mostly derived from Wikipedia; upstream credits [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) for those definitions. Original source links are retained in the JSON and displayed with the text. Missing definitions are left absent. Upstream warns that translated text can contain errors.
+The packages retain anatomical names and matching Latin terms from the `Translations` table, but no longer include description text from Blender text blocks. Existing Wikipedia URLs are retained separately in `content/wikipedia-references.json` as unverified mappings. The app reads Wikipedia in a remote iframe; article text and images are not redistributed in these packages. Upstream warns that translated names can contain errors.
 
 The original Z-Anatomy Blender add-on has a separate GPL-3.0-or-later header. It is not copied into the app or executed by the importer. Blender loads the source with automatic scripts disabled, using only its bundled glTF exporter.
 
