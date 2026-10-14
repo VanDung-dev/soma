@@ -463,6 +463,31 @@ impl AnatomyViewer {
         self.scene.select(id).map_err(js_error)?;
         Ok(())
     }
+    pub fn focus(
+        &mut self,
+        ids_json: &str,
+        left: f32,
+        top: f32,
+        width: f32,
+        height: f32,
+    ) -> Result<(), JsValue> {
+        let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
+        if let Some(bounds) = self.scene.bounds_for(&ids).map_err(js_error)? {
+            self.camera
+                .focus(bounds, [left, top, width, height])
+                .map_err(js_error)?;
+            self.scene.change_visibility(&ids, true).map_err(js_error)?;
+            self.shadow_cached.set(false);
+        }
+        Ok(())
+    }
+    pub fn reframe(&mut self, left: f32, top: f32, width: f32, height: f32) -> Result<(), JsValue> {
+        self.camera
+            .reframe([left, top, width, height])
+            .map_err(js_error)?;
+        self.shadow_cached.set(false);
+        Ok(())
+    }
     pub fn inspect(&mut self, action: &str) -> Result<(), JsValue> {
         if action == "reset" {
             self.camera.reset();
