@@ -4,9 +4,11 @@ import fragment from '../../../crates/anatomy_wasm/src/shaders/model.frag.glsl?r
 export function checkViewerShadows(viewer, gl, ids) {
   const original = gl.bindFramebuffer;
   let passes = 0;
+  let sharedFramebuffer;
   const assert = (ok, message) => { if (!ok) throw Error(message); };
   gl.bindFramebuffer = function(target, buffer) {
-    if (buffer) passes++;
+    if (buffer && !sharedFramebuffer) sharedFramebuffer = buffer;
+    if (buffer && buffer === sharedFramebuffer) passes++;
     return original.call(this, target, buffer);
   };
   try {
