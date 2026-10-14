@@ -30,7 +30,6 @@ pub struct StudyTarget {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parent_id: Option<String>,
     pub structure_ids: Vec<String>,
-    pub definition_key: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub model: Option<Model>,
 }
@@ -65,7 +64,7 @@ pub enum CatalogError {
 impl Catalog {
     pub fn from_json(json: &str) -> Result<Self, CatalogError> {
         let catalog: Self = serde_json::from_str(json)?;
-        if catalog.schema_version != 3 {
+        if catalog.schema_version != 4 {
             return Err(CatalogError::UnsupportedVersion(catalog.schema_version));
         }
         let mut ids = HashSet::new();
