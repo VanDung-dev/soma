@@ -29,6 +29,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const readerToggle = useRef<HTMLButtonElement>(null);
   const [readingId, setReadingId] = useState("");
   const [selected, setSelected] = useState("");
+  const [hovered, setHovered] = useState("");
   const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set());
   useEffect(() => {
     if (!readerExpanded) return;
@@ -120,8 +121,12 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       const y = canvas.height - 1 - Math.floor((event.clientY - bounds.top) / bounds.height * canvas.height);
       if (x >= 0 && y >= 0 && x < canvas.width && y < canvas.height) operate(renderer => {
         const before = renderer.selected_id();
-        if (renderer.pick(x, y) !== before) scheduleRender();
-        if (read) { setReadingId(renderer.selected_id()); setTargetId(undefined); }
+        const id = renderer.pick(x, y);
+        setHovered(id);
+        if (read) {
+          if (id !== before) scheduleRender();
+          setReadingId(id); setTargetId(undefined);
+        } else renderer.select(before);
       }, false);
     };
     let hoverTimer = 0;
@@ -160,7 +165,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       pointers.delete(event.pointerId);
     };
     const pointerCancel = (event: PointerEvent) => { pointers.delete(event.pointerId); dragged = true; };
-    const pointerLeave = () => { clearTimeout(hoverTimer); hoverTimer = 0; hoverEvent = undefined; };
+    const pointerLeave = () => { clearTimeout(hoverTimer); hoverTimer = 0; hoverEvent = undefined; setHovered(""); };
     const wheel = (event: WheelEvent) => {
       event.preventDefault();
       if (loading.current || animating.current) return;
@@ -259,7 +264,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     };
   }, [catalog]);
   const selectedPart = meshes.find(part => part.source_id === readingId);
-  const hoveredPart = meshes.find(part => part.source_id === selected);
+  const hoveredPart = meshes.find(part => part.source_id === hovered);
   const referenceName = selectedPart?.source_name ?? target?.source_name;
   const side = (part: Structure) => part.laterality === "left" ? " · trái" : part.laterality === "right" ? " · phải" : "";
   const changeVisibility = (ids: string[], shown: boolean) => {
