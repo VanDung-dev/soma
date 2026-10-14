@@ -26,9 +26,20 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const [error, setError] = useState(false);
   const [meshes, setMeshes] = useState<Structure[]>([]);
   const [readerExpanded, setReaderExpanded] = useState(false);
+  const readerToggle = useRef<HTMLButtonElement>(null);
   const [readingId, setReadingId] = useState("");
   const [selected, setSelected] = useState("");
   const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!readerExpanded) return;
+    const closeReader = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      setReaderExpanded(false);
+      readerToggle.current?.focus({ preventScroll: true });
+    };
+    document.addEventListener("keydown", closeReader);
+    return () => document.removeEventListener("keydown", closeReader);
+  }, [readerExpanded]);
   const scheduleRender = () => {
     if (!viewer.current || renderFrame.current || failed.current) return;
     renderFrame.current = requestAnimationFrame(() => {
@@ -287,17 +298,35 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         </section>
       </main>
       <aside className={`information-panel${readerExpanded ? " reader-expanded" : ""}`} aria-label="Thông tin bộ phận">
-        <p className="eyebrow">THÔNG TIN GIẢI PHẪU</p>
-        <h2>{selectedPart ? selectedPart.source_name + side(selectedPart) : target?.title ?? "Khám phá cơ thể"}</h2>
-        {referenceName && <button className="reader-expand" aria-expanded={readerExpanded}
-          onClick={() => setReaderExpanded(value => !value)}>{readerExpanded ? "Thu gọn khung đọc" : "Mở rộng khung đọc"}</button>}
-        {!selectedPart && target && !target.structure_ids.length && <p>Nhánh này chưa có mô hình 3D được liên kết.</p>}
-        {selectedPart ? <>
-          {selectedPart.latin && <p className="latin-name">{selectedPart.latin}</p>}
-          <p className="collection-names">{selectedPart.collections.filter(name => !/^\d:/.test(name)).join(" · ")}</p>
-        </> : !target && <p>Trỏ vào mô hình để xem tên. Nhấn vào bộ phận hoặc chọn tên trong cây cấu trúc để đọc Wikipedia.</p>}
-        {referenceName && <WikipediaReader key={referenceName} name={referenceName} />}
-        <p className="model-credit">Z-Anatomy — Gauthier Kervyn và các tác giả, phát triển từ BodyParts3D. Mô hình và phân nhóm dẫn xuất theo CC BY-SA 4.0. <a href={`${import.meta.env.BASE_URL}models/z-anatomy/ATTRIBUTION.md`} target="_blank" rel="noreferrer">Nguồn và giấy phép</a></p>
+        <header className="information-heading">
+          <div>
+            <p className="eyebrow">THÔNG TIN GIẢI PHẪU</p>
+            <h2>{selectedPart ? selectedPart.source_name + side(selectedPart) : target?.title ?? "Khám phá cơ thể"}</h2>
+          </div>
+          {referenceName && <button ref={readerToggle} className="reader-expand" aria-expanded={readerExpanded} aria-controls="information-content"
+            onClick={() => setReaderExpanded(value => !value)}>
+            {readerExpanded ? "Thu nhỏ" : "Mở rộng"}
+          </button>}
+        </header>
+        <div className="information-content" id="information-content">
+          <div className="information-details">
+            {!selectedPart && target && !target.structure_ids.length && <p>Nhánh này chưa có mô hình 3D được liên kết.</p>}
+            {selectedPart ? <>
+              {selectedPart.latin && <p className="latin-name">{selectedPart.latin}</p>}
+              <p className="collection-names">{selectedPart.collections.filter(name => !/^\d:/.test(name)).join(" · ")}</p>
+            </> : !target && <p>Trỏ vào mô hình để xem tên. Nhấn vào bộ phận hoặc chọn tên trong cây cấu trúc để đọc Wikipedia.</p>}
+          </div>
+          {referenceName && <WikipediaReader key={referenceName} name={referenceName} />}
+          <details className="model-credit" onToggle={event => {
+            if (event.currentTarget.open) event.currentTarget.scrollIntoView({ block: "nearest" });
+          }}>
+            <summary>Z-Anatomy — CC BY-SA 4.0</summary>
+            <div className="model-credit-description">
+              <p>Gauthier Kervyn và các tác giả, phát triển từ BodyParts3D. Mô hình và phân nhóm dẫn xuất theo CC BY-SA 4.0.</p>
+              <a href={`${import.meta.env.BASE_URL}models/z-anatomy/ATTRIBUTION.md`} target="_blank" rel="noreferrer">Nguồn và giấy phép</a>
+            </div>
+          </details>
+        </div>
       </aside>
     </>
   );
