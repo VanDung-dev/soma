@@ -12,6 +12,13 @@ interface TreeProps {
   onVisibility: (ids: string[], shown: boolean) => void;
   onSelect: (id: string) => void;
   onTarget: (id: string) => void;
+  onFocus: (ids: string[], targetId?: string) => void;
+}
+
+export function Magnifier() {
+  return <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+    <circle cx="10" cy="10" r="6" /><path d="m14.5 14.5 5 5" />
+  </svg>;
 }
 
 function VisibilityCheckbox({ ids, visibleIds, label, disabled, onVisibility }: Pick<TreeProps, "visibleIds" | "disabled" | "onVisibility"> & { ids: string[]; label: string }) {
@@ -56,6 +63,9 @@ function Folder({ target, childrenById, structures, props }: { target: StudyTarg
           ? `${ids.length} cấu trúc`
           : "Chưa có mô hình"}</small>
       </button>
+      <button className="tree-focus" disabled={props.disabled || !ids.length}
+        aria-label={`Phóng tới ${target.title}`} title={`Phóng tới ${target.title}`}
+        onClick={() => props.onFocus(ids, target.id)}><Magnifier /></button>
     </div>
     {open && <ul>
       {children.map(child => <Folder key={child.id} target={child} childrenById={childrenById} structures={structures} props={props} />)}
@@ -67,6 +77,8 @@ function Folder({ target, childrenById, structures, props }: { target: StudyTarg
           <VisibilityCheckbox ids={[id]} label={title} {...props} />
           <button className="tree-name" disabled={props.disabled} aria-current={props.selected === id ? "true" : undefined}
             onClick={() => props.onSelect(id)} onFocus={() => props.onSelect(id)}>{title}</button>
+          <button className="tree-focus" disabled={props.disabled} aria-label={`Phóng tới ${title}`} title={`Phóng tới ${title}`}
+            onClick={() => props.onFocus([id])}><Magnifier /></button>
         </li>;
       })}
     </ul>}

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getWasm } from "./core";
 import type { Catalog } from "./core";
-import { StructureTree } from "./structure-tree";
+import { Magnifier, StructureTree } from "./structure-tree";
 import { ModelControls } from "./model-controls";
 import { WikipediaReader } from "./wikipedia-reader";
 import type { AnatomyViewer } from "./wasm/anatomy_wasm";
@@ -31,6 +31,17 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const [selected, setSelected] = useState("");
   const [hovered, setHovered] = useState("");
   const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set());
+  const focusViewport = (): [number, number, number, number] => {
+    const area = host.current!.getBoundingClientRect();
+    const catalogPanel = document.querySelector<HTMLElement>(".catalog-panel")!;
+    const informationPanel = document.querySelector<HTMLElement>(".information-panel")!;
+    const desktop = window.matchMedia("(min-width: 901px)").matches;
+    const left = desktop ? catalogPanel.getBoundingClientRect().right - area.left + 12 : 12;
+    const right = desktop ? informationPanel.getBoundingClientRect().right - area.left
+      - parseFloat(getComputedStyle(informationPanel).getPropertyValue("--panel-width")) - 12 : area.width - 12;
+    const top = 110, bottom = area.height - 80;
+    return [left / area.width, top / area.height, Math.max(1, right - left) / area.width, Math.max(1, bottom - top) / area.height];
+  };
   useEffect(() => {
     if (!readerExpanded) return;
     const closeReader = (event: KeyboardEvent) => {
@@ -96,7 +107,10 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       const { width, height } = container.getBoundingClientRect();
       if (width > 0 && height > 0) {
         const ratio = Math.min(window.devicePixelRatio, 2);
-        operate(renderer => renderer.resize(Math.max(1, Math.round(width * ratio)), Math.max(1, Math.round(height * ratio))));
+        operate(renderer => {
+          renderer.resize(Math.max(1, Math.round(width * ratio)), Math.max(1, Math.round(height * ratio)));
+          renderer.reframe(...focusViewport());
+        });
       }
     };
     const observer = new ResizeObserver(resize);
@@ -275,6 +289,22 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       return next;
     });
   };
+  const focusStructures = (ids: string[], focusTarget?: string) => {
+    const focusedId = !focusTarget && ids.length === 1 ? ids[0]! : "";
+    if (!ids.length || !operate(renderer => {
+      renderer.focus(JSON.stringify(ids), ...focusViewport());
+      if (focusTarget || focusedId) renderer.set_visibility(JSON.stringify(ids));
+      renderer.select(focusedId);
+    })) return;
+    setVisibleIds(current => focusTarget || focusedId ? new Set(ids) : new Set([...current, ...ids]));
+    setReaderExpanded(false);
+    setHovered("");
+    setReadingId(focusedId);
+    setTargetId(focusTarget);
+    if (window.matchMedia("(max-width: 900px)").matches) {
+      host.current?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    }
+  };
   return (
     <>
       <aside className="catalog-panel" aria-label="Cây cấu trúc giải phẫu">
@@ -283,9 +313,12 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         <div className="tree-actions">
           <button disabled={building || error} onClick={() => changeVisibility(meshes.map(p => p.source_id), true)}>Hiện tất cả</button>
           <button disabled={building || error} onClick={() => changeVisibility(meshes.map(p => p.source_id), false)}>Ẩn tất cả</button>
+          <button className="tree-focus" disabled={building || error || !visibleIds.size}
+            aria-label="Căn khung các mẫu đang hiện" title="Căn khung các mẫu đang hiện"
+            onClick={() => focusStructures([...visibleIds])}><Magnifier /></button>
         </div>
         <StructureTree catalog={catalog} structures={meshes} visibleIds={visibleIds} selected={selected} targetId={targetId} disabled={building || error}
-          onVisibility={changeVisibility} onSelect={id => { setReadingId(id); setTargetId(undefined); operate(renderer => renderer.select(id)); }}
+          onVisibility={changeVisibility} onFocus={focusStructures} onSelect={id => { setReadingId(id); setTargetId(undefined); operate(renderer => renderer.select(id)); }}
           onTarget={id => { setReadingId(""); setTargetId(id); operate(renderer => renderer.select("")); }} />
       </aside>
       <main id="workspace" tabIndex={-1}>

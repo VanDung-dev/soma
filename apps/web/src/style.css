@@ -11,7 +11,7 @@ button { color: inherit; }
 .study-shell { position: relative; isolation: isolate; height: 100dvh; min-height: 540px; overflow: hidden; background: radial-gradient(ellipse at 48% 35%, #fffef9 0%, #ebece5 60%, #d5dbd4 100%); }
 .information-panel, .catalog-panel { position: absolute; z-index: 3; top: 106px; bottom: 24px; min-width: 0; overflow-y: auto; scrollbar-gutter: stable; padding: 24px 20px; border: 1px solid rgba(255,255,255,.8); border-radius: 18px; background: rgba(251,249,242,.94); backdrop-filter: blur(14px); box-shadow: 0 24px 60px rgba(39,52,45,.16), 0 3px 10px rgba(39,52,45,.06), inset 0 1px 0 #fff; }
 .catalog-panel { left: 24px; width: 300px; padding: 24px 14px; }
-.information-panel { --panel-padding: 24px; position: fixed; right: 24px; width: 380px; display: flex; flex-direction: column; overflow: hidden; padding: 0; scrollbar-gutter: auto; transition: width .32s cubic-bezier(.22,1,.36,1), box-shadow .32s ease; }
+.information-panel { --panel-padding: 24px; --panel-width: 380px; position: fixed; right: 24px; width: var(--panel-width); display: flex; flex-direction: column; overflow: hidden; padding: 0; scrollbar-gutter: auto; transition: width .32s cubic-bezier(.22,1,.36,1), box-shadow .32s ease; }
 .information-heading { position: relative; flex-shrink: 0; padding: 20px var(--panel-padding) 16px; border-bottom: 1px solid var(--line); }
 .information-heading > div { min-width: 0; }
 .information-heading .eyebrow { display: flex; align-items: center; min-height: 40px; padding-right: 108px; margin: 0 0 10px; }
@@ -85,11 +85,14 @@ h1 { position: absolute; z-index: 1; top: 24px; left: 50%; transform: translateX
 .tree-name { flex: 1; min-width: 0; text-align: left; border: 0; background: transparent; padding: 4px 0; font-size: 13px; overflow-wrap: anywhere; }
 .tree-name small { display: block; color: #62675f; font-size: 10px; margin-top: 4px; }
 .part-row { padding-left: 10px; }
+.tree-focus { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 28px; height: 28px; padding: 4px; border: 0; border-radius: 6px; background: transparent; color: var(--accent); }
+.tree-focus:hover { background: #e7ddd2; }
+.tree-actions .tree-focus { width: 32px; height: auto; align-self: stretch; padding: 4px; }
 .startup { display: flex; flex-direction: column; min-height: 100vh; align-items: center; justify-content: center; text-align: center; }
 .startup button { border: 1px solid var(--accent); background: transparent; color: var(--accent); padding: 12px 24px; }
 @media (max-width: 1200px) {
   .catalog-panel { left: 16px; width: 240px; }
-  .information-panel { --panel-padding: 18px; right: 16px; width: 320px; }
+  .information-panel { --panel-padding: 18px; --panel-width: 320px; right: 16px; }
   h1 { font-size: 24px; }
   .model-hud { width: calc(100% - 680px); }
 }
