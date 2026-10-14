@@ -10,6 +10,7 @@ pub struct Camera {
     radius: f32,
     center: Vec3,
     view: Bounds,
+    frame: Option<[f32; 4]>,
 }
 
 impl Camera {
@@ -23,6 +24,7 @@ impl Camera {
             radius: bounds.radius(),
             center: bounds.center(),
             view: bounds,
+            frame: None,
         };
         camera.fit(bounds);
         camera
@@ -33,10 +35,34 @@ impl Camera {
         self.yaw = -0.32;
         self.pitch = 0.12;
         let fov = 38_f32.to_radians();
-        let limiting = fov.min(2.0 * ((fov * 0.5).tan() * self.aspect).atan());
+        let [_, _, width, height] = self.frame.unwrap_or([0.0, 0.0, 1.0, 1.0]);
+        let limiting = (2.0 * ((fov * 0.5).tan() * height).atan())
+            .min(2.0 * ((fov * 0.5).tan() * self.aspect * width).atan());
         self.distance = (bounds.radius().max(self.radius * 1e-6) / (limiting * 0.5).sin() * 1.12)
             .min(self.enclosure_radius() * 0.9);
         self.constrain_eye();
+    }
+    pub fn focus(&mut self, bounds: Bounds, frame: [f32; 4]) -> Result<(), String> {
+        let [left, top, width, height] = frame;
+        if frame.iter().any(|v| !v.is_finite())
+            || left < 0.0
+            || top < 0.0
+            || width <= 0.0
+            || height <= 0.0
+            || left + width > 1.000001
+            || top + height > 1.000001
+        {
+            return Err("Invalid focus viewport".into());
+        }
+        self.frame = Some(frame);
+        self.fit(bounds);
+        Ok(())
+    }
+    pub fn reframe(&mut self, frame: [f32; 4]) -> Result<(), String> {
+        if self.frame.is_some() {
+            self.focus(self.view, frame)?;
+        }
+        Ok(())
     }
     pub fn resize(&mut self, width: u32, height: u32) {
         self.aspect = width.max(1) as f32 / height.max(1) as f32;
@@ -112,8 +138,14 @@ impl Camera {
         ) * self.distance
     }
     pub fn matrix(&self) -> Mat4 {
-        // Raise the composition slightly without moving anatomy or the enclosure in world space.
-        Mat4::from_translation(Vec3::new(0.0, 0.04, 0.0))
+        // Shift the projection into the available UI area without moving anatomy in world space.
+        let composition = self
+            .frame
+            .map(|[left, top, width, height]| {
+                Vec3::new(left * 2.0 + width - 1.0, 1.0 - top * 2.0 - height, 0.0)
+            })
+            .unwrap_or(Vec3::new(0.0, 0.04, 0.0));
+        Mat4::from_translation(composition)
             * glam::camera::rh::proj::opengl::perspective(
                 38_f32.to_radians(),
                 self.aspect,

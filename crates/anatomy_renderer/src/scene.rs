@@ -115,6 +115,20 @@ impl Scene {
         Ok(())
     }
 
+    pub fn bounds_for(&self, ids: &[String]) -> Result<Option<Bounds>, String> {
+        let requested: HashSet<_> = ids.iter().map(String::as_str).collect();
+        let parts: Vec<_> = self
+            .parts
+            .iter()
+            .filter(|p| p.active && requested.contains(p.source_id.as_str()))
+            .collect();
+        let known: HashSet<_> = parts.iter().map(|p| p.source_id.as_str()).collect();
+        if requested.len() != ids.len() || requested != known {
+            return Err("Unknown or duplicate focus structure ID".into());
+        }
+        Ok(parts.into_iter().map(|p| p.bounds).reduce(Bounds::union))
+    }
+
     pub fn inspect(&mut self, action: &str) -> Result<Option<Bounds>, String> {
         match action {
             "all" => {

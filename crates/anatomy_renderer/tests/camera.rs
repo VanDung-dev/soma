@@ -2,6 +2,59 @@ use anatomy_renderer::{Bounds, Camera};
 use glam::Vec3;
 
 #[test]
+fn focus_frames_small_geometry_between_panels_and_after_resize() {
+    let body = Bounds {
+        min: Vec3::new(-0.4, 0.0, -0.3),
+        max: Vec3::new(0.4, 1.8, 0.3),
+    };
+    let check_frame = |camera: &Camera, bounds: Bounds, frame: [f32; 4]| {
+        let [left, top, width, height] = frame;
+        for x in [bounds.min.x, bounds.max.x] {
+            for y in [bounds.min.y, bounds.max.y] {
+                for z in [bounds.min.z, bounds.max.z] {
+                    let point = camera.matrix().project_point3(Vec3::new(x, y, z));
+                    let u = (point.x + 1.0) / 2.0;
+                    let v = (1.0 - point.y) / 2.0;
+                    assert!(u >= left - 1e-4 && u <= left + width + 1e-4);
+                    assert!(v >= top - 1e-4 && v <= top + height + 1e-4);
+                    assert!(point.z.abs() <= 1.0);
+                }
+            }
+        }
+    };
+    for radius in [0.01, 0.0001] {
+        let bounds = Bounds {
+            min: Vec3::new(0.1, 1.7, 0.0) - Vec3::splat(radius),
+            max: Vec3::new(0.1, 1.7, 0.0) + Vec3::splat(radius),
+        };
+        let mut camera = Camera::new(body);
+        camera.resize(1440, 900);
+        let initial_distance = camera.distance;
+        let desktop = [0.24, 0.13, 0.45, 0.76];
+        camera.focus(bounds, desktop).unwrap();
+        assert_eq!(camera.target, bounds.center());
+        assert!(camera.distance < initial_distance);
+        check_frame(&camera, bounds, desktop);
+        camera.resize(390, 600);
+        let mobile = [0.03, 0.2, 0.94, 0.65];
+        camera.reframe(mobile).unwrap();
+        check_frame(&camera, bounds, mobile);
+        let previous_target = camera.target;
+        let previous_distance = camera.distance;
+        for invalid in [
+            [0.0, 0.0, 0.0, 1.0],
+            [-0.1, 0.0, 1.0, 1.0],
+            [0.1, 0.0, 1.0, 1.0],
+            [0.0, 0.0, f32::NAN, 1.0],
+        ] {
+            assert!(camera.focus(body, invalid).is_err());
+            assert_eq!(camera.target, previous_target);
+            assert_eq!(camera.distance, previous_distance);
+        }
+    }
+}
+
+#[test]
 fn shadow_projection_covers_anatomy_and_orders_occluders() {
     for bounds in [
         Bounds {

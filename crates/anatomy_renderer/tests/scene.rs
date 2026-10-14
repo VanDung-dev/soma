@@ -127,10 +127,32 @@ fn scopes_selection_and_inspection_to_the_current_category() {
     scene.subset(&scoped).unwrap();
     assert_eq!(scene.visible_count(), 2);
     assert!(scene.select(&ids[2]).is_err());
+    assert!(scene.bounds_for(&[ids[2].clone()]).is_err());
+    assert!(scene.bounds_for(&[ids[0].clone(), ids[0].clone()]).is_err());
+    assert!(scene.bounds_for(&[]).unwrap().is_none());
     scene.select(&ids[0]).unwrap();
     scene.change_visibility(&[ids[0].clone()], false).unwrap();
     assert_eq!(scene.visible_count(), 1);
     assert!(scene.selected.is_empty());
+    let focused_bounds = scene.bounds_for(&scoped).unwrap().unwrap();
+    let parts: Vec<_> = scene.parts.iter().filter(|p| p.active).collect();
+    assert_eq!(
+        focused_bounds.min,
+        parts
+            .iter()
+            .fold(parts[0].bounds.min, |v, p| v.min(p.bounds.min))
+    );
+    assert_eq!(
+        focused_bounds.max,
+        parts
+            .iter()
+            .fold(parts[0].bounds.max, |v, p| v.max(p.bounds.max))
+    );
+    assert_eq!(
+        scene.visible_count(),
+        1,
+        "Computing focus bounds must not mutate visibility"
+    );
     scene.select(&ids[1]).unwrap();
     assert!(
         scene
