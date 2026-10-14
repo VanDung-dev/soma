@@ -64,8 +64,16 @@ export async function checkSelectionOutline() {
     assert(viewer.selected_id() === '' && outline(pixels()).first < 0, 'Hiding a selection must clear its outline');
     viewer.select('left'); viewer.select('');
     assert(outline(pixels()).first < 0, 'Clearing selection must remove the outline');
+    for (const [ids, frame] of [['["unknown"]', [0, 0, 1, 1]],
+      ['["left","left"]', [0, 0, 1, 1]], ['["right"]', [0, 0, 0, 1]]]) {
+      let rejected = false;
+      try { viewer.focus(ids, ...frame); } catch { rejected = true; }
+      assert(rejected && viewer.visible_count() === 1, 'Invalid focus must not change visibility');
+    }
+    viewer.focus('["right"]', 0.2, 0.1, 0.6, 0.8);
+    assert(viewer.visible_count() === 2, 'Focus must enable its target and preserve other visible models');
     return { selectedOnly: true, outsideSilhouette: true, pickingUnaffected: true,
-      camera: true, resize: true, hidden: true, deselected: true, shadows };
+      camera: true, resize: true, hidden: true, deselected: true, focusApi: true, shadows };
   } finally {
     viewer?.free(); canvas.remove();
   }

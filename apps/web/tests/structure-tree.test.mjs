@@ -14,7 +14,7 @@ test('each system checkbox covers only its Blender display collection', async ()
     for (const root of roots) {
       const html = renderToStaticMarkup(createElement(StructureTree, {
         catalog, structures: [], visibleIds: new Set(root.model.structure_ids), selected: '', disabled: false,
-        onVisibility() {}, onSelect() {}, onTarget() {},
+        onVisibility() {}, onSelect() {}, onTarget() {}, onFocus() {},
       }));
       const inputs = html.match(/<input\b[^>]*>/g);
       for (const other of roots) {
