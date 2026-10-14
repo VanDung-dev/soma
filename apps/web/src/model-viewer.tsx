@@ -220,6 +220,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         if (disposed) return;
         worker = new Worker(new URL("./model-worker.ts", import.meta.url), { type: "module" });
         const packages: { metadata: { structures: Structure[] } }[] = [];
+        const preparedPackages: [Float32Array, Uint32Array, string][] = [];
         for (const download of downloads) {
           const pkg = await download;
           if (disposed) return;
@@ -235,27 +236,32 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
           cancelPreparation = undefined;
           if (disposed) return;
           if (failed.current) throw new Error("Model rendering failed");
-          const now = performance.now();
-          const animate = !reducedMotion.matches;
+          preparedPackages.push(prepared);
+          packages.push(pkg);
+          setLoadedSystems(packages.length);
+          setStatus(`Đang chuẩn bị cơ thể · ${packages.length}/${roots.length} hệ đã nạp`);
+        }
+        worker.terminate(); worker = undefined;
+        // Fit every system before the first frame so reconstruction cannot change the scale.
+        const now = performance.now();
+        const animate = !reducedMotion.matches;
+        for (const prepared of preparedPackages) {
           if (viewer.current) viewer.current.appendPrepared(prepared, now, animate);
           else {
             viewer.current = wasm.AnatomyViewer.fromPrepared(canvas, prepared);
             viewer.current.begin_reconstruction(now, animate);
-            resize();
           }
-          animating.current = animate || animating.current;
-          scheduleRender();
-          packages.push(pkg);
-          const structures = [...new Map(packages.flatMap(p => p.metadata.structures).map(part => [part.source_id, part])).values()]
-            .sort((a, b) => a.source_name.localeCompare(b.source_name) || a.source_object.localeCompare(b.source_object));
-          setMeshes(structures);
-          setVisibleIds(new Set(structures.map(part => part.source_id)));
-          setLoadedSystems(packages.length);
-          setStatus(`Đang tái tạo cơ thể · ${packages.length}/${roots.length} hệ đã nạp`);
         }
-        worker.terminate(); worker = undefined;
+        resize();
+        if (failed.current) throw new Error("Model rendering failed");
+        const structures = [...new Map(packages.flatMap(p => p.metadata.structures).map(part => [part.source_id, part])).values()]
+          .sort((a, b) => a.source_name.localeCompare(b.source_name) || a.source_object.localeCompare(b.source_object));
+        setMeshes(structures);
+        setVisibleIds(new Set(structures.map(part => part.source_id)));
         loading.current = false;
+        animating.current = animate;
         setStatus("Đang hoàn thiện cơ thể…");
+        scheduleRender();
         if (!animating.current) setBuilding(false);
       } catch (cause) {
         worker?.terminate(); worker = undefined; cancelPreparation = undefined;
