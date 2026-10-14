@@ -53,8 +53,8 @@ function Folder({ target, childrenById, structures, props }: { target: StudyTarg
         : <span className="tree-no-model" aria-hidden="true">—</span>}
       <button className="tree-name" onClick={() => props.onTarget(target.id)} aria-current={props.targetId === target.id ? "true" : undefined}>
         <span aria-hidden="true">▱ </span>{target.title}<small>{ids.length
-          ? `${ids.length} cấu trúc${target.definition_key ? "" : " · Chưa có mô tả"}`
-          : target.definition_key ? "Chỉ có mô tả · Không có mô hình" : "Chưa có mô hình và mô tả"}</small>
+          ? `${ids.length} cấu trúc`
+          : "Chưa có mô hình"}</small>
       </button>
     </div>
     {open && <ul>
@@ -66,7 +66,7 @@ function Folder({ target, childrenById, structures, props }: { target: StudyTarg
         return <li key={id} className={`tree-row part-row${props.selected === id ? " is-selected" : ""}`} data-structure-id={id}>
           <VisibilityCheckbox ids={[id]} label={title} {...props} />
           <button className="tree-name" disabled={props.disabled} aria-current={props.selected === id ? "true" : undefined}
-            onClick={() => props.onSelect(id)} onFocus={() => props.onSelect(id)}>{title}{!part.definition_key && <small>Chưa có mô tả</small>}</button>
+            onClick={() => props.onSelect(id)} onFocus={() => props.onSelect(id)}>{title}</button>
         </li>;
       })}
     </ul>}

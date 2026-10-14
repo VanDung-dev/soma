@@ -6,7 +6,7 @@ export interface Catalog {
   targets: StudyTarget[];
 }
 
-export interface StudyTarget { id: string; title: string; source_name: string; group_id: string; parent_id?: string; structure_ids: string[]; definition_key: string; model?: Model }
+export interface StudyTarget { id: string; title: string; source_name: string; group_id: string; parent_id?: string; structure_ids: string[]; model?: Model }
 
 export interface Model { path: string; scope: string; structure_ids: string[] }
 

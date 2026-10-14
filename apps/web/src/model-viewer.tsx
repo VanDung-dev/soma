@@ -3,10 +3,10 @@ import { getWasm } from "./core";
 import type { Catalog } from "./core";
 import { StructureTree } from "./structure-tree";
 import { ModelControls } from "./model-controls";
+import { WikipediaReader } from "./wikipedia-reader";
 import type { AnatomyViewer } from "./wasm/anatomy_wasm";
 
-export interface Structure { source_id: string; source_name: string; source_object: string; definition_key: string; latin: string; laterality: string; collections: string[] }
-interface Definition { text: string; links: string[] }
+export interface Structure { source_id: string; source_name: string; source_object: string; latin: string; laterality: string; collections: string[] }
 
 export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const roots = catalog.targets.filter(target => !target.parent_id && target.model);
@@ -22,11 +22,11 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const [building, setBuilding] = useState(true);
   const [loadedSystems, setLoadedSystems] = useState(0);
 
-  const [collectionDefinitions, setCollectionDefinitions] = useState<Record<string, Definition>>({});
   const [status, setStatus] = useState("Đang nạp mô hình…");
   const [error, setError] = useState(false);
   const [meshes, setMeshes] = useState<Structure[]>([]);
-  const [definitions, setDefinitions] = useState<Record<string, Definition>>({});
+  const [readerExpanded, setReaderExpanded] = useState(false);
+  const [readingId, setReadingId] = useState("");
   const [selected, setSelected] = useState("");
   const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set());
   const scheduleRender = () => {
@@ -102,7 +102,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       else dragged = true;
       pointers.set(event.pointerId, point);
     };
-    const pick = (event: PointerEvent) => {
+    const pick = (event: PointerEvent, read = false) => {
       if (loading.current || animating.current) return;
       const bounds = canvas.getBoundingClientRect();
       const x = Math.floor((event.clientX - bounds.left) / bounds.width * canvas.width);
@@ -110,6 +110,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       if (x >= 0 && y >= 0 && x < canvas.width && y < canvas.height) operate(renderer => {
         const before = renderer.selected_id();
         if (renderer.pick(x, y) !== before) scheduleRender();
+        if (read) { setReadingId(renderer.selected_id()); setTargetId(undefined); }
       }, false);
     };
     let hoverTimer = 0;
@@ -143,7 +144,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     };
     const pointerUp = (event: PointerEvent) => {
       if (pointers.has(event.pointerId) && pointers.size === 1 && !dragged && event.button !== 2) {
-        pick(event);
+        pick(event, true);
       }
       pointers.delete(event.pointerId);
     };
@@ -179,21 +180,16 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
             fetch(`${import.meta.env.BASE_URL}${model.path.replace(/\.glb$/, ".json")}`, { signal: abort.signal }),
           ]);
           if (!response.ok || !metadataResponse.ok) throw new Error(`HTTP ${response.status}/${metadataResponse.status}`);
-          const metadata = await metadataResponse.json() as { structures: Structure[]; definitions: Record<string, Definition>; collection_definitions: Record<string, Definition> };
+          const metadata = await metadataResponse.json() as { structures: Structure[] };
           if (!Array.isArray(metadata.structures) || !metadata.structures.length
-            || !metadata.structures.every(s => s && [s.source_id, s.source_name, s.source_object, s.definition_key, s.latin].every(v => typeof v === "string") && s.source_id && s.source_name && ["", "left", "right"].includes(s.laterality) && Array.isArray(s.collections) && s.collections.every(c => typeof c === "string"))
-            || new Set(metadata.structures.map(s => s.source_id)).size !== metadata.structures.length
-            || !metadata.definitions || Array.isArray(metadata.definitions) || typeof metadata.definitions !== "object"
-            || !metadata.collection_definitions || typeof metadata.collection_definitions !== "object" || Array.isArray(metadata.collection_definitions)
-            || ![...Object.values(metadata.definitions), ...Object.values(metadata.collection_definitions)].every(d => d && typeof d.text === "string" && Array.isArray(d.links) && d.links.every(link => typeof link === "string" && /^https?:\/\//.test(link)))
-            || !metadata.structures.every(s => !s.definition_key || Object.hasOwn(metadata.definitions, s.definition_key))) throw new Error("Metadata không hợp lệ");
-          if (JSON.stringify(metadata.structures.map(s => s.source_id).sort()) !== JSON.stringify(model.structure_ids.slice().sort())
-            || !catalog.targets.filter(t => t.group_id === root.group_id).every(t => !t.definition_key || metadata.collection_definitions[t.definition_key]?.text.trim())) throw new Error("Metadata không khớp catalog");
+            || !metadata.structures.every(s => s && [s.source_id, s.source_name, s.source_object, s.latin].every(v => typeof v === "string") && s.source_id && s.source_name && ["", "left", "right"].includes(s.laterality) && Array.isArray(s.collections) && s.collections.every(c => typeof c === "string"))
+            || new Set(metadata.structures.map(s => s.source_id)).size !== metadata.structures.length) throw new Error("Metadata không hợp lệ");
+          if (JSON.stringify(metadata.structures.map(s => s.source_id).sort()) !== JSON.stringify(model.structure_ids.slice().sort())) throw new Error("Metadata không khớp catalog");
           return { bytes: new Uint8Array(await response.arrayBuffer()), metadata };
         }).map(promise => promise.catch(cause => ({ cause })));
         if (disposed) return;
         worker = new Worker(new URL("./model-worker.ts", import.meta.url), { type: "module" });
-        const packages: { metadata: { structures: Structure[]; definitions: Record<string, Definition>; collection_definitions: Record<string, Definition> } }[] = [];
+        const packages: { metadata: { structures: Structure[] } }[] = [];
         for (const download of downloads) {
           const pkg = await download;
           if (disposed) return;
@@ -224,8 +220,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
             .sort((a, b) => a.source_name.localeCompare(b.source_name) || a.source_object.localeCompare(b.source_object));
           setMeshes(structures);
           setVisibleIds(new Set(structures.map(part => part.source_id)));
-          setDefinitions(Object.assign({}, ...packages.map(p => p.metadata.definitions)));
-          setCollectionDefinitions(Object.assign({}, ...packages.map(p => p.metadata.collection_definitions)));
           setLoadedSystems(packages.length);
           setStatus(`Đang tái tạo cơ thể · ${packages.length}/${roots.length} hệ đã nạp`);
         }
@@ -253,8 +247,9 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       viewer.current?.free(); viewer.current = null; canvas.remove();
     };
   }, [catalog]);
-  const selectedPart = meshes.find(part => part.source_id === selected);
-  const definition = selectedPart ? definitions[selectedPart.definition_key] : target ? collectionDefinitions[target.definition_key] : undefined;
+  const selectedPart = meshes.find(part => part.source_id === readingId);
+  const hoveredPart = meshes.find(part => part.source_id === selected);
+  const referenceName = selectedPart?.source_name ?? target?.source_name;
   const side = (part: Structure) => part.laterality === "left" ? " · trái" : part.laterality === "right" ? " · phải" : "";
   const changeVisibility = (ids: string[], shown: boolean) => {
     if (!operate(renderer => renderer.change_visibility(JSON.stringify(ids), shown))) return;
@@ -274,8 +269,8 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
           <button disabled={building || error} onClick={() => changeVisibility(meshes.map(p => p.source_id), false)}>Ẩn tất cả</button>
         </div>
         <StructureTree catalog={catalog} structures={meshes} visibleIds={visibleIds} selected={selected} targetId={targetId} disabled={building || error}
-          onVisibility={changeVisibility} onSelect={id => { setTargetId(undefined); operate(renderer => renderer.select(id)); }}
-          onTarget={id => { setTargetId(id); operate(renderer => renderer.select("")); }} />
+          onVisibility={changeVisibility} onSelect={id => { setReadingId(id); setTargetId(undefined); operate(renderer => renderer.select(id)); }}
+          onTarget={id => { setReadingId(""); setTargetId(id); operate(renderer => renderer.select("")); }} />
       </aside>
       <main id="workspace" tabIndex={-1}>
         <header className="workspace-header"><span>HUMAN ATLAS</span><span>Giải phẫu người</span></header>
@@ -285,27 +280,24 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
           <div className="model-canvas" ref={host} aria-busy={building && !error} />
           <div className="model-hud">
             <p className={`model-status${error ? " model-error" : ""}`} role={error ? "alert" : "status"}>{!error && !building && meshes.length ? `${visibleIds.size}/${meshes.length} cấu trúc đang hiện` : status}</p>
+            {hoveredPart && !building && <p className="model-status">{hoveredPart.source_name + side(hoveredPart)}</p>}
             {building && !error && <progress className="model-progress" aria-label="Các hệ giải phẫu đã nạp" value={loadedSystems} max={roots.length} />}
             <ModelControls disabled={building || error} onOperate={operate} />
           </div>
         </section>
       </main>
-      <aside className="information-panel" aria-label="Thông tin bộ phận">
+      <aside className={`information-panel${readerExpanded ? " reader-expanded" : ""}`} aria-label="Thông tin bộ phận">
         <p className="eyebrow">THÔNG TIN GIẢI PHẪU</p>
         <h2>{selectedPart ? selectedPart.source_name + side(selectedPart) : target?.title ?? "Khám phá cơ thể"}</h2>
-        {!selectedPart && target && !target.structure_ids.length && <p>{target.definition_key
-          ? "Nhánh này có mô tả từ nguồn nhưng chưa có mô hình 3D được liên kết."
-          : "Nhánh này chưa có mô hình 3D hoặc mô tả riêng được liên kết từ nguồn."}</p>}
+        {referenceName && <button className="reader-expand" aria-expanded={readerExpanded}
+          onClick={() => setReaderExpanded(value => !value)}>{readerExpanded ? "Thu gọn khung đọc" : "Mở rộng khung đọc"}</button>}
+        {!selectedPart && target && !target.structure_ids.length && <p>Nhánh này chưa có mô hình 3D được liên kết.</p>}
         {selectedPart ? <>
           {selectedPart.latin && <p className="latin-name">{selectedPart.latin}</p>}
           <p className="collection-names">{selectedPart.collections.filter(name => !/^\d:/.test(name)).join(" · ")}</p>
-        </> : <p>Trỏ vào bộ phận trên mô hình hoặc chọn tên trong cây cấu trúc để đọc thông tin.</p>}
-        {definition ? <div className="structure-description">
-          <p className="eyebrow">ĐỊNH NGHĨA TỪ NGUỒN · TIẾNG ANH</p>
-          <p className="definition-text">{definition.text}</p>
-          {definition.links.map(link => <a key={link} href={link} target="_blank" rel="noreferrer">Nguồn: {link}</a>)}
-        </div> : (selectedPart || target) && <p>Nguồn chưa có định nghĩa gắn với cấu trúc này.</p>}
-        <p className="model-credit">Z-Anatomy — Gauthier Kervyn và các tác giả, phát triển từ BodyParts3D. Nội dung dẫn xuất theo CC BY-SA 4.0; định nghĩa chủ yếu dựa trên Wikipedia. <a href={`${import.meta.env.BASE_URL}models/z-anatomy/ATTRIBUTION.md`} target="_blank" rel="noreferrer">Nguồn và giấy phép</a></p>
+        </> : !target && <p>Trỏ vào mô hình để xem tên. Nhấn vào bộ phận hoặc chọn tên trong cây cấu trúc để đọc Wikipedia.</p>}
+        {referenceName && <WikipediaReader key={referenceName} name={referenceName} />}
+        <p className="model-credit">Z-Anatomy — Gauthier Kervyn và các tác giả, phát triển từ BodyParts3D. Mô hình và phân nhóm dẫn xuất theo CC BY-SA 4.0. <a href={`${import.meta.env.BASE_URL}models/z-anatomy/ATTRIBUTION.md`} target="_blank" rel="noreferrer">Nguồn và giấy phép</a></p>
       </aside>
     </>
   );
