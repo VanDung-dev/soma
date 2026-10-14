@@ -18,7 +18,7 @@ cargo install wasm-pack --locked
 npm ci
 ```
 
-The repository includes the GLB/JSON files in `apps/web/public/models/`. Development and regular builds use these files directly. You only need Python and Blender to regenerate them.
+The repository includes the GLB/JSON files in `apps/web/public/models/`. Development and regular builds use these files directly. Python and Blender are needed for model regeneration; Python is also used by the optional Wikipedia content importer below.
 
 ## Development
 
@@ -93,6 +93,16 @@ python3 apps/web/scripts/download-z-anatomy.py
 
 This command does not need Blender. Replace `python3` with `.venv/bin/python` or another Python executable if needed. If `Z-Anatomy/` exists but lacks `Startup.blend`, rename or move that directory before running the importer again.
 
+## Read Wikipedia in the app
+
+The exporter keeps model names, geometry, materials, laterality, Latin names, and the source hierarchy. It no longer reads or bundles Z-Anatomy descriptions. Import also generates `content/anatomy-names.json`, a deduplicated name inventory linked to model IDs.
+
+The reference panel embeds Wikipedia directly in an iframe. It supports expanding the reader, returning to the selected structure's original article, and opening that article on Wikipedia. Hovering previews the model name; clicking a model or choosing a tree entry opens its reference. Moving the pointer does not replace the article being read. Articles and images require an internet connection; they are not copied into model metadata or an application database.
+
+`content/wikipedia-references.json` contains only the existing article URLs retained during migration. These mappings are not independently verified and may point to a broader article or section. Unmapped structures offer an explicit Wikipedia search link; the app does not guess an article from the first search result. Wikipedia remains reference material and may be inaccurate or outdated.
+
+The optional `sync-wikipedia.py` staging tool remains available for future offline work and now reads this independent URL mapping. It does not feed the iframe or modify model packages.
+
 ## Checks
 
 Build first to generate the WASM bindings, then run the tests and Rust checks:
@@ -115,4 +125,4 @@ python3 -m unittest discover -s apps/web/tests -p 'test_*.py'
 
 The project's original source code and build scripts are licensed under [Apache-2.0](LICENSE). See [NOTICE](NOTICE) for the copyright notice.
 
-Anatomy models and source-derived catalog and definition data retain their source licenses. See the [Z-Anatomy attribution and component notices](apps/web/public/models/z-anatomy/ATTRIBUTION.md). Dependencies retain their own licenses.
+Anatomy models and source-derived catalog data retain their source licenses. See the [Z-Anatomy attribution and component notices](apps/web/public/models/z-anatomy/ATTRIBUTION.md). Dependencies retain their own licenses.
