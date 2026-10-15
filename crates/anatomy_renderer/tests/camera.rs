@@ -2,13 +2,117 @@ use anatomy_renderer::{Bounds, Camera};
 use glam::Vec3;
 
 #[test]
+fn child_focus_uses_the_startup_canvas_center() {
+    let body = Bounds {
+        min: Vec3::new(-0.4, 0.0, -0.3),
+        max: Vec3::new(0.4, 1.8, 0.3),
+    };
+    let part = Bounds {
+        min: Vec3::new(0.1, 1.5, 0.0),
+        max: Vec3::new(0.2, 1.6, 0.1),
+    };
+    let mut camera = Camera::new(body);
+    for (width, height, frame) in [
+        (1440, 900, [0.24, 0.13, 0.45, 0.76]),
+        (390, 600, [0.03, 0.2, 0.94, 0.65]),
+    ] {
+        camera.resize(width, height);
+        camera.focus(part, frame).unwrap();
+        let projected = camera.matrix().project_point3(part.center());
+        assert!(projected.x.abs() < 1e-5);
+        assert!(
+            (projected.y - 0.04).abs() < 1e-5,
+            "Child focus must use the startup canvas center"
+        );
+        let distance = camera.distance;
+        camera.reframe(frame).unwrap();
+        assert_eq!(camera.distance, distance);
+        let projected = camera.matrix().project_point3(part.center());
+        assert!(projected.x.abs() < 1e-5 && (projected.y - 0.04).abs() < 1e-5);
+    }
+}
+
+#[test]
+fn full_viewport_focus_restores_startup_position_and_scale() {
+    let body = Bounds {
+        min: Vec3::new(-0.4, 0.0, -0.3),
+        max: Vec3::new(0.4, 1.8, 0.3),
+    };
+    let part = Bounds {
+        min: Vec3::new(0.1, 1.5, 0.0),
+        max: Vec3::new(0.2, 1.6, 0.1),
+    };
+    let mut camera = Camera::new(body);
+    for (width, height) in [(1440, 900), (390, 600)] {
+        let mut startup = Camera::new(body);
+        startup.resize(width, height);
+        camera.resize(width, height);
+        camera.focus(part, [0.24, 0.13, 0.45, 0.76]).unwrap();
+        camera.pan(0.1, -0.1).unwrap();
+        camera.rotate(0.5, -0.3).unwrap();
+        camera.zoom(0.5).unwrap();
+        camera.focus(body, [0.0, 0.0, 1.0, 1.0]).unwrap();
+        for (actual, expected) in camera
+            .matrix()
+            .to_cols_array()
+            .into_iter()
+            .zip(startup.matrix().to_cols_array())
+        {
+            assert!(
+                (actual - expected).abs() < 1e-5,
+                "General framing must restore the exact startup camera"
+            );
+        }
+        camera.reframe([0.24, 0.13, 0.45, 0.76]).unwrap();
+        assert_eq!(camera.matrix(), startup.matrix());
+    }
+}
+
+#[test]
+fn system_focus_keeps_at_least_the_startup_scale_after_resize() {
+    let body = Bounds {
+        min: Vec3::new(-0.4, 0.0, -0.3),
+        max: Vec3::new(0.4, 1.8, 0.3),
+    };
+    for bounds in [
+        body,
+        Bounds {
+            min: body.min + Vec3::splat(0.01),
+            max: body.max - Vec3::splat(0.01),
+        },
+    ] {
+        let mut camera = Camera::new(body);
+        for (width, height, frame) in [
+            (1440, 900, [0.24, 0.13, 0.45, 0.76]),
+            (390, 600, [0.03, 0.2, 0.94, 0.65]),
+        ] {
+            let mut startup = Camera::new(body);
+            startup.resize(width, height);
+            camera.resize(width, height);
+            camera.zoom(0.5).unwrap();
+            camera.focus(bounds, frame).unwrap();
+            assert!(
+                (camera.distance - startup.distance).abs() < 1e-5,
+                "System focus must match the initial full-body scale"
+            );
+            assert_eq!(camera.target, bounds.center());
+            camera.reset();
+            camera.reframe(frame).unwrap();
+            assert!((camera.distance - startup.distance).abs() < 1e-5);
+        }
+    }
+}
+
+#[test]
 fn focus_frames_small_geometry_between_panels_and_after_resize() {
     let body = Bounds {
         min: Vec3::new(-0.4, 0.0, -0.3),
         max: Vec3::new(0.4, 1.8, 0.3),
     };
     let check_frame = |camera: &Camera, bounds: Bounds, frame: [f32; 4]| {
-        let [left, top, width, height] = frame;
+        let [_, _, width, height] = frame;
+        let left = (1.0 - width) * 0.5;
+        let top = 0.48 - height * 0.5;
         for x in [bounds.min.x, bounds.max.x] {
             for y in [bounds.min.y, bounds.max.y] {
                 for z in [bounds.min.z, bounds.max.z] {

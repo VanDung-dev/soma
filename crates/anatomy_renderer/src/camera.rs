@@ -38,7 +38,11 @@ impl Camera {
         let [_, _, width, height] = self.frame.unwrap_or([0.0, 0.0, 1.0, 1.0]);
         let limiting = (2.0 * ((fov * 0.5).tan() * height).atan())
             .min(2.0 * ((fov * 0.5).tan() * self.aspect * width).atan());
+        let initial_fov = fov.min(2.0 * ((fov * 0.5).tan() * self.aspect).atan());
+        let initial_distance = self.radius / (initial_fov * 0.5).sin() * 1.12;
+        // Focus can enlarge a part, but must not shrink it below the startup scale.
         self.distance = (bounds.radius().max(self.radius * 1e-6) / (limiting * 0.5).sin() * 1.12)
+            .min(initial_distance)
             .min(self.enclosure_radius() * 0.9);
         self.constrain_eye();
     }
@@ -54,7 +58,8 @@ impl Camera {
         {
             return Err("Invalid focus viewport".into());
         }
-        self.frame = Some(frame);
+        // Full-viewport framing uses the same centered composition as startup.
+        self.frame = (frame != [0.0, 0.0, 1.0, 1.0]).then_some(frame);
         self.fit(bounds);
         Ok(())
     }
@@ -138,13 +143,8 @@ impl Camera {
         ) * self.distance
     }
     pub fn matrix(&self) -> Mat4 {
-        // Shift the projection into the available UI area without moving anatomy in world space.
-        let composition = self
-            .frame
-            .map(|[left, top, width, height]| {
-                Vec3::new(left * 2.0 + width - 1.0, 1.0 - top * 2.0 - height, 0.0)
-            })
-            .unwrap_or(Vec3::new(0.0, 0.04, 0.0));
+        // Keep every fitted target at the same canvas position as startup.
+        let composition = Vec3::new(0.0, 0.04, 0.0);
         Mat4::from_translation(composition)
             * glam::camera::rh::proj::opengl::perspective(
                 38_f32.to_radians(),
