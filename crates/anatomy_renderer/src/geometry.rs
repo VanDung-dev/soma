@@ -16,8 +16,14 @@ impl Bounds {
         (self.max - self.min).length() * 0.5
     }
     pub fn shadow_matrix(self, light: Vec3) -> Mat4 {
-        let radius = self.radius().max(0.001) * 1.01;
-        let center = self.center();
+        Self::shadow_matrix_at(self.center(), self.radius().max(0.001) * 1.01, light)
+    }
+    /// Orthographic shadow frustum around an arbitrary focus volume. Fitting the
+    /// frustum to the viewed region (instead of the whole scene) keeps shadow
+    /// texels small on screen when zoomed in, which is what removes the
+    /// staircase at close range.
+    pub fn shadow_matrix_at(center: Vec3, radius: f32, light: Vec3) -> Mat4 {
+        let radius = radius.max(1e-6);
         glam::camera::rh::proj::opengl::orthographic(
             -radius,
             radius,

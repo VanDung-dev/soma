@@ -132,6 +132,16 @@ impl Camera {
     pub fn eye(&self) -> Vec3 {
         self.target + self.orbit_offset()
     }
+    /// Focus volume the shadow map should cover: the viewed region around the
+    /// orbit target with a margin for nearby casters. Shrinks while zooming so
+    /// close-ups keep dense shadow texels instead of magnified stairs.
+    pub fn shadow_volume(&self) -> (Vec3, f32) {
+        let half_height = self.distance * (19_f32.to_radians()).tan();
+        let half_width = half_height * self.aspect.max(1e-6);
+        let radius =
+            (half_height.max(half_width) * 2.0).clamp(self.radius * 0.01, self.radius * 1.01);
+        (self.target, radius)
+    }
     pub fn light_basis(&self) -> Mat3 {
         Mat3::from_rotation_y(self.yaw) * Mat3::from_rotation_x(-self.pitch)
     }

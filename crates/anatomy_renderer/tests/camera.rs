@@ -286,3 +286,23 @@ fn camera_fits_narrow_viewports_and_rejects_invalid_inputs() {
     camera.pan(0.1, -0.2).unwrap();
     check_frame(&camera);
 }
+
+#[test]
+fn shadow_volume_tightens_while_zooming() {
+    let bounds = Bounds {
+        min: Vec3::splat(-1.0),
+        max: Vec3::splat(1.0),
+    };
+    let mut camera = Camera::new(bounds);
+    let (_, wide) = camera.shadow_volume();
+    assert!((wide - bounds.radius() * 1.01).abs() < 1e-4);
+    camera.zoom(0.1).unwrap();
+    let (center, tight) = camera.shadow_volume();
+    assert!(tight < wide * 0.5, "zoom must shrink the shadow frustum");
+    assert!((center - camera.target).length() < 1e-6);
+    // Fitted frustum must still project its own center inside clip space.
+    let light = camera.light_basis() * Vec3::new(std::f32::consts::FRAC_1_SQRT_2, 0.5, 0.5);
+    let matrix = Bounds::shadow_matrix_at(center, tight, light);
+    assert!(matrix.is_finite());
+    assert!(matrix.project_point3(center).abs().max_element() <= 1.0);
+}
