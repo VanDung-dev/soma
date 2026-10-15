@@ -41,11 +41,11 @@ export function StructureSearch({ structures, disabled, onSelect }: {
     event.preventDefault();
     if (!disabled && results[0]) choose(results[0]);
   }}>
-    <label htmlFor={id}>Tìm bộ phận</label>
     <div className="structure-search-field">
-      <input id={id} type="search" placeholder="Tên Việt, Anh hoặc Latin" autoComplete="off"
+      <input id={id} type="search" placeholder="Tìm bộ phận" autoComplete="off" aria-label="Tìm bộ phận"
         value={query} disabled={disabled} onChange={event => setQuery(event.target.value)} />
-      <button type="submit" disabled={disabled || !results.length} aria-label="Tìm kiếm" title="Tìm kiếm"><Magnifier /></button>
+      <button type="submit" disabled={disabled || !results.length} aria-label="Tìm kiếm" title="Tìm kiếm"
+        onMouseDown={event => event.preventDefault()}><Magnifier /></button>
     </div>
     {query.trim() && <div className="structure-search-popup">
       <p className="search-status" role="status">{results.length
@@ -53,7 +53,8 @@ export function StructureSearch({ structures, disabled, onSelect }: {
         : "Không tìm thấy bộ phận phù hợp."}</p>
       {results.length > 0 && <ul className="structure-search-results" aria-label="Kết quả tìm bộ phận">
         {results.slice(0, 20).map(part => <li key={part.source_id}>
-          <button type="button" disabled={disabled} data-structure-id={part.source_id} onClick={() => choose(part)}>
+          <button type="button" disabled={disabled} data-structure-id={part.source_id}
+            onMouseDown={event => event.preventDefault()} onClick={() => choose(part)}>
             <span>{structureName(part)}</span>
             {structureName(part, "en") !== structureName(part) && <small lang="en">{structureName(part, "en")}</small>}
             {part.latin && <small lang="la">{part.latin}</small>}

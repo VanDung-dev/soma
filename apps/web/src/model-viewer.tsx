@@ -328,9 +328,11 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
           <button disabled={building || error} onClick={() => changeVisibility(meshes.map(p => p.source_id), true)}>Hiện tất cả</button>
           <button disabled={building || error} onClick={() => changeVisibility(meshes.map(p => p.source_id), false)}>Ẩn tất cả</button>
         </div>
-        <StructureTree catalog={catalog} structures={meshes} visibleIds={visibleIds} selected={selected} targetId={targetId} reveal={reveal} disabled={building || error}
-          onVisibility={changeVisibility} onFocus={focusStructures} onSelect={id => { setReadingId(id); setTargetId(undefined); operate(renderer => renderer.select(id)); }}
-          onTarget={id => { setReadingId(""); setTargetId(id); operate(renderer => renderer.select("")); }} />
+        <div className="catalog-tree">
+          <StructureTree catalog={catalog} structures={meshes} visibleIds={visibleIds} selected={selected} targetId={targetId} reveal={reveal} disabled={building || error}
+            onVisibility={changeVisibility} onFocus={focusStructures} onSelect={id => { setReadingId(id); setTargetId(undefined); operate(renderer => renderer.select(id)); }}
+            onTarget={id => { setReadingId(""); setTargetId(id); operate(renderer => renderer.select("")); }} />
+        </div>
       </aside>
       <main id="workspace" tabIndex={-1}>
         <header className="workspace-header"><span>HUMAN ATLAS</span><span>Giải phẫu người</span></header>
