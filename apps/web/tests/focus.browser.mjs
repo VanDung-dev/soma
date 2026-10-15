@@ -13,11 +13,6 @@ export async function checkFocusTree() {
   const branch = catalog.targets.find(t => t.source_name === 'Cranium');
   const otherBranch = catalog.targets.find(t => t.source_name === 'Appendicular skeleton');
   const row = target => document.querySelector(`[data-target-id="${target.id}"] > .tree-row`);
-  const cameraMatrix = () => {
-    const program = gl.getParameter(gl.CURRENT_PROGRAM);
-    return Array.from(gl.getUniform(program, gl.getUniformLocation(program, 'view_projection')));
-  };
-  const startupMatrix = cameraMatrix();
   let focusCalls = 0, lastIds, lastViewer, imageBounds;
   proto.focus = function(ids, ...frame) {
     focusCalls++; lastIds = JSON.parse(ids); lastViewer = this;
@@ -37,11 +32,7 @@ export async function checkFocusTree() {
     assert(gl.getError() === gl.NO_ERROR, 'Focus produced a WebGL error');
   };
   try {
-    row(root).querySelector('.tree-focus').click(); await wait();
-    document.querySelector('.tree-actions button').click(); await wait();
-    document.querySelector('.tree-actions .tree-focus').click(); await wait();
-    assert(cameraMatrix().every((value, i) => Math.abs(value - startupMatrix[i]) < 1e-5),
-      'General framing of all models must restore the startup position and scale');
+    assert(!document.querySelector('.tree-actions .tree-focus'), 'The catalog toolbar must not have a general focus button');
     for (const system of catalog.targets.filter(t => t.model)) {
       row(system).querySelector('.tree-focus').click(); await wait();
       const expected = new Set(system.model.structure_ids);
@@ -56,7 +47,6 @@ export async function checkFocusTree() {
     }
     [...document.querySelectorAll('.tree-actions button')].find(b => b.textContent === 'Ẩn tất cả').click();
     await wait();
-    assert(document.querySelector('[aria-label="Căn khung các mẫu đang hiện"]').disabled, 'Empty visibility disables framing');
     for (const target of [root, branch]) {
       const toggle = row(target).querySelector('.folder-toggle');
       if (toggle.getAttribute('aria-expanded') === 'false') { toggle.click(); await wait(); }
@@ -96,26 +86,15 @@ export async function checkFocusTree() {
     assert(row(root).querySelector('input').indeterminate, 'Partially enabled system must remain indeterminate');
     row(otherBranch).querySelector('input').click(); await wait();
     const visibleCount = new Set([...branch.structure_ids, ...otherBranch.structure_ids]).size;
-    document.querySelector('[aria-label="Căn khung các mẫu đang hiện"]').click(); await wait();
-    assert(lastIds.length === visibleCount && lastViewer.visible_count() === visibleCount,
-      'Framing visible models must not enable other structures');
-    assert(branch.structure_ids.every(id => lastIds.includes(id)) && otherBranch.structure_ids.every(id => lastIds.includes(id)),
-      'General focus must use exactly the checked structures');
-    const toolbarButtons = [...document.querySelectorAll('.tree-actions button')];
-    const buttonHeight = toolbarButtons[0].getBoundingClientRect().height;
-    assert(toolbarButtons.every(button => Math.abs(button.getBoundingClientRect().height - buttonHeight) < 1),
-      'General magnifier must match the height of the action buttons');
+    assert(lastViewer.visible_count() === visibleCount, 'Enabling another folder must preserve existing visibility');
     partRow.querySelector('.tree-focus').click(); await wait();
     assert(lastViewer.visible_count() === 1 && lastViewer.selected_id() === partId,
       'Individual magnifier must isolate the focused structure');
     assert(partRow.querySelector('input').checked && !row(otherBranch).querySelector('input').checked,
       'Isolation must synchronize the checkboxes');
-    document.querySelector('[aria-label="Căn khung các mẫu đang hiện"]').click(); await wait();
-    assert(lastIds.length === 1 && lastIds[0] === partId && lastViewer.visible_count() === 1,
-      'General framing of one checked structure must keep it isolated');
-    return { generalMatchesStartup: true, systemsMatchCheckboxes: true, skeletalExcludesJoints: true, smallModel: true, exactIds: true, checkboxDoesNotZoom: true,
-      descendantsEnabled: true, folderIsolates: true, childFolderIsolates: true, individualIsolates: true, equalToolbarHeights: true,
-      checkboxSynchronized: true, framesOnlyVisible: true, viewportFits: true };
+    return { generalFocusRemoved: true, systemsMatchCheckboxes: true, skeletalExcludesJoints: true, smallModel: true, exactIds: true, checkboxDoesNotZoom: true,
+      descendantsEnabled: true, folderIsolates: true, childFolderIsolates: true, individualIsolates: true,
+      checkboxSynchronized: true, viewportFits: true };
   } finally {
     proto.focus = originalFocus; proto.render = originalRender;
   }

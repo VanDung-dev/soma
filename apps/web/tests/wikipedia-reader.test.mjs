@@ -20,6 +20,7 @@ test('Wikipedia reader opens mapped articles and leaves unmapped structures expl
     }
     const html = renderToStaticMarkup(createElement(WikipediaReader, { name: 'Femur' }));
     assert(html.includes('src="https://en.wikipedia.org/wiki/Femur"'));
+    assert(html.includes('title="Bài Wikipedia về Xương đùi"'));
     assert(html.includes('sandbox="allow-scripts allow-same-origin"'));
     assert(html.includes('chưa được đối chiếu độc lập'));
     assert(html.includes('chỉ phục vụ tham khảo'));
