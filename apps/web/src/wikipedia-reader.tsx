@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import references from "../../../content/wikipedia-references.json";
+import { anatomyNames } from "./anatomy-names";
 
 const articles: Record<string, { url: string; status: string }> = references.articles;
 
@@ -13,6 +14,7 @@ export function wikipediaReference(name: string) {
 
 export function WikipediaReader({ name }: { name: string }) {
   const article = wikipediaReference(name);
+  const label = anatomyNames(name).vi;
   const [reload, setReload] = useState(0);
   const [notesOpen, setNotesOpen] = useState(false);
   const notesId = useId();
@@ -21,8 +23,8 @@ export function WikipediaReader({ name }: { name: string }) {
     if (notesOpen) notes.current?.scrollIntoView({ block: "nearest" });
   }, [notesOpen]);
   const search = `https://en.wikipedia.org/w/index.php?title=Special:Search&fulltext=1&search=${encodeURIComponent(name.replace(/^[1-9]:\s*/, ""))}`;
-  return <section className="wikipedia-reader" aria-label={`Wikipedia: ${name}`}>
-    {article ? <iframe key={`${article.url}:${reload}`} src={article.url} title={`Bài Wikipedia về ${name}`}
+  return <section className="wikipedia-reader" aria-label={`Wikipedia: ${label}`}>
+    {article ? <iframe key={`${article.url}:${reload}`} src={article.url} title={`Bài Wikipedia về ${label}`}
       sandbox="allow-scripts allow-same-origin" referrerPolicy="no-referrer" />
       : <p>Chưa gắn bài Wikipedia cho cấu trúc này. <a href={search} target="_blank" rel="noreferrer">Tìm “{name}” trên Wikipedia ↗</a></p>}
     <div className="reader-actions">

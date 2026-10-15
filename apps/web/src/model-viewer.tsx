@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { getWasm } from "./core";
 import type { Catalog } from "./core";
-import { Magnifier, StructureTree } from "./structure-tree";
+import { StructureTree } from "./structure-tree";
+import { StructureSearch } from "./structure-search";
 import { ModelControls } from "./model-controls";
 import { WikipediaReader } from "./wikipedia-reader";
+import { anatomyNames, structureName, targetName } from "./anatomy-names";
 import type { AnatomyViewer } from "./wasm/anatomy_wasm";
 
 export interface Structure { source_id: string; source_name: string; source_object: string; latin: string; laterality: string; collections: string[] }
@@ -31,6 +33,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const [selected, setSelected] = useState("");
   const [hovered, setHovered] = useState("");
   const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set());
+  const [reveal, setReveal] = useState<{ id: string }>();
   const focusViewport = (): [number, number, number, number] => {
     const area = host.current!.getBoundingClientRect();
     const catalogPanel = document.querySelector<HTMLElement>(".catalog-panel")!;
@@ -255,7 +258,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         resize();
         if (failed.current) throw new Error("Model rendering failed");
         const structures = [...new Map(packages.flatMap(p => p.metadata.structures).map(part => [part.source_id, part])).values()]
-          .sort((a, b) => a.source_name.localeCompare(b.source_name) || a.source_object.localeCompare(b.source_object));
+          .sort((a, b) => structureName(a).localeCompare(structureName(b), "vi") || a.source_object.localeCompare(b.source_object));
         setMeshes(structures);
         setVisibleIds(new Set(structures.map(part => part.source_id)));
         loading.current = false;
@@ -286,7 +289,8 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const selectedPart = meshes.find(part => part.source_id === readingId);
   const hoveredPart = meshes.find(part => part.source_id === hovered);
   const referenceName = selectedPart?.source_name ?? target?.source_name;
-  const side = (part: Structure) => part.laterality === "left" ? " · trái" : part.laterality === "right" ? " · phải" : "";
+  const heading = selectedPart ? structureName(selectedPart) : target ? targetName(target) : "Khám phá cơ thể";
+  const englishName = selectedPart ? structureName(selectedPart, "en") : target ? targetName(target, "en") : "";
   const changeVisibility = (ids: string[], shown: boolean) => {
     if (!operate(renderer => renderer.change_visibility(JSON.stringify(ids), shown))) return;
     setVisibleIds(current => {
@@ -295,10 +299,10 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       return next;
     });
   };
-  const focusStructures = (ids: string[], focusTarget?: string, viewport = focusViewport()) => {
+  const focusStructures = (ids: string[], focusTarget?: string) => {
     const focusedId = !focusTarget && ids.length === 1 ? ids[0]! : "";
     if (!ids.length || !operate(renderer => {
-      renderer.focus(JSON.stringify(ids), ...viewport);
+      renderer.focus(JSON.stringify(ids), ...focusViewport());
       if (focusTarget || focusedId) renderer.set_visibility(JSON.stringify(ids));
       renderer.select(focusedId);
     })) return;
@@ -315,15 +319,16 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     <>
       <aside className="catalog-panel" aria-label="Cây cấu trúc giải phẫu">
         <div className="catalog-heading"><h2>Cấu trúc</h2><span>{catalog.groups.length} hệ</span></div>
-        <p className="tree-help">Checkbox cấp hệ bật đúng bộ mô hình như Blender. Mở thư mục để xem các nhánh; nhánh con có thể liên kết đến cấu trúc thuộc hệ khác.</p>
+        <StructureSearch structures={meshes} disabled={building || error} onSelect={id => {
+          focusStructures([id]);
+          setReveal({ id });
+          host.current?.querySelector("canvas")?.focus({ preventScroll: true });
+        }} />
         <div className="tree-actions">
           <button disabled={building || error} onClick={() => changeVisibility(meshes.map(p => p.source_id), true)}>Hiện tất cả</button>
           <button disabled={building || error} onClick={() => changeVisibility(meshes.map(p => p.source_id), false)}>Ẩn tất cả</button>
-          <button className="tree-focus" disabled={building || error || !visibleIds.size}
-            aria-label="Căn khung các mẫu đang hiện" title="Căn khung các mẫu đang hiện"
-            onClick={() => focusStructures([...visibleIds], undefined, [0, 0, 1, 1])}><Magnifier /></button>
         </div>
-        <StructureTree catalog={catalog} structures={meshes} visibleIds={visibleIds} selected={selected} targetId={targetId} disabled={building || error}
+        <StructureTree catalog={catalog} structures={meshes} visibleIds={visibleIds} selected={selected} targetId={targetId} reveal={reveal} disabled={building || error}
           onVisibility={changeVisibility} onFocus={focusStructures} onSelect={id => { setReadingId(id); setTargetId(undefined); operate(renderer => renderer.select(id)); }}
           onTarget={id => { setReadingId(""); setTargetId(id); operate(renderer => renderer.select("")); }} />
       </aside>
@@ -335,7 +340,9 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
           <div className="model-canvas" ref={host} aria-busy={building && !error} />
           <div className="model-hud">
             <p className={`model-status${error ? " model-error" : ""}`} role={error ? "alert" : "status"}>{!error && !building && meshes.length ? `${visibleIds.size}/${meshes.length} cấu trúc đang hiện` : status}</p>
-            {hoveredPart && !building && <p className="model-status">{hoveredPart.source_name + side(hoveredPart)}</p>}
+            {hoveredPart && !building && <p className="model-status">{structureName(hoveredPart)}
+              {structureName(hoveredPart, "en") !== structureName(hoveredPart) && <small lang="en">{structureName(hoveredPart, "en")}</small>}
+            </p>}
             {building && !error && <progress className="model-progress" aria-label="Các hệ giải phẫu đã nạp" value={loadedSystems} max={roots.length} />}
             <ModelControls disabled={building || error} onOperate={operate} />
           </div>
@@ -345,7 +352,8 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         <header className="information-heading">
           <div>
             <p className="eyebrow">THÔNG TIN GIẢI PHẪU</p>
-            <h2>{selectedPart ? selectedPart.source_name + side(selectedPart) : target?.title ?? "Khám phá cơ thể"}</h2>
+            <h2>{heading}</h2>
+            {englishName && englishName !== heading && <p className="international-name" lang="en">{englishName}</p>}
           </div>
           {referenceName && <button ref={readerToggle} className="reader-expand" aria-expanded={readerExpanded} aria-controls="information-content"
             onClick={() => setReaderExpanded(value => !value)}>
@@ -356,8 +364,8 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
           <div className="information-details">
             {!selectedPart && target && !target.structure_ids.length && <p>Nhánh này chưa có mô hình 3D được liên kết.</p>}
             {selectedPart ? <>
-              {selectedPart.latin && <p className="latin-name">{selectedPart.latin}</p>}
-              <p className="collection-names">{selectedPart.collections.filter(name => !/^\d:/.test(name)).join(" · ")}</p>
+              {selectedPart.latin && <p className="latin-name" lang="la">{selectedPart.latin}</p>}
+              <p className="collection-names">{selectedPart.collections.filter(name => !/^\d:/.test(name)).map(name => anatomyNames(name).vi).join(" · ")}</p>
             </> : !target && <p>Trỏ vào mô hình để xem tên. Nhấn vào bộ phận hoặc chọn tên trong cây cấu trúc để đọc Wikipedia.</p>}
           </div>
           {referenceName && <WikipediaReader key={referenceName} name={referenceName} />}
