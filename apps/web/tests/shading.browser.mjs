@@ -1,40 +1,48 @@
 import fragment from '../../../crates/anatomy_wasm/src/shaders/model.frag.glsl?raw';
 
-// Run with a loaded WASM viewer and its canvas context to cover framebuffer reuse.
+// Run with a loaded WASM viewer and its canvas context to cover shadow-cache reuse.
+// Shadows live on a dedicated framebuffer; picking writes IDs to its own target.
 export function checkViewerShadows(viewer, gl, ids) {
   const original = gl.bindFramebuffer;
-  let passes = 0;
-  let sharedFramebuffer;
+  const counts = new Map();
   const assert = (ok, message) => { if (!ok) throw Error(message); };
   gl.bindFramebuffer = function(target, buffer) {
-    if (buffer && !sharedFramebuffer) sharedFramebuffer = buffer;
-    if (buffer && buffer === sharedFramebuffer) passes++;
+    if (buffer) counts.set(buffer, (counts.get(buffer) ?? 0) + 1);
     return original.call(this, target, buffer);
   };
+  const other = (exclude) => [...counts.keys()].find((fb) => fb !== exclude);
   try {
+    viewer.select('');
     viewer.set_visibility(JSON.stringify(ids)); viewer.render();
-    assert(passes === 1, 'Visibility must rebuild shadows');
+    assert(counts.size === 1, 'First render must only touch the shadow map');
+    const [shadowFb] = counts.keys();
+    assert(counts.get(shadowFb) === 1, 'Visibility must rebuild shadows');
     viewer.rotate(0.05, 0); viewer.render();
-    assert(passes === 2, 'Camera orbit must update shadows with the light');
+    assert(counts.get(shadowFb) === 2, 'Camera orbit must update shadows with the light');
     viewer.pan(0.01, -0.01); viewer.zoom(0.98); viewer.render();
-    assert(passes === 2, 'Pan and zoom must reuse shadows');
+    assert(counts.get(shadowFb) === 3, 'Pan and zoom must refit shadows to the view');
     const rgba = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
     gl.readPixels(0, 0, gl.canvas.width, gl.canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, rgba);
     const index = rgba.findIndex((v, i) => i % 4 === 3 && v === 255);
     assert(index >= 0, 'Expected visible opaque anatomy');
     const pixel = Math.floor(index / 4), id = viewer.pick(pixel % gl.canvas.width, Math.floor(pixel / gl.canvas.width));
     assert(ids.includes(id), 'Picking must return a visible structure');
-    assert(passes === 3, 'Picking must write its IDs');
-    viewer.render(); assert(passes === 4, 'Picking must invalidate the shared shadow map');
-    viewer.render(); assert(passes === 4, 'A stable frame must reuse shadows');
-    viewer.resize(gl.canvas.width, gl.canvas.height);
-    const beforeResize = passes;
+    assert(counts.size === 2, 'Picking must write its IDs to a separate target');
+    const pickFb = other(shadowFb);
+    assert(counts.get(pickFb) === 1, 'Picking must write its IDs');
+    assert(counts.get(shadowFb) === 3, 'Picking must leave cached shadows alone');
     viewer.render();
-    assert(passes === beforeResize + 1, 'Resize must rebuild shadows');
+    assert(counts.get(shadowFb) === 4, 'Picking must invalidate the shadow map');
+    viewer.render();
+    assert(counts.get(shadowFb) === 4, 'A stable frame must reuse shadows');
+    viewer.resize(gl.canvas.width, gl.canvas.height);
+    const beforeResize = counts.get(shadowFb);
+    viewer.render();
+    assert(counts.get(shadowFb) === beforeResize + 1, 'Resize must rebuild shadows');
     viewer.begin_reconstruction(0, false); viewer.render();
-    assert(passes === beforeResize + 2, 'Reconstruction must rebuild shadows');
+    assert(counts.get(shadowFb) === beforeResize + 2, 'Reconstruction must rebuild shadows');
     assert(gl.getError() === gl.NO_ERROR, 'WASM viewer WebGL error');
-    return { visibility: true, cameraLight: true, panZoomCache: true, picking: id, resize: true, reconstruction: true, shadowPasses: passes };
+    return { visibility: true, cameraLight: true, panZoomCache: true, picking: id, resize: true, reconstruction: true, shadowPasses: counts.get(shadowFb) };
   } finally {
     gl.bindFramebuffer = original;
     viewer.select(''); viewer.inspect('reset'); viewer.render();
