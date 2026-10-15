@@ -21,6 +21,7 @@ pub(crate) struct Uniforms {
     pub(crate) shadow_projection: WebGlUniformLocation,
     pub(crate) shadow_map: WebGlUniformLocation,
     pub(crate) shadow_texel: WebGlUniformLocation,
+    pub(crate) shadow_offset: WebGlUniformLocation,
 }
 
 pub(crate) struct SphereUniforms {
@@ -58,6 +59,7 @@ impl Uniforms {
             shadow_projection: location(gl, program, "shadow_projection")?,
             shadow_map: location(gl, program, "shadow_map")?,
             shadow_texel: location(gl, program, "shadow_texel")?,
+            shadow_offset: location(gl, program, "shadow_offset")?,
         })
     }
 }

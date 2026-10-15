@@ -186,6 +186,59 @@ impl AnatomyViewer {
         if !complete || gl.get_error() != Gl::NO_ERROR {
             return Err(js_error("Outline framebuffer allocation failed"));
         }
+        // Dedicated shadow map: square, decoupled from canvas size so light-space
+        // texels stay small even when the viewport is small. Packed RGB depth must
+        // be sampled with NEAREST, so resolution (not filtering) carries quality.
+        let shadow_size = width
+            .max(height)
+            .saturating_mul(2)
+            .clamp(1024, 2048)
+            .min(limit);
+        gl.bind_texture(Gl::TEXTURE_2D, self.gpu.shadow_texture.as_ref());
+        gl.tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MIN_FILTER, Gl::NEAREST as i32);
+        gl.tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MAG_FILTER, Gl::NEAREST as i32);
+        for parameter in [Gl::TEXTURE_WRAP_S, Gl::TEXTURE_WRAP_T] {
+            gl.tex_parameteri(Gl::TEXTURE_2D, parameter, Gl::CLAMP_TO_EDGE as i32);
+        }
+        gl.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
+            Gl::TEXTURE_2D,
+            0,
+            Gl::RGBA8 as i32,
+            shadow_size as i32,
+            shadow_size as i32,
+            0,
+            Gl::RGBA,
+            Gl::UNSIGNED_BYTE,
+            None,
+        )?;
+        gl.bind_renderbuffer(Gl::RENDERBUFFER, self.gpu.shadow_depth.as_ref());
+        gl.renderbuffer_storage(
+            Gl::RENDERBUFFER,
+            Gl::DEPTH_COMPONENT24,
+            shadow_size as i32,
+            shadow_size as i32,
+        );
+        gl.bind_framebuffer(Gl::FRAMEBUFFER, self.gpu.shadow_framebuffer.as_ref());
+        gl.framebuffer_texture_2d(
+            Gl::FRAMEBUFFER,
+            Gl::COLOR_ATTACHMENT0,
+            Gl::TEXTURE_2D,
+            self.gpu.shadow_texture.as_ref(),
+            0,
+        );
+        gl.framebuffer_renderbuffer(
+            Gl::FRAMEBUFFER,
+            Gl::DEPTH_ATTACHMENT,
+            Gl::RENDERBUFFER,
+            self.gpu.shadow_depth.as_ref(),
+        );
+        let complete = gl.check_framebuffer_status(Gl::FRAMEBUFFER) == Gl::FRAMEBUFFER_COMPLETE;
+        gl.bind_framebuffer(Gl::FRAMEBUFFER, None);
+        gl.bind_texture(Gl::TEXTURE_2D, None);
+        if !complete || gl.get_error() != Gl::NO_ERROR {
+            return Err(js_error("Shadow framebuffer allocation failed"));
+        }
+        self.gpu.shadow_size = shadow_size;
         Ok(())
     }
 
@@ -248,11 +301,15 @@ impl AnatomyViewer {
 
     pub fn zoom(&mut self, factor: f32) -> Result<(), JsValue> {
         self.camera.zoom(factor).map_err(js_error)?;
+        // The shadow frustum fits the viewed region, so zooming refits it.
+        self.shadow_cached.set(false);
         Ok(())
     }
 
     pub fn pan(&mut self, x: f32, y: f32) -> Result<(), JsValue> {
         self.camera.pan(x, y).map_err(js_error)?;
+        // Panning moves the fitted shadow volume with the orbit target.
+        self.shadow_cached.set(false);
         Ok(())
     }
 

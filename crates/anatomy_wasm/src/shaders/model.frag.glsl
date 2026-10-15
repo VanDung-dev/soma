@@ -18,6 +18,7 @@ uniform bool shadow_pass;
 uniform mat4 shadow_projection;
 uniform sampler2D shadow_map;
 uniform vec2 shadow_texel;
+uniform float shadow_offset;
 out vec4 output_color;
 vec3 filmic(vec3 c) {
     // shortcut: fit of Blender's neutral Filmic sRGB curve; use the full OCIO transform for gamut/desaturation parity.
@@ -42,20 +43,40 @@ vec3 sunlight(vec3 n, vec3 v, vec3 l, vec3 radiance) {
     return (diffuse * scatter + reflection * nl) * radiance;
 }
 float sunlight_visibility(vec3 n, vec3 light) {
-    vec4 position = shadow_projection * vec4(world_position + n * 0.001, 1.0);
+    vec4 surface = shadow_projection * vec4(world_position, 1.0);
+    vec3 receiver = surface.xyz / surface.w * 0.5 + 0.5;
+    vec3 dx = dFdx(receiver), dy = dFdy(receiver);
+    float determinant = dx.x * dy.y - dx.y * dy.x;
+    vec2 depth_gradient = vec2(0.0);
+    if (abs(determinant) > 1e-10) {
+        depth_gradient = vec2(dy.y * dx.z - dx.y * dy.z,
+            dx.x * dy.z - dy.x * dx.z) / determinant;
+    }
+    // Offset scales with the fitted frustum so close-ups keep the same relative acne guard.
+    vec4 position = shadow_projection * vec4(world_position + n * shadow_offset, 1.0);
     if (position.w == 0.0) return 1.0;
     vec3 uv = position.xyz / position.w * 0.5 + 0.5;
     if (any(lessThan(uv, vec3(0.0))) || any(greaterThan(uv, vec3(1.0)))) return 1.0;
-    // Match bias to map resolution so grazing surfaces do not shadow their own triangles.
-    float bias = max(0.0005, 2.0 * max(shadow_texel.x, shadow_texel.y)
-        * (1.0 - dot(n, light)));
+    float bias = abs(determinant) > 1e-10 ? 0.00002
+        : max(0.0005, 2.0 * max(shadow_texel.x, shadow_texel.y) * (1.0 - dot(n, light)));
+    // Compare at each texel's receiver depth; one shared depth makes sloped surfaces shadow themselves.
+    vec2 origin = floor(uv.xy / shadow_texel - 0.5) + 0.5;
     float visible = 0.0;
-    for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
-        vec3 encoded_depth = texture(shadow_map, uv.xy + vec2(x, y) * shadow_texel).rgb;
+    float total = 0.0;
+    for (int y = -1; y <= 2; y++) for (int x = -1; x <= 2; x++) {
+        vec2 sample_uv = (origin + vec2(x, y)) * shadow_texel;
+        vec2 delta = sample_uv - uv.xy;
+        // Continuous tent weights avoid jumps when the lookup crosses a texel boundary.
+        vec2 tent = max(vec2(0.0), 2.0 - abs(delta / shadow_texel));
+        float weight = tent.x * tent.y;
+        sample_uv = clamp(sample_uv, shadow_texel * 0.5, 1.0 - shadow_texel * 0.5);
+        vec3 encoded_depth = texture(shadow_map, sample_uv).rgb;
         float depth = dot(encoded_depth, vec3(1.0, 1.0 / 255.0, 1.0 / 65025.0));
-        visible += step(uv.z - bias, depth);
+        float receiver_depth = uv.z + dot(depth_gradient, sample_uv - uv.xy);
+        visible += step(receiver_depth - bias, depth) * weight;
+        total += weight;
     }
-    return visible / 9.0;
+    return visible / total;
 }
 void main() {
     // Ordered dithering fades opaque geometry without changing depth or material blending.

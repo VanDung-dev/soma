@@ -85,6 +85,18 @@ impl AnatomyViewer {
             gl.create_texture()
                 .ok_or_else(|| js_error("Cannot allocate outline texture"))?,
         );
+        gpu.shadow_framebuffer = Some(
+            gl.create_framebuffer()
+                .ok_or_else(|| js_error("Cannot allocate shadow framebuffer"))?,
+        );
+        gpu.shadow_texture = Some(
+            gl.create_texture()
+                .ok_or_else(|| js_error("Cannot allocate shadow texture"))?,
+        );
+        gpu.shadow_depth = Some(
+            gl.create_renderbuffer()
+                .ok_or_else(|| js_error("Cannot allocate shadow depth buffer"))?,
+        );
         let camera = Camera::new(scene.bounds);
         let mut reconstruction = Reconstruction::default();
         reconstruction

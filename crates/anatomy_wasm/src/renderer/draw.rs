@@ -43,8 +43,8 @@ impl AnatomyViewer {
         if picking {
             self.shadow_cached.set(false);
         } else if !self.shadow_cached.replace(true) {
-            // Picking rewrites IDs on demand; reuse its framebuffer for the key light's shadow map.
-            gl.bind_framebuffer(Gl::FRAMEBUFFER, self.gpu.framebuffer.as_ref());
+            // Refresh the key light's shadow map on its dedicated framebuffer.
+            gl.bind_framebuffer(Gl::FRAMEBUFFER, self.gpu.shadow_framebuffer.as_ref());
             self.draw_pass(false, true);
             gl.bind_framebuffer(Gl::FRAMEBUFFER, None);
         }
@@ -116,12 +116,17 @@ impl AnatomyViewer {
     fn draw_pass(&self, picking: bool, shadow_pass: bool) {
         let gl = &self.gpu.gl;
         let u = &self.uniforms;
-        gl.viewport(
-            0,
-            0,
-            self.canvas.width() as i32,
-            self.canvas.height() as i32,
-        );
+        if shadow_pass {
+            let size = self.gpu.shadow_size.max(1) as i32;
+            gl.viewport(0, 0, size, size);
+        } else {
+            gl.viewport(
+                0,
+                0,
+                self.canvas.width() as i32,
+                self.canvas.height() as i32,
+            );
+        }
         gl.depth_mask(true);
         gl.enable(Gl::DEPTH_TEST);
         gl.depth_func(Gl::LEQUAL);
@@ -143,11 +148,15 @@ impl AnatomyViewer {
             false,
             &light_basis.to_cols_array(),
         );
-        let shadow_projection = self.scene.bounds.shadow_matrix(
-            light_basis.x_axis * std::f32::consts::FRAC_1_SQRT_2
+        let shadow_projection = {
+            let light = light_basis.x_axis * std::f32::consts::FRAC_1_SQRT_2
                 + light_basis.y_axis * 0.5
-                + light_basis.z_axis * 0.5,
-        );
+                + light_basis.z_axis * 0.5;
+            // Fit the frustum to the viewed region so zoomed-in texels stay dense.
+            let (center, radius) = self.camera.shadow_volume();
+            gl.uniform1f(Some(&u.shadow_offset), radius * 1e-3);
+            anatomy_renderer::Bounds::shadow_matrix_at(center, radius, light)
+        };
         gl.uniform_matrix4fv_with_f32_array(
             Some(&u.shadow_projection),
             false,
@@ -155,18 +164,15 @@ impl AnatomyViewer {
         );
         gl.uniform1i(Some(&u.shadow_pass), i32::from(shadow_pass));
         gl.uniform1i(Some(&u.shadow_map), 0);
-        gl.uniform2f(
-            Some(&u.shadow_texel),
-            1.0 / self.canvas.width() as f32,
-            1.0 / self.canvas.height() as f32,
-        );
+        let shadow_texel = 1.0 / self.gpu.shadow_size.max(1) as f32;
+        gl.uniform2f(Some(&u.shadow_texel), shadow_texel, shadow_texel);
         gl.active_texture(Gl::TEXTURE0);
         gl.bind_texture(
             Gl::TEXTURE_2D,
             if picking || shadow_pass {
                 None
             } else {
-                self.gpu.texture.as_ref()
+                self.gpu.shadow_texture.as_ref()
             },
         );
         gl.bind_vertex_array(self.gpu.vaos.first());

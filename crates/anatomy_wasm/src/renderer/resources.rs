@@ -19,6 +19,10 @@ pub(crate) struct Resources {
     pub(crate) depth: Option<WebGlRenderbuffer>,
     pub(crate) outline_framebuffer: Option<WebGlFramebuffer>,
     pub(crate) outline_texture: Option<WebGlTexture>,
+    pub(crate) shadow_framebuffer: Option<WebGlFramebuffer>,
+    pub(crate) shadow_texture: Option<WebGlTexture>,
+    pub(crate) shadow_depth: Option<WebGlRenderbuffer>,
+    pub(crate) shadow_size: u32,
 }
 
 impl Resources {
@@ -35,6 +39,10 @@ impl Resources {
             depth: None,
             outline_framebuffer: None,
             outline_texture: None,
+            shadow_framebuffer: None,
+            shadow_texture: None,
+            shadow_depth: None,
+            shadow_size: 0,
         }
     }
 
@@ -94,6 +102,9 @@ impl Drop for Resources {
         self.gl
             .delete_framebuffer(self.outline_framebuffer.as_ref());
         self.gl.delete_texture(self.outline_texture.as_ref());
+        self.gl.delete_framebuffer(self.shadow_framebuffer.as_ref());
+        self.gl.delete_texture(self.shadow_texture.as_ref());
+        self.gl.delete_renderbuffer(self.shadow_depth.as_ref());
         if let Ok(Some(extension)) = self.gl.get_extension("WEBGL_lose_context")
             && let Ok(function) = js_sys::Reflect::get(&extension, &"loseContext".into())
             && let Some(function) = function.dyn_ref::<js_sys::Function>()
