@@ -295,10 +295,10 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       return next;
     });
   };
-  const focusStructures = (ids: string[], focusTarget?: string) => {
+  const focusStructures = (ids: string[], focusTarget?: string, viewport = focusViewport()) => {
     const focusedId = !focusTarget && ids.length === 1 ? ids[0]! : "";
     if (!ids.length || !operate(renderer => {
-      renderer.focus(JSON.stringify(ids), ...focusViewport());
+      renderer.focus(JSON.stringify(ids), ...viewport);
       if (focusTarget || focusedId) renderer.set_visibility(JSON.stringify(ids));
       renderer.select(focusedId);
     })) return;
@@ -321,7 +321,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
           <button disabled={building || error} onClick={() => changeVisibility(meshes.map(p => p.source_id), false)}>Ẩn tất cả</button>
           <button className="tree-focus" disabled={building || error || !visibleIds.size}
             aria-label="Căn khung các mẫu đang hiện" title="Căn khung các mẫu đang hiện"
-            onClick={() => focusStructures([...visibleIds])}><Magnifier /></button>
+            onClick={() => focusStructures([...visibleIds], undefined, [0, 0, 1, 1])}><Magnifier /></button>
         </div>
         <StructureTree catalog={catalog} structures={meshes} visibleIds={visibleIds} selected={selected} targetId={targetId} disabled={building || error}
           onVisibility={changeVisibility} onFocus={focusStructures} onSelect={id => { setReadingId(id); setTargetId(undefined); operate(renderer => renderer.select(id)); }}

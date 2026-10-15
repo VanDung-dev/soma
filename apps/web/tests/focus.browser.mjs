@@ -13,6 +13,11 @@ export async function checkFocusTree() {
   const branch = catalog.targets.find(t => t.source_name === 'Cranium');
   const otherBranch = catalog.targets.find(t => t.source_name === 'Appendicular skeleton');
   const row = target => document.querySelector(`[data-target-id="${target.id}"] > .tree-row`);
+  const cameraMatrix = () => {
+    const program = gl.getParameter(gl.CURRENT_PROGRAM);
+    return Array.from(gl.getUniform(program, gl.getUniformLocation(program, 'view_projection')));
+  };
+  const startupMatrix = cameraMatrix();
   let focusCalls = 0, lastIds, lastViewer, imageBounds;
   proto.focus = function(ids, ...frame) {
     focusCalls++; lastIds = JSON.parse(ids); lastViewer = this;
@@ -32,6 +37,11 @@ export async function checkFocusTree() {
     assert(gl.getError() === gl.NO_ERROR, 'Focus produced a WebGL error');
   };
   try {
+    row(root).querySelector('.tree-focus').click(); await wait();
+    document.querySelector('.tree-actions button').click(); await wait();
+    document.querySelector('.tree-actions .tree-focus').click(); await wait();
+    assert(cameraMatrix().every((value, i) => Math.abs(value - startupMatrix[i]) < 1e-5),
+      'General framing of all models must restore the startup position and scale');
     for (const system of catalog.targets.filter(t => t.model)) {
       row(system).querySelector('.tree-focus').click(); await wait();
       const expected = new Set(system.model.structure_ids);
@@ -103,7 +113,7 @@ export async function checkFocusTree() {
     document.querySelector('[aria-label="Căn khung các mẫu đang hiện"]').click(); await wait();
     assert(lastIds.length === 1 && lastIds[0] === partId && lastViewer.visible_count() === 1,
       'General framing of one checked structure must keep it isolated');
-    return { systemsMatchCheckboxes: true, skeletalExcludesJoints: true, smallModel: true, exactIds: true, checkboxDoesNotZoom: true,
+    return { generalMatchesStartup: true, systemsMatchCheckboxes: true, skeletalExcludesJoints: true, smallModel: true, exactIds: true, checkboxDoesNotZoom: true,
       descendantsEnabled: true, folderIsolates: true, childFolderIsolates: true, individualIsolates: true, equalToolbarHeights: true,
       checkboxSynchronized: true, framesOnlyVisible: true, viewportFits: true };
   } finally {
