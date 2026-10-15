@@ -97,6 +97,8 @@ This command does not need Blender. Replace `python3` with `.venv/bin/python` or
 
 The exporter keeps model names, geometry, materials, laterality, Latin names, and the source hierarchy. It no longer reads or bundles Z-Anatomy descriptions. Import also generates `content/anatomy-names.json`, a deduplicated name inventory linked to model IDs.
 
+The UI displays Vietnamese anatomy names first and English names underneath, while search also accepts English, Latin and Vietnamese without accents. The separate [bilingual glossary](content/TERMINOLOGY.md) preserves source identities and model imports. Its Vietnamese terminology is a draft awaiting medical review; unresolved source labels retain their original names.
+
 The reference panel embeds Wikipedia directly in an iframe. It supports expanding the reader, returning to the selected structure's original article, and opening that article on Wikipedia. Hovering previews the model name; clicking a model or choosing a tree entry opens its reference. Moving the pointer does not replace the article being read. Articles and images require an internet connection; they are not copied into model metadata or an application database.
 
 `content/wikipedia-references.json` contains only the existing article URLs retained during migration. These mappings are not independently verified and may point to a broader article or section. Unmapped structures offer an explicit Wikipedia search link; the app does not guess an article from the first search result. Wikipedia remains reference material and may be inaccurate or outdated.
