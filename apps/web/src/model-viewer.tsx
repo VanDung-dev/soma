@@ -4,6 +4,7 @@ import type { Catalog } from "./core";
 import { StructureTree } from "./structure-tree";
 import { StructureSearch } from "./structure-search";
 import { ModelControls } from "./model-controls";
+import { ExplodeControls } from "./explode-controls";
 import { WikipediaReader } from "./wikipedia-reader";
 import { anatomyNames, structureName, targetName } from "./anatomy-names";
 import type { AnatomyViewer } from "./wasm/anatomy_wasm";
@@ -21,6 +22,8 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const animating = useRef(false);
   const failed = useRef(false);
   const lastAnimationFrame = useRef(0);
+  const explosionMode = useRef(false);
+  const [explosionAmount, setExplosionAmount] = useState(0);
   const [building, setBuilding] = useState(true);
   const [loadedSystems, setLoadedSystems] = useState(0);
 
@@ -42,7 +45,8 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     const left = desktop ? catalogPanel.getBoundingClientRect().right - area.left + 12 : 12;
     const right = desktop ? informationPanel.getBoundingClientRect().right - area.left
       - parseFloat(getComputedStyle(informationPanel).getPropertyValue("--panel-width")) - 12 : area.width - 12;
-    const top = 110, bottom = area.height - 80;
+    const hud = host.current!.parentElement!.querySelector<HTMLElement>(".model-hud")!.getBoundingClientRect();
+    const top = 110, bottom = Math.max(top + 1, hud.top - area.top - 12);
     return [left / area.width, top / area.height, Math.max(1, right - left) / area.width, Math.max(1, bottom - top) / area.height];
   };
   useEffect(() => {
@@ -69,6 +73,8 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
           }
           if (animating.current) scheduleRender();
           else if (!loading.current) setBuilding(false);
+        } else if (explosionMode.current) {
+          if (viewer.current!.render_explosion(now)) scheduleRender();
         } else viewer.current?.render();
       }
       catch (cause) { failed.current = true; animating.current = false; console.error(cause); setError(true); setStatus("Không thể hiển thị mô hình. Hãy tải lại trang để thử lại."); }
@@ -99,6 +105,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     const motionChanged = () => {
       if (reducedMotion.matches && viewer.current) {
         viewer.current.finish_reconstruction(); animating.current = false; scheduleRender();
+        viewer.current.finish_explosion();
         if (!loading.current) setBuilding(false);
       }
     };
@@ -206,6 +213,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         loading.current = true;
         failed.current = false;
         setBuilding(true); setLoadedSystems(0); setMeshes([]); setError(false);
+        explosionMode.current = false; setExplosionAmount(0);
         const downloads = roots.map(async root => {
           const model = root.model!;
           const [response, metadataResponse] = await Promise.all([
@@ -256,6 +264,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
           }
         }
         resize();
+        viewer.current!.configure_explosion(JSON.stringify(roots.map(root => root.model!.structure_ids)));
         if (failed.current) throw new Error("Model rendering failed");
         const structures = [...new Map(packages.flatMap(p => p.metadata.structures).map(part => [part.source_id, part])).values()]
           .sort((a, b) => structureName(a).localeCompare(structureName(b), "vi") || a.source_object.localeCompare(b.source_object));
@@ -286,6 +295,21 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       viewer.current?.free(); viewer.current = null; canvas.remove();
     };
   }, [catalog]);
+  const changeExplosion = (value: number) => {
+    const enabled = value > 0;
+    if (!operate(renderer => {
+      if (enabled !== explosionMode.current) {
+        renderer.set_explode_mode(enabled);
+        explosionMode.current = enabled;
+        if (enabled) renderer.reframe(...focusViewport());
+      }
+      if (enabled) {
+        renderer.set_explode(value / 100, performance.now(),
+          !window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+      }
+    })) return;
+    setExplosionAmount(value); setHovered("");
+  };
   const selectedPart = meshes.find(part => part.source_id === readingId);
   const hoveredPart = meshes.find(part => part.source_id === hovered);
   const referenceName = selectedPart?.source_name ?? target?.source_name;
@@ -302,8 +326,8 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const focusStructures = (ids: string[], focusTarget?: string) => {
     const focusedId = !focusTarget && ids.length === 1 ? ids[0]! : "";
     if (!ids.length || !operate(renderer => {
-      renderer.focus(JSON.stringify(ids), ...focusViewport());
       if (focusTarget || focusedId) renderer.set_visibility(JSON.stringify(ids));
+      renderer.focus(JSON.stringify(ids), ...focusViewport());
       renderer.select(focusedId);
     })) return;
     setVisibleIds(current => focusTarget || focusedId ? new Set(ids) : new Set([...current, ...ids]));
@@ -346,6 +370,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
               {structureName(hoveredPart, "en") !== structureName(hoveredPart) && <small lang="en">{structureName(hoveredPart, "en")}</small>}
             </p>}
             {building && !error && <progress className="model-progress" aria-label="Các hệ giải phẫu đã nạp" value={loadedSystems} max={roots.length} />}
+            <ExplodeControls value={explosionAmount} disabled={building || error} onChange={changeExplosion} />
             <ModelControls disabled={building || error} onOperate={operate} />
           </div>
         </section>
