@@ -13,6 +13,7 @@ pub struct Camera {
     view: Bounds,
     frame: Option<[f32; 4]>,
     composition: Vec3,
+    pan_offset: Vec3,
 }
 
 impl Camera {
@@ -28,11 +29,13 @@ impl Camera {
             view: bounds,
             frame: None,
             composition: Vec3::new(0.0, 0.04, 0.0),
+            pan_offset: Vec3::ZERO,
         };
         camera.fit(bounds);
         camera
     }
     pub fn fit(&mut self, bounds: Bounds) {
+        self.pan_offset = Vec3::ZERO;
         self.view = bounds;
         self.target = bounds.center();
         self.yaw = -0.32;
@@ -99,6 +102,7 @@ impl Camera {
         self.radius += (goal.radius - self.radius) * blend;
         self.center = self.center.lerp(goal.center, blend);
         self.composition = self.composition.lerp(goal.composition, blend);
+        self.pan_offset = self.pan_offset.lerp(goal.pan_offset, blend);
         self.view = goal.view;
         self.frame = goal.frame;
         let tolerance = goal.radius * 1e-5;
@@ -106,7 +110,9 @@ impl Camera {
             || (self.distance - goal.distance).abs() > tolerance
             || yaw.abs() > 1e-5
             || (self.pitch - goal.pitch).abs() > 1e-5;
-        let moving = moving || self.composition.distance(goal.composition) > 1e-5;
+        let moving = moving
+            || self.composition.distance(goal.composition) > 1e-5
+            || self.pan_offset.distance(goal.pan_offset) > 1e-5;
         if !moving {
             *self = goal.clone();
         }
@@ -149,33 +155,28 @@ impl Camera {
         if !x.is_finite() || !y.is_finite() {
             return Err("Invalid camera pan".into());
         }
-        let forward = (self.target - self.eye()).normalize();
-        let right = forward.cross(Vec3::Y).normalize();
-        let up = right.cross(forward);
-        let next =
-            self.target + (right * x + up * y) * self.distance * (19_f32.to_radians()).tan() * 2.0;
-        if !next.is_finite() || !(next + self.orbit_offset()).is_finite() {
+        let next = self.pan_offset - Vec3::new(2.0 * x / self.aspect, 2.0 * y, 0.0);
+        if !next.is_finite() {
             return Err("Camera pan exceeds finite coordinates".into());
         }
-        self.target = next;
-        self.constrain_eye();
+        self.pan_offset = next;
         Ok(())
     }
     pub fn enclosure_radius(&self) -> f32 {
         self.radius * 6.0
     }
     fn constrain_eye(&mut self) {
-        let offset = self.orbit_offset();
-        let delta = self.target + offset - self.center;
-        let scale = delta.abs().max_element();
-        if scale > 0.0 {
-            // Normalize after scaling so even very large, finite pan inputs remain bounded.
-            let direction = delta / scale;
-            let length = direction.length();
-            let limit = self.enclosure_radius() * 0.9;
-            if scale > limit / length {
-                self.target = self.center + direction / length * limit - offset;
-            }
+        let limit = self.enclosure_radius() * 0.9;
+        if limit > 0.0 {
+            // Limit orbit distance at the enclosure, keeping the model pivot fixed.
+            let pivot = (self.target - self.center) / limit;
+            let along = pivot.dot(self.light_basis().z_axis);
+            let distance = ((along * along + 1.0 - pivot.length_squared())
+                .max(0.0)
+                .sqrt()
+                - along)
+                * limit;
+            self.distance = self.distance.min(distance);
         }
     }
     pub fn eye(&self) -> Vec3 {
@@ -189,7 +190,11 @@ impl Camera {
         let half_width = half_height * self.aspect.max(1e-6);
         let radius =
             (half_height.max(half_width) * 2.0).clamp(self.radius * 0.01, self.radius * 1.01);
-        (self.target, radius)
+        let basis = self.light_basis();
+        let center = self.target
+            - basis.x_axis * self.pan_offset.x * half_width
+            - basis.y_axis * self.pan_offset.y * half_height;
+        (center, radius)
     }
     pub fn light_basis(&self) -> Mat3 {
         Mat3::from_rotation_y(self.yaw) * Mat3::from_rotation_x(-self.pitch)
@@ -203,7 +208,7 @@ impl Camera {
     }
     pub fn matrix(&self) -> Mat4 {
         // Anatomy retains startup framing; inventory uses the available viewport.
-        Mat4::from_translation(self.composition)
+        Mat4::from_translation(self.composition + self.pan_offset)
             * glam::camera::rh::proj::opengl::perspective(
                 38_f32.to_radians(),
                 self.aspect,

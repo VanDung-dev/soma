@@ -2,6 +2,63 @@ use anatomy_renderer::{Bounds, Camera};
 use glam::Vec3;
 
 #[test]
+fn panning_keeps_the_model_pivot_and_rotation_keeps_its_screen_position() {
+    let body = Bounds {
+        min: Vec3::new(-0.4, 0.0, -0.3),
+        max: Vec3::new(0.4, 1.8, 0.3),
+    };
+    let part = Bounds {
+        min: Vec3::new(0.1, 1.5, 0.0),
+        max: Vec3::new(0.2, 1.6, 0.1),
+    };
+    let mut focused = Camera::new(body);
+    focused.focus(part, [0.25, 0.1, 0.5, 0.7]).unwrap();
+    for mut camera in [
+        Camera::new(body),
+        focused,
+        Camera::layout(body, 1.6, [0.25, 0.1, 0.5, 0.7]).unwrap(),
+    ] {
+        let pivot = camera.target;
+        let before = camera.matrix().project_point3(pivot);
+        camera.pan(0.13, -0.17).unwrap();
+        assert_eq!(
+            camera.target, pivot,
+            "Pan must not move the orbit pivot away from the model"
+        );
+        let panned = camera.matrix().project_point3(pivot);
+        assert!(
+            panned.distance(before) > 0.1,
+            "Pan must still reposition the model on screen"
+        );
+        for (yaw, pitch) in [(0.5, 0.2), (-1.1, -0.4), (2.3, 0.5)] {
+            camera.rotate(yaw, pitch).unwrap();
+            camera.zoom(0.8).unwrap();
+            assert_eq!(camera.target, pivot);
+            assert!(
+                (camera.matrix().project_point3(pivot).truncate() - panned.truncate()).length()
+                    < 1e-4,
+                "Rotation must keep the off-center model pivot fixed on screen"
+            );
+        }
+        camera.zoom(100.0).unwrap();
+        camera.rotate(0.7, 0.5).unwrap();
+        assert_eq!(
+            camera.target, pivot,
+            "Zoom limits must not move a focused model's pivot"
+        );
+        let (shadow_center, _) = camera.shadow_volume();
+        assert!(
+            shadow_center.distance(pivot) > 0.01,
+            "Shadow detail must follow the panned view"
+        );
+        camera.reset();
+        assert!(
+            (camera.matrix().project_point3(pivot).truncate() - before.truncate()).length() < 1e-4
+        );
+    }
+}
+
+#[test]
 fn child_focus_uses_the_startup_canvas_center() {
     let body = Bounds {
         min: Vec3::new(-0.4, 0.0, -0.3),
@@ -284,6 +341,10 @@ fn camera_fits_narrow_viewports_and_rejects_invalid_inputs() {
     camera.rotate(0.6, -0.3).unwrap();
     camera.zoom(0.8).unwrap();
     camera.pan(0.1, -0.2).unwrap();
+    let panned = camera.matrix().project_point3(bounds.center());
+    assert!((panned.x + 0.2 / camera.aspect).abs() < 1e-5);
+    assert!((panned.y - 0.44).abs() < 1e-5);
+    camera.reset();
     check_frame(&camera);
 }
 

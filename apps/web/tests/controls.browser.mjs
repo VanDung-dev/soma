@@ -20,7 +20,8 @@ export async function checkControls() {
   document.body.append(input);
   try {
     const expected = [
-      ['w', 'pan', [0, 0.04]], ['a', 'pan', [-0.04, 0]], ['s', 'pan', [0, -0.04]], ['d', 'pan', [0.04, 0]],
+      ['w', 'rotate', [0, Math.PI / 8]], ['a', 'rotate', [Math.PI / 8, 0]],
+      ['s', 'rotate', [0, -Math.PI / 8]], ['d', 'rotate', [-Math.PI / 8, 0]],
       ['ArrowUp', 'rotate', [0, Math.PI / 8]], ['ArrowLeft', 'rotate', [Math.PI / 8, 0]],
       ['ArrowDown', 'rotate', [0, -Math.PI / 8]], ['ArrowRight', 'rotate', [-Math.PI / 8, 0]],
       ['e', 'zoom', [1 / 1.2]], ['q', 'zoom', [1.2]], ['r', 'inspect', ['reset']],
@@ -56,7 +57,7 @@ export async function checkControls() {
     calls.length = 0;
     send('keydown', 'w'); send('keydown', 'd'); send('keydown', 'r');
     await frames(5); send('keydown', 'r', canvas, { repeat: true });
-    assert(calls.filter(c => c.method === 'pan').length >= 4, 'Hold multiple keys continuously');
+    assert(calls.filter(c => c.method === 'rotate').length >= 4, 'Hold multiple keys continuously');
     assert(calls.filter(c => c.method === 'inspect').length === 1, 'Reset must not repeat while another key is held');
     window.dispatchEvent(new Event('blur')); await frames(1);
     const stopped = calls.length; await frames(3);

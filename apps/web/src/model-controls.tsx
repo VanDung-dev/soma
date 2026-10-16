@@ -2,13 +2,11 @@ import { useEffect, useEffectEvent, useId } from "react";
 import type { AnatomyViewer } from "./wasm/anatomy_wasm";
 
 const groups = [
-  { label: "Di chuyển", controls: [
-    { key: "w", shortcut: "W", label: "Lên", action: (v: AnatomyViewer, step: number) => v.pan(0, 0.04 * step) },
-    { key: "a", shortcut: "A", label: "Trái", action: (v: AnatomyViewer, step: number) => v.pan(-0.04 * step, 0) },
-    { key: "s", shortcut: "S", label: "Xuống", action: (v: AnatomyViewer, step: number) => v.pan(0, -0.04 * step) },
-    { key: "d", shortcut: "D", label: "Phải", action: (v: AnatomyViewer, step: number) => v.pan(0.04 * step, 0) },
-  ] },
-  { label: "Xoay", controls: [
+  { label: "Xoay quanh mô hình", controls: [
+    { key: "w", shortcut: "W", label: "Lên", action: (v: AnatomyViewer, step: number) => v.rotate(0, Math.PI / 8 * step) },
+    { key: "a", shortcut: "A", label: "Trái", action: (v: AnatomyViewer, step: number) => v.rotate(Math.PI / 8 * step, 0) },
+    { key: "s", shortcut: "S", label: "Xuống", action: (v: AnatomyViewer, step: number) => v.rotate(0, -Math.PI / 8 * step) },
+    { key: "d", shortcut: "D", label: "Phải", action: (v: AnatomyViewer, step: number) => v.rotate(-Math.PI / 8 * step, 0) },
     { key: "arrowup", shortcut: "ArrowUp", label: "Lên", action: (v: AnatomyViewer, step: number) => v.rotate(0, Math.PI / 8 * step) },
     { key: "arrowleft", shortcut: "ArrowLeft", label: "Trái", action: (v: AnatomyViewer, step: number) => v.rotate(Math.PI / 8 * step, 0) },
     { key: "arrowdown", shortcut: "ArrowDown", label: "Xuống", action: (v: AnatomyViewer, step: number) => v.rotate(0, -Math.PI / 8 * step) },
@@ -87,17 +85,18 @@ export function ModelControls({ disabled, onOperate }: {
       <div className="guide-columns">
         <section aria-label="Bàn phím"><h3>Bàn phím</h3>
           {groups.map(group => <div className="guide-key-group" key={group.label}>
-            <h4>{group.label === "Di chuyển" ? "Di chuyển góc nhìn" : group.label}</h4>
+            <h4>{group.label}</h4>
             <dl>{group.controls.map(control => <div key={control.key}>
               <dt><kbd>{arrows[control.shortcut] ?? control.shortcut}</kbd></dt><dd>{control.label}</dd>
             </div>)}</dl>
           </div>)}
           <p className="guide-note">Giữ phím để điều khiển liên tục. Có thể dùng nhiều phím cùng lúc.</p>
+          <p className="guide-note">Tâm xoay nằm tại mô hình hoặc bộ phận đang được tập trung.</p>
         </section>
         <section aria-label="Chuột"><h3>Chuột</h3><dl className="guide-mouse">
           <div><dt>Kéo chuột trái</dt><dd>Xoay mô hình</dd></div>
           <div><dt>Cuộn chuột</dt><dd>Phóng to hoặc thu nhỏ</dd></div>
-          <div><dt>Shift + kéo / kéo chuột phải</dt><dd>Di chuyển góc nhìn</dd></div>
+          <div><dt>Shift + kéo / kéo chuột phải</dt><dd>Dịch mô hình trên màn hình</dd></div>
           <div><dt>Trỏ hoặc nhấn vào bộ phận</dt><dd>Xem thông tin giải phẫu</dd></div>
         </dl></section>
       </div>

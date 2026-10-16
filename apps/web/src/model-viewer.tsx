@@ -103,7 +103,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     const canvas = document.createElement("canvas");
     canvas.setAttribute("role", "img");
     canvas.tabIndex = 0;
-    canvas.setAttribute("aria-label", "Mô hình 3D cơ thể người. W A S D để di chuyển góc nhìn, phím mũi tên để xoay, E để phóng to, Q để thu nhỏ, R để đặt lại. Kéo để xoay, cuộn để phóng to, trỏ vào để xem thông tin.");
+    canvas.setAttribute("aria-label", "Mô hình 3D cơ thể người. W A S D và phím mũi tên để xoay quanh tâm mô hình, E để phóng to, Q để thu nhỏ, R để đặt lại. Kéo để xoay, Shift và kéo để dịch mô hình, cuộn để phóng to, trỏ vào để xem thông tin.");
     container.appendChild(canvas);
     const abort = new AbortController();
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
