@@ -19,9 +19,16 @@ test('Wikipedia reader opens mapped articles and leaves unmapped structures expl
       assert(!('text' in article));
     }
     const html = renderToStaticMarkup(createElement(WikipediaReader, { name: 'Femur' }));
-    assert(html.includes('src="https://en.wikipedia.org/wiki/Femur"'));
+    assert(html.includes('<iframe'));
+    assert(html.includes('class="wikipedia-article"'));
+    assert(html.includes('href="https://en.wikipedia.org/wiki/Femur"'));
+    const skeleton = renderToStaticMarkup(createElement(WikipediaReader, { name: '1: Skeletal system' }));
+    assert(skeleton.includes('href="https://en.wikipedia.org/wiki/Skeleton#Humans"'));
     assert(html.includes('title="Bài Wikipedia về Xương đùi"'));
-    assert(html.includes('sandbox="allow-scripts allow-same-origin"'));
+    assert(html.includes('src="/wikipedia?url=https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FFemur"'));
+    assert(html.includes('sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"'));
+    assert(!html.includes('allow-same-origin') && !html.includes('reader-navigation'));
+    assert(html.includes('aria-busy="true"'));
     assert(html.includes('chưa được đối chiếu độc lập'));
     assert(html.includes('chỉ phục vụ tham khảo'));
     assert.match(html, /<h3>Wikipedia<button[^>]+aria-label="Thông tin về Wikipedia"/);
@@ -29,7 +36,7 @@ test('Wikipedia reader opens mapped articles and leaves unmapped structures expl
     assert.match(html, /class="reader-notes" hidden=""/);
     assert(html.includes('<details class="reference-mapping"><summary>Về liên kết tham khảo</summary>'));
     assert(html.includes('target="_blank" rel="noreferrer"'));
-    assert(html.indexOf('<iframe') < html.indexOf('class="reader-actions"'));
+    assert(html.indexOf('class="wikipedia-article"') < html.indexOf('class="reader-actions"'));
     assert(html.indexOf('class="reference-notice"') > html.indexOf('class="reader-note"'));
     const missing = renderToStaticMarkup(createElement(WikipediaReader, { name: 'Unmapped <part> & name' }));
     assert(!missing.includes('<iframe'));

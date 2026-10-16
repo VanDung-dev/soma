@@ -433,7 +433,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
               <p className="collection-names">{selectedPart.collections.filter(name => !/^\d:/.test(name)).map(name => anatomyNames(name).vi).join(" · ")}</p>
             </> : !target && <p>Trỏ vào mô hình để xem tên. Nhấn vào bộ phận hoặc chọn tên trong cây cấu trúc để đọc Wikipedia.</p>}
           </div>
-          {referenceName && <WikipediaReader key={referenceName} name={referenceName} />}
+          {referenceName && <WikipediaReader key={referenceName} name={referenceName} expanded={readerExpanded} />}
           <details className="model-credit" onToggle={event => {
             if (event.currentTarget.open) event.currentTarget.scrollIntoView({ block: "nearest" });
           }}>

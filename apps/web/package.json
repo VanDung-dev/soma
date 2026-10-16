@@ -8,6 +8,7 @@
     "dev": "vite --host localhost",
     "prebuild": "npm run wasm:build --prefix ../..",
     "build": "tsc --noEmit && vite build",
+    "serve": "node scripts/serve.mjs",
     "check": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
     "models:import": "node scripts/import-models.mjs",

@@ -44,7 +44,17 @@ The desktop command starts the frontend automatically. Run one development comma
 npm run build
 ```
 
-This command compiles Rust to WASM, checks TypeScript, and builds the frontend with Vite. The output is in `apps/web/dist/`. Deploy it to a static host that supports the `application/wasm` MIME type.
+This command compiles Rust to WASM, checks TypeScript, and builds the frontend with Vite. The output is in `apps/web/dist/`.
+
+Serve the build and its Wikipedia proxy with Node.js:
+
+```sh
+npm run serve
+```
+
+Open `http://127.0.0.1:4173/`. `PORT` and `HOST` can override the listen address. For deployment, run this server behind HTTPS; a static host alone cannot provide the Wikipedia proxy. Vite development and preview also include the proxy.
+
+For a static frontend or packaged Tauri app, set `VITE_WIKIPEDIA_PROXY_URL=https://your-server.example/wikipedia` when building, pointing to a deployed instance of this server. The packaged desktop app does not start a Node.js server itself.
 
 If you edit Rust, GLSL, or the catalog while the web development server is running, rebuild WASM and reload the page:
 
@@ -99,7 +109,9 @@ The exporter keeps model names, geometry, materials, laterality, Latin names, an
 
 The UI displays Vietnamese anatomy names first and English names underneath, while search also accepts English, Latin and Vietnamese without accents. The separate [bilingual glossary](content/TERMINOLOGY.md) preserves source identities and model imports. Its Vietnamese terminology is a draft awaiting medical review; unresolved source labels retain their original names.
 
-The reference panel embeds Wikipedia directly in an iframe. It supports expanding the reader, returning to the selected structure's original article, and opening that article on Wikipedia. Hovering previews the model name; clicking a model or choosing a tree entry opens its reference. Moving the pointer does not replace the article being read. Articles and images require an internet connection; they are not copied into model metadata or an application database.
+The reference panel embeds Wikipedia's original Vector 2022 page through a read-only proxy. The page retains Wikipedia's own styles, scripts, table of contents and language selector; injected CSS hides only `header.vector-header`. A navigation bridge keeps article/language links in the proxy and reports the current page to the app. Expanding restores the selected section only while reading the original article; the return button always restores that article. The frame uses an opaque sandbox origin and cannot access the surrounding app. Cookies, login and form submission are unavailable in this reading frame.
+
+Hovering previews the model name; clicking a model or choosing a tree entry opens its reference. Moving the pointer does not replace the article being read. Articles and images require an internet connection; they are not copied into model metadata or an application database.
 
 `content/wikipedia-references.json` contains only the existing article URLs retained during migration. These mappings are not independently verified and may point to a broader article or section. Unmapped structures offer an explicit Wikipedia search link; the app does not guess an article from the first search result. Wikipedia remains reference material and may be inaccurate or outdated.
 
