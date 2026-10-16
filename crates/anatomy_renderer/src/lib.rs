@@ -1,4 +1,5 @@
 mod camera;
+mod explosion;
 mod geometry;
 mod glb;
 mod packed;
@@ -6,6 +7,7 @@ mod reconstruction;
 mod scene;
 
 pub use camera::Camera;
+pub use explosion::Explosion;
 pub use geometry::{Bounds, Primitive};
 pub use packed::PackedScene;
 pub use reconstruction::Reconstruction;

@@ -1,6 +1,7 @@
 use crate::Bounds;
 use glam::{Mat3, Mat4, Vec3};
 
+#[derive(Clone)]
 pub struct Camera {
     pub target: Vec3,
     pub yaw: f32,
@@ -11,6 +12,7 @@ pub struct Camera {
     center: Vec3,
     view: Bounds,
     frame: Option<[f32; 4]>,
+    composition: Vec3,
 }
 
 impl Camera {
@@ -25,6 +27,7 @@ impl Camera {
             center: bounds.center(),
             view: bounds,
             frame: None,
+            composition: Vec3::new(0.0, 0.04, 0.0),
         };
         camera.fit(bounds);
         camera
@@ -62,6 +65,52 @@ impl Camera {
         self.frame = (frame != [0.0, 0.0, 1.0, 1.0]).then_some(frame);
         self.fit(bounds);
         Ok(())
+    }
+    pub fn layout(bounds: Bounds, aspect: f32, frame: [f32; 4]) -> Result<Self, String> {
+        if !aspect.is_finite() || aspect <= 0.0 {
+            return Err("Invalid layout aspect ratio".into());
+        }
+        let mut camera = Self::new(bounds);
+        camera.aspect = aspect;
+        camera.focus(bounds, frame)?;
+        let fov = 38_f32.to_radians();
+        let half_size = (bounds.max - bounds.min) * 0.5;
+        let distance = (half_size.x / ((fov * 0.5).tan() * aspect * frame[2]))
+            .max(half_size.y / ((fov * 0.5).tan() * frame[3]));
+        camera.distance = half_size.z + distance * 1.12;
+        // Leave room to pan and zoom after fitting a narrow viewport.
+        camera.radius = camera.radius.max(camera.distance / 4.0);
+        camera.yaw = 0.0;
+        camera.pitch = 0.0;
+        camera.composition = Vec3::new(
+            2.0 * (frame[0] + frame[2] * 0.5) - 1.0,
+            1.0 - 2.0 * (frame[1] + frame[3] * 0.5),
+            0.0,
+        );
+        Ok(camera)
+    }
+    pub fn approach(&mut self, goal: &Self, blend: f32) -> bool {
+        self.target = self.target.lerp(goal.target, blend);
+        self.distance += (goal.distance - self.distance) * blend;
+        let yaw = (goal.yaw - self.yaw + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU)
+            - std::f32::consts::PI;
+        self.yaw += yaw * blend;
+        self.pitch += (goal.pitch - self.pitch) * blend;
+        self.radius += (goal.radius - self.radius) * blend;
+        self.center = self.center.lerp(goal.center, blend);
+        self.composition = self.composition.lerp(goal.composition, blend);
+        self.view = goal.view;
+        self.frame = goal.frame;
+        let tolerance = goal.radius * 1e-5;
+        let moving = self.target.distance(goal.target) > tolerance
+            || (self.distance - goal.distance).abs() > tolerance
+            || yaw.abs() > 1e-5
+            || (self.pitch - goal.pitch).abs() > 1e-5;
+        let moving = moving || self.composition.distance(goal.composition) > 1e-5;
+        if !moving {
+            *self = goal.clone();
+        }
+        moving
     }
     pub fn reframe(&mut self, frame: [f32; 4]) -> Result<(), String> {
         if self.frame.is_some() {
@@ -153,9 +202,8 @@ impl Camera {
         ) * self.distance
     }
     pub fn matrix(&self) -> Mat4 {
-        // Keep every fitted target at the same canvas position as startup.
-        let composition = Vec3::new(0.0, 0.04, 0.0);
-        Mat4::from_translation(composition)
+        // Anatomy retains startup framing; inventory uses the available viewport.
+        Mat4::from_translation(self.composition)
             * glam::camera::rh::proj::opengl::perspective(
                 38_f32.to_radians(),
                 self.aspect,

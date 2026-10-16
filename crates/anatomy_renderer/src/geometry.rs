@@ -15,6 +15,12 @@ impl Bounds {
     pub fn radius(self) -> f32 {
         (self.max - self.min).length() * 0.5
     }
+    pub fn translated(self, offset: Vec3) -> Self {
+        Self {
+            min: self.min + offset,
+            max: self.max + offset,
+        }
+    }
     pub fn shadow_matrix(self, light: Vec3) -> Mat4 {
         Self::shadow_matrix_at(self.center(), self.radius().max(0.001) * 1.01, light)
     }
@@ -33,7 +39,7 @@ impl Bounds {
             radius * 3.0,
         ) * glam::camera::rh::view::look_at_mat4(center + light * radius * 2.0, center, Vec3::Y)
     }
-    pub(super) fn union(self, other: Self) -> Self {
+    pub fn union(self, other: Self) -> Self {
         Self {
             min: self.min.min(other.min),
             max: self.max.max(other.max),
