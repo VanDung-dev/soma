@@ -17,7 +17,7 @@ button { color: inherit; }
 .information-heading { position: relative; flex-shrink: 0; padding: 12px var(--panel-padding) 10px; border-bottom: 1px solid var(--line); }
 .information-heading > div { min-width: 0; }
 .information-heading .eyebrow { display: flex; align-items: center; min-height: 28px; padding-right: 108px; margin: 0 0 6px; }
-.information-content { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 10px var(--panel-padding) 20px; }
+.information-content { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 10px var(--panel-padding); }
 .information-details { flex-shrink: 0; font-size: 14px; line-height: 1.8; }
 .information-details:empty { display: none; }
 .information-details p { margin: 0; }
