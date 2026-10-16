@@ -132,23 +132,36 @@ impl Camera {
         self.fit(self.view);
     }
     pub fn rotate(&mut self, yaw: f32, pitch: f32) -> Result<(), String> {
-        if !yaw.is_finite() || !pitch.is_finite() {
+        self.rotate_around(self.target, yaw, pitch)
+    }
+    pub fn rotate_around(&mut self, pivot: Vec3, yaw: f32, pitch: f32) -> Result<(), String> {
+        if !pivot.is_finite() || !yaw.is_finite() || !pitch.is_finite() {
             return Err("Invalid camera rotation".into());
         }
+        let offset = self.light_basis().transpose() * (self.target - pivot);
         self.yaw = (self.yaw + yaw).rem_euclid(std::f32::consts::TAU);
         self.pitch = (self.pitch + pitch).clamp(-1.55, 1.55);
-        self.constrain_eye();
+        // Rotate the existing view around the selection without first recentering it.
+        self.target = pivot + self.light_basis() * offset;
+        self.constrain_orbit(pivot);
         Ok(())
     }
     pub fn zoom(&mut self, factor: f32) -> Result<(), String> {
-        if !factor.is_finite() || factor <= 0.0 {
+        self.zoom_around(self.target, factor)
+    }
+    pub fn zoom_around(&mut self, pivot: Vec3, factor: f32) -> Result<(), String> {
+        if !pivot.is_finite() || !factor.is_finite() || factor <= 0.0 {
             return Err("Invalid camera zoom".into());
         }
-        self.distance = (self.distance * factor).clamp(
+        let distance = (self.distance * factor).clamp(
             self.view.radius().max(self.radius * 1e-6) * 0.1,
             self.enclosure_radius() * 0.9,
         );
-        self.constrain_eye();
+        if self.distance > 0.0 {
+            self.target = pivot + (self.target - pivot) * (distance / self.distance);
+        }
+        self.distance = distance;
+        self.constrain_orbit(pivot);
         Ok(())
     }
     pub fn pan(&mut self, x: f32, y: f32) -> Result<(), String> {
@@ -162,21 +175,39 @@ impl Camera {
         self.pan_offset = next;
         Ok(())
     }
+    pub fn center_on(&mut self, pivot: Vec3, x: f32, y: f32) -> Result<(), String> {
+        if !pivot.is_finite() || !x.is_finite() || !y.is_finite() {
+            return Err("Invalid camera center".into());
+        }
+        let point = self.matrix() * pivot.extend(1.0);
+        if point.w > 1e-6 {
+            self.pan_offset += Vec3::new(x - point.x / point.w, y - point.y / point.w, 0.0);
+        }
+        Ok(())
+    }
     pub fn enclosure_radius(&self) -> f32 {
         self.radius * 6.0
     }
     fn constrain_eye(&mut self) {
+        self.constrain_orbit(self.target);
+    }
+    fn constrain_orbit(&mut self, pivot: Vec3) {
         let limit = self.enclosure_radius() * 0.9;
-        if limit > 0.0 {
-            // Limit orbit distance at the enclosure, keeping the model pivot fixed.
-            let pivot = (self.target - self.center) / limit;
-            let along = pivot.dot(self.light_basis().z_axis);
-            let distance = ((along * along + 1.0 - pivot.length_squared())
+        let offset = self.eye() - pivot;
+        let distance = offset.length();
+        if limit > 0.0 && distance > 0.0 {
+            let relative = (pivot - self.center) / limit;
+            let along = relative.dot(offset / distance);
+            let maximum = ((along * along + 1.0 - relative.length_squared())
                 .max(0.0)
                 .sqrt()
                 - along)
                 * limit;
-            self.distance = self.distance.min(distance);
+            if maximum > 0.0 && distance > maximum {
+                let scale = maximum / distance;
+                self.target = pivot + (self.target - pivot) * scale;
+                self.distance *= scale;
+            }
         }
     }
     pub fn eye(&self) -> Vec3 {

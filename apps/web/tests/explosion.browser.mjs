@@ -116,14 +116,120 @@ export async function checkExplosion() {
     assert(pickCenter(0.55,offsets.slice(-3)[2]) === 'b', 'Focus uses the translated bounds');
     viewer.select('');
     viewer.resize(256,256); viewer.reframe(0.1,0.1,0.8,0.6); viewer.finish_explosion(); pixels();
+    const project = point => {
+      const clip = [0,1,2,3].map(row => [...point,1].reduce((sum, value, col) => sum + matrix[col * 4 + row] * value, 0));
+      return clip.slice(0,2).map(value => value / clip[3]);
+    };
+    const rotateAt = (pivot, message) => {
+      const before = project(pivot);
+      viewer.rotate(0.35,-0.15); pixels();
+      assert(Math.hypot(...project(pivot).map((value,i) => value - before[i])) < 1e-4, message);
+    };
+    const centered = (pivot, expected, message) => assert(
+      Math.hypot(...project(pivot).map((value,i) => value - expected[i])) < 1e-4,
+      `${message}: ${JSON.stringify({ pivot, actual: project(pivot), expected })}`);
+    let orbitTime = 100;
+    for (const [amount, animate] of [[0,false],[0.35,false],[1,false],[0.6,true]]) {
+      orbitTime += 100;
+      viewer.set_explode(amount, orbitTime, animate);
+      if (animate) viewer.render_explosion(orbitTime + 16);
+      viewer.inspect('reset');
+      // Start another animation after reset, which deliberately finishes transitions.
+      if (animate) { viewer.set_explode(0.3, orbitTime + 20, true); viewer.render_explosion(orbitTime + 36); }
+      viewer.pan(0.04,-0.03); viewer.zoom(0.8); pixels();
+      const moved = offsets.slice(-3);
+      const beforeSelection = JSON.stringify(matrix);
+      assert(pickCenter(-0.72,moved[0]) === 'a', 'Click must select the moved structure');
+      viewer.select('b'); viewer.select('a'); pixels();
+      assert(JSON.stringify(matrix) === beforeSelection, 'Click and transient hover must preserve framing and zoom');
+      rotateAt(moved[0].map((value,i) => value + [-0.55,0,0][i]),
+        'Orbit must use the current translated center of all selected primitives');
+      const selectedPivot = moved[0].map((value,i) => value + [-0.55,0,0][i]);
+      viewer.center(0.3,0.4); pixels();
+      centered(selectedPivot,[-0.4,0.2],'Center the selected structure in the available viewport');
+      rotateAt(selectedPivot, 'A centered selection must remain centered while orbiting');
+      viewer.zoom(0.85); pixels();
+      centered(selectedPivot,[-0.4,0.2],'Zoom must preserve the selected viewport center');
+      viewer.inspect('reset'); pixels();
+      const resetOffset = offsets.at(-1);
+      centered(resetOffset.map((value,i) => value + [-0.55,0,0][i]),[-0.4,0.2],
+        'Reset must keep the selected structure in the available viewport');
+      // Restore animated offsets before checking the unselected layout center.
+      viewer.set_explode(amount,orbitTime + 40,false); pixels();
+      const beforeDeselect = JSON.stringify(matrix);
+      viewer.select(''); pixels();
+      const restored = offsets.slice(-3);
+      assert(JSON.stringify(matrix) === beforeDeselect, 'Deselecting must not snap the camera');
+      const center = [
+        (Math.min(-0.9 + restored[0][0],0.2 + restored[2][0]) + Math.max(-0.2 + restored[0][0],0.9 + restored[2][0])) / 2,
+        (restored[0][1] + restored[2][1]) / 2, (restored[0][2] + restored[2][2]) / 2,
+      ];
+      rotateAt(center, 'Deselecting must restore the whole model pivot');
+      viewer.center(0.5,0.45); pixels();
+      centered(center,[0,0.1],'Center the original model when nothing is selected');
+    }
+    viewer.set_explode_mode(false); viewer.inspect('reset');
+    viewer.select('a'); viewer.clear_center(); viewer.inspect('reset'); pixels();
+    const uncentered = JSON.stringify(matrix);
+    viewer.pan(0.08,-0.04); viewer.zoom(0.8); viewer.rotate(0.2,-0.1); pixels();
+    const beforeExpand = JSON.stringify(matrix);
+    viewer.center(0.3,0.4); pixels();
+    viewer.pan(-0.05,0.02); viewer.zoom(0.9); viewer.rotate(-0.1,0.2);
+    viewer.center(0.25,0.45); pixels();
+    viewer.clear_center(); pixels();
+    assert(JSON.stringify(matrix) === beforeExpand, 'Closing the expanded reader must restore its original camera');
+    viewer.clear_center(); pixels();
+    assert(JSON.stringify(matrix) === beforeExpand, 'Repeated close callbacks must not overwrite the restored view');
+    viewer.inspect('reset'); pixels();
+    assert(JSON.stringify(matrix) === uncentered, 'Reset must not restore the disabled centering constraint');
+    viewer.center(0.25,0.4,1000); pixels();
+    assert(JSON.stringify(matrix) === uncentered, 'Opening must start at the current camera without a jump');
+    assert(viewer.advance_camera(1016), 'Opening must move through intermediate frames'); pixels();
+    const intermediate = JSON.stringify(matrix);
+    assert(intermediate !== uncentered, 'Camera must move gradually toward the expanded viewport');
+    viewer.clear_center(1016); pixels();
+    assert(JSON.stringify(matrix) === intermediate, 'Closing mid-animation must continue from the displayed camera');
+    viewer.advance_camera(1032); pixels();
+    const closing = JSON.stringify(matrix);
+    viewer.center(0.2,0.45,1032); pixels();
+    assert(JSON.stringify(matrix) === closing, 'Reopening mid-return must not jump or replace the original camera');
+    viewer.advance_camera(1048); viewer.finish_camera_transition(); pixels();
+    centered([-0.55,0,0],[-0.6,0.1],'Finishing reduced motion must reach the exact expanded center');
+    viewer.clear_center(1048);
+    let moving = true, cameraSteps = 0;
+    for (let time = 1064; moving && cameraSteps < 100; time += 16) {
+      moving = viewer.advance_camera(time); cameraSteps++;
+    }
+    pixels();
+    assert(!moving && cameraSteps > 2 && JSON.stringify(matrix) === uncentered,
+      'Animated return must finish at the exact original camera after rapid toggles');
+    viewer.center(0.25,0.4,3000); viewer.advance_camera(3016);
+    viewer.rotate(0.1,0); pixels();
+    const manual = JSON.stringify(matrix);
+    assert(!viewer.advance_camera(3032), 'Manual rotation must interrupt automatic camera movement'); pixels();
+    assert(JSON.stringify(matrix) === manual, 'Interrupted animation must not fight the user controls');
+    viewer.clear_center(); pixels();
+    assert(JSON.stringify(matrix) === uncentered, 'Closing after a manual adjustment must still restore the saved view');
+    viewer.select('a'); viewer.change_visibility('["a"]',false); pixels();
+    assert(viewer.selected_id() === '', 'Hiding the selected structure must release its pivot');
+    rotateAt([0,0,0], 'A hidden selection must fall back to the original model center');
+    viewer.set_visibility('["a","b"]'); viewer.set_explode_mode(true);
     for (const amount of [NaN,Infinity,-0.1,1.1]) {
       let rejected = false;
       try { viewer.set_explode(amount, 1, false); } catch { rejected = true; }
       assert(rejected, 'Reject invalid amounts');
     }
+    for (const point of [[NaN,0.5],[0.5,Infinity],[-0.1,0.5],[0.5,1.1]]) {
+      let rejected = false;
+      try { viewer.center(...point); } catch { rejected = true; }
+      assert(rejected, 'Reject invalid viewport centers');
+    }
     return { reassembledResetCycles: 3, preservedCamera: true, animatedCameraAdjustments: true, sphereAtEveryLevel: true,
       multipart: true, picking: true, outline: true, exactCameraAndImageRestore: true,
-      interrupt: true, visibility: true, empty: true, focus: true, resize: true, validation: true };
+      interrupt: true, visibility: true, empty: true, focus: true, resize: true, validation: true,
+      selectedOrbit: true, animatedOrbit: true, deselectedOrbit: true, hiddenOrbit: true, viewportCenter: true,
+      closeRestoresCamera: true, repeatedClosePreservesView: true, resetClearsCenter: true,
+      smoothCamera: true, rapidToggles: true, manualInterrupt: true, reducedMotionFinish: true };
   } finally { viewer?.free(); canvas.remove(); }
 }
 

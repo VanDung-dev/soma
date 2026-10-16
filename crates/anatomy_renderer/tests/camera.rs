@@ -2,6 +2,86 @@ use anatomy_renderer::{Bounds, Camera};
 use glam::Vec3;
 
 #[test]
+fn viewport_centering_preserves_zoom_orientation_and_depth() {
+    let bounds = Bounds {
+        min: Vec3::splat(-1.0),
+        max: Vec3::splat(1.0),
+    };
+    let mut camera = Camera::new(bounds);
+    camera.rotate(0.3, -0.1).unwrap();
+    camera.pan(0.1, -0.2).unwrap();
+    camera.zoom(0.6).unwrap();
+    let eye = camera.eye();
+    let distance = camera.distance;
+    let basis = camera.light_basis();
+    for pivot in [Vec3::new(0.6, 0.5, 0.1), bounds.center()] {
+        let depth = camera.matrix().project_point3(pivot).z;
+        for (x, y) in [(-0.4, 0.12), (0.0, 0.04), (-0.4, 0.12)] {
+            camera.center_on(pivot, x, y).unwrap();
+            assert!(
+                camera
+                    .matrix()
+                    .project_point3(pivot)
+                    .abs_diff_eq(Vec3::new(x, y, depth), 1e-5)
+            );
+            assert!(camera.eye().abs_diff_eq(eye, 1e-5));
+            assert_eq!(camera.distance, distance);
+            assert!(camera.light_basis().abs_diff_eq(basis, 1e-5));
+            camera.rotate_around(pivot, 0.0, 0.0).unwrap();
+        }
+    }
+    let before = camera.matrix();
+    assert!(camera.center_on(Vec3::NAN, 0.0, 0.0).is_err());
+    assert!(camera.center_on(Vec3::ZERO, f32::NAN, 0.0).is_err());
+    assert_eq!(camera.matrix(), before);
+}
+
+#[test]
+fn switching_orbit_pivots_preserves_the_view_and_rotates_around_each_selection() {
+    let bounds = Bounds {
+        min: Vec3::new(-0.4, 0.0, -0.3),
+        max: Vec3::new(0.4, 1.8, 0.3),
+    };
+    let mut camera = Camera::new(bounds);
+    camera.pan(0.15, -0.12).unwrap();
+    camera.zoom(0.5).unwrap();
+    for pivot in [
+        Vec3::new(0.2, 1.6, 0.1),
+        Vec3::new(-0.2, 0.3, -0.1),
+        bounds.center(),
+    ] {
+        let before = camera.matrix();
+        let distance = camera.distance;
+        camera.rotate_around(pivot, 0.0, 0.0).unwrap();
+        assert!(camera.matrix().abs_diff_eq(before, 1e-5));
+        assert_eq!(camera.distance, distance, "Selection must preserve zoom");
+        let screen = before.project_point3(pivot).truncate();
+        for (yaw, pitch) in [(0.5, 0.2), (-1.1, -0.4), (2.3, 0.5)] {
+            let eye_distance = camera.eye().distance(pivot);
+            camera.rotate_around(pivot, yaw, pitch).unwrap();
+            assert!((camera.eye().distance(pivot) - eye_distance).abs() < 1e-4);
+            assert!((camera.matrix().project_point3(pivot).truncate() - screen).length() < 1e-4);
+        }
+        for factor in [0.7, 1.2, 0.9] {
+            camera.zoom_around(pivot, factor).unwrap();
+            assert!((camera.matrix().project_point3(pivot).truncate() - screen).length() < 1e-4);
+        }
+    }
+    camera.zoom(100.0).unwrap();
+    let pivot = Vec3::new(0.3, 1.7, 0.1);
+    let screen = camera.matrix().project_point3(pivot).truncate();
+    for _ in 0..20 {
+        camera.rotate_around(pivot, 0.3, 0.05).unwrap();
+        assert!(camera.eye().distance(bounds.center()) <= camera.enclosure_radius() * 0.90001);
+        assert!((camera.matrix().project_point3(pivot).truncate() - screen).length() < 1e-4);
+    }
+    let before = camera.matrix();
+    assert!(camera.rotate_around(Vec3::NAN, 0.1, 0.0).is_err());
+    assert!(camera.rotate_around(pivot, f32::NAN, 0.0).is_err());
+    assert_eq!(camera.matrix(), before);
+}
+
+#[test]
 fn panning_keeps_the_model_pivot_and_rotation_keeps_its_screen_position() {
     let body = Bounds {
         min: Vec3::new(-0.4, 0.0, -0.3),

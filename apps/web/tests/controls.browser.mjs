@@ -84,20 +84,84 @@ export async function checkControls() {
 }
 
 export async function checkHudCentering() {
-  const panel = document.querySelector('.information-panel'), originalClass = panel.className;
+  const { AnatomyViewer } = await getWasm(), proto = AnatomyViewer.prototype;
+  const originalCenter = proto.center;
+  const originalAdvance = proto.advance_camera;
+  let cameraMoving = false, cameraDone;
+  proto.advance_camera = function(...args) {
+    cameraMoving = originalAdvance.apply(this,args);
+    if (!cameraMoving) { cameraDone?.(); cameraDone = undefined; }
+    return cameraMoving;
+  };
+  const gl = document.querySelector('.model-canvas canvas').getContext('webgl2');
+  const originalMatrix = gl.uniformMatrix4fv;
+  let viewMatrix, beforeExpand;
+  gl.uniformMatrix4fv = function(...args) {
+    const result = originalMatrix.apply(this,args);
+    const program = this.getParameter(this.CURRENT_PROGRAM);
+    const location = program && this.getUniformLocation(program,'view_projection');
+    if (location) viewMatrix = JSON.stringify([...this.getUniform(program,location)]);
+    return result;
+  };
+  let center, calls = 0;
+  proto.center = function(...args) { center = args; calls++; return originalCenter.apply(this,args); };
+  const panel = document.querySelector('.information-panel');
   const assert = (ok, message) => { if (!ok) throw Error(message); };
   const frames = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const settleCamera = async () => {
+    if (cameraMoving) await new Promise((resolve,reject) => {
+      const timeout = setTimeout(() => { cameraDone = undefined; reject(Error('Camera transition did not finish')); },3000);
+      cameraDone = () => { clearTimeout(timeout); resolve(); };
+    });
+    await frames();
+  };
   const states = [];
   try {
-    for (const expanded of [false, true, false]) {
-      panel.classList.toggle('reader-expanded', expanded);
+    if (panel.classList.contains('reader-expanded')) {
+      document.querySelector('.reader-expand').click(); await frames();
+      await settleCamera();
+    }
+    document.querySelector('.folder-row .tree-name').click(); await frames();
+    for (let i = 0; i < 12 && document.querySelectorAll('.part-row .tree-name').length < 2; i++) {
+      document.querySelector('.folder-toggle[aria-expanded="false"]').click(); await frames();
+    }
+    const parts = [...document.querySelectorAll('.part-row .tree-name')].slice(0,2);
+    assert(parts.length === 2, 'Find two anatomical structures to check selection changes');
+    let before = calls;
+    for (const part of parts) { part.click(); await frames(); }
+    assert(calls === before, 'Normal information view must not recenter when the selection changes');
+    let index = 0;
+    for (const expanded of [true, false, true, false]) {
+      before = calls;
+      if (expanded) beforeExpand = viewMatrix;
+      if (index === 3) document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+      else document.querySelector('.reader-expand').click();
+      await frames();
       await Promise.all(panel.getAnimations().map(animation => animation.finished.catch(() => {})));
       await frames();
+      await settleCamera();
+      assert(panel.classList.contains('reader-expanded') === expanded, 'Toggle the real information panel state');
+      assert(expanded ? calls > before : calls === before,
+        'Automatic centering must run only while the information panel is expanded');
+      if (!expanded) assert(beforeExpand && viewMatrix === beforeExpand,
+        'Closing the expanded information panel must redraw the exact camera from before opening');
+      before = calls;
+      parts[index++ % 2].click(); await frames();
+      await settleCamera();
+      assert(expanded ? calls > before : calls === before,
+        'Selection changes must recenter only in the expanded information view');
       const desktop = matchMedia('(min-width: 901px)').matches;
       const area = document.querySelector('.model-canvas').getBoundingClientRect();
       const left = desktop ? document.querySelector('.catalog-panel').getBoundingClientRect().right : area.left;
       const right = desktop ? panel.getBoundingClientRect().left : area.right;
       const expected = (left + right) / 2;
+      const hud = document.querySelector('.model-hud').getBoundingClientRect();
+      if (expanded) {
+        assert(center && Math.abs(area.left + center[0] * area.width - expected) < 1,
+        `Center the anatomy in the same remaining 3D area as the controls: ${JSON.stringify({center,expected,area:area.toJSON()})}`);
+        assert(Math.abs(area.top + center[1] * area.height - (area.top + 110 + hud.top - 12) / 2) < 1,
+        'Center the anatomy above the HUD and below the page heading');
+      }
       for (const selector of ['.explode-control', '.controls-info']) {
         const control = document.querySelector(selector), bounds = control.getBoundingClientRect();
         assert(Math.abs(bounds.x + bounds.width / 2 - expected) < 1, 'Center controls in the remaining 3D area');
@@ -111,6 +175,15 @@ export async function checkHudCentering() {
         'Expanding the reader must not shrink it');
       states.push({ expanded, center: expected });
     }
-    return { viewport: innerWidth, centeredAndClickable: true, states };
-  } finally { panel.className = originalClass; }
+    return { viewport: innerWidth, centeredAndClickable: true, expandedOnlyFocus: true,
+      normalSelectionKeepsView: true, closeRestoresCamera: true, escapeRestoresCamera: true, states };
+  } finally {
+    if (panel.classList.contains('reader-expanded')) {
+      document.querySelector('.reader-expand').click(); await frames();
+      await settleCamera();
+    }
+    proto.center = originalCenter;
+    proto.advance_camera = originalAdvance;
+    gl.uniformMatrix4fv = originalMatrix;
+  }
 }

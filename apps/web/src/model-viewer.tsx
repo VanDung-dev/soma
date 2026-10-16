@@ -20,6 +20,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const renderFrame = useRef(0);
   const loading = useRef(true);
   const animating = useRef(false);
+  const cameraAnimating = useRef(false);
   const failed = useRef(false);
   const lastAnimationFrame = useRef(0);
   const explosionMode = useRef(false);
@@ -44,8 +45,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     const informationPanel = document.querySelector<HTMLElement>(".information-panel")!;
     const desktop = window.matchMedia("(min-width: 901px)").matches;
     const left = desktop ? catalogPanel.getBoundingClientRect().right - area.left + 12 : 12;
-    const right = desktop ? informationPanel.getBoundingClientRect().right - area.left
-      - parseFloat(getComputedStyle(informationPanel).getPropertyValue("--panel-width")) - 12 : area.width - 12;
+    const right = desktop ? informationPanel.getBoundingClientRect().left - area.left - 12 : area.width - 12;
     const hud = host.current!.parentElement!.querySelector<HTMLElement>(".model-hud")!.getBoundingClientRect();
     const top = 110, bottom = Math.max(top + 1, hud.top - area.top - 12);
     return [left / area.width, top / area.height, Math.max(1, right - left) / area.width, Math.max(1, bottom - top) / area.height];
@@ -66,21 +66,29 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     const information = document.querySelector<HTMLElement>(".information-panel")!;
     const hud = canvas.parentElement!.querySelector<HTMLElement>(".model-hud")!;
     const centerControls = () => {
-      if (!window.matchMedia("(min-width: 901px)").matches) {
+      const desktop = window.matchMedia("(min-width: 901px)").matches;
+      if (!desktop) {
         hud.style.removeProperty("left"); hud.style.removeProperty("width");
-        return;
+      } else {
+        const area = canvas.getBoundingClientRect();
+        const left = catalog.getBoundingClientRect().right + 12;
+        const right = information.getBoundingClientRect().left - 12;
+        hud.style.left = `${(left + right) / 2 - area.left}px`;
+        hud.style.width = `${Math.min(780, Math.max(1, right - left))}px`;
       }
-      const area = canvas.getBoundingClientRect();
-      const left = catalog.getBoundingClientRect().right + 12;
-      const right = information.getBoundingClientRect().left - 12;
-      hud.style.left = `${(left + right) / 2 - area.left}px`;
-      hud.style.width = `${Math.min(780, Math.max(1, right - left))}px`;
+      if (!building && !error) {
+        const now = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? undefined : performance.now();
+        if (readerExpanded) {
+          const [left, top, width, height] = focusViewport();
+          operate(renderer => { renderer.center(left + width / 2, top + height / 2, now); cameraAnimating.current = now !== undefined; });
+        } else operate(renderer => { renderer.clear_center(now); cameraAnimating.current = now !== undefined; });
+      }
     };
     const observer = new ResizeObserver(centerControls);
     for (const element of [canvas, catalog, information]) observer.observe(element);
     centerControls();
     return () => observer.disconnect();
-  }, []);
+  }, [building, error, selected, readerExpanded]);
   const scheduleRender = () => {
     if (!viewer.current || renderFrame.current || failed.current) return;
     renderFrame.current = requestAnimationFrame(() => {
@@ -88,6 +96,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       if (failed.current) return;
       const now = performance.now();
       try {
+        if (cameraAnimating.current) cameraAnimating.current = viewer.current!.advance_camera(now);
         if (animating.current) {
           if (now - lastAnimationFrame.current >= 1000 / 30) {
             lastAnimationFrame.current = now;
@@ -102,6 +111,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
             explosionMode.current = false; reassembling.current = false;
           }
         } else viewer.current?.render();
+        if (cameraAnimating.current) scheduleRender();
       }
       catch (cause) { failed.current = true; animating.current = false; console.error(cause); setError(true); setStatus("Không thể hiển thị mô hình. Hãy tải lại trang để thử lại."); }
     });
@@ -132,6 +142,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       if (reducedMotion.matches && viewer.current) {
         viewer.current.finish_reconstruction(); animating.current = false; scheduleRender();
         viewer.current.finish_explosion();
+        viewer.current.finish_camera_transition(); cameraAnimating.current = false;
         if (!loading.current) setBuilding(false);
       }
     };
@@ -310,7 +321,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       }
     })();
     return () => {
-      disposed = true; loading.current = true; animating.current = false; abort.abort(); observer.disconnect(); clearTimeout(hoverTimer);
+      disposed = true; loading.current = true; animating.current = false; cameraAnimating.current = false; abort.abort(); observer.disconnect(); clearTimeout(hoverTimer);
       reducedMotion.removeEventListener("change", motionChanged);
       cancelPreparation?.(); worker?.terminate(); cancelAnimationFrame(renderFrame.current); renderFrame.current = 0;
       canvas.removeEventListener("pointerdown", pointerDown); canvas.removeEventListener("pointermove", pointerMove);
