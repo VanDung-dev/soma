@@ -133,6 +133,11 @@ export async function checkExplosionControls() {
   const media = window.matchMedia;
   const assert = (ok, message) => { if (!ok) throw Error(message); };
   const wait = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const slider = document.querySelector('.explode-control input');
+  const input = value => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(slider,value);
+    slider.dispatchEvent(new Event('input',{ bubbles: true }));
+  };
   let amount, enabled = false;
   const switches = [];
   window.matchMedia = function(query) {
@@ -145,20 +150,16 @@ export async function checkExplosionControls() {
     amount = value; assert(!animate, 'Respect reduced motion'); return original.call(this,value,time,animate);
   };
   try {
-    document.querySelector('.explode-reset').click(); await wait(); switches.length = 0;
-    const slider = document.querySelector('.explode-control input');
-    assert(slider && slider.value === '0' && !document.querySelector('.view-modes'),
+    input('0'); await wait(); switches.length = 0;
+    assert(slider && slider.value === '0' && !document.querySelector('.view-modes')
+      && !document.querySelector('.explode-control button'),
       'Show one slider for assembled and separated anatomy');
-    const input = value => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(slider,value);
-      slider.dispatchEvent(new Event('input',{ bubbles: true }));
-    };
     input('100'); await wait();
     assert(enabled && amount === 1 && document.querySelector('.explode-label output').textContent === '100%',
       'Moving the slider must activate separation');
     input('35'); await wait();
     assert(amount === 0.35 && switches.length === 1, 'Adjust separation without resaving the anatomy camera');
-    document.querySelector('.explode-reset').click(); await wait();
+    input('0'); await wait();
     assert(!enabled && slider.value === '0' && switches.length === 2, 'Reassemble and restore the anatomy camera');
     for (let i = 0; i < 10; i++) {
       input('100'); await wait();
@@ -168,7 +169,7 @@ export async function checkExplosionControls() {
     assert(document.querySelector('.explode-control input') === slider, 'Keep the slider mounted at zero');
     return { unifiedSlider: true, automaticSeparation: true, reassemble: true, repeatedCycles: 10, reducedMotion: true };
   } finally {
-    document.querySelector('.explode-reset').click();
+    input('0');
     window.matchMedia = media; proto.set_explode = original; proto.set_explode_mode = originalMode;
   }
 }

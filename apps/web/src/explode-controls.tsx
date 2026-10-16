@@ -12,6 +12,5 @@ export function ExplodeControls({ value, disabled, onChange }: {
     <input id={id} type="range" min="0" max="100" step="1" value={value}
       aria-valuetext={`${value}%`} onChange={event => onChange(event.currentTarget.valueAsNumber)} />
     <div className="explode-endpoints"><span>Lắp ráp</span><span>Từng cấu trúc</span></div>
-    <button type="button" className="explode-reset" onClick={() => onChange(0)}>Lắp lại</button>
   </fieldset>;
 }
