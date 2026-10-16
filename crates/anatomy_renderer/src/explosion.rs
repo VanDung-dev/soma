@@ -111,16 +111,16 @@ impl Explosion {
                     return Vec3::ZERO;
                 };
                 let group = self.groups.get(&part.source_id).copied().unwrap_or(0);
-                let angle = group as f32 / self.group_count.max(1) as f32 * std::f32::consts::TAU;
-                let radial = Vec3::new(
-                    angle.sin() * scale * 0.48,
-                    (bounds.center().y - center.y) * 0.28,
-                    angle.cos() * scale * 0.48,
-                );
-                if self.amount <= 0.45 {
-                    radial * (self.amount / 0.45)
+                let layer = (group as f32 - (self.group_count as f32 - 1.0) * 0.5)
+                    / self.group_count.max(1) as f32;
+                let layer = Vec3::new(layer * scale * 1.6, 0.0, layer * scale * 0.8);
+                let expanded = layer * 1.8 + (bounds.center() - center) * 0.65;
+                if self.amount <= 0.3 {
+                    layer * (self.amount / 0.3)
+                } else if self.amount <= 0.6 {
+                    layer.lerp(expanded, (self.amount - 0.3) / 0.3)
                 } else {
-                    radial.lerp(*cell + shift - bounds.center(), (self.amount - 0.45) / 0.55)
+                    expanded.lerp(*cell + shift - bounds.center(), (self.amount - 0.6) / 0.4)
                 }
             })
             .collect();

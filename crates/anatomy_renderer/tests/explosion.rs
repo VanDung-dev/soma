@@ -31,6 +31,83 @@ fn groups() -> Vec<Vec<String>> {
 }
 
 #[test]
+fn stages_preserve_systems_then_expand_before_arranging() {
+    let scene = scene();
+    let mut explosion = Explosion::new(&scene, groups()).unwrap();
+    for amount in [0.01, 0.15, 0.3] {
+        explosion.set(amount, 0.0).unwrap();
+        explosion.layout(&scene, 1.0);
+        explosion.finish();
+        assert_eq!(explosion.offset(0), explosion.offset(1));
+        assert_eq!(
+            explosion.offset(2),
+            explosion.offset(3),
+            "Keep each system intact through 30%"
+        );
+        assert_ne!(explosion.offset(0), explosion.offset(2));
+    }
+    for amount in [0.31, 0.45, 0.6] {
+        explosion.set(amount, 0.0).unwrap();
+        explosion.layout(&scene, 0.5);
+        explosion.finish();
+        let offsets: Vec<_> = (0..scene.parts.len())
+            .map(|i| explosion.offset(i))
+            .collect();
+        assert_ne!(
+            offsets[2], offsets[3],
+            "Individual structures expand after 30%"
+        );
+        explosion.layout(&scene, 1.5);
+        explosion.finish();
+        for (i, expected) in offsets.into_iter().enumerate() {
+            assert_eq!(
+                explosion.offset(i),
+                expected,
+                "Do not arrange into rows before 60%"
+            );
+        }
+    }
+    for boundary in [0.3, 0.6] {
+        explosion.set(boundary, 0.0).unwrap();
+        explosion.layout(&scene, 1.0);
+        explosion.finish();
+        let before: Vec<_> = (0..scene.parts.len())
+            .map(|i| explosion.offset(i))
+            .collect();
+        explosion.set(boundary + 0.0001, 0.0).unwrap();
+        explosion.layout(&scene, 1.0);
+        explosion.finish();
+        for (i, offset) in before.into_iter().enumerate() {
+            assert!(
+                explosion.offset(i).distance(offset) < scene.bounds.radius() * 0.01,
+                "Stage boundaries must not jump"
+            );
+        }
+    }
+    explosion.set(1.0, 0.0).unwrap();
+    explosion.layout(&scene, 1.0);
+    explosion.finish();
+    let separated = explosion.offset(0);
+    explosion.set(0.0, 0.0).unwrap();
+    explosion.layout(&scene, 1.0);
+    assert_eq!(
+        explosion.offset(0),
+        separated,
+        "Returning to zero must not snap"
+    );
+    assert!(explosion.advance(16.0, scene.bounds.radius()).unwrap().0);
+    assert!(explosion.offset(0).length() < separated.length());
+    for frame in 2..150 {
+        explosion
+            .advance(frame as f64 * 16.0, scene.bounds.radius())
+            .unwrap();
+    }
+    for i in 0..scene.parts.len() {
+        assert_eq!(explosion.offset(i), Vec3::ZERO);
+    }
+}
+
+#[test]
 fn packs_structures_without_splitting_materials_and_restores_assembled_positions() {
     let mut scene = scene();
     for aspect in [0.5, 1.0, 1.5] {

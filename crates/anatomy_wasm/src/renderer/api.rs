@@ -315,13 +315,14 @@ impl AnatomyViewer {
 
     pub fn inspect(&mut self, action: &str) -> Result<(), JsValue> {
         if action == "reset" {
-            if self.exploding {
+            if self.exploding && self.explosion.amount() > 0.0 {
                 let aspect = self.camera.aspect * self.layout_frame[2] / self.layout_frame[3];
                 let bounds = self.explosion.layout(&self.scene, aspect);
                 self.explosion.finish();
                 self.camera = Camera::layout(bounds, self.camera.aspect, self.layout_frame)
                     .map_err(js_error)?;
             } else {
+                self.explosion.finish();
                 self.camera = Camera::new(self.scene.bounds);
                 self.camera
                     .resize(self.canvas.width(), self.canvas.height());

@@ -23,6 +23,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const failed = useRef(false);
   const lastAnimationFrame = useRef(0);
   const explosionMode = useRef(false);
+  const reassembling = useRef(false);
   const [explosionAmount, setExplosionAmount] = useState(0);
   const [building, setBuilding] = useState(true);
   const [loadedSystems, setLoadedSystems] = useState(0);
@@ -75,6 +76,10 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
           else if (!loading.current) setBuilding(false);
         } else if (explosionMode.current) {
           if (viewer.current!.render_explosion(now)) scheduleRender();
+          else if (reassembling.current) {
+            viewer.current!.set_explode_mode(false);
+            explosionMode.current = false; reassembling.current = false;
+          }
         } else viewer.current?.render();
       }
       catch (cause) { failed.current = true; animating.current = false; console.error(cause); setError(true); setStatus("Không thể hiển thị mô hình. Hãy tải lại trang để thử lại."); }
@@ -213,7 +218,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         loading.current = true;
         failed.current = false;
         setBuilding(true); setLoadedSystems(0); setMeshes([]); setError(false);
-        explosionMode.current = false; setExplosionAmount(0);
+        explosionMode.current = false; reassembling.current = false; setExplosionAmount(0);
         const downloads = roots.map(async root => {
           const model = root.model!;
           const [response, metadataResponse] = await Promise.all([
@@ -298,12 +303,13 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const changeExplosion = (value: number) => {
     const enabled = value > 0;
     if (!operate(renderer => {
-      if (enabled !== explosionMode.current) {
-        renderer.set_explode_mode(enabled);
-        explosionMode.current = enabled;
-        if (enabled) renderer.reframe(...focusViewport());
+      if (enabled && !explosionMode.current) {
+        renderer.set_explode_mode(true);
+        explosionMode.current = true;
+        renderer.reframe(...focusViewport());
       }
-      if (enabled) {
+      reassembling.current = !enabled && explosionMode.current;
+      if (explosionMode.current) {
         renderer.set_explode(value / 100, performance.now(),
           !window.matchMedia("(prefers-reduced-motion: reduce)").matches);
       }

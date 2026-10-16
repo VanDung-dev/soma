@@ -54,9 +54,9 @@ export async function checkExplosion() {
     viewer.configure_explosion('[["a"],["b"]]');
     pixels();
     const defaultMatrix = JSON.stringify(matrix);
-    viewer.rotate(0.2,-0.1); viewer.pan(0.01,-0.01); viewer.zoom(0.9);
+    viewer.rotate(0.2,-0.1); viewer.pan(0.01,-0.01); viewer.zoom(1.6);
     const before = pixels(), beforeMatrix = [...matrix];
-    for (const amount of [0,0.35,0.45,1]) {
+    for (const amount of [0,0.01,0.3,0.31,0.6,0.61,0.99,1]) {
       viewer.set_explode_mode(true); viewer.reframe(0.1,0.1,0.8,0.6);
       viewer.set_explode(amount, 0, false);
       const displayed = pixels();
@@ -130,6 +130,7 @@ export async function checkExplosion() {
 export async function checkExplosionControls() {
   const { AnatomyViewer } = await getWasm(), proto = AnatomyViewer.prototype;
   const original = proto.set_explode, originalMode = proto.set_explode_mode;
+  const originalRender = proto.render_explosion;
   const media = window.matchMedia;
   const assert = (ok, message) => { if (!ok) throw Error(message); };
   const wait = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
@@ -138,16 +139,25 @@ export async function checkExplosionControls() {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(slider,value);
     slider.dispatchEvent(new Event('input',{ bubbles: true }));
   };
-  let amount, enabled = false;
+  let amount, enabled = false, reduced = true, movingReturn = false, finishReturn, timeout;
   const switches = [];
   window.matchMedia = function(query) {
-    return media.call(this, query === '(prefers-reduced-motion: reduce)' ? '(min-width: 0px)' : query);
+    return media.call(this, query === '(prefers-reduced-motion: reduce)'
+      ? reduced ? '(min-width: 0px)' : '(max-width: 0px)' : query);
   };
   proto.set_explode_mode = function(value) {
     enabled = value; switches.push(value); return originalMode.call(this,value);
   };
   proto.set_explode = function(value, time, animate) {
-    amount = value; assert(!animate, 'Respect reduced motion'); return original.call(this,value,time,animate);
+    amount = value; assert(animate === !reduced, 'Respect reduced motion'); return original.call(this,value,time,animate);
+  };
+  proto.render_explosion = function(time) {
+    const moving = originalRender.call(this,time);
+    if (amount === 0) {
+      movingReturn ||= moving;
+      if (!moving) finishReturn?.();
+    }
+    return moving;
   };
   try {
     input('0'); await wait(); switches.length = 0;
@@ -160,17 +170,35 @@ export async function checkExplosionControls() {
     input('35'); await wait();
     assert(amount === 0.35 && switches.length === 1, 'Adjust separation without resaving the anatomy camera');
     input('0'); await wait();
-    assert(!enabled && slider.value === '0' && switches.length === 2, 'Reassemble and restore the anatomy camera');
+    assert(!enabled && slider.value === '0' && switches.length === 2,
+      `Reassemble at zero: enabled=${enabled}, switches=${switches}, value=${slider.value}`);
     for (let i = 0; i < 10; i++) {
       input('100'); await wait();
       input('0'); await wait();
     }
     assert(!enabled && !document.querySelector('.model-error'), 'Repeated separation must remain stable');
     assert(document.querySelector('.explode-control input') === slider, 'Keep the slider mounted at zero');
-    return { unifiedSlider: true, automaticSeparation: true, reassemble: true, repeatedCycles: 10, reducedMotion: true };
+    input('100'); await wait();
+    reduced = false; input('0'); await wait();
+    assert(enabled && movingReturn, 'Zero must animate back before leaving separation');
+    const switchesBeforeInterrupt = switches.length;
+    input('35'); await wait();
+    assert(enabled && amount === 0.35 && switches.length === switchesBeforeInterrupt,
+      'Allow interrupting reassembly without clearing offsets');
+    const settled = new Promise(resolve => { finishReturn = resolve; });
+    input('0');
+    await Promise.race([settled, new Promise((_, reject) => {
+      timeout = setTimeout(() => reject(Error('Reassembly did not settle')), 3000);
+    })]);
+    assert(!enabled && slider.value === '0' && !document.querySelector('.model-error'),
+      'Finish reassembly and leave separation cleanly');
+    return { unifiedSlider: true, automaticSeparation: true, reassemble: true, animatedReturn: true,
+      interruptedReturn: true, repeatedCycles: 10, reducedMotion: true };
   } finally {
+    clearTimeout(timeout); reduced = true;
     input('0');
     window.matchMedia = media; proto.set_explode = original; proto.set_explode_mode = originalMode;
+    proto.render_explosion = originalRender;
   }
 }
 
