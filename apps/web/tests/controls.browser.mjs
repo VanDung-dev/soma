@@ -82,3 +82,35 @@ export async function checkControls() {
     input.remove(); send('keydown', 'r'); send('keyup', 'r');
   }
 }
+
+export async function checkHudCentering() {
+  const panel = document.querySelector('.information-panel'), originalClass = panel.className;
+  const assert = (ok, message) => { if (!ok) throw Error(message); };
+  const frames = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const states = [];
+  try {
+    for (const expanded of [false, true, false]) {
+      panel.classList.toggle('reader-expanded', expanded);
+      await Promise.all(panel.getAnimations().map(animation => animation.finished.catch(() => {})));
+      await frames();
+      const desktop = matchMedia('(min-width: 901px)').matches;
+      const area = document.querySelector('.model-canvas').getBoundingClientRect();
+      const left = desktop ? document.querySelector('.catalog-panel').getBoundingClientRect().right : area.left;
+      const right = desktop ? panel.getBoundingClientRect().left : area.right;
+      const expected = (left + right) / 2;
+      for (const selector of ['.explode-control', '.controls-info']) {
+        const control = document.querySelector(selector), bounds = control.getBoundingClientRect();
+        assert(Math.abs(bounds.x + bounds.width / 2 - expected) < 1, 'Center controls in the remaining 3D area');
+        assert(bounds.left >= left && bounds.right <= right, 'Keep controls outside both panels');
+        assert(control.contains(document.elementFromPoint(expected, bounds.y + bounds.height / 2)),
+          'Expanded information must not cover the controls');
+      }
+      assert(document.querySelector('.explode-control').getBoundingClientRect().width >= 179,
+        'Keep the slider usable on narrow desktop layouts');
+      if (desktop && expanded) assert(panel.getBoundingClientRect().width >= parseFloat(getComputedStyle(panel).getPropertyValue('--panel-width')),
+        'Expanding the reader must not shrink it');
+      states.push({ expanded, center: expected });
+    }
+    return { viewport: innerWidth, centeredAndClickable: true, states };
+  } finally { panel.className = originalClass; }
+}

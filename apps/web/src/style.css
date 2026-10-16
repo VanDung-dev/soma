@@ -1,4 +1,4 @@
-:root { font-family: "Avenir Next", "Segoe UI", sans-serif; color: #292d2c; background: #f5f2ec; font-synthesis: none; --line: #dfdcd4; --accent: #813f39; --panel-width: 380px; }
+:root { font-family: "Avenir Next", "Segoe UI", sans-serif; color: #292d2c; background: #f5f2ec; font-synthesis: none; --line: #dfdcd4; --accent: #813f39; --panel-width: 380px; --panel-inset: 24px; }
 * { box-sizing: border-box; }
 body { margin: 0; }
 button, input { font: inherit; }
@@ -10,10 +10,10 @@ button { color: inherit; }
 .skip-link:focus { top: 12px; }
 .study-shell { position: relative; isolation: isolate; height: 100dvh; min-height: 540px; overflow: hidden; background: radial-gradient(ellipse at 48% 35%, #fffef9 0%, #ebece5 60%, #d5dbd4 100%); }
 .information-panel, .catalog-panel { position: absolute; z-index: 3; top: 106px; bottom: 24px; min-width: 0; overflow-y: auto; scrollbar-gutter: stable; padding: 24px 20px; border: 1px solid rgba(255,255,255,.8); border-radius: 18px; background: rgba(251,249,242,.94); backdrop-filter: blur(14px); box-shadow: 0 24px 60px rgba(39,52,45,.16), 0 3px 10px rgba(39,52,45,.06), inset 0 1px 0 #fff; }
-.catalog-panel { left: 24px; width: var(--panel-width); padding: 24px 14px; display: flex; flex-direction: column; overflow: hidden; scrollbar-gutter: auto; }
+.catalog-panel { left: var(--panel-inset); width: var(--panel-width); padding: 24px 14px; display: flex; flex-direction: column; overflow: hidden; scrollbar-gutter: auto; }
 .catalog-heading, .structure-search, .tree-actions { flex-shrink: 0; }
 .catalog-tree { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 0 6px 8px; }
-.information-panel { --panel-padding: 24px; --panel-width: 380px; position: fixed; right: 24px; width: var(--panel-width); display: flex; flex-direction: column; overflow: hidden; padding: 0; scrollbar-gutter: auto; transition: width .32s cubic-bezier(.22,1,.36,1), box-shadow .32s ease; }
+.information-panel { --panel-padding: 24px; --panel-width: 380px; position: fixed; right: var(--panel-inset); width: var(--panel-width); display: flex; flex-direction: column; overflow: hidden; padding: 0; scrollbar-gutter: auto; transition: width .32s cubic-bezier(.22,1,.36,1), box-shadow .32s ease; }
 .information-heading { position: relative; flex-shrink: 0; padding: 12px var(--panel-padding) 10px; border-bottom: 1px solid var(--line); }
 .information-heading > div { min-width: 0; }
 .information-heading .eyebrow { display: flex; align-items: center; min-height: 28px; padding-right: 108px; margin: 0 0 6px; }
@@ -110,9 +110,9 @@ h1 { position: absolute; z-index: 1; top: 24px; left: 50%; transform: translateX
 .startup { display: flex; flex-direction: column; min-height: 100vh; align-items: center; justify-content: center; text-align: center; }
 .startup button { border: 1px solid var(--accent); background: transparent; color: var(--accent); padding: 12px 24px; }
 @media (max-width: 1200px) {
-  :root { --panel-width: 320px; }
-  .catalog-panel { left: 16px; width: var(--panel-width); }
-  .information-panel { --panel-padding: 18px; --panel-width: 320px; right: 16px; }
+  :root { --panel-width: 320px; --panel-inset: 16px; }
+  .catalog-panel { width: var(--panel-width); }
+  .information-panel { --panel-padding: 18px; --panel-width: 320px; }
   h1 { font-size: 24px; }
   .model-hud { width: calc(100% - 760px); }
 }
@@ -153,7 +153,8 @@ h1 { position: absolute; z-index: 1; top: 24px; left: 50%; transform: translateX
 .reference-mapping summary { width: fit-content; cursor: pointer; text-underline-offset: 3px; }
 .reference-mapping summary:hover { color: var(--accent); text-decoration: underline; }
 .reference-mapping p { margin: 0; }
-.information-panel.reader-expanded { z-index: 5; width: min(960px, calc(100% - 48px)); background: #fbf9f2; box-shadow: 0 28px 80px rgba(39,52,45,.24), 0 4px 16px rgba(39,52,45,.08); }
+/* Keep 180px for controls and 12px clearance on each side of the 3D area. */
+.information-panel.reader-expanded { z-index: 5; width: min(960px, calc(100% - var(--panel-width) - var(--panel-inset) - var(--panel-inset) - 204px)); background: #fbf9f2; box-shadow: 0 28px 80px rgba(39,52,45,.24), 0 4px 16px rgba(39,52,45,.08); }
 .reader-expanded .wikipedia-reader { animation: reader-reveal .32s ease-out; }
 .reader-expanded .wikipedia-reader iframe { min-height: clamp(120px, calc(100dvh - 500px), 360px); }
 .reader-expanded .reader-actions h3 { flex: 1; }

@@ -60,6 +60,27 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     document.addEventListener("keydown", closeReader);
     return () => document.removeEventListener("keydown", closeReader);
   }, [readerExpanded]);
+  useEffect(() => {
+    const canvas = host.current!;
+    const catalog = document.querySelector<HTMLElement>(".catalog-panel")!;
+    const information = document.querySelector<HTMLElement>(".information-panel")!;
+    const hud = canvas.parentElement!.querySelector<HTMLElement>(".model-hud")!;
+    const centerControls = () => {
+      if (!window.matchMedia("(min-width: 901px)").matches) {
+        hud.style.removeProperty("left"); hud.style.removeProperty("width");
+        return;
+      }
+      const area = canvas.getBoundingClientRect();
+      const left = catalog.getBoundingClientRect().right + 12;
+      const right = information.getBoundingClientRect().left - 12;
+      hud.style.left = `${(left + right) / 2 - area.left}px`;
+      hud.style.width = `${Math.min(780, Math.max(1, right - left))}px`;
+    };
+    const observer = new ResizeObserver(centerControls);
+    for (const element of [canvas, catalog, information]) observer.observe(element);
+    centerControls();
+    return () => observer.disconnect();
+  }, []);
   const scheduleRender = () => {
     if (!viewer.current || renderFrame.current || failed.current) return;
     renderFrame.current = requestAnimationFrame(() => {
