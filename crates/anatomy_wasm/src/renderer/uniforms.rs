@@ -5,6 +5,7 @@ use super::util::js_error;
 
 pub(crate) struct Uniforms {
     pub(crate) projection: WebGlUniformLocation,
+    pub(crate) part_offset: WebGlUniformLocation,
     pub(crate) eye: WebGlUniformLocation,
     pub(crate) light_basis: WebGlUniformLocation,
     pub(crate) color: WebGlUniformLocation,
@@ -43,6 +44,7 @@ impl Uniforms {
     pub(crate) fn load(gl: &Gl, program: &WebGlProgram) -> Result<Self, JsValue> {
         Ok(Self {
             projection: location(gl, program, "view_projection")?,
+            part_offset: location(gl, program, "part_offset")?,
             eye: location(gl, program, "eye")?,
             light_basis: location(gl, program, "light_basis")?,
             color: location(gl, program, "base_color")?,

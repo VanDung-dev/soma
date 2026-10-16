@@ -1,4 +1,4 @@
-use anatomy_renderer::Camera;
+use anatomy_renderer::{Camera, Explosion};
 use wasm_bindgen::prelude::*;
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext as Gl};
 
@@ -54,6 +54,9 @@ impl AnatomyViewer {
         now: f64,
         animate: bool,
     ) -> Result<(), JsValue> {
+        if self.exploding {
+            return Err(js_error("Leave explosion mode before appending geometry"));
+        }
         self.reconstruction.check_time(now).map_err(js_error)?;
         let (packed, vertices, indices) = prepared_buffers(prepared)?;
         let vao = self.gpu.upload(vertices, indices)?;
@@ -66,6 +69,7 @@ impl AnatomyViewer {
             .append(&self.scene.parts[first..], self.scene.bounds, now, animate)
             .map_err(js_error)?;
         self.camera = Camera::new(self.scene.bounds);
+        self.explosion = Explosion::default();
         self.shadow_cached.set(false);
         self.camera
             .resize(self.canvas.width(), self.canvas.height());
@@ -90,6 +94,7 @@ impl AnatomyViewer {
         self.scene
             .change_visibility(&ids, shown)
             .map_err(js_error)?;
+        self.relayout_explosion();
         self.shadow_cached.set(false);
         Ok(())
     }
@@ -97,6 +102,7 @@ impl AnatomyViewer {
     pub fn set_visibility(&mut self, ids_json: &str) -> Result<(), JsValue> {
         let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
         self.scene.set_visibility(&ids).map_err(js_error)?;
+        self.relayout_explosion();
         self.shadow_cached.set(false);
         Ok(())
     }
@@ -113,7 +119,11 @@ impl AnatomyViewer {
         self.canvas.set_width(width);
         self.shadow_cached.set(false);
         self.canvas.set_height(height);
-        self.camera.resize(width, height);
+        if self.exploding {
+            self.camera.aspect = width as f32 / height as f32;
+        } else {
+            self.camera.resize(width, height);
+        }
         gl.bind_texture(Gl::TEXTURE_2D, self.gpu.texture.as_ref());
         gl.tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MIN_FILTER, Gl::NEAREST as i32);
         gl.tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MAG_FILTER, Gl::NEAREST as i32);
@@ -239,13 +249,17 @@ impl AnatomyViewer {
             return Err(js_error("Shadow framebuffer allocation failed"));
         }
         self.gpu.shadow_size = shadow_size;
+        self.relayout_explosion();
         Ok(())
     }
 
     pub fn subset(&mut self, ids_json: &str) -> Result<(), JsValue> {
         let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
         if let Some(bounds) = self.scene.subset(&ids).map_err(js_error)? {
-            self.camera.fit(bounds);
+            self.relayout_explosion();
+            self.explosion.finish();
+            self.camera
+                .fit(self.display_bounds(&ids)?.unwrap_or(bounds));
         }
         self.shadow_cached.set(false);
         Ok(())
@@ -265,17 +279,33 @@ impl AnatomyViewer {
         height: f32,
     ) -> Result<(), JsValue> {
         let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
-        if let Some(bounds) = self.scene.bounds_for(&ids).map_err(js_error)? {
+        self.scene.bounds_for(&ids).map_err(js_error)?;
+        Camera::layout(
+            self.scene.bounds,
+            self.camera.aspect,
+            [left, top, width, height],
+        )
+        .map_err(js_error)?;
+        self.scene.change_visibility(&ids, true).map_err(js_error)?;
+        self.relayout_explosion();
+        self.explosion.finish();
+        if let Some(bounds) = self.display_bounds(&ids)? {
             self.camera
                 .focus(bounds, [left, top, width, height])
                 .map_err(js_error)?;
-            self.scene.change_visibility(&ids, true).map_err(js_error)?;
             self.shadow_cached.set(false);
         }
         Ok(())
     }
 
     pub fn reframe(&mut self, left: f32, top: f32, width: f32, height: f32) -> Result<(), JsValue> {
+        if self.exploding {
+            let frame = [left, top, width, height];
+            Camera::layout(self.scene.bounds, self.camera.aspect, frame).map_err(js_error)?;
+            self.layout_frame = frame;
+            self.relayout_explosion();
+            return Ok(());
+        }
         self.camera
             .reframe([left, top, width, height])
             .map_err(js_error)?;
@@ -285,9 +315,34 @@ impl AnatomyViewer {
 
     pub fn inspect(&mut self, action: &str) -> Result<(), JsValue> {
         if action == "reset" {
-            self.camera.reset();
+            if self.exploding {
+                let aspect = self.camera.aspect * self.layout_frame[2] / self.layout_frame[3];
+                let bounds = self.explosion.layout(&self.scene, aspect);
+                self.explosion.finish();
+                self.camera = Camera::layout(bounds, self.camera.aspect, self.layout_frame)
+                    .map_err(js_error)?;
+            } else {
+                self.camera = Camera::new(self.scene.bounds);
+                self.camera
+                    .resize(self.canvas.width(), self.canvas.height());
+            }
         } else if let Some(bounds) = self.scene.inspect(action).map_err(js_error)? {
-            self.camera.fit(bounds);
+            self.relayout_explosion();
+            self.explosion.finish();
+            let ids: std::collections::HashSet<_> = if action == "all" {
+                self.scene
+                    .parts
+                    .iter()
+                    .filter(|p| p.visible)
+                    .map(|p| p.source_id.clone())
+                    .collect()
+            } else {
+                [self.scene.selected.clone()].into_iter().collect()
+            };
+            self.camera.fit(
+                self.display_bounds(&ids.into_iter().collect::<Vec<_>>())?
+                    .unwrap_or(bounds),
+            );
         }
         self.shadow_cached.set(false);
         Ok(())

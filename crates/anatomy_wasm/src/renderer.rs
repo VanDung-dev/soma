@@ -1,12 +1,13 @@
 mod api;
 mod draw;
+mod explosion;
 mod io;
 mod resources;
 mod shaders;
 mod uniforms;
 mod util;
 
-use anatomy_renderer::{Camera, PackedScene, Reconstruction, Scene};
+use anatomy_renderer::{Camera, Explosion, PackedScene, Reconstruction, Scene};
 use js_sys::{Float32Array, Uint32Array};
 use std::cell::Cell;
 use wasm_bindgen::{JsCast, prelude::*};
@@ -22,6 +23,9 @@ pub struct AnatomyViewer {
     pub(crate) gpu: Resources,
     pub(crate) scene: Scene,
     pub(crate) camera: Camera,
+    pub(crate) exploding: bool,
+    pub(crate) layout_frame: [f32; 4],
+    pub(crate) explosion: Explosion,
     pub(crate) uniforms: Uniforms,
     pub(crate) sphere_uniforms: SphereUniforms,
     pub(crate) outline_uniforms: OutlineUniforms,
@@ -106,6 +110,9 @@ impl AnatomyViewer {
             gpu,
             scene,
             camera,
+            exploding: false,
+            layout_frame: [0.0, 0.0, 1.0, 1.0],
+            explosion: Explosion::default(),
             uniforms,
             sphere_uniforms,
             outline_uniforms,

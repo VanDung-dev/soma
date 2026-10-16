@@ -65,6 +65,7 @@ impl AnatomyViewer {
         gl.clear_color(0.0, 0.0, 0.0, 0.0);
         gl.clear(Gl::COLOR_BUFFER_BIT);
         gl.use_program(self.gpu.program.as_ref());
+        gl.uniform3f(Some(&u.part_offset), 0.0, 0.0, 0.0);
         gl.uniform_matrix4fv_with_f32_array(
             Some(&u.projection),
             false,
@@ -80,6 +81,12 @@ impl AnatomyViewer {
             gl.uniform4fv_with_f32_array(Some(&u.color), &part.color);
             gl.uniform1f(Some(&u.cutoff), part.alpha_cutoff);
             gl.uniform1f(Some(&u.reveal), self.reconstruction.opacity(i));
+            if self.exploding {
+                gl.uniform3fv_with_f32_array(
+                    Some(&u.part_offset),
+                    &self.explosion.offset(i).to_array(),
+                );
+            }
             let (vao, count, offset) = self.draws[i];
             gl.bind_vertex_array(Some(&self.gpu.vaos[vao]));
             gl.draw_elements_with_i32(Gl::TRIANGLES, count, Gl::UNSIGNED_INT, offset);
@@ -116,6 +123,12 @@ impl AnatomyViewer {
     fn draw_pass(&self, picking: bool, shadow_pass: bool) {
         let gl = &self.gpu.gl;
         let u = &self.uniforms;
+        let separation = if self.exploding {
+            self.explosion.amount()
+        } else {
+            0.0
+        };
+        let opaque_layout = separation == 1.0;
         if shadow_pass {
             let size = self.gpu.shadow_size.max(1) as i32;
             gl.viewport(0, 0, size, size);
@@ -142,6 +155,7 @@ impl AnatomyViewer {
             self.draw_sphere();
         }
         gl.use_program(self.gpu.program.as_ref());
+        gl.uniform3f(Some(&u.part_offset), 0.0, 0.0, 0.0);
         let light_basis = self.camera.light_basis();
         gl.uniform_matrix3fv_with_f32_array(
             Some(&u.light_basis),
@@ -195,20 +209,23 @@ impl AnatomyViewer {
             .iter()
             .enumerate()
             .filter(|(i, p)| {
-                p.visible && (!shadow_pass || !p.blend) && self.reconstruction.opacity(*i) > 0.0
+                p.visible
+                    && (!shadow_pass || !p.blend || opaque_layout)
+                    && self.reconstruction.opacity(*i) > 0.0
             })
             .map(|(i, _)| i)
             .collect();
-        if !picking && !shadow_pass {
-            order.sort_by(|&a, &b| {
-                let a = &self.scene.parts[a];
-                let b = &self.scene.parts[b];
+        if !picking && !shadow_pass && !opaque_layout {
+            order.sort_by(|&a_index, &b_index| {
+                let a = &self.scene.parts[a_index];
+                let b = &self.scene.parts[b_index];
                 a.blend.cmp(&b.blend).then_with(|| {
                     if a.blend {
-                        b.bounds
-                            .center()
+                        let a_center = a.bounds.center() + self.explosion.offset(a_index);
+                        let b_center = b.bounds.center() + self.explosion.offset(b_index);
+                        b_center
                             .distance_squared(eye)
-                            .total_cmp(&a.bounds.center().distance_squared(eye))
+                            .total_cmp(&a_center.distance_squared(eye))
                     } else {
                         std::cmp::Ordering::Equal
                     }
@@ -224,7 +241,7 @@ impl AnatomyViewer {
                 gl.enable(Gl::CULL_FACE);
                 gl.cull_face(Gl::BACK);
             }
-            if p.blend && !picking {
+            if p.blend && !opaque_layout && !picking {
                 gl.enable(Gl::BLEND);
                 gl.blend_func_separate(
                     Gl::SRC_ALPHA,
@@ -237,7 +254,12 @@ impl AnatomyViewer {
                 gl.disable(Gl::BLEND);
                 gl.depth_mask(true);
             }
-            gl.uniform4fv_with_f32_array(Some(&u.color), &p.color);
+            let mut color = p.color;
+            // Separate tissue becomes readable without changing its source material on reassembly.
+            if p.blend && color[3] > 0.0 {
+                color[3] += (1.0 - color[3]) * separation;
+            }
+            gl.uniform4fv_with_f32_array(Some(&u.color), &color);
             gl.uniform1f(Some(&u.roughness), p.roughness);
             gl.uniform1f(Some(&u.metallic), p.metallic);
             gl.uniform1f(Some(&u.specular), p.specular);
@@ -255,6 +277,12 @@ impl AnatomyViewer {
                 ((index >> 16) & 255) as f32 / 255.0,
             );
             gl.uniform1f(Some(&u.reveal), self.reconstruction.opacity(i));
+            if self.exploding {
+                gl.uniform3fv_with_f32_array(
+                    Some(&u.part_offset),
+                    &self.explosion.offset(i).to_array(),
+                );
+            }
             let (vao, count, offset) = self.draws[i];
             if bound_vao != vao {
                 gl.bind_vertex_array(Some(&self.gpu.vaos[vao]));
