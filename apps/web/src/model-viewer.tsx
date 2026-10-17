@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { getWasm } from "./core";
 import type { Catalog } from "./core";
 import { StructureTree } from "./structure-tree";
 import { StructureSearch } from "./structure-search";
 import { ModelControls } from "./model-controls";
+import { MenuBar } from "./menu-bar";
 import { ExplodeControls } from "./explode-controls";
 import { WikipediaReader } from "./wikipedia-reader";
 import { anatomyNames, structureName, targetName } from "./anatomy-names";
@@ -12,6 +13,7 @@ import type { AnatomyViewer } from "./wasm/anatomy_wasm";
 export interface Structure { source_id: string; source_name: string; source_object: string; latin: string; laterality: string; collections: string[] }
 
 export function ModelViewer({ catalog }: { catalog: Catalog }) {
+  const helpId = useId();
   const roots = catalog.targets.filter(target => !target.parent_id && target.model);
   const [targetId, setTargetId] = useState<string>();
   const target = catalog.targets.find(target => target.id === targetId);
@@ -388,8 +390,26 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       host.current?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
     }
   };
+  const returnToOverview = () => {
+    const ids = meshes.map(part => part.source_id);
+    if (!operate(renderer => {
+      renderer.clear_center();
+      renderer.select("");
+      if (explosionMode.current) {
+        renderer.set_explode(0, performance.now(), false, false);
+        renderer.set_explode_mode(false);
+      }
+      renderer.set_visibility(JSON.stringify(ids));
+      renderer.inspect("reset");
+    })) return;
+    explosionMode.current = false; reassembling.current = false; cameraAnimating.current = false;
+    setReaderExpanded(false); setReadingId(""); setTargetId(undefined); setHovered("");
+    setVisibleIds(new Set(ids)); setExplosionAmount(0);
+  };
   return (
     <>
+      <MenuBar disabled={building || error} onBack={returnToOverview} helpId={helpId} />
+      <ModelControls disabled={building || error} onOperate={operate} helpId={helpId} />
       <aside className="catalog-panel" aria-label="Cây cấu trúc giải phẫu">
         <div className="catalog-heading"><h2>Cấu trúc</h2><span>{catalog.groups.length} hệ</span></div>
         <StructureSearch structures={meshes} disabled={building || error} onSelect={id => {
@@ -408,9 +428,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         </div>
       </aside>
       <main id="workspace" tabIndex={-1}>
-        <header className="workspace-header"><span>HUMAN ATLAS</span><span>Giải phẫu người</span></header>
-        <h1>Không gian giải phẫu</h1>
-        <p className="workspace-intro">Xoay để khám phá chiều sâu · Tích vào cây cấu trúc để ẩn hoặc hiện bộ phận.</p>
         <section className="model-space" aria-label="Mô hình giải phẫu">
           <div className="model-canvas" ref={host} aria-busy={building && !error} />
           <div className="model-hud">
@@ -420,7 +437,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
             </p>}
             {building && !error && <progress className="model-progress" aria-label="Các hệ giải phẫu đã nạp" value={loadedSystems} max={roots.length} />}
             <ExplodeControls value={explosionAmount} disabled={building || error} onChange={changeExplosion} />
-            <ModelControls disabled={building || error} onOperate={operate} />
           </div>
         </section>
       </main>

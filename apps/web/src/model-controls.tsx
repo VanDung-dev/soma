@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useId } from "react";
+import { useEffect, useEffectEvent } from "react";
 import type { AnatomyViewer } from "./wasm/anatomy_wasm";
 
 const groups = [
@@ -25,11 +25,11 @@ const groups = [
 const controls = groups.flatMap(group => group.controls);
 const arrows: Record<string, string> = { ArrowUp: "↑", ArrowLeft: "←", ArrowDown: "↓", ArrowRight: "→" };
 
-export function ModelControls({ disabled, onOperate }: {
+export function ModelControls({ disabled, onOperate, helpId }: {
   disabled: boolean;
   onOperate: (action: (viewer: AnatomyViewer) => void) => boolean;
+  helpId: string;
 }) {
-  const helpId = useId();
   const run = useEffectEvent((keys: Set<string>, step: number) => onOperate(viewer => {
     for (const control of controls) if (keys.has(control.key)) control.action(viewer, step);
   }));
@@ -52,7 +52,7 @@ export function ModelControls({ disabled, onOperate }: {
     const keyDown = (event: KeyboardEvent) => {
       if (disabled || event.defaultPrevented || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target;
-      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [role='textbox'], .catalog-panel, .information-panel"))) return;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [role='textbox'], .app-menu-bar, .controls-guide, .catalog-panel, .information-panel"))) return;
       const key = event.key.toLowerCase();
       if (!controls.some(control => control.key === key)) return;
       event.preventDefault();
@@ -77,10 +77,7 @@ export function ModelControls({ disabled, onOperate }: {
       document.removeEventListener("visibilitychange", visibilityChanged);
     };
   }, [disabled]);
-  return <div className="model-controls">
-    <button className="controls-info" aria-label="Hướng dẫn điều khiển" title="Hướng dẫn điều khiển"
-      popoverTarget={helpId}><span aria-hidden="true">i</span></button>
-    <div className="controls-guide" id={helpId} popover="auto" role="region" aria-label="Hướng dẫn điều khiển">
+  return <div className="controls-guide" id={helpId} popover="auto" role="region" aria-label="Hướng dẫn điều khiển">
       <div className="guide-heading"><h2>Hướng dẫn điều khiển</h2>
         <button aria-label="Đóng hướng dẫn" popoverTarget={helpId} popoverTargetAction="hide">×</button>
       </div>
@@ -103,6 +100,5 @@ export function ModelControls({ disabled, onOperate }: {
           <div><dt>Trỏ hoặc nhấn vào bộ phận</dt><dd>Xem thông tin giải phẫu</dd></div>
         </dl></section>
       </div>
-    </div>
   </div>;
 }

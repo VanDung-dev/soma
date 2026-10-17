@@ -42,7 +42,7 @@ export async function checkControls() {
     const guide = document.querySelector('.controls-guide');
     assert(!guide.matches(':popover-open'), 'Guide must start closed');
     assert(!document.querySelector('[data-control]'), 'Remove the full control buttons');
-    document.querySelector('.controls-info').click(); await frames(1);
+    document.querySelector('.app-menu-bar [aria-label="Trợ giúp"]').click(); await frames(1);
     assert(guide.matches(':popover-open'), 'Info button must open the guide');
     const keyboard = guide.querySelector('[aria-label="Bàn phím"]').getBoundingClientRect();
     const mouse = guide.querySelector('[aria-label="Chuột"]').getBoundingClientRect();
@@ -63,7 +63,7 @@ export async function checkControls() {
         else if (typeof reference === 'number') assert(Math.sign(actual) === Math.sign(reference), `${key}: movement direction`);
         else assert(actual === reference, `${key}: reset`);
       }
-      assert(!document.querySelector('.model-controls .is-active'), 'Remove key interaction feedback');
+      assert(!document.querySelector('.controls-info.is-active'), 'Remove key interaction feedback');
       send('keyup', key); await frames(1);
       const stopped = calls.length; await frames(2);
       assert(calls.length === stopped, `${key}: must stop on keyup`);
@@ -76,7 +76,7 @@ export async function checkControls() {
     assert(calls.filter(c => c.method === 'inspect').length === 1, 'Reset must not repeat while another key is held');
     window.dispatchEvent(new Event('blur')); await frames(1);
     const stopped = calls.length; await frames(3);
-    assert(calls.length === stopped && !document.querySelector('.model-controls .is-active'), 'Blur must release controls');
+    assert(calls.length === stopped && !document.querySelector('.controls-info.is-active'), 'Blur must release controls');
     input.focus(); calls.length = 0;
     assert(!send('keydown', 'w', input), 'Text input must retain its keys');
     await frames(2); assert(!calls.length, 'Do not move while typing');
@@ -208,7 +208,7 @@ export async function checkHudCentering() {
         assert(Math.abs(area.top + center[1] * area.height - (area.top + 110 + hud.top - 12) / 2) < 1,
         'Center the anatomy above the HUD and below the page heading');
       }
-      for (const selector of ['.explode-control', '.controls-info']) {
+      for (const selector of ['.explode-control']) {
         const control = document.querySelector(selector), bounds = control.getBoundingClientRect();
         assert(Math.abs(bounds.x + bounds.width / 2 - expected) < 1, 'Center controls in the remaining 3D area');
         assert(bounds.left >= left && bounds.right <= right, 'Keep controls outside both panels');
