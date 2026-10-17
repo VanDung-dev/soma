@@ -118,6 +118,69 @@ impl Camera {
         }
         moving
     }
+    pub fn contain(
+        &mut self,
+        bounds: Bounds,
+        frame: [f32; 4],
+        centered: bool,
+    ) -> Result<(), String> {
+        // Validate with the same viewport contract as focus and layout.
+        Self::layout(bounds, self.aspect, frame)?;
+        let pivot = bounds.center();
+        let point = self.matrix() * pivot.extend(1.0);
+        let center = Vec3::new(
+            2.0 * (frame[0] + frame[2] * 0.5) - 1.0,
+            1.0 - 2.0 * (frame[1] + frame[3] * 0.5),
+            0.0,
+        );
+        let previous = if point.w > 1e-6 {
+            point.truncate() / point.w
+        } else {
+            center
+        };
+        let basis = self.light_basis().transpose();
+        let mut corners = Vec::with_capacity(8);
+        for x in [bounds.min.x, bounds.max.x] {
+            for y in [bounds.min.y, bounds.max.y] {
+                for z in [bounds.min.z, bounds.max.z] {
+                    let corner = Vec3::new(x, y, z);
+                    let local = basis * (corner - pivot);
+                    let fit = local.z
+                        + (local.x.abs() / (self.aspect * frame[2])).max(local.y.abs() / frame[3])
+                            / (19_f32.to_radians().tan() * 0.9);
+                    self.distance = self.distance.max(fit);
+                    corners.push(corner);
+                }
+            }
+        }
+        self.target = pivot;
+        self.center = pivot;
+        self.radius = self.radius.max(self.distance / 4.0);
+        self.center_on(pivot, 0.0, 0.0)?;
+        let matrix = self.matrix();
+        let mut min = Vec3::splat(f32::INFINITY);
+        let mut max = Vec3::splat(f32::NEG_INFINITY);
+        for corner in corners {
+            let point = matrix.project_point3(corner);
+            min = min.min(point);
+            max = max.max(point);
+        }
+        let x = if centered {
+            center.x
+        } else {
+            previous
+                .x
+                .clamp(center.x - frame[2] - min.x, center.x + frame[2] - max.x)
+        };
+        let y = if centered {
+            center.y
+        } else {
+            previous
+                .y
+                .clamp(center.y - frame[3] - min.y, center.y + frame[3] - max.y)
+        };
+        self.center_on(pivot, x, y)
+    }
     pub fn reframe(&mut self, frame: [f32; 4]) -> Result<(), String> {
         if self.frame.is_some() {
             self.focus(self.view, frame)?;

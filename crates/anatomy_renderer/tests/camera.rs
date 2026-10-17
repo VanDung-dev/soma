@@ -2,6 +2,66 @@ use anatomy_renderer::{Bounds, Camera};
 use glam::Vec3;
 
 #[test]
+fn explosion_tracking_contains_then_centers_the_moving_selection() {
+    let body = Bounds {
+        min: Vec3::splat(-1.0),
+        max: Vec3::splat(1.0),
+    };
+    for (width, height, frame) in [
+        (1440, 900, [0.3, 0.12, 0.4, 0.68]),
+        (390, 600, [0.03, 0.18, 0.94, 0.58]),
+    ] {
+        let mut original = Camera::new(body);
+        original.resize(width, height);
+        original.rotate(0.7, -0.3).unwrap();
+        original.pan(0.6, -0.7).unwrap();
+        original.zoom(0.1).unwrap();
+        for offset in [Vec3::new(0.4, 0.8, 0.0), Vec3::new(-3.0, -4.0, 6.0)] {
+            let bounds = Bounds {
+                min: offset - Vec3::splat(0.1),
+                max: offset + Vec3::splat(0.1),
+            };
+            for centered in [false, true] {
+                let mut camera = original.clone();
+                camera.contain(bounds, frame, centered).unwrap();
+                assert_eq!(camera.light_basis(), original.light_basis());
+                for x in [bounds.min.x, bounds.max.x] {
+                    for y in [bounds.min.y, bounds.max.y] {
+                        for z in [bounds.min.z, bounds.max.z] {
+                            let point = camera.matrix().project_point3(Vec3::new(x, y, z));
+                            let (u, v) = ((point.x + 1.0) / 2.0, (1.0 - point.y) / 2.0);
+                            assert!(u >= frame[0] - 1e-4 && u <= frame[0] + frame[2] + 1e-4);
+                            assert!(v >= frame[1] - 1e-4 && v <= frame[1] + frame[3] + 1e-4);
+                            assert!(point.z.abs() <= 1.0);
+                        }
+                    }
+                }
+                let center = camera.matrix().project_point3(bounds.center());
+                if centered {
+                    assert!((center.x - (2.0 * frame[0] + frame[2] - 1.0)).abs() < 1e-4);
+                    assert!((center.y - (1.0 - 2.0 * frame[1] - frame[3])).abs() < 1e-4);
+                }
+            }
+        }
+        let mut camera = original.clone();
+        assert!(camera.contain(body, [0.0, 0.0, 0.0, 1.0], true).is_err());
+        assert_eq!(camera.matrix(), original.matrix());
+    }
+    let mut camera = Camera::new(body);
+    let part = Bounds {
+        min: Vec3::new(0.1, 0.2, -0.1),
+        max: Vec3::new(0.3, 0.4, 0.1),
+    };
+    let before = camera.matrix().project_point3(part.center());
+    camera.contain(part, [0.1, 0.1, 0.8, 0.8], false).unwrap();
+    let after = camera.matrix().project_point3(part.center());
+    assert!(
+        (before.truncate() - after.truncate()).length() < 1e-5,
+        "Keep an already visible selection off center until the centering stage"
+    );
+}
+
+#[test]
 fn screen_zoom_keeps_the_pointer_ray_fixed_after_pan_rotation_and_focus() {
     let body = Bounds {
         min: Vec3::splat(-1.0),
