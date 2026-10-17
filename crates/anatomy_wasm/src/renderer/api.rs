@@ -94,7 +94,7 @@ impl AnatomyViewer {
         self.scene
             .change_visibility(&ids, shown)
             .map_err(js_error)?;
-        self.relayout_explosion();
+        self.relayout_explosion()?;
         self.shadow_cached.set(false);
         Ok(())
     }
@@ -102,7 +102,7 @@ impl AnatomyViewer {
     pub fn set_visibility(&mut self, ids_json: &str) -> Result<(), JsValue> {
         let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
         self.scene.set_visibility(&ids).map_err(js_error)?;
-        self.relayout_explosion();
+        self.relayout_explosion()?;
         self.shadow_cached.set(false);
         Ok(())
     }
@@ -250,7 +250,7 @@ impl AnatomyViewer {
             return Err(js_error("Shadow framebuffer allocation failed"));
         }
         self.gpu.shadow_size = shadow_size;
-        self.relayout_explosion();
+        self.relayout_explosion()?;
         self.center_camera()?;
         Ok(())
     }
@@ -259,7 +259,8 @@ impl AnatomyViewer {
         let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
         if let Some(bounds) = self.scene.subset(&ids).map_err(js_error)? {
             self.cancel_camera_transition();
-            self.relayout_explosion();
+            self.explosion_camera = None;
+            self.relayout_explosion()?;
             self.explosion.finish();
             self.camera
                 .fit(self.display_bounds(&ids)?.unwrap_or(bounds));
@@ -292,7 +293,8 @@ impl AnatomyViewer {
         .map_err(js_error)?;
         self.scene.change_visibility(&ids, true).map_err(js_error)?;
         self.cancel_camera_transition();
-        self.relayout_explosion();
+        self.explosion_camera = None;
+        self.relayout_explosion()?;
         self.explosion.finish();
         if let Some(bounds) = self.display_bounds(&ids)? {
             self.camera
@@ -310,7 +312,7 @@ impl AnatomyViewer {
             let frame = [left, top, width, height];
             Camera::layout(self.scene.bounds, self.camera.aspect, frame).map_err(js_error)?;
             self.layout_frame = frame;
-            self.relayout_explosion();
+            self.relayout_explosion()?;
             return Ok(());
         }
         self.camera
@@ -323,6 +325,7 @@ impl AnatomyViewer {
 
     pub fn inspect(&mut self, action: &str) -> Result<(), JsValue> {
         self.cancel_camera_transition();
+        self.explosion_camera = None;
         if action == "reset" {
             if self.exploding && self.explosion.amount() > 0.0 {
                 let aspect = self.camera.aspect * self.layout_frame[2] / self.layout_frame[3];
@@ -337,7 +340,7 @@ impl AnatomyViewer {
                     .resize(self.canvas.width(), self.canvas.height());
             }
         } else if let Some(bounds) = self.scene.inspect(action).map_err(js_error)? {
-            self.relayout_explosion();
+            self.relayout_explosion()?;
             self.explosion.finish();
             let ids: std::collections::HashSet<_> = if action == "all" {
                 self.scene
@@ -506,7 +509,7 @@ impl AnatomyViewer {
 }
 
 impl AnatomyViewer {
-    fn transition_camera(&mut self, before: Camera, now: Option<f64>) {
+    pub(super) fn transition_camera(&mut self, before: Camera, now: Option<f64>) {
         if let Some(now) = now {
             let goal = std::mem::replace(&mut self.camera, before);
             self.camera_transition = Some((goal, now));
@@ -517,7 +520,7 @@ impl AnatomyViewer {
             }
         }
     }
-    fn cancel_camera_transition(&mut self) {
+    pub(super) fn cancel_camera_transition(&mut self) {
         self.camera_transition = None;
         if self.view_center.is_none() {
             self.uncentered_camera = None;

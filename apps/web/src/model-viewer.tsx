@@ -337,6 +337,12 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       viewer.current?.free(); viewer.current = null; canvas.remove();
     };
   }, [catalog]);
+  useEffect(() => {
+    if ((readingId || targetId) && explosionMode.current) {
+      operate(renderer => renderer.set_explode(explosionAmount / 100, performance.now(),
+        !window.matchMedia("(prefers-reduced-motion: reduce)").matches, false));
+    }
+  }, [readingId, targetId]);
   const changeExplosion = (value: number) => {
     const enabled = value > 0;
     if (!operate(renderer => {
@@ -348,7 +354,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       reassembling.current = !enabled && explosionMode.current;
       if (explosionMode.current) {
         renderer.set_explode(value / 100, performance.now(),
-          !window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+          !window.matchMedia("(prefers-reduced-motion: reduce)").matches, !readingId && !targetId);
       }
     })) return;
     setExplosionAmount(value); setHovered("");

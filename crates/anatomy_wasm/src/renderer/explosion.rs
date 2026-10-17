@@ -1,4 +1,4 @@
-use anatomy_renderer::{Bounds, Explosion};
+use anatomy_renderer::{Bounds, Camera, Explosion};
 use std::collections::HashSet;
 use wasm_bindgen::prelude::*;
 
@@ -22,18 +22,44 @@ impl AnatomyViewer {
         if enabled == self.exploding {
             return Ok(());
         }
+        if let Some(mut camera) = self.explosion_camera.take() {
+            self.cancel_camera_transition();
+            camera.aspect = self.camera.aspect;
+            self.camera = camera;
+        }
         self.explosion.clear();
         self.exploding = enabled;
         self.shadow_cached.set(false);
         Ok(())
     }
 
-    pub fn set_explode(&mut self, amount: f32, now: f64, animate: bool) -> Result<(), JsValue> {
+    pub fn set_explode(
+        &mut self,
+        amount: f32,
+        now: f64,
+        animate: bool,
+        overview: Option<bool>,
+    ) -> Result<(), JsValue> {
         if !self.exploding {
             return Err(js_error("Explosion mode is not enabled"));
         }
         self.explosion.set(amount, now).map_err(js_error)?;
-        self.relayout_explosion();
+        let overview =
+            overview.unwrap_or(false) && (amount > 0.3 || self.explosion_camera.is_some());
+        if overview || self.explosion_camera.is_some() {
+            self.cancel_camera_transition();
+        }
+        if overview {
+            self.explosion_camera
+                .get_or_insert_with(|| self.camera.clone());
+        } else {
+            self.explosion_camera = None;
+        }
+        let before = self.camera.clone();
+        self.relayout_explosion()?;
+        if overview {
+            self.transition_camera(before, animate.then_some(now));
+        }
         if !animate {
             self.finish_explosion();
         }
@@ -43,6 +69,12 @@ impl AnatomyViewer {
 
     pub fn finish_explosion(&mut self) {
         self.explosion.finish();
+        if self.explosion_camera.is_some() {
+            self.finish_camera_transition();
+            if self.explosion.amount() <= 0.3 {
+                self.explosion_camera = None;
+            }
+        }
         self.shadow_cached.set(false);
     }
 
@@ -51,20 +83,38 @@ impl AnatomyViewer {
             .explosion
             .advance(now, self.scene.bounds.radius())
             .map_err(js_error)?;
+        let camera_moving = self.explosion_camera.is_some() && self.advance_camera(now)?;
+        if !camera_moving && self.explosion.amount() <= 0.3 {
+            self.explosion_camera = None;
+        }
         self.shadow_cached.set(false);
         self.draw(false);
-        Ok(moving)
+        Ok(moving || camera_moving)
     }
 }
 
 impl AnatomyViewer {
-    pub(crate) fn relayout_explosion(&mut self) {
+    pub(crate) fn relayout_explosion(&mut self) -> Result<(), JsValue> {
         if !self.exploding {
-            return;
+            return Ok(());
         }
         let aspect = self.camera.aspect * self.layout_frame[2] / self.layout_frame[3];
-        self.explosion.layout(&self.scene, aspect);
+        let bounds = self.explosion.layout(&self.scene, aspect);
+        if let Some(original) = &self.explosion_camera {
+            let mut goal = if self.explosion.amount() > 0.3 {
+                Camera::layout(bounds, self.camera.aspect, self.layout_frame).map_err(js_error)?
+            } else {
+                original.clone()
+            };
+            goal.aspect = self.camera.aspect;
+            if let Some((target, _)) = self.camera_transition.as_mut() {
+                *target = goal;
+            } else {
+                self.camera = goal;
+            }
+        }
         self.shadow_cached.set(false);
+        Ok(())
     }
 
     pub(crate) fn display_bounds(&self, ids: &[String]) -> Result<Option<Bounds>, JsValue> {

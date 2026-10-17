@@ -225,12 +225,55 @@ export async function checkExplosion() {
       try { viewer.center(...point); } catch { rejected = true; }
       assert(rejected, 'Reject invalid viewport centers');
     }
+    viewer.set_explode_mode(false); viewer.inspect('reset');
+    viewer.rotate(0.2, -0.1); viewer.pan(0.03, -0.02); pixels();
+    const overviewStart = JSON.stringify(matrix);
+    viewer.set_explode_mode(true); viewer.reframe(0.1,0.1,0.8,0.6);
+    for (const amount of [0,0.3]) {
+      viewer.set_explode(amount, 0, false, true); pixels();
+      assert(JSON.stringify(matrix) === overviewStart, 'Overview must preserve the camera through 30%');
+    }
+    for (const amount of [0.31,0.6,1]) {
+      viewer.set_explode(amount, 0, false, true); pixels();
+      const overviewOffsets = offsets.slice(-3);
+      assert(JSON.stringify(matrix) !== overviewStart, 'Unselected overview must fit the separated inventory');
+      for (const [i, range] of [[0,[-0.9,-0.55]],[1,[-0.55,-0.2]],[2,[0.2,0.9]]]) {
+        for (const x of range) for (const y of [-0.5,0.5]) {
+          const point = project([x + overviewOffsets[i][0], y + overviewOffsets[i][1], overviewOffsets[i][2]]);
+          const u = (point[0] + 1) / 2, v = (1 - point[1]) / 2;
+          assert(u >= 0.1 && u <= 0.9 && v >= 0.1 && v <= 0.7, 'Fit every structure between the panels');
+        }
+      }
+    }
+    const overviewMatrix = JSON.stringify(matrix);
+    viewer.set_explode(0.3, 1, false, true); pixels();
+    assert(JSON.stringify(matrix) === overviewStart, 'Returning to 30% must restore the exact original camera');
+    viewer.set_explode(1, 2, true, true); pixels();
+    assert(JSON.stringify(matrix) === overviewStart, 'Automatic overview must animate from the displayed view');
+    assert(viewer.render_explosion(18), 'Animate camera and structures together'); pixels();
+    assert(JSON.stringify(matrix) !== overviewStart && JSON.stringify(matrix) !== overviewMatrix, 'Show an intermediate overview camera');
+    viewer.finish_explosion(); pixels();
+    assert(JSON.stringify(matrix) === overviewMatrix, 'Reduced motion must finish at the fitted view');
+    viewer.set_explode(0, 20, false, true); viewer.set_explode_mode(false); pixels();
+    assert(JSON.stringify(matrix) === overviewStart, 'Reassembly must restore the overview starting camera');
+    viewer.set_explode_mode(true); viewer.set_explode(1, 0, false, true);
+    viewer.set_explode(0.3, 1, false, true); viewer.pan(0.02,-0.01); pixels();
+    const adjustedOverviewStart = JSON.stringify(matrix);
+    viewer.set_explode(1, 2, false, true); viewer.set_explode(0.3, 3, false, true); pixels();
+    assert(JSON.stringify(matrix) === adjustedOverviewStart, 'A new overview must preserve camera adjustments made below 31%');
+    viewer.set_explode_mode(false);
+    viewer.set_explode_mode(true); viewer.set_explode(1, 0, true, true);
+    viewer.focus('["b"]',0.1,0.1,0.8,0.6); pixels();
+    const focusedView = JSON.stringify(matrix);
+    viewer.set_explode(0.8, 1, false, false); pixels();
+    assert(JSON.stringify(matrix) === focusedView, 'Focus must cancel overview fitting and preserve the focused camera');
     return { reassembledResetCycles: 3, preservedCamera: true, animatedCameraAdjustments: true, sphereAtEveryLevel: true,
       multipart: true, picking: true, outline: true, exactCameraAndImageRestore: true,
       interrupt: true, visibility: true, empty: true, focus: true, resize: true, validation: true,
       selectedOrbit: true, animatedOrbit: true, deselectedOrbit: true, hiddenOrbit: true, viewportCenter: true,
       closeRestoresCamera: true, repeatedClosePreservesView: true, resetClearsCenter: true,
-      smoothCamera: true, rapidToggles: true, manualInterrupt: true, reducedMotionFinish: true };
+      smoothCamera: true, rapidToggles: true, manualInterrupt: true, reducedMotionFinish: true,
+      unselectedOverview: true, overviewFitsPanels: true, overviewRestoresCamera: true, focusCancelsOverview: true };
   } finally { viewer?.free(); canvas.remove(); }
 }
 
@@ -246,7 +289,7 @@ export async function checkExplosionControls() {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(slider,value);
     slider.dispatchEvent(new Event('input',{ bubbles: true }));
   };
-  let amount, enabled = false, reduced = true, movingReturn = false, finishReturn, timeout;
+  let amount, overview, enabled = false, reduced = true, movingReturn = false, finishReturn, timeout;
   const switches = [];
   window.matchMedia = function(query) {
     return media.call(this, query === '(prefers-reduced-motion: reduce)'
@@ -255,8 +298,9 @@ export async function checkExplosionControls() {
   proto.set_explode_mode = function(value) {
     enabled = value; switches.push(value); return originalMode.call(this,value);
   };
-  proto.set_explode = function(value, time, animate) {
-    amount = value; assert(animate === !reduced, 'Respect reduced motion'); return original.call(this,value,time,animate);
+  proto.set_explode = function(value, time, animate, fitOverview) {
+    amount = value; overview = fitOverview;
+    assert(animate === !reduced, 'Respect reduced motion'); return original.call(this,value,time,animate,fitOverview);
   };
   proto.render_explosion = function(time) {
     const moving = originalRender.call(this,time);
@@ -274,6 +318,7 @@ export async function checkExplosionControls() {
     input('100'); await wait();
     assert(enabled && amount === 1 && document.querySelector('.explode-label output').textContent === '100%',
       'Moving the slider must activate separation');
+    assert(overview === !document.querySelector('.tree-name[aria-current="true"]'), 'Fit overview only without a selected target');
     input('35'); await wait();
     assert(amount === 0.35 && switches.length === 1, 'Adjust separation without resaving the anatomy camera');
     input('0'); await wait();
@@ -299,8 +344,15 @@ export async function checkExplosionControls() {
     })]);
     assert(!enabled && slider.value === '0' && !document.querySelector('.model-error'),
       'Finish reassembly and leave separation cleanly');
+    reduced = true;
+    document.querySelector('.folder-row .tree-name').click(); await wait();
+    input('100'); await wait();
+    assert(overview === false, 'A targeted folder must keep the existing separation camera');
+    document.querySelector('.folder-row .tree-focus').click(); await wait();
+    input('65'); await wait();
+    assert(overview === false, 'A focused folder must keep the existing separation camera');
     return { unifiedSlider: true, automaticSeparation: true, reassemble: true, animatedReturn: true,
-      interruptedReturn: true, repeatedCycles: 10, reducedMotion: true };
+      interruptedReturn: true, repeatedCycles: 10, reducedMotion: true, targetAndFocusPreserved: true };
   } finally {
     clearTimeout(timeout); reduced = true;
     input('0');
