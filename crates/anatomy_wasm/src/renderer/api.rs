@@ -364,6 +364,7 @@ impl AnatomyViewer {
 
     pub fn rotate(&mut self, yaw: f32, pitch: f32) -> Result<(), JsValue> {
         self.cancel_camera_transition();
+        self.stop_explosion_follow();
         let pivot = self.orbit_bounds()?.center();
         self.camera
             .rotate_around(pivot, yaw, pitch)
@@ -445,6 +446,7 @@ impl AnatomyViewer {
 
     pub fn zoom_at(&mut self, x: f32, y: f32, factor: f32) -> Result<(), JsValue> {
         self.cancel_camera_transition();
+        self.stop_explosion_follow();
         self.camera
             .zoom_at(2.0 * x - 1.0, 1.0 - 2.0 * y, factor)
             .map_err(js_error)?;
@@ -455,6 +457,7 @@ impl AnatomyViewer {
 
     pub fn pan(&mut self, x: f32, y: f32) -> Result<(), JsValue> {
         self.cancel_camera_transition();
+        self.stop_explosion_follow();
         self.camera.pan(x, y).map_err(js_error)?;
         // Panning moves the fitted shadow volume with the orbit target.
         self.shadow_cached.set(false);
