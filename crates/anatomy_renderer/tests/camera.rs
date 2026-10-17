@@ -2,6 +2,74 @@ use anatomy_renderer::{Bounds, Camera};
 use glam::Vec3;
 
 #[test]
+fn screen_zoom_keeps_the_pointer_ray_fixed_after_pan_rotation_and_focus() {
+    let body = Bounds {
+        min: Vec3::splat(-1.0),
+        max: Vec3::splat(1.0),
+    };
+    let part = Bounds {
+        min: Vec3::new(0.3, 0.5, -0.1),
+        max: Vec3::new(0.5, 0.7, 0.1),
+    };
+    for aspect in [0.65, 1.6] {
+        for focused in [false, true] {
+            for (x, y) in [(0.0, 0.0), (-0.7, 0.6), (0.8, -0.5)] {
+                let mut camera = Camera::new(body);
+                camera.resize((1000.0 * aspect) as u32, 1000);
+                if focused {
+                    camera.focus(part, [0.2, 0.1, 0.6, 0.7]).unwrap();
+                }
+                camera.rotate(0.4, -0.2).unwrap();
+                camera.pan(0.15, -0.12).unwrap();
+                let before = camera.matrix();
+                let depth = before.project_point3(camera.target).z;
+                let anchor = before.inverse().project_point3(Vec3::new(x, y, depth));
+                // Every depth on the pointer ray must stay under the cursor.
+                let nearer = camera.eye().lerp(anchor, 0.7);
+                let basis = camera.light_basis();
+                let distance = camera.distance;
+                for factor in [0.6, 1.0 / 0.6] {
+                    camera.zoom_at(x, y, factor).unwrap();
+                    for point in [anchor, nearer] {
+                        let screen = camera.matrix().project_point3(point);
+                        assert!((screen.x - x).abs() < 2e-4 && (screen.y - y).abs() < 2e-4);
+                    }
+                    assert_eq!(camera.light_basis(), basis);
+                }
+                assert!((camera.distance - distance).abs() < 1e-5);
+                assert!(camera.matrix().abs_diff_eq(before, 1e-4));
+                for (x, y, factor) in [
+                    (f32::NAN, 0.0, 1.0),
+                    (0.0, f32::INFINITY, 1.0),
+                    (0.0, 0.0, 0.0),
+                ] {
+                    let before = camera.matrix();
+                    assert!(camera.zoom_at(x, y, factor).is_err());
+                    assert_eq!(camera.matrix(), before);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn screen_zoom_limits_stay_inside_the_enclosure_even_when_panned_away() {
+    let bounds = Bounds {
+        min: Vec3::splat(-1.0),
+        max: Vec3::splat(1.0),
+    };
+    for pan in [0.3, 3.0, -3.0] {
+        let mut camera = Camera::new(bounds);
+        camera.pan(pan, -pan).unwrap();
+        for factor in [0.001, 1000.0, 0.5, 2.0, 0.001] {
+            camera.zoom_at(-0.7, 0.6, factor).unwrap();
+            assert!(camera.eye().is_finite() && camera.matrix().is_finite());
+            assert!(camera.eye().distance(bounds.center()) <= camera.enclosure_radius() * 0.90001);
+        }
+    }
+}
+
+#[test]
 fn viewport_centering_preserves_zoom_orientation_and_depth() {
     let bounds = Bounds {
         min: Vec3::splat(-1.0),

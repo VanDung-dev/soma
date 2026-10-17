@@ -134,7 +134,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     const canvas = document.createElement("canvas");
     canvas.setAttribute("role", "img");
     canvas.tabIndex = 0;
-    canvas.setAttribute("aria-label", "Mô hình 3D cơ thể người. W A S D và phím mũi tên để xoay quanh tâm mô hình, E để phóng to, Q để thu nhỏ, R để đặt lại. Kéo để xoay, Shift và kéo để dịch mô hình, cuộn để phóng to, trỏ vào để xem thông tin.");
+    canvas.setAttribute("aria-label", "Mô hình 3D cơ thể người. W A S D và phím mũi tên để xoay quanh tâm mô hình, E để phóng to, Q để thu nhỏ theo tâm màn hình, R để đặt lại. Kéo để xoay, Shift và kéo để dịch mô hình, cuộn để phóng to theo vị trí chuột, trỏ vào để xem thông tin.");
     container.appendChild(canvas);
     const abort = new AbortController();
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -231,7 +231,12 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       event.preventDefault();
       if (loading.current || animating.current) return;
       const pixels = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? canvas.clientHeight : 1);
-      operate(renderer => renderer.zoom(Math.exp(Math.max(-1, Math.min(1, pixels * 0.001)))));
+      const bounds = canvas.getBoundingClientRect();
+      operate(renderer => renderer.zoom_at(
+        (event.clientX - bounds.left) / bounds.width,
+        (event.clientY - bounds.top) / bounds.height,
+        Math.exp(Math.max(-1, Math.min(1, pixels * 0.001))),
+      ));
     };
     const contextMenu = (event: Event) => event.preventDefault();
     const contextLost = (event: Event) => {

@@ -149,6 +149,17 @@ impl Camera {
     pub fn zoom(&mut self, factor: f32) -> Result<(), String> {
         self.zoom_around(self.target, factor)
     }
+    pub fn zoom_at(&mut self, x: f32, y: f32, factor: f32) -> Result<(), String> {
+        if !x.is_finite() || !y.is_finite() {
+            return Err("Invalid camera zoom position".into());
+        }
+        // Intersect the pointer ray with the target plane, including screen pan.
+        let screen = Vec3::new(x, y, 0.0) - self.composition - self.pan_offset;
+        let offset = Vec3::new(screen.x * self.aspect, screen.y, 0.0)
+            * self.distance
+            * 19_f32.to_radians().tan();
+        self.zoom_around(self.target + self.light_basis() * offset, factor)
+    }
     pub fn zoom_around(&mut self, pivot: Vec3, factor: f32) -> Result<(), String> {
         if !pivot.is_finite() || !factor.is_finite() || factor <= 0.0 {
             return Err("Invalid camera zoom".into());
@@ -198,13 +209,14 @@ impl Camera {
         if limit > 0.0 && distance > 0.0 {
             let relative = (pivot - self.center) / limit;
             let along = relative.dot(offset / distance);
-            let maximum = ((along * along + 1.0 - relative.length_squared())
+            let half = (along * along + 1.0 - relative.length_squared())
                 .max(0.0)
-                .sqrt()
-                - along)
-                * limit;
-            if maximum > 0.0 && distance > maximum {
-                let scale = maximum / distance;
+                .sqrt();
+            // A pointer pivot may be outside the enclosure after panning.
+            let minimum = (-half - along).max(0.0) * limit;
+            let maximum = (half - along) * limit;
+            if maximum > 0.0 && (distance < minimum || distance > maximum) {
+                let scale = distance.clamp(minimum, maximum) / distance;
                 self.target = pivot + (self.target - pivot) * scale;
                 self.distance *= scale;
             }

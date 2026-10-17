@@ -149,7 +149,8 @@ export async function checkExplosion() {
       centered(selectedPivot,[-0.4,0.2],'Center the selected structure in the available viewport');
       rotateAt(selectedPivot, 'A centered selection must remain centered while orbiting');
       viewer.zoom(0.85); pixels();
-      centered(selectedPivot,[-0.4,0.2],'Zoom must preserve the selected viewport center');
+      assert(Math.hypot(...project(selectedPivot)) > Math.hypot(-0.4,0.2),
+        'Keyboard zoom must enlarge around screen center after centering a selection');
       viewer.inspect('reset'); pixels();
       const resetOffset = offsets.at(-1);
       centered(resetOffset.map((value,i) => value + [-0.55,0,0][i]),[-0.4,0.2],

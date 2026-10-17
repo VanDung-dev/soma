@@ -12,9 +12,22 @@ export async function checkControls() {
     target.dispatchEvent(event); return event.defaultPrevented;
   };
   const calls = [], originals = {};
-  for (const method of ['pan', 'rotate', 'zoom', 'inspect']) {
+  let viewer, matrix, inverse;
+  const gl = canvas.getContext('webgl2'), originalMatrix = gl.uniformMatrix4fv;
+  gl.uniformMatrix4fv = function(...args) {
+    originalMatrix.apply(this, args);
+    const program = this.getParameter(this.CURRENT_PROGRAM);
+    for (const name of ['view_projection', 'inverse_projection']) {
+      const location = program && this.getUniformLocation(program, name);
+      if (location) {
+        const value = this.getUniform(program, location);
+        if (name === 'view_projection') matrix = [...value]; else inverse = [...value];
+      }
+    }
+  };
+  for (const method of ['pan', 'rotate', 'zoom', 'zoom_at', 'inspect']) {
     originals[method] = proto[method];
-    proto[method] = function(...args) { calls.push({ method, args }); return originals[method].apply(this, args); };
+    proto[method] = function(...args) { viewer = this; calls.push({ method, args }); return originals[method].apply(this, args); };
   }
   const input = document.createElement('input');
   document.body.append(input);
@@ -72,13 +85,44 @@ export async function checkControls() {
     const treeInput = document.querySelector('.catalog-panel input');
     treeInput.focus(); assert(!send('keydown', 'ArrowDown', treeInput), 'Preserve catalog keyboard navigation');
     canvas.focus(); calls.length = 0;
-    canvas.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, bubbles: true, cancelable: true }));
-    assert(calls.some(c => c.method === 'zoom' && c.args[0] < 1), 'Preserve mouse wheel zoom');
+    const transform = (matrix, point) => {
+      const clip = [0, 1, 2, 3].map(row => [...point, 1].reduce((sum, value, col) => sum + matrix[col * 4 + row] * value, 0));
+      return clip.slice(0, 3).map(value => value / clip[3]);
+    };
+    const anchorStays = async (x, y, action) => {
+      viewer.render();
+      const expected = [2 * x - 1, 1 - 2 * y];
+      const point = transform(inverse, [...expected, 0.99]);
+      const before = [...matrix];
+      await action(); await frames(); viewer.render();
+      const actual = transform(matrix, point);
+      assert(Math.hypot(actual[0] - expected[0], actual[1] - expected[1]) < 2e-4,
+        `Zoom must keep its screen anchor fixed: ${JSON.stringify({ expected, actual, point, call: calls.at(-1) })}`);
+      assert(matrix.some((value, i) => Math.abs(value - before[i]) > 1e-5), 'Zoom must change the camera');
+    };
+    viewer.inspect('reset'); viewer.pan(0.12, -0.08); viewer.rotate(0.2, -0.1);
+    const area = canvas.getBoundingClientRect();
+    for (const [x, y, deltaY, deltaMode] of [[0.3, 0.35, -100, 0], [0.7, 0.65, 6, 1], [0.5, 0.4, -0.1, 2]]) {
+      const event = new WheelEvent('wheel', {
+        clientX: area.left + x * area.width, clientY: area.top + y * area.height,
+        deltaY, deltaMode, bubbles: true, cancelable: true,
+      });
+      const cursorX = (event.clientX - area.left) / area.width, cursorY = (event.clientY - area.top) / area.height;
+      await anchorStays(cursorX, cursorY, () => canvas.dispatchEvent(event));
+      const call = calls.findLast(c => c.method === 'zoom_at');
+      assert(call && Math.abs(call.args[0] - cursorX) < 1e-6 && Math.abs(call.args[1] - cursorY) < 1e-6,
+        'Wheel must pass canvas-relative cursor coordinates');
+      assert((call.args[2] < 1) === (deltaY < 0), 'Preserve wheel zoom direction');
+    }
+    for (const key of ['e', 'q']) await anchorStays(0.5, 0.5, async () => {
+      send('keydown', key); await frames(4); send('keyup', key);
+    });
     assert(canvas.getContext('webgl2').getError() === 0, 'No WebGL errors after keyboard and wheel interactions');
-    return { mappings: expected.length, guide: true, twoColumns: true, noKeyFeedback: true, hold: true, simultaneous: true, resetOnce: true, blur: true, typing: true, shortcuts: true, mouseWheel: true };
+    return { mappings: expected.length, guide: true, twoColumns: true, noKeyFeedback: true, hold: true, simultaneous: true, resetOnce: true, blur: true, typing: true, shortcuts: true, mouseWheel: true, pointerAnchor: true, keyboardCenter: true };
   } finally {
     window.dispatchEvent(new Event('blur'));
     for (const [method, original] of Object.entries(originals)) proto[method] = original;
+    gl.uniformMatrix4fv = originalMatrix;
     input.remove(); send('keydown', 'r'); send('keyup', 'r');
   }
 }

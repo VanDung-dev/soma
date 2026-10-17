@@ -437,9 +437,14 @@ impl AnatomyViewer {
     }
 
     pub fn zoom(&mut self, factor: f32) -> Result<(), JsValue> {
+        self.zoom_at(0.5, 0.5, factor)
+    }
+
+    pub fn zoom_at(&mut self, x: f32, y: f32, factor: f32) -> Result<(), JsValue> {
         self.cancel_camera_transition();
-        let pivot = self.orbit_bounds()?.center();
-        self.camera.zoom_around(pivot, factor).map_err(js_error)?;
+        self.camera
+            .zoom_at(2.0 * x - 1.0, 1.0 - 2.0 * y, factor)
+            .map_err(js_error)?;
         // The shadow frustum fits the viewed region, so zooming refits it.
         self.shadow_cached.set(false);
         Ok(())

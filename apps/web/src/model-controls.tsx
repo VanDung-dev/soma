@@ -92,10 +92,11 @@ export function ModelControls({ disabled, onOperate }: {
           </div>)}
           <p className="guide-note">Giữ phím để điều khiển liên tục. Có thể dùng nhiều phím cùng lúc.</p>
           <p className="guide-note">Tâm xoay nằm tại mô hình hoặc bộ phận đang được tập trung.</p>
+          <p className="guide-note">E/Q phóng to, thu nhỏ theo tâm màn hình.</p>
         </section>
         <section aria-label="Chuột"><h3>Chuột</h3><dl className="guide-mouse">
           <div><dt>Kéo chuột trái</dt><dd>Xoay mô hình</dd></div>
-          <div><dt>Cuộn chuột</dt><dd>Phóng to hoặc thu nhỏ</dd></div>
+          <div><dt>Cuộn chuột</dt><dd>Phóng to hoặc thu nhỏ theo vị trí chuột</dd></div>
           <div><dt>Shift + kéo / kéo chuột phải</dt><dd>Dịch mô hình trên màn hình</dd></div>
           <div><dt>Trỏ hoặc nhấn vào bộ phận</dt><dd>Xem thông tin giải phẫu</dd></div>
         </dl></section>
