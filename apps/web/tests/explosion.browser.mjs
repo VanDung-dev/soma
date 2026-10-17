@@ -54,6 +54,9 @@ export async function checkExplosion() {
     viewer.configure_explosion('[["a"],["b"]]');
     pixels();
     const defaultMatrix = JSON.stringify(matrix);
+    // Start manual-camera checks wide enough for the full system-sized layer spacing.
+    viewer.set_explode_mode(true); viewer.set_explode(0.6, 0, false); viewer.inspect('reset');
+    viewer.set_explode(0, 0, false); viewer.set_explode_mode(false);
     viewer.rotate(0.2,-0.1); viewer.pan(0.01,-0.01); viewer.zoom(1.6);
     const before = pixels(), beforeMatrix = [...matrix];
     for (const amount of [0,0.01,0.3,0.31,0.6,0.61,0.99,1]) {
@@ -229,25 +232,29 @@ export async function checkExplosion() {
     viewer.rotate(0.2, -0.1); viewer.pan(0.03, -0.02); pixels();
     const overviewStart = JSON.stringify(matrix);
     viewer.set_explode_mode(true); viewer.reframe(0.1,0.1,0.8,0.6);
-    for (const amount of [0,0.3]) {
-      viewer.set_explode(amount, 0, false, true); pixels();
-      assert(JSON.stringify(matrix) === overviewStart, 'Overview must preserve the camera through 30%');
-    }
-    for (const amount of [0.31,0.6,1]) {
+    viewer.set_explode(0, 0, false, true); pixels();
+    assert(JSON.stringify(matrix) === overviewStart, 'Zero must preserve the assembled camera');
+    for (const amount of [0.01,0.15,0.3,0.31,0.6,1]) {
       viewer.set_explode(amount, 0, false, true); pixels();
       const overviewOffsets = offsets.slice(-3);
       assert(JSON.stringify(matrix) !== overviewStart, 'Unselected overview must fit the separated inventory');
+      const min = [Infinity, Infinity], max = [-Infinity, -Infinity];
       for (const [i, range] of [[0,[-0.9,-0.55]],[1,[-0.55,-0.2]],[2,[0.2,0.9]]]) {
         for (const x of range) for (const y of [-0.5,0.5]) {
           const point = project([x + overviewOffsets[i][0], y + overviewOffsets[i][1], overviewOffsets[i][2]]);
           const u = (point[0] + 1) / 2, v = (1 - point[1]) / 2;
+          min[0] = Math.min(min[0],u); min[1] = Math.min(min[1],v);
+          max[0] = Math.max(max[0],u); max[1] = Math.max(max[1],v);
           assert(u >= 0.1 && u <= 0.9 && v >= 0.1 && v <= 0.7, 'Fit every structure between the panels');
         }
       }
+      assert(Math.abs((min[0] + max[0]) / 2 - 0.5) < 1e-5
+        && Math.abs((min[1] + max[1]) / 2 - 0.4) < 1e-5,
+        `Center the visible inventory rather than its 3D bounds at ${amount}`);
     }
     const overviewMatrix = JSON.stringify(matrix);
-    viewer.set_explode(0.3, 1, false, true); pixels();
-    assert(JSON.stringify(matrix) === overviewStart, 'Returning to 30% must restore the exact original camera');
+    viewer.set_explode(0, 1, false, true); pixels();
+    assert(JSON.stringify(matrix) === overviewStart, 'Returning to zero must restore the exact original camera');
     viewer.set_explode(1, 2, true, true); pixels();
     assert(JSON.stringify(matrix) === overviewStart, 'Automatic overview must animate from the displayed view');
     assert(viewer.render_explosion(18), 'Animate camera and structures together'); pixels();
@@ -257,10 +264,10 @@ export async function checkExplosion() {
     viewer.set_explode(0, 20, false, true); viewer.set_explode_mode(false); pixels();
     assert(JSON.stringify(matrix) === overviewStart, 'Reassembly must restore the overview starting camera');
     viewer.set_explode_mode(true); viewer.set_explode(1, 0, false, true);
-    viewer.set_explode(0.3, 1, false, true); viewer.pan(0.02,-0.01); pixels();
+    viewer.set_explode(0, 1, false, true); viewer.pan(0.02,-0.01); pixels();
     const adjustedOverviewStart = JSON.stringify(matrix);
-    viewer.set_explode(1, 2, false, true); viewer.set_explode(0.3, 3, false, true); pixels();
-    assert(JSON.stringify(matrix) === adjustedOverviewStart, 'A new overview must preserve camera adjustments made below 31%');
+    viewer.set_explode(1, 2, false, true); viewer.set_explode(0, 3, false, true); pixels();
+    assert(JSON.stringify(matrix) === adjustedOverviewStart, 'A new overview must preserve camera adjustments made at zero');
     viewer.set_explode_mode(false);
     viewer.set_explode_mode(true); viewer.set_explode(1, 0, true, true);
     viewer.focus('["b"]',0.1,0.1,0.8,0.6); pixels();
@@ -271,10 +278,10 @@ export async function checkExplosion() {
     viewer.pan(0.25, -0.2); pixels();
     const trackingStart = JSON.stringify(matrix);
     viewer.set_explode_mode(true); viewer.reframe(0.1,0.1,0.8,0.6);
-    for (const amount of [0.3,0.31,0.45,0.6,0.61,0.8,1]) {
+    for (const amount of [0,0.01,0.15,0.3,0.31,0.45,0.6,0.61,0.8,1]) {
       viewer.set_explode(amount, 0, false, false, '["a"]'); pixels();
-      if (amount <= 0.3) {
-        assert(JSON.stringify(matrix) === trackingStart, 'Selection tracking must preserve the camera through 30%');
+      if (amount === 0) {
+        assert(JSON.stringify(matrix) === trackingStart, 'Selection tracking must preserve the assembled camera at zero');
         continue;
       }
       const offset = offsets.at(-3);
@@ -285,8 +292,8 @@ export async function checkExplosion() {
       }
       if (amount > 0.6) centered([-0.55+offset[0],offset[1],offset[2]],[0,0.2], 'Center the moving selection from 61%');
     }
-    viewer.set_explode(0.3, 1, false, false, '["a"]'); pixels();
-    assert(JSON.stringify(matrix) === trackingStart, 'Return below 31% must restore the selection camera');
+    viewer.set_explode(0, 1, false, false, '["a"]'); pixels();
+    assert(JSON.stringify(matrix) === trackingStart, 'Return to zero must restore the selection camera');
     viewer.set_explode(1, 2, true, false, '["a"]'); pixels();
     assert(JSON.stringify(matrix) === trackingStart, 'Selected explosion must start without a camera jump');
     let trackingMoving = true, steps = 0;

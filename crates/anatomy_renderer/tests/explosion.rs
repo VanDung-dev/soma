@@ -31,6 +31,69 @@ fn groups() -> Vec<Vec<String>> {
 }
 
 #[test]
+fn thirty_percent_separates_all_nine_layers_and_fits_the_panel_space() {
+    let mut scene = scene();
+    scene.parts = (0..9)
+        .map(|i| {
+            let mut part: Primitive =
+                serde_json::from_value(serde_json::to_value(&scene.parts[0]).unwrap()).unwrap();
+            part.source_id = i.to_string();
+            part.bounds = scene.bounds;
+            part
+        })
+        .collect();
+    let groups = (0..9).map(|i| vec![i.to_string()]).collect();
+    let mut explosion = Explosion::new(&scene, groups).unwrap();
+    explosion.set(0.3, 0.0).unwrap();
+    explosion.layout(&scene, 1.0);
+    explosion.finish();
+    let layers: Vec<_> = (0..9)
+        .map(|i| scene.bounds.translated(explosion.offset(i)))
+        .collect();
+    for pair in layers.windows(2) {
+        assert!(
+            ((pair[1].min.x - pair[0].min.x) - (scene.bounds.max.x - scene.bounds.min.x) * 0.5)
+                .abs()
+                < 1e-6,
+            "Stagger each system by half the body width"
+        );
+        assert!(
+            pair[0].max.z < pair[1].min.z,
+            "Separate every depth layer from above"
+        );
+        assert_eq!(pair[0].min.y, pair[1].min.y, "Keep the anatomical height");
+    }
+    for aspect in [0.65, 1.6] {
+        let frame = [0.27, 0.12, 0.46, 0.65];
+        let camera = explosion.overview_camera(&scene, aspect, frame).unwrap();
+        assert!(camera.distance > Camera::new(scene.bounds).distance);
+        let mut min = Vec3::splat(f32::INFINITY);
+        let mut max = Vec3::splat(f32::NEG_INFINITY);
+        for layer in &layers {
+            for x in [layer.min.x, layer.max.x] {
+                for y in [layer.min.y, layer.max.y] {
+                    for z in [layer.min.z, layer.max.z] {
+                        let point = camera.matrix().project_point3(Vec3::new(x, y, z));
+                        let u = (point.x + 1.0) * 0.5;
+                        let v = (1.0 - point.y) * 0.5;
+                        min = min.min(Vec3::new(u, v, 0.0));
+                        max = max.max(Vec3::new(u, v, 0.0));
+                        assert!(u >= frame[0] && u <= frame[0] + frame[2]);
+                        assert!(v >= frame[1] && v <= frame[1] + frame[3]);
+                    }
+                }
+            }
+        }
+        let center = (min + max) * 0.5;
+        assert!(
+            (center.x - (frame[0] + frame[2] * 0.5)).abs() < 1e-5,
+            "The visible staircase must have equal left and right margins: {center:?}"
+        );
+        assert!((center.y - (frame[1] + frame[3] * 0.5)).abs() < 1e-5);
+    }
+}
+
+#[test]
 fn stages_preserve_systems_then_expand_before_arranging() {
     let scene = scene();
     let mut explosion = Explosion::new(&scene, groups()).unwrap();
@@ -152,6 +215,13 @@ fn packs_structures_without_splitting_materials_and_restores_assembled_positions
         scene.set_visibility(&[]).unwrap();
         let empty = explosion.layout(&scene, aspect);
         assert!(empty.radius().is_finite());
+        assert!(
+            explosion
+                .overview_camera(&scene, aspect, [0.0, 0.0, 1.0, 1.0])
+                .unwrap()
+                .matrix()
+                .is_finite()
+        );
         scene
             .set_visibility(&["a".into(), "b".into(), "c".into()])
             .unwrap();

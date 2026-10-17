@@ -1,4 +1,4 @@
-use crate::{Bounds, Scene};
+use crate::{Bounds, Camera, Scene};
 use glam::Vec3;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -70,6 +70,9 @@ impl Explosion {
         let scale = scene.bounds.radius();
         let center = scene.bounds.center();
         let gap = scale * 0.04;
+        // Stagger each depth layer by half the body width, keeping anatomical height.
+        let size = scene.bounds.max - scene.bounds.min;
+        let layer_step = Vec3::new(size.x * 0.5, 0.0, size.z + gap * 2.0);
         let mut cards: Vec<_> = structures
             .into_iter()
             .map(|(id, bounds)| {
@@ -111,9 +114,8 @@ impl Explosion {
                     return Vec3::ZERO;
                 };
                 let group = self.groups.get(&part.source_id).copied().unwrap_or(0);
-                let layer = (group as f32 - (self.group_count as f32 - 1.0) * 0.5)
-                    / self.group_count.max(1) as f32;
-                let layer = Vec3::new(layer * scale * 1.6, 0.0, layer * scale * 0.8);
+                let layer = group as f32 - (self.group_count as f32 - 1.0) * 0.5;
+                let layer = Vec3::new(layer * layer_step.x, 0.0, layer * layer_step.z);
                 let expanded = layer * 1.8 + (bounds.center() - center) * 0.65;
                 if self.amount <= 0.3 {
                     layer * (self.amount / 0.3)
@@ -132,6 +134,50 @@ impl Explosion {
             .map(|(i, p)| p.bounds.translated(self.targets[i]))
             .reduce(Bounds::union)
             .unwrap_or(scene.bounds)
+    }
+
+    pub fn overview_camera(
+        &self,
+        scene: &Scene,
+        aspect: f32,
+        frame: [f32; 4],
+    ) -> Result<Camera, String> {
+        let displayed: Vec<_> = scene
+            .parts
+            .iter()
+            .zip(&self.targets)
+            .filter(|(part, _)| part.visible)
+            .map(|(part, offset)| part.bounds.translated(*offset))
+            .collect();
+        let bounds = displayed
+            .iter()
+            .copied()
+            .reduce(Bounds::union)
+            .unwrap_or(scene.bounds);
+        let mut camera = Camera::layout(bounds, aspect, frame)?;
+        let matrix = camera.matrix();
+        let mut min = Vec3::splat(f32::INFINITY);
+        let mut max = Vec3::splat(f32::NEG_INFINITY);
+        for bounds in &displayed {
+            for x in [bounds.min.x, bounds.max.x] {
+                for y in [bounds.min.y, bounds.max.y] {
+                    for z in [bounds.min.z, bounds.max.z] {
+                        let point = matrix.project_point3(Vec3::new(x, y, z));
+                        min = min.min(point);
+                        max = max.max(point);
+                    }
+                }
+            }
+        }
+        if !displayed.is_empty() {
+            // Perspective shifts the visible envelope away from the 3D bounds center.
+            let center = (min + max) * 0.5;
+            camera.pan(
+                (center.x - (2.0 * frame[0] + frame[2] - 1.0)) * aspect * 0.5,
+                (center.y - (1.0 - 2.0 * frame[1] - frame[3])) * 0.5,
+            )?;
+        }
+        Ok(camera)
     }
 
     pub fn advance(&mut self, now: f64, scale: f32) -> Result<(bool, f32), String> {

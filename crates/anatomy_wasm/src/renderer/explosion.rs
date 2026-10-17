@@ -1,4 +1,4 @@
-use anatomy_renderer::{Bounds, Camera, Explosion};
+use anatomy_renderer::{Bounds, Explosion};
 use std::collections::HashSet;
 use wasm_bindgen::prelude::*;
 
@@ -54,8 +54,8 @@ impl AnatomyViewer {
             self.explosion_camera = None;
         }
         let overview =
-            overview.unwrap_or(false) && (amount > 0.3 || self.explosion_camera.is_some());
-        let tracking = !ids.is_empty() && (amount > 0.3 || self.explosion_camera.is_some());
+            overview.unwrap_or(false) && (amount > 0.0 || self.explosion_camera.is_some());
+        let tracking = !ids.is_empty() && (amount > 0.0 || self.explosion_camera.is_some());
         if overview || tracking || self.explosion_camera.is_some() {
             self.cancel_camera_transition();
         }
@@ -68,7 +68,7 @@ impl AnatomyViewer {
         }
         let before = self.camera.clone();
         self.relayout_explosion()?;
-        if overview || (tracking && amount <= 0.3) {
+        if overview || (tracking && amount == 0.0) {
             self.transition_camera(before, animate.then_some(now));
         }
         if !animate {
@@ -83,7 +83,7 @@ impl AnatomyViewer {
         if self.explosion_camera.is_some() {
             self.finish_camera_transition();
             self.follow_explosion(1.0)?;
-            if self.explosion.amount() <= 0.3 {
+            if self.explosion.amount() == 0.0 {
                 self.explosion_camera = None;
             }
         }
@@ -98,7 +98,7 @@ impl AnatomyViewer {
             .map_err(js_error)?;
         let camera_moving = self.explosion_camera.is_some() && self.advance_camera(now)?;
         let tracking = self.follow_explosion(blend)?;
-        if !camera_moving && self.explosion.amount() <= 0.3 {
+        if !camera_moving && self.explosion.amount() == 0.0 {
             self.explosion_camera = None;
         }
         self.shadow_cached.set(false);
@@ -116,7 +116,7 @@ impl AnatomyViewer {
     }
 
     fn follow_explosion(&mut self, blend: f32) -> Result<bool, JsValue> {
-        if self.explosion.amount() <= 0.3 || self.explosion_target.is_empty() {
+        if self.explosion.amount() == 0.0 || self.explosion_target.is_empty() {
             return Ok(false);
         }
         let Some(original) = &self.explosion_camera else {
@@ -148,14 +148,16 @@ impl AnatomyViewer {
             return Ok(());
         }
         let aspect = self.camera.aspect * self.layout_frame[2] / self.layout_frame[3];
-        let bounds = self.explosion.layout(&self.scene, aspect);
+        self.explosion.layout(&self.scene, aspect);
         if let Some(original) = &self.explosion_camera {
-            if !self.explosion_target.is_empty() && self.explosion.amount() > 0.3 {
+            if !self.explosion_target.is_empty() && self.explosion.amount() > 0.0 {
                 self.shadow_cached.set(false);
                 return Ok(());
             }
-            let mut goal = if self.explosion.amount() > 0.3 {
-                Camera::layout(bounds, self.camera.aspect, self.layout_frame).map_err(js_error)?
+            let mut goal = if self.explosion.amount() > 0.0 {
+                self.explosion
+                    .overview_camera(&self.scene, self.camera.aspect, self.layout_frame)
+                    .map_err(js_error)?
             } else {
                 original.clone()
             };

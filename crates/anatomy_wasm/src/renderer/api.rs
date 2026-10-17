@@ -329,9 +329,11 @@ impl AnatomyViewer {
         if action == "reset" {
             if self.exploding && self.explosion.amount() > 0.0 {
                 let aspect = self.camera.aspect * self.layout_frame[2] / self.layout_frame[3];
-                let bounds = self.explosion.layout(&self.scene, aspect);
+                self.explosion.layout(&self.scene, aspect);
                 self.explosion.finish();
-                self.camera = Camera::layout(bounds, self.camera.aspect, self.layout_frame)
+                self.camera = self
+                    .explosion
+                    .overview_camera(&self.scene, self.camera.aspect, self.layout_frame)
                     .map_err(js_error)?;
             } else {
                 self.explosion.finish();
