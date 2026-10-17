@@ -31,10 +31,10 @@ test('Wikipedia reader opens mapped articles and leaves unmapped structures expl
     assert(html.includes('aria-busy="true"'));
     assert(html.includes('chưa được đối chiếu độc lập'));
     assert(html.includes('chỉ phục vụ tham khảo'));
-    assert.match(html, /<h3>Wikipedia<button[^>]+aria-label="Thông tin về Wikipedia"/);
-    assert(html.includes('aria-expanded="false"'));
-    assert.match(html, /class="reader-notes" hidden=""/);
-    assert(html.includes('<details class="reference-mapping"><summary>Về liên kết tham khảo</summary>'));
+    assert(!html.includes('<h3>Wikipedia</h3>'));
+    assert(!html.includes('reader-info'));
+    assert.match(html, /class="reference-mapping-description">.*<div class="reader-notes">/);
+    assert(html.includes('<details class="reference-mapping"><summary>Lưu ý về tài liệu tham khảo</summary>'));
     assert(html.includes('target="_blank" rel="noreferrer"'));
     assert(html.indexOf('class="wikipedia-article"') < html.indexOf('class="reader-actions"'));
     assert(html.indexOf('class="reference-notice"') > html.indexOf('class="reader-note"'));
@@ -42,6 +42,7 @@ test('Wikipedia reader opens mapped articles and leaves unmapped structures expl
     assert(!missing.includes('<iframe'));
     assert(missing.includes('Chưa gắn bài Wikipedia'));
     assert(missing.includes('Unmapped%20%3Cpart%3E%20%26%20name'));
+    assert(missing.includes('class="reader-notes"') && missing.includes('chỉ phục vụ tham khảo'));
     assert.equal(wikipediaReference('Unmapped <part> & name'), undefined);
     assert.equal(wikipediaReference('constructor'), undefined);
   } finally {
