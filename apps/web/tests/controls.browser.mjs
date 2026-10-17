@@ -33,8 +33,8 @@ export async function checkControls() {
   document.body.append(input);
   try {
     const expected = [
-      ['w', 'rotate', [0, Math.PI / 8]], ['a', 'rotate', [Math.PI / 8, 0]],
-      ['s', 'rotate', [0, -Math.PI / 8]], ['d', 'rotate', [-Math.PI / 8, 0]],
+      ['w', 'pan', [0, 0.06]], ['a', 'pan', [-0.06, 0]],
+      ['s', 'pan', [0, -0.06]], ['d', 'pan', [0.06, 0]],
       ['ArrowUp', 'rotate', [0, Math.PI / 8]], ['ArrowLeft', 'rotate', [Math.PI / 8, 0]],
       ['ArrowDown', 'rotate', [0, -Math.PI / 8]], ['ArrowRight', 'rotate', [-Math.PI / 8, 0]],
       ['e', 'zoom', [1 / 1.2]], ['q', 'zoom', [1.2]], ['r', 'inspect', ['reset']],
@@ -48,6 +48,7 @@ export async function checkControls() {
     const mouse = guide.querySelector('[aria-label="Chuột"]').getBoundingClientRect();
     assert(keyboard.right < mouse.left, 'Keyboard instructions must be left of mouse instructions');
     assert(guide.querySelectorAll('kbd').length === expected.length, 'Document all keyboard controls');
+    assert(guide.innerText.includes('Di chuyển camera') && guide.innerText.includes('Xoay mô hình'), 'Distinguish camera movement from model rotation');
     assert(guide.innerText.includes('Shift + kéo') && guide.innerText.includes('Cuộn chuột'), 'Document mouse gestures');
     guide.querySelector('button').click(); await frames(1);
     assert(!guide.matches(':popover-open'), 'Close button must hide the guide');
@@ -68,9 +69,10 @@ export async function checkControls() {
       assert(calls.length === stopped, `${key}: must stop on keyup`);
     }
     calls.length = 0;
-    send('keydown', 'w'); send('keydown', 'd'); send('keydown', 'r');
+    send('keydown', 'w'); send('keydown', 'd'); send('keydown', 'ArrowLeft'); send('keydown', 'r');
     await frames(5); send('keydown', 'r', canvas, { repeat: true });
-    assert(calls.filter(c => c.method === 'rotate').length >= 4, 'Hold multiple keys continuously');
+    assert(calls.filter(c => c.method === 'pan').length >= 4 && calls.filter(c => c.method === 'rotate').length >= 2,
+      'Hold camera movement and model rotation together');
     assert(calls.filter(c => c.method === 'inspect').length === 1, 'Reset must not repeat while another key is held');
     window.dispatchEvent(new Event('blur')); await frames(1);
     const stopped = calls.length; await frames(3);

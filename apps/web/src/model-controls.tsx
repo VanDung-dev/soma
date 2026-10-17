@@ -2,11 +2,13 @@ import { useEffect, useEffectEvent, useId } from "react";
 import type { AnatomyViewer } from "./wasm/anatomy_wasm";
 
 const groups = [
-  { label: "Xoay quanh mô hình", controls: [
-    { key: "w", shortcut: "W", label: "Lên", action: (v: AnatomyViewer, step: number) => v.rotate(0, Math.PI / 8 * step) },
-    { key: "a", shortcut: "A", label: "Trái", action: (v: AnatomyViewer, step: number) => v.rotate(Math.PI / 8 * step, 0) },
-    { key: "s", shortcut: "S", label: "Xuống", action: (v: AnatomyViewer, step: number) => v.rotate(0, -Math.PI / 8 * step) },
-    { key: "d", shortcut: "D", label: "Phải", action: (v: AnatomyViewer, step: number) => v.rotate(-Math.PI / 8 * step, 0) },
+  { label: "Di chuyển camera", controls: [
+    { key: "w", shortcut: "W", label: "Lên", action: (v: AnatomyViewer, step: number) => v.pan(0, 0.06 * step) },
+    { key: "a", shortcut: "A", label: "Trái", action: (v: AnatomyViewer, step: number) => v.pan(-0.06 * step, 0) },
+    { key: "s", shortcut: "S", label: "Xuống", action: (v: AnatomyViewer, step: number) => v.pan(0, -0.06 * step) },
+    { key: "d", shortcut: "D", label: "Phải", action: (v: AnatomyViewer, step: number) => v.pan(0.06 * step, 0) },
+  ] },
+  { label: "Xoay mô hình", controls: [
     { key: "arrowup", shortcut: "ArrowUp", label: "Lên", action: (v: AnatomyViewer, step: number) => v.rotate(0, Math.PI / 8 * step) },
     { key: "arrowleft", shortcut: "ArrowLeft", label: "Trái", action: (v: AnatomyViewer, step: number) => v.rotate(Math.PI / 8 * step, 0) },
     { key: "arrowdown", shortcut: "ArrowDown", label: "Xuống", action: (v: AnatomyViewer, step: number) => v.rotate(0, -Math.PI / 8 * step) },
