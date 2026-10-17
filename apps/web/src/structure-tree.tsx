@@ -29,7 +29,8 @@ function VisibilityCheckbox({ ids, visibleIds, label, disabled, onVisibility }: 
   const mixed = count > 0 && count < ids.length;
   useEffect(() => { if (ref.current) ref.current.indeterminate = mixed; }, [mixed]);
   return <input ref={ref} type="checkbox" aria-label={`Hiện ${label}`} checked={ids.length > 0 && count === ids.length}
-    disabled={disabled || !ids.length} onClick={event => event.stopPropagation()} onChange={event => onVisibility(ids, event.target.checked)} />;
+    disabled={disabled || !ids.length} onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()}
+    onChange={event => onVisibility(ids, event.target.checked)} />;
 }
 
 export function StructureTree(props: TreeProps) {
@@ -76,20 +77,22 @@ function Folder({ target, childrenById, structures, props, revealPath, revealRow
   const directIds = ids.filter(id => !nestedIds.has(id));
   const title = targetName(target);
   const english = targetName(target, "en");
+  const focusFolder = () => { if (!props.disabled && ids.length) props.onFocus(ids, target.id); };
   return <li data-target-id={target.id}>
-    <div className={`tree-row folder-row${props.targetId === target.id ? " is-selected" : ""}`}>
-      <button className="folder-toggle" aria-label={`${open ? "Đóng" : "Mở"} ${title}`} aria-expanded={open} onClick={() => setOpen(!open)}>{open ? "▾" : "▸"}</button>
+    <div className={`tree-row folder-row${props.targetId === target.id ? " is-selected" : ""}`} onDoubleClick={focusFolder}>
+      <button className="folder-toggle" aria-label={`${open ? "Đóng" : "Mở"} ${title}`} aria-expanded={open}
+        onClick={() => setOpen(!open)} onDoubleClick={event => event.stopPropagation()}>{open ? "▾" : "▸"}</button>
       {ids.length > 0
         ? <VisibilityCheckbox ids={ids} label={title} {...props} />
         : <span className="tree-no-model" aria-hidden="true">—</span>}
-      <button className="tree-name" onClick={() => props.onTarget(target.id)} aria-current={props.targetId === target.id ? "true" : undefined}>
-        {title}{english !== title && <small lang="en">{english}</small>}<small>{ids.length
+      <button className="tree-name" onClick={() => props.onTarget(target.id)} aria-current={props.targetId === target.id ? "true" : undefined}
+        aria-keyshortcuts={ids.length ? "Shift+Enter" : undefined} title={ids.length ? `Nhấp đúp hoặc Shift+Enter để phóng tới ${title}` : undefined}
+        onKeyDown={event => { if (event.key === "Enter" && event.shiftKey) { event.preventDefault(); focusFolder(); } }}>
+        {title}{english !== title && <small lang="en">{english}</small>}
+      </button>
+      <small className="tree-count">{ids.length
           ? `${ids.length} cấu trúc`
           : "Chưa có mô hình"}</small>
-      </button>
-      <button className="tree-focus" disabled={props.disabled || !ids.length}
-        aria-label={`Phóng tới ${title}`} title={`Phóng tới ${title}`}
-        onClick={() => props.onFocus(ids, target.id)}><Magnifier /></button>
     </div>
     {open && <ul>
       {children.map(child => <Folder key={child.id} target={child} childrenById={childrenById} structures={structures} props={props} revealPath={revealPath} revealRow={revealRow} />)}
@@ -99,13 +102,14 @@ function Folder({ target, childrenById, structures, props, revealPath, revealRow
         const title = structureName(part);
         const english = structureName(part, "en");
         return <li key={id} ref={props.reveal?.id === id && revealPath.has(target.id) ? revealRow : undefined}
-          className={`tree-row part-row${props.selected === id ? " is-selected" : ""}`} data-structure-id={id}>
+          className={`tree-row part-row${props.selected === id ? " is-selected" : ""}`} data-structure-id={id}
+          onDoubleClick={() => { if (!props.disabled) props.onFocus([id]); }}>
           <VisibilityCheckbox ids={[id]} label={title} {...props} />
           <button className="tree-name" disabled={props.disabled} aria-current={props.selected === id ? "true" : undefined}
+            aria-keyshortcuts="Shift+Enter" title={`Nhấp đúp hoặc Shift+Enter để phóng tới ${title}`}
+            onKeyDown={event => { if (event.key === "Enter" && event.shiftKey) { event.preventDefault(); props.onFocus([id]); } }}
             onClick={() => props.onSelect(id)} onFocus={() => props.onSelect(id)}>{title}
             {english !== title && <small lang="en">{english}</small>}</button>
-          <button className="tree-focus" disabled={props.disabled} aria-label={`Phóng tới ${title}`} title={`Phóng tới ${title}`}
-            onClick={() => props.onFocus([id])}><Magnifier /></button>
         </li>;
       })}
     </ul>}

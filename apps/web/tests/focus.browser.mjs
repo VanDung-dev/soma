@@ -13,6 +13,10 @@ export async function checkFocusTree() {
   const branch = catalog.targets.find(t => t.source_name === 'Cranium');
   const otherBranch = catalog.targets.find(t => t.source_name === 'Appendicular skeleton');
   const row = target => document.querySelector(`[data-target-id="${target.id}"] > .tree-row`);
+  const doubleClick = element => {
+    const name = element.querySelector('.tree-name');
+    name.click(); name.click(); name.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+  };
   let focusCalls = 0, lastIds, lastViewer, imageBounds;
   proto.focus = function(ids, ...frame) {
     focusCalls++; lastIds = JSON.parse(ids); lastViewer = this;
@@ -32,9 +36,27 @@ export async function checkFocusTree() {
     assert(gl.getError() === gl.NO_ERROR, 'Focus produced a WebGL error');
   };
   try {
-    assert(!document.querySelector('.tree-actions .tree-focus'), 'The catalog toolbar must not have a general focus button');
+    assert(!document.querySelector('.tree-focus'), 'Remove all dedicated focus buttons');
+    const tree = document.querySelector('.catalog-tree'), treeStyle = getComputedStyle(tree);
+    assert(treeStyle.position === 'relative' && treeStyle.isolation === 'isolate' && Number(treeStyle.zIndex) > 0
+      && treeStyle.backgroundColor !== 'rgba(0, 0, 0, 0)', 'Give the catalog tree its own raised surface');
+    const rootRow = row(root), name = rootRow.querySelector('.tree-name'), countLabel = rootRow.querySelector('.tree-count');
+    assert(countLabel.textContent === `${root.model.structure_ids.length} cấu trúc` && !name.contains(countLabel)
+      && countLabel.getBoundingClientRect().left >= name.getBoundingClientRect().right - 1,
+      'Move the structure count into the former focus-button column');
+    name.click(); await wait();
+    assert(focusCalls === 0, 'A single click must only browse folder information');
+    rootRow.querySelector('.folder-toggle').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    rootRow.querySelector('input').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    assert(focusCalls === 0, 'Disclosure and visibility controls must not trigger double-click focus');
+    const shortcut = new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true, cancelable: true });
+    name.dispatchEvent(shortcut); await wait();
+    assert(shortcut.defaultPrevented && focusCalls === 1 && lastIds.length === root.model.structure_ids.length,
+      'Offer Shift+Enter as the keyboard equivalent of folder focus');
     for (const system of catalog.targets.filter(t => t.model)) {
-      row(system).querySelector('.tree-focus').click(); await wait();
+      const before = focusCalls;
+      doubleClick(row(system)); await wait();
+      assert(focusCalls === before + 1, 'Double-click must focus once after the two normal click events');
       const expected = new Set(system.model.structure_ids);
       assert(lastIds.length === expected.size && lastIds.every(id => expected.has(id))
         && lastViewer.visible_count() === expected.size && row(system).querySelector('input').checked,
@@ -53,8 +75,8 @@ export async function checkFocusTree() {
     }
     const partRow = document.querySelector(`[data-target-id="${branch.id}"] [data-structure-id]`);
     const partId = partRow.getAttribute('data-structure-id');
-    partRow.querySelector('.tree-focus').click(); await wait();
-    assert(lastIds.length === 1 && lastIds[0] === partId, 'Magnifier must address the exact structure');
+    doubleClick(partRow); await wait();
+    assert(lastIds.length === 1 && lastIds[0] === partId, 'Double-click must address the exact structure');
     assert(lastViewer.visible_count() === 1 && partRow.querySelector('input').checked, 'Hidden structure must be enabled');
     assert(lastViewer.selected_id() === partId, 'Focused structure must remain selected');
     const area = canvas.getBoundingClientRect(), ratio = canvas.width / area.width;
@@ -71,28 +93,29 @@ export async function checkFocusTree() {
     assert(focusCalls === count && lastViewer.visible_count() === 0, 'Checkbox must not zoom');
     row(otherBranch).querySelector('input').click(); await wait();
     assert(focusCalls === count, 'Enabling a folder must not zoom');
-    row(branch).querySelector('.tree-focus').click(); await wait();
+    row(branch).dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); await wait();
     assert(lastIds.length === branch.structure_ids.length && branch.structure_ids.every(id => lastIds.includes(id)),
-      'Parent magnifier must address all descendants');
+      'Parent double-click must address all descendants');
     assert(lastViewer.visible_count() === branch.structure_ids.length && row(branch).querySelector('input').checked
       && !row(otherBranch).querySelector('input').checked && row(branch).classList.contains('is-selected'),
-      'Parent magnifier must isolate its complete branch and synchronize the checkboxes');
+      'Parent double-click must isolate its complete branch and synchronize the checkboxes');
     const child = catalog.targets.find(t => t.source_name === 'Bones of cranium');
-    row(child).querySelector('.tree-focus').click(); await wait();
+    row(child).dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); await wait();
     assert(lastViewer.visible_count() === child.structure_ids.length && child.structure_ids.every(id => lastIds.includes(id))
       && row(child).querySelector('input').checked && row(branch).querySelector('input').indeterminate,
-      'Child magnifier must isolate its own branch');
-    row(branch).querySelector('.tree-focus').click(); await wait();
+      'Child double-click must isolate its own branch');
+    row(branch).dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); await wait();
     assert(row(root).querySelector('input').indeterminate, 'Partially enabled system must remain indeterminate');
     row(otherBranch).querySelector('input').click(); await wait();
     const visibleCount = new Set([...branch.structure_ids, ...otherBranch.structure_ids]).size;
     assert(lastViewer.visible_count() === visibleCount, 'Enabling another folder must preserve existing visibility');
-    partRow.querySelector('.tree-focus').click(); await wait();
+    partRow.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); await wait();
     assert(lastViewer.visible_count() === 1 && lastViewer.selected_id() === partId,
-      'Individual magnifier must isolate the focused structure');
+      'Individual double-click must isolate the focused structure');
     assert(partRow.querySelector('input').checked && !row(otherBranch).querySelector('input').checked,
       'Isolation must synchronize the checkboxes');
-    return { generalFocusRemoved: true, systemsMatchCheckboxes: true, skeletalExcludesJoints: true, smallModel: true, exactIds: true, checkboxDoesNotZoom: true,
+    return { generalFocusRemoved: true, allFocusButtonsRemoved: true, doubleClickFocus: true, keyboardFocus: true, raisedTree: true, countInRightColumn: true,
+      systemsMatchCheckboxes: true, skeletalExcludesJoints: true, smallModel: true, exactIds: true, checkboxDoesNotZoom: true,
       descendantsEnabled: true, folderIsolates: true, childFolderIsolates: true, individualIsolates: true,
       checkboxSynchronized: true, viewportFits: true };
   } finally {

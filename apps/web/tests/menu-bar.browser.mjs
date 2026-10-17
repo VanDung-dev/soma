@@ -58,7 +58,7 @@ export async function checkMenuBar() {
     back.click(); await frames();
     const overview = matrix;
     const total = document.querySelector('.model-status').textContent.match(/\d+\/(\d+)/)[1];
-    document.querySelector('.folder-row .tree-focus').click(); await frames();
+    document.querySelector('.folder-row').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); await frames();
     const expand = document.querySelector('.reader-expand');
     if (getComputedStyle(expand).display !== 'none') { expand.click(); await frames(); }
     const slider = document.querySelector('.explode-control input');

@@ -446,7 +446,7 @@ export async function checkExplosionControls() {
     input('0'); await wait();
     input('100'); await wait();
     assert(overview === true, 'A highlighted folder must still fit the separated inventory');
-    document.querySelector('.folder-row .tree-focus').click(); await wait();
+    document.querySelector('.folder-row').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); await wait();
     input('65'); await wait();
     assert(overview === false && trackedIds.length > 1, 'Track the focused group rather than the whole inventory');
     const focusedCount = trackedIds.length;

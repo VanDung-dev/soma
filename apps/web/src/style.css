@@ -18,7 +18,7 @@ button { color: inherit; }
 .information-panel, .catalog-panel { position: absolute; z-index: 3; top: calc(var(--panel-inset) + var(--menu-height) + var(--panel-gap)); bottom: var(--panel-inset); min-width: 0; overflow-y: auto; scrollbar-gutter: stable; padding: var(--panel-padding); border: 1px solid rgba(255,255,255,.8); border-radius: var(--panel-radius); background: rgba(251,249,242,.94); backdrop-filter: blur(14px); box-shadow: 0 24px 60px rgba(39,52,45,.16), 0 3px 10px rgba(39,52,45,.06), inset 0 1px 0 #fff; }
 .catalog-panel { left: var(--panel-inset); width: var(--panel-width); padding: var(--panel-padding) calc(var(--panel-padding) - 6px); display: flex; flex-direction: column; overflow: hidden; scrollbar-gutter: auto; }
 .catalog-heading, .structure-search, .tree-actions { flex-shrink: 0; }
-.catalog-tree { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 0 6px 8px; }
+.catalog-tree { position: relative; z-index: 1; isolation: isolate; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 6px; border: 1px solid var(--line); border-radius: var(--panel-radius); background: #fffdf8; box-shadow: 0 4px 12px rgba(39,52,45,.06); }
 .information-panel { --panel-width: 350px; position: fixed; right: var(--panel-inset); width: var(--panel-width); display: flex; flex-direction: column; overflow: hidden; padding: 0; scrollbar-gutter: auto; transition: width .32s cubic-bezier(.22,1,.36,1), box-shadow .32s ease; }
 .information-heading { position: relative; flex-shrink: 0; padding: var(--panel-padding); border-bottom: 1px solid var(--line); }
 .information-heading > div { min-width: 0; }
@@ -104,8 +104,7 @@ button { color: inherit; }
 .tree-name { flex: 1; min-width: 0; text-align: left; border: 0; background: transparent; padding: 4px 0; font-size: 13px; overflow-wrap: anywhere; }
 .tree-name small { display: block; color: #62675f; font-size: 10px; margin-top: 4px; }
 .part-row { padding-left: 10px; }
-.tree-focus { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 28px; height: 28px; padding: 4px; border: 0; border-radius: 6px; background: transparent; color: var(--accent); }
-.tree-focus:hover { background: #e7ddd2; }
+.tree-count { flex-shrink: 0; margin-left: auto; text-align: right; white-space: nowrap; color: #62675f; font-size: 10px; }
 .startup { display: flex; flex-direction: column; min-height: 100vh; align-items: center; justify-content: center; text-align: center; }
 .startup button { border: 1px solid var(--accent); background: transparent; color: var(--accent); padding: 12px 24px; }
 @media (max-width: 1200px) {
