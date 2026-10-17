@@ -96,7 +96,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       if (failed.current) return;
       const now = performance.now();
       try {
-        if (cameraAnimating.current) cameraAnimating.current = viewer.current!.advance_camera(now);
+        cameraAnimating.current = viewer.current!.advance_camera(now);
         if (animating.current) {
           if (now - lastAnimationFrame.current >= 1000 / 30) {
             lastAnimationFrame.current = now;

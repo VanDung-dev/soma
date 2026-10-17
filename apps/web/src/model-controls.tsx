@@ -19,7 +19,8 @@ const groups = [
     { key: "q", shortcut: "Q", label: "Thu nhỏ", action: (v: AnatomyViewer, step: number) => v.zoom(1.2 ** step) },
   ] },
   { label: "Góc nhìn", controls: [
-    { key: "r", shortcut: "R", label: "Đặt lại", action: (v: AnatomyViewer) => v.inspect("reset") },
+    { key: "r", shortcut: "R", label: "Đặt lại", action: (v: AnatomyViewer) => v.inspect("reset",
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ? undefined : performance.now()) },
   ] },
 ];
 const controls = groups.flatMap(group => group.controls);

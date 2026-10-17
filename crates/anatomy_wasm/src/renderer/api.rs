@@ -323,7 +323,11 @@ impl AnatomyViewer {
         Ok(())
     }
 
-    pub fn inspect(&mut self, action: &str) -> Result<(), JsValue> {
+    pub fn inspect(&mut self, action: &str, now: Option<f64>) -> Result<(), JsValue> {
+        if now.is_some_and(|time| !time.is_finite() || time < 0.0) {
+            return Err(js_error("Invalid camera transition timestamp"));
+        }
+        let before = self.camera.clone();
         self.cancel_camera_transition();
         self.explosion_camera = None;
         if action == "reset" {
@@ -360,6 +364,7 @@ impl AnatomyViewer {
             );
         }
         self.center_camera()?;
+        self.transition_camera(before, now);
         self.shadow_cached.set(false);
         Ok(())
     }

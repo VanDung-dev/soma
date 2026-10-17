@@ -120,8 +120,50 @@ export async function checkControls() {
     for (const key of ['e', 'q']) await anchorStays(0.5, 0.5, async () => {
       send('keydown', key); await frames(4); send('keyup', key);
     });
+    const media = window.matchMedia;
+    let reduced = false;
+    window.matchMedia = function(query) {
+      return media.call(this, query === '(prefers-reduced-motion: reduce)'
+        ? reduced ? '(min-width: 0px)' : '(max-width: 0px)' : query);
+    };
+    const snapshot = () => { viewer.render(); return JSON.stringify(matrix); };
+    const resetKey = () => { send('keydown', 'r'); send('keyup', 'r'); };
+    try {
+      const slider = document.querySelector('.explode-control input');
+      for (const amount of [0,30]) {
+        reduced = false;
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(slider,String(amount));
+        slider.dispatchEvent(new Event('input',{ bubbles: true })); await frames();
+        viewer.finish_explosion(); viewer.inspect('reset');
+        const goal = snapshot(), selected = viewer.selected_id(), visible = viewer.visible_count();
+        viewer.pan(0.14,-0.08); viewer.rotate(0.5,-0.2); viewer.zoom(0.7);
+        const before = snapshot();
+        resetKey();
+        assert(snapshot() === before, `R must start from the displayed camera without jumping at ${amount}%`);
+        await frames(2);
+        const intermediate = snapshot();
+        assert(intermediate !== before && intermediate !== goal, 'R must render intermediate camera positions');
+        resetKey();
+        assert(snapshot() === intermediate, 'Pressing R again must continue from the displayed position');
+        for (let i = 0; i < 120 && snapshot() !== goal; i++) await frames(1);
+        assert(snapshot() === goal, 'The render loop must finish reset at the exact original destination');
+        assert(viewer.selected_id() === selected && viewer.visible_count() === visible && slider.value === String(amount),
+          'R must preserve selection, visibility and separation');
+        viewer.pan(0.12,-0.06); resetKey(); await frames(2);
+        viewer.pan(0.02,-0.01); const manual = snapshot(); await frames(3);
+        assert(snapshot() === manual, 'Manual movement must interrupt the reset animation');
+        reduced = true; resetKey();
+        assert(snapshot() === goal, 'Reduced motion must reset immediately');
+      }
+      for (const time of [NaN,Infinity,-1]) {
+        const before = snapshot(); let rejected = false;
+        try { viewer.inspect('reset',time); } catch { rejected = true; }
+        assert(rejected && snapshot() === before, 'Reject invalid reset timestamps before changing the camera');
+      }
+    } finally { window.matchMedia = media; }
     assert(canvas.getContext('webgl2').getError() === 0, 'No WebGL errors after keyboard and wheel interactions');
-    return { mappings: expected.length, guide: true, twoColumns: true, noKeyFeedback: true, hold: true, simultaneous: true, resetOnce: true, blur: true, typing: true, shortcuts: true, mouseWheel: true, pointerAnchor: true, keyboardCenter: true };
+    return { mappings: expected.length, guide: true, twoColumns: true, noKeyFeedback: true, hold: true, simultaneous: true, resetOnce: true, blur: true, typing: true, shortcuts: true, mouseWheel: true, pointerAnchor: true, keyboardCenter: true,
+      smoothReset: true, repeatedReset: true, resetSettles: true, resetInterrupt: true, reducedMotionReset: true, explodedReset: true };
   } finally {
     window.dispatchEvent(new Event('blur'));
     for (const [method, original] of Object.entries(originals)) proto[method] = original;
@@ -245,6 +287,7 @@ export async function checkHudCentering() {
       document.querySelector('.reader-expand').click(); await frames();
       await settleCamera();
     }
+    const collapsedWidth = panel.getBoundingClientRect().width;
     document.querySelector('.folder-row .tree-name').click(); await frames();
     for (let i = 0; i < 12 && document.querySelectorAll('.part-row .tree-name').length < 2; i++) {
       document.querySelector('.folder-toggle[aria-expanded="false"]').click(); await frames();
@@ -295,7 +338,7 @@ export async function checkHudCentering() {
       }
       assert(document.querySelector('.explode-control').getBoundingClientRect().width >= 179,
         'Keep the slider usable on narrow desktop layouts');
-      if (desktop && expanded) assert(panel.getBoundingClientRect().width >= parseFloat(getComputedStyle(panel).getPropertyValue('--panel-width')),
+      if (desktop && expanded) assert(panel.getBoundingClientRect().width >= collapsedWidth,
         'Expanding the reader must not shrink it');
       states.push({ expanded, center: expected });
     }
