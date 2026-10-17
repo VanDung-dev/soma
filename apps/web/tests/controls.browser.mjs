@@ -104,9 +104,10 @@ export async function checkControls() {
     };
     viewer.inspect('reset'); viewer.pan(0.12, -0.08); viewer.rotate(0.2, -0.1);
     const area = canvas.getBoundingClientRect();
+    const frame = document.querySelector('.model-focus-frame').getBoundingClientRect();
     for (const [x, y, deltaY, deltaMode] of [[0.3, 0.35, -100, 0], [0.7, 0.65, 6, 1], [0.5, 0.4, -0.1, 2]]) {
       const event = new WheelEvent('wheel', {
-        clientX: area.left + x * area.width, clientY: area.top + y * area.height,
+        clientX: frame.left + x * frame.width, clientY: frame.top + y * frame.height,
         deltaY, deltaMode, bubbles: true, cancelable: true,
       });
       const cursorX = (event.clientX - area.left) / area.width, cursorY = (event.clientY - area.top) / area.height;
@@ -126,6 +127,83 @@ export async function checkControls() {
     for (const [method, original] of Object.entries(originals)) proto[method] = original;
     gl.uniformMatrix4fv = originalMatrix;
     input.remove(); send('keydown', 'r'); send('keyup', 'r');
+  }
+}
+
+export async function checkPointerBounds() {
+  const { AnatomyViewer } = await getWasm(), proto = AnatomyViewer.prototype;
+  const canvas = document.querySelector('.model-canvas canvas');
+  const frame = document.querySelector('.model-focus-frame').getBoundingClientRect();
+  const assert = (ok, message) => { if (!ok) throw Error(message); };
+  const inside = { clientX: frame.left + frame.width / 2, clientY: frame.top + frame.height / 2 };
+  const outside = [
+    { clientX: frame.left - 1, clientY: inside.clientY },
+    { clientX: frame.right, clientY: inside.clientY },
+    { clientX: inside.clientX, clientY: frame.top - 1 },
+    { clientX: inside.clientX, clientY: frame.bottom },
+  ];
+  const pointer = (type, point, extra = {}) => canvas.dispatchEvent(new PointerEvent(type,
+    { pointerId: 1, pointerType: 'mouse', bubbles: true, ...point, ...extra }));
+  const wheel = point => {
+    const event = new WheelEvent('wheel', { ...point, deltaY: -100, bubbles: true, cancelable: true });
+    canvas.dispatchEvent(event); return event.defaultPrevented;
+  };
+  const context = point => {
+    const event = new MouseEvent('contextmenu', { ...point, bubbles: true, cancelable: true });
+    canvas.dispatchEvent(event); return event.defaultPrevented;
+  };
+  const calls = [], originals = {}, captures = new Set();
+  const capture = canvas.setPointerCapture, release = canvas.releasePointerCapture, has = canvas.hasPointerCapture;
+  canvas.setPointerCapture = id => captures.add(id);
+  canvas.releasePointerCapture = id => captures.delete(id);
+  canvas.hasPointerCapture = id => captures.has(id);
+  for (const method of ['pick', 'rotate', 'pan', 'zoom', 'zoom_at']) {
+    originals[method] = proto[method];
+    proto[method] = function(...args) { calls.push(method); return method === 'pick' ? '' : originals[method].apply(this,args); };
+  }
+  try {
+    for (const point of outside) {
+      calls.length = 0;
+      pointer('pointerdown', point, { buttons: 1 });
+      pointer('pointermove', inside, { buttons: 1 });
+      pointer('pointerup', inside);
+      pointer('pointermove', point);
+      assert(!wheel(point) && !context(point) && !captures.size, 'Outside the frame must retain scrolling, context menu and pointer ownership');
+      await new Promise(resolve => setTimeout(resolve, 120));
+      assert(!calls.length, 'Starting outside must not rotate, pan, zoom, select or hover');
+    }
+    assert(wheel(inside) && calls.includes('zoom_at') && context(inside), 'Keep cursor zoom and 3D context gestures inside');
+    calls.length = 0;
+    pointer('pointerdown', inside, { buttons: 1 });
+    pointer('pointermove', { ...inside, clientX: inside.clientX + 10 }, { buttons: 1 });
+    assert(calls.includes('rotate'), 'Drag inside must still rotate');
+    pointer('pointermove', outside[1], { buttons: 1 });
+    assert(!captures.size, 'Release pointer capture when dragging outside');
+    const stopped = calls.length;
+    pointer('pointermove', { ...inside, clientX: inside.clientX + 20 }, { buttons: 1 });
+    pointer('pointerup', inside);
+    assert(calls.length === stopped, 'Returning while held must not resume or select after a cancelled drag');
+    pointer('pointerdown', inside, { button: 2, buttons: 2 });
+    pointer('pointermove', { ...inside, clientY: inside.clientY + 10 }, { buttons: 2 });
+    pointer('pointerup', inside, { button: 2 });
+    assert(calls.includes('pan'), 'Right-drag inside must still pan');
+    calls.length = 0;
+    pointer('pointerdown', inside, { buttons: 1 }); pointer('pointerup', inside);
+    assert(calls.includes('pick'), 'Click inside must still select');
+    calls.length = 0;
+    pointer('pointermove', inside); pointer('pointermove', outside[0]);
+    await new Promise(resolve => setTimeout(resolve, 120));
+    assert(!calls.includes('pick'), 'Leaving must cancel the pending hover pick');
+    pointer('pointermove', inside);
+    await new Promise(resolve => setTimeout(resolve, 120));
+    assert(calls.includes('pick'), 'Hover inside must still identify anatomy');
+    return { outsideBlocked: true, dragCancelledOnExit: true, hoverCancelledOnExit: true,
+      insideRotation: true, insidePan: true, insideZoom: true, insideSelection: true, outsideScrolling: true, outsideContextMenu: true };
+  } finally {
+    pointer('pointercancel', inside); pointer('pointerleave', outside[0]);
+    canvas.setPointerCapture = capture; canvas.releasePointerCapture = release; canvas.hasPointerCapture = has;
+    for (const [method, original] of Object.entries(originals)) proto[method] = original;
+    document.querySelector('.app-menu-bar [aria-label="Về góc nhìn tổng thể"]').click();
   }
 }
 

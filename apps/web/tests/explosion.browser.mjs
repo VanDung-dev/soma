@@ -267,13 +267,70 @@ export async function checkExplosion() {
     const focusedView = JSON.stringify(matrix);
     viewer.set_explode(0.8, 1, false, false); pixels();
     assert(JSON.stringify(matrix) === focusedView, 'Focus must cancel overview fitting and preserve the focused camera');
+    viewer.set_explode_mode(false); viewer.clear_center(); viewer.inspect('reset');
+    viewer.pan(0.25, -0.2); pixels();
+    const trackingStart = JSON.stringify(matrix);
+    viewer.set_explode_mode(true); viewer.reframe(0.1,0.1,0.8,0.6);
+    for (const amount of [0.3,0.31,0.45,0.6,0.61,0.8,1]) {
+      viewer.set_explode(amount, 0, false, false, '["a"]'); pixels();
+      if (amount <= 0.3) {
+        assert(JSON.stringify(matrix) === trackingStart, 'Selection tracking must preserve the camera through 30%');
+        continue;
+      }
+      const offset = offsets.at(-3);
+      for (const x of [-0.9,-0.2]) for (const y of [-0.5,0.5]) {
+        const point = project([x+offset[0],y+offset[1],offset[2]]);
+        assert(point[0] >= -0.8001 && point[0] <= 0.8001 && point[1] >= -0.4001 && point[1] <= 0.8001,
+          `Keep all selected primitives in the central frame at ${amount}`);
+      }
+      if (amount > 0.6) centered([-0.55+offset[0],offset[1],offset[2]],[0,0.2], 'Center the moving selection from 61%');
+    }
+    viewer.set_explode(0.3, 1, false, false, '["a"]'); pixels();
+    assert(JSON.stringify(matrix) === trackingStart, 'Return below 31% must restore the selection camera');
+    viewer.set_explode(1, 2, true, false, '["a"]'); pixels();
+    assert(JSON.stringify(matrix) === trackingStart, 'Selected explosion must start without a camera jump');
+    let trackingMoving = true, steps = 0;
+    for (let time = 18; trackingMoving && steps < 200; time += 16) {
+      trackingMoving = viewer.render_explosion(time); steps++;
+    }
+    assert(!trackingMoving && steps > 2, 'Selected camera and parts must settle together'); pixels();
+    const tracked = offsets.at(-3);
+    centered([-0.55+tracked[0],tracked[1],tracked[2]],[0,0.2], 'Animated selection tracking must reach the frame center');
+    viewer.reframe(0.2,0.15,0.6,0.5); viewer.finish_explosion(); pixels();
+    centered([-0.55+tracked[0],tracked[1],tracked[2]],[0,0.2], 'Tracking must use the resized central frame');
+    viewer.set_explode(0.9, 4000, true, false, '["a"]'); viewer.render_explosion(4016);
+    viewer.pan(0.03,-0.02); pixels();
+    const manualTracking = JSON.stringify(matrix);
+    viewer.render_explosion(4032); pixels();
+    assert(JSON.stringify(matrix) === manualTracking, 'Manual navigation must interrupt selection tracking');
+    viewer.set_explode(1, 4050, false, false, '["b"]'); pixels();
+    const other = offsets.at(-1);
+    centered([0.55+other[0],other[1],other[2]],[0,0.2], 'Switch tracking to the next selected model');
+    viewer.change_visibility('["b"]',false); viewer.render_explosion(4066);
+    viewer.set_visibility('["a","b"]');
+    viewer.set_explode(1, 4080, false, false, '["a","b"]'); pixels();
+    const groupOffsets = offsets.slice(-3);
+    for (const [i, range] of [[0,[-0.9,-0.55]],[1,[-0.55,-0.2]],[2,[0.2,0.9]]]) {
+      for (const x of range) for (const y of [-0.5,0.5]) {
+        const point = project([x+groupOffsets[i][0],y+groupOffsets[i][1],groupOffsets[i][2]]);
+        assert(point[0] >= -0.6001 && point[0] <= 0.6001 && point[1] >= -0.3001 && point[1] <= 0.7001,
+          'Keep every structure of a focused group in the resized frame');
+      }
+    }
+    for (const targets of ['{', '["unknown"]']) {
+      let rejected = false;
+      try { viewer.set_explode(1, 4090, false, false, targets); } catch { rejected = true; }
+      assert(rejected, 'Reject malformed and unknown tracked structures');
+    }
+    viewer.set_explode(0, 4100, false, false, '["a","b"]'); viewer.set_explode_mode(false);
     return { reassembledResetCycles: 3, preservedCamera: true, animatedCameraAdjustments: true, sphereAtEveryLevel: true,
       multipart: true, picking: true, outline: true, exactCameraAndImageRestore: true,
       interrupt: true, visibility: true, empty: true, focus: true, resize: true, validation: true,
       selectedOrbit: true, animatedOrbit: true, deselectedOrbit: true, hiddenOrbit: true, viewportCenter: true,
       closeRestoresCamera: true, repeatedClosePreservesView: true, resetClearsCenter: true,
       smoothCamera: true, rapidToggles: true, manualInterrupt: true, reducedMotionFinish: true,
-      unselectedOverview: true, overviewFitsPanels: true, overviewRestoresCamera: true, focusCancelsOverview: true };
+      unselectedOverview: true, overviewFitsPanels: true, overviewRestoresCamera: true, focusCancelsOverview: true,
+      selectedContainment: true, selectedCentering: true, smoothSelectedTracking: true, selectedTrackingInterrupt: true };
   } finally { viewer?.free(); canvas.remove(); }
 }
 
@@ -289,7 +346,7 @@ export async function checkExplosionControls() {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(slider,value);
     slider.dispatchEvent(new Event('input',{ bubbles: true }));
   };
-  let amount, overview, enabled = false, reduced = true, movingReturn = false, finishReturn, timeout;
+  let amount, overview, trackedIds, enabled = false, reduced = true, movingReturn = false, finishReturn, timeout;
   const switches = [];
   window.matchMedia = function(query) {
     return media.call(this, query === '(prefers-reduced-motion: reduce)'
@@ -298,9 +355,9 @@ export async function checkExplosionControls() {
   proto.set_explode_mode = function(value) {
     enabled = value; switches.push(value); return originalMode.call(this,value);
   };
-  proto.set_explode = function(value, time, animate, fitOverview) {
-    amount = value; overview = fitOverview;
-    assert(animate === !reduced, 'Respect reduced motion'); return original.call(this,value,time,animate,fitOverview);
+  proto.set_explode = function(value, time, animate, fitOverview, targets) {
+    amount = value; overview = fitOverview; trackedIds = JSON.parse(targets || '[]');
+    assert(animate === !reduced, 'Respect reduced motion'); return original.call(this,value,time,animate,fitOverview,targets);
   };
   proto.render_explosion = function(time) {
     const moving = originalRender.call(this,time);
@@ -311,16 +368,52 @@ export async function checkExplosionControls() {
     return moving;
   };
   try {
+    document.querySelector('.app-menu-bar [aria-label="Về góc nhìn tổng thể"]').click(); await wait();
     input('0'); await wait(); switches.length = 0;
     assert(slider && slider.value === '0' && !document.querySelector('.view-modes')
       && !document.querySelector('.explode-control button'),
       'Show one slider for assembled and separated anatomy');
+    assert(!document.querySelector('.explode-endpoints') && !document.querySelector('.explode-control').textContent.includes('Lắp ráp')
+      && !document.querySelector('.explode-control').textContent.includes('Từng cấu trúc'), 'Remove the old endpoint captions');
+    assert(slider.step === '1' && JSON.stringify([...slider.list.options].map(option => option.value)) === '["30","60","100"]',
+      'Provide native stage detents while keeping one-percent adjustments');
+    const frameStyle = getComputedStyle(document.querySelector('.model-focus-frame'));
+    assert(frameStyle.outlineStyle === 'none' && frameStyle.borderTopStyle === 'none', 'Keep the focus frame invisible');
+    const capture = slider.setPointerCapture;
+    let forcedCaptures = 0;
+    slider.setPointerCapture = () => { forcedCaptures++; };
+    try {
+      slider.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }));
+      assert(forcedCaptures === 0, 'Let the native range thumb own capture so Safari can drag');
+      for (const [value, expected] of [[29,30],[31,30],[59,60],[61,60],[99,100],[35,35],[65,65]]) {
+        input(String(value)); await wait();
+        assert(slider.value === String(expected), `Pointer adjustment ${value} must stop at ${expected}`);
+      }
+      slider.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
+      input('31'); await wait();
+      assert(slider.value === '31', 'Keep precise one-percent adjustments outside pointer dragging');
+      slider.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }));
+      slider.dispatchEvent(new PointerEvent('pointercancel', { bubbles: true, pointerId: 1 }));
+      input('59'); await wait();
+      assert(slider.value === '59', 'Release detents when a pointer gesture is cancelled');
+      slider.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }));
+      window.dispatchEvent(new PointerEvent('pointerup'));
+      input('31'); await wait();
+      assert(slider.value === '31', 'Release detents even when the pointer ends outside the slider');
+      slider.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }));
+      window.dispatchEvent(new Event('blur'));
+      input('59'); await wait();
+      assert(slider.value === '59', 'Release detents when the browser loses focus');
+    } finally { slider.setPointerCapture = capture; }
+    document.querySelector('.app-menu-bar [aria-label="Về góc nhìn tổng thể"]').click(); await wait();
+    assert(!enabled && slider.value === '0', `Reset detent check: ${JSON.stringify({enabled,amount,switches,error:document.querySelector('.model-error')?.textContent})}`);
+    switches.length = 0;
     input('100'); await wait();
     assert(enabled && amount === 1 && document.querySelector('.explode-label output').textContent === '100%',
       'Moving the slider must activate separation');
-    assert(overview === !document.querySelector('.tree-name[aria-current="true"]'), 'Fit overview only without a selected target');
+    assert(overview === true, 'Fit overview without a selected or focused model');
     input('35'); await wait();
-    assert(amount === 0.35 && switches.length === 1, 'Adjust separation without resaving the anatomy camera');
+    assert(amount === 0.35 && switches.length === 1, `Adjust separation without resaving the anatomy camera: ${JSON.stringify({amount,switches})}`);
     input('0'); await wait();
     assert(!enabled && slider.value === '0' && switches.length === 2,
       `Reassemble at zero: enabled=${enabled}, switches=${switches}, value=${slider.value}`);
@@ -345,17 +438,54 @@ export async function checkExplosionControls() {
     assert(!enabled && slider.value === '0' && !document.querySelector('.model-error'),
       'Finish reassembly and leave separation cleanly');
     reduced = true;
-    document.querySelector('.folder-row .tree-name').click(); await wait();
     input('100'); await wait();
-    assert(overview === false, 'A targeted folder must keep the existing separation camera');
+    document.querySelector('.folder-row .tree-name').click(); await wait();
+    assert(document.querySelector('.folder-row.is-selected') && !document.querySelector('.part-row.is-selected'),
+      'Highlight the folder without selecting a 3D structure');
+    assert(overview === true, 'Highlighting a folder must not cancel automatic overview fitting');
+    input('0'); await wait();
+    input('100'); await wait();
+    assert(overview === true, 'A highlighted folder must still fit the separated inventory');
     document.querySelector('.folder-row .tree-focus').click(); await wait();
     input('65'); await wait();
-    assert(overview === false, 'A focused folder must keep the existing separation camera');
+    assert(overview === false && trackedIds.length > 1, 'Track the focused group rather than the whole inventory');
+    const focusedCount = trackedIds.length;
+    document.querySelector('.tree-actions button').click(); await wait(); input('70'); await wait();
+    assert(trackedIds.length === focusedCount, 'Showing other anatomy must not change the focused group being tracked');
+    document.querySelector('.folder-row .tree-name').click(); await wait();
+    input('75'); await wait();
+    assert(overview === true && !trackedIds.length, 'Choosing a folder name must return to browsing rather than model focus');
+    for (let i = 0; i < 12 && !document.querySelector('.part-row .tree-name'); i++) {
+      document.querySelector('.folder-toggle[aria-expanded="false"]').click(); await wait();
+    }
+    const part = document.querySelector('.part-row .tree-name');
+    assert(part, 'Find a real anatomical structure to select');
+    part.click(); await wait();
+    input('85'); await wait();
+    assert(overview === false && trackedIds.length === 1 && document.querySelector('.part-row.is-selected'), 'Track only the real selected structure');
+    const originalPick = proto.pick;
+    const canvas = document.querySelector('.model-canvas canvas'), canvasBounds = canvas.getBoundingClientRect();
+    proto.pick = function() { return this.selected_id(); };
+    try {
+      canvas.dispatchEvent(new PointerEvent('pointermove', { pointerType: 'mouse',
+        clientX: canvasBounds.left + canvasBounds.width / 2, clientY: canvasBounds.top + canvasBounds.height / 2 }));
+      await new Promise(resolve => setTimeout(resolve, 150));
+      const statuses = [...document.querySelectorAll('.model-hud .model-status')];
+      assert(statuses.length === 2 && !/\d+\/\d+/.test(statuses[0].textContent) && /\d+\/\d+/.test(statuses[1].textContent),
+        'Display the hovered anatomy name above the structure count');
+    } finally { proto.pick = originalPick; canvas.dispatchEvent(new PointerEvent('pointerleave')); }
+    const frame = document.querySelector('.model-focus-frame');
+    const rect = frame.getBoundingClientRect(), canvasRect = document.querySelector('.model-canvas').getBoundingClientRect();
+    assert(rect.width > 0 && rect.height > 0 && rect.left >= canvasRect.left && rect.right <= canvasRect.right
+      && rect.top >= canvasRect.top && rect.bottom <= canvasRect.bottom && getComputedStyle(frame).pointerEvents === 'none',
+      'Expose a central empty frame without blocking model interaction');
     return { unifiedSlider: true, automaticSeparation: true, reassemble: true, animatedReturn: true,
-      interruptedReturn: true, repeatedCycles: 10, reducedMotion: true, targetAndFocusPreserved: true };
+      interruptedReturn: true, repeatedCycles: 10, reducedMotion: true, folderHighlightIsNotModelSelection: true,
+      focusPreserved: true, modelSelectionPreserved: true, stageDetents: true, preciseKeyboardSteps: true, hoverNameAboveCount: true };
   } finally {
     clearTimeout(timeout); reduced = true;
     input('0');
+    document.querySelector('.app-menu-bar [aria-label="Về góc nhìn tổng thể"]').click();
     window.matchMedia = media; proto.set_explode = original; proto.set_explode_mode = originalMode;
     proto.render_explosion = originalRender;
   }

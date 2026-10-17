@@ -20,6 +20,23 @@ export async function checkMenuBar() {
   assert(!document.querySelector('.toolbar-button') && !document.querySelector('.model-hud .controls-info'), 'Remove the old classes and duplicate help button');
   assert(bar.querySelectorAll('.controls-info').length === 3, 'Use controls-info for the toolbar buttons');
   const explode = document.querySelector('.explode-control'), catalog = document.querySelector('.catalog-panel');
+  const frame = document.querySelector('.model-focus-frame'), frameBounds = frame.getBoundingClientRect();
+  assert(frame.contains(explode) && [...document.querySelectorAll('.model-status')].every(status => frame.contains(status)),
+    'Keep status and explosion controls inside the focus frame');
+  assert(!frame.closest('[aria-hidden="true"]') && !frame.hasAttribute('inert'), 'Keep nested controls accessible');
+  for (const control of frame.querySelectorAll('.model-status,.explode-control')) {
+    const bounds = control.getBoundingClientRect();
+    assert(bounds.left >= frameBounds.left - 1 && bounds.right <= frameBounds.right + 1
+      && bounds.top >= frameBounds.top - 1 && bounds.bottom <= frameBounds.bottom + 1, 'Keep controls within the frame bounds');
+  }
+  if (innerWidth > 900) {
+    const catalogBounds = catalog.getBoundingClientRect(), information = document.querySelector('.information-panel').getBoundingClientRect();
+    assert(Math.abs(frameBounds.top - catalogBounds.top) < 1 && Math.abs(frameBounds.bottom - catalogBounds.bottom) < 1,
+      'Align the focus frame with the full sidebar height');
+    assert(catalogBounds.width === (innerWidth > 1200 ? 350 : 320) && information.width === catalogBounds.width,
+      'Use matching compact sidebar widths');
+    if (innerWidth === 1440 && innerHeight === 900) assert(frameBounds.height === 808, 'Use an 808px focus frame at 1440 by 900');
+  }
   assert(getComputedStyle(explode).borderRadius === getComputedStyle(catalog).borderRadius, 'Match the slider and catalog corner radius');
   if (innerWidth > 900) assert(Math.abs(explode.getBoundingClientRect().bottom - catalog.getBoundingClientRect().bottom) < 1,
     'Align the slider and catalog bottom edges');
@@ -59,6 +76,7 @@ export async function checkMenuBar() {
     assert(matrix === overview, 'Toolbar keys must not operate the 3D camera');
     assert(!document.querySelector('.model-error') && gl.getError() === gl.NO_ERROR, 'Toolbar actions must keep rendering healthy');
     return { floating: true, rounded: true, order: true, help: true, settingsPlaceholder: true,
-      backRestoresOverview: true, backReassembles: true, clearsFocus: true, noCameraShortcuts: true };
+      backRestoresOverview: true, backReassembles: true, clearsFocus: true, noCameraShortcuts: true,
+      controlsInsideFrame: true, alignedFrameHeight: true, compactSidebars: true };
   } finally { gl.uniformMatrix4fv = originalMatrix; }
 }

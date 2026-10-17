@@ -16,8 +16,10 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const helpId = useId();
   const roots = catalog.targets.filter(target => !target.parent_id && target.model);
   const [targetId, setTargetId] = useState<string>();
+  const [focusedIds, setFocusedIds] = useState<string[]>([]);
   const target = catalog.targets.find(target => target.id === targetId);
   const host = useRef<HTMLDivElement>(null);
+  const focusFrame = useRef<HTMLDivElement>(null);
   const viewer = useRef<AnatomyViewer | null>(null);
   const renderFrame = useRef(0);
   const loading = useRef(true);
@@ -48,7 +50,11 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     const desktop = window.matchMedia("(min-width: 901px)").matches;
     const left = desktop ? catalogPanel.getBoundingClientRect().right - area.left + 12 : 12;
     const right = desktop ? informationPanel.getBoundingClientRect().left - area.left - 12 : area.width - 12;
+    const frameTop = desktop ? catalogPanel.getBoundingClientRect().top - area.top : 16;
+    const frameBottom = desktop ? catalogPanel.getBoundingClientRect().bottom - area.top : area.height - 16;
+    Object.assign(focusFrame.current!.style, { left: `${left}px`, top: `${frameTop}px`, width: `${Math.max(1, right - left)}px`, height: `${Math.max(1, frameBottom - frameTop)}px` });
     const hud = host.current!.parentElement!.querySelector<HTMLElement>(".model-hud")!.getBoundingClientRect();
+    // Reserve the controls inside the frame when fitting anatomy to the camera.
     const top = 110, bottom = Math.max(top + 1, hud.top - area.top - 12);
     return [left / area.width, top / area.height, Math.max(1, right - left) / area.width, Math.max(1, bottom - top) / area.height];
   };
@@ -68,17 +74,9 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     const information = document.querySelector<HTMLElement>(".information-panel")!;
     const hud = canvas.parentElement!.querySelector<HTMLElement>(".model-hud")!;
     const centerControls = () => {
-      const desktop = window.matchMedia("(min-width: 901px)").matches;
-      if (!desktop) {
-        hud.style.removeProperty("left"); hud.style.removeProperty("width");
-      } else {
-        const area = canvas.getBoundingClientRect();
-        const left = catalog.getBoundingClientRect().right + 12;
-        const right = information.getBoundingClientRect().left - 12;
-        hud.style.left = `${(left + right) / 2 - area.left}px`;
-        hud.style.width = `${Math.min(780, Math.max(1, right - left))}px`;
-      }
+      const viewport = focusViewport();
       if (!building && !error) {
+        if (explosionMode.current) operate(renderer => renderer.reframe(...viewport));
         const now = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? undefined : performance.now();
         if (readerExpanded) {
           const [left, top, width, height] = focusViewport();
@@ -87,7 +85,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       }
     };
     const observer = new ResizeObserver(centerControls);
-    for (const element of [canvas, catalog, information]) observer.observe(element);
+    for (const element of [canvas, catalog, information, hud]) observer.observe(element);
     centerControls();
     return () => observer.disconnect();
   }, [building, error, selected, readerExpanded]);
@@ -167,8 +165,13 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     const pointers = new Map<number, { x: number; y: number }>();
     let down = { x: 0, y: 0 };
     let dragged = false;
+    const withinFocusFrame = (event: MouseEvent) => {
+      const bounds = focusFrame.current!.getBoundingClientRect();
+      return event.clientX >= bounds.left && event.clientX < bounds.right
+        && event.clientY >= bounds.top && event.clientY < bounds.bottom;
+    };
     const pointerDown = (event: PointerEvent) => {
-      if (loading.current || animating.current) return;
+      if (loading.current || animating.current || !withinFocusFrame(event)) return;
       canvas.focus({ preventScroll: true });
       clearTimeout(hoverTimer); hoverTimer = 0; hoverEvent = undefined;
       canvas.setPointerCapture(event.pointerId);
@@ -178,7 +181,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       pointers.set(event.pointerId, point);
     };
     const pick = (event: PointerEvent, read = false) => {
-      if (loading.current || animating.current) return;
+      if (loading.current || animating.current || !withinFocusFrame(event)) return;
       const bounds = canvas.getBoundingClientRect();
       const x = Math.floor((event.clientX - bounds.left) / bounds.width * canvas.width);
       const y = canvas.height - 1 - Math.floor((event.clientY - bounds.top) / bounds.height * canvas.height);
@@ -188,16 +191,22 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         setHovered(id);
         if (read) {
           if (id !== before) scheduleRender();
-          setReadingId(id); setTargetId(undefined);
+          setReadingId(id); setTargetId(undefined); setFocusedIds([]);
         } else renderer.select(before);
       }, false);
     };
     let hoverTimer = 0;
     let hoverEvent: PointerEvent | undefined;
     const pointerMove = (event: PointerEvent) => {
+      if (!withinFocusFrame(event)) {
+        pointerCancel(event);
+        if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+        pointerLeave();
+        return;
+      }
       const previous = pointers.get(event.pointerId);
       if (!previous) {
-        if (event.pointerType === "mouse") {
+        if (event.pointerType === "mouse" && !event.buttons) {
           hoverEvent = event;
           clearTimeout(hoverTimer);
           hoverTimer = window.setTimeout(() => {
@@ -230,6 +239,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     const pointerCancel = (event: PointerEvent) => { pointers.delete(event.pointerId); dragged = true; };
     const pointerLeave = () => { clearTimeout(hoverTimer); hoverTimer = 0; hoverEvent = undefined; setHovered(""); };
     const wheel = (event: WheelEvent) => {
+      if (!withinFocusFrame(event)) return;
       event.preventDefault();
       if (loading.current || animating.current) return;
       const pixels = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? canvas.clientHeight : 1);
@@ -240,7 +250,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         Math.exp(Math.max(-1, Math.min(1, pixels * 0.001))),
       ));
     };
-    const contextMenu = (event: Event) => event.preventDefault();
+    const contextMenu = (event: MouseEvent) => { if (withinFocusFrame(event)) event.preventDefault(); };
     const contextLost = (event: Event) => {
       event.preventDefault(); failed.current = true; animating.current = false; abort.abort(); cancelPreparation?.();
       setError(true); setStatus("Kết nối hiển thị 3D bị mất. Hãy tải lại trang.");
@@ -339,12 +349,13 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       viewer.current?.free(); viewer.current = null; canvas.remove();
     };
   }, [catalog]);
+  const explosionTarget = () => JSON.stringify(readingId ? [readingId] : focusedIds);
   useEffect(() => {
-    if ((readingId || targetId) && explosionMode.current) {
+    if (explosionMode.current) {
       operate(renderer => renderer.set_explode(explosionAmount / 100, performance.now(),
-        !window.matchMedia("(prefers-reduced-motion: reduce)").matches, false));
+        !window.matchMedia("(prefers-reduced-motion: reduce)").matches, !readingId && !focusedIds.length, explosionTarget()));
     }
-  }, [readingId, targetId]);
+  }, [readingId, focusedIds]);
   const changeExplosion = (value: number) => {
     const enabled = value > 0;
     if (!operate(renderer => {
@@ -356,7 +367,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       reassembling.current = !enabled && explosionMode.current;
       if (explosionMode.current) {
         renderer.set_explode(value / 100, performance.now(),
-          !window.matchMedia("(prefers-reduced-motion: reduce)").matches, !readingId && !targetId);
+          !window.matchMedia("(prefers-reduced-motion: reduce)").matches, !readingId && !focusedIds.length, explosionTarget());
       }
     })) return;
     setExplosionAmount(value); setHovered("");
@@ -386,6 +397,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     setHovered("");
     setReadingId(focusedId);
     setTargetId(focusTarget);
+    setFocusedIds(ids);
     if (window.matchMedia("(max-width: 900px)").matches) {
       host.current?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
     }
@@ -403,7 +415,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       renderer.inspect("reset");
     })) return;
     explosionMode.current = false; reassembling.current = false; cameraAnimating.current = false;
-    setReaderExpanded(false); setReadingId(""); setTargetId(undefined); setHovered("");
+    setReaderExpanded(false); setReadingId(""); setTargetId(undefined); setFocusedIds([]); setHovered("");
     setVisibleIds(new Set(ids)); setExplosionAmount(0);
   };
   return (
@@ -423,20 +435,22 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         </div>
         <div className="catalog-tree">
           <StructureTree catalog={catalog} structures={meshes} visibleIds={visibleIds} selected={selected} targetId={targetId} reveal={reveal} disabled={building || error}
-            onVisibility={changeVisibility} onFocus={focusStructures} onSelect={id => { setReadingId(id); setTargetId(undefined); operate(renderer => renderer.select(id)); }}
-            onTarget={id => { setReadingId(""); setTargetId(id); operate(renderer => renderer.select("")); }} />
+            onVisibility={changeVisibility} onFocus={focusStructures} onSelect={id => { setReadingId(id); setTargetId(undefined); setFocusedIds([]); operate(renderer => renderer.select(id)); }}
+            onTarget={id => { setReadingId(""); setTargetId(id); setFocusedIds([]); operate(renderer => renderer.select("")); }} />
         </div>
       </aside>
       <main id="workspace" tabIndex={-1}>
         <section className="model-space" aria-label="Mô hình giải phẫu">
           <div className="model-canvas" ref={host} aria-busy={building && !error} />
-          <div className="model-hud">
-            <p className={`model-status${error ? " model-error" : ""}`} role={error ? "alert" : "status"}>{!error && !building && meshes.length ? `${visibleIds.size}/${meshes.length} cấu trúc đang hiện` : status}</p>
-            {hoveredPart && !building && <p className="model-status">{structureName(hoveredPart)}
-              {structureName(hoveredPart, "en") !== structureName(hoveredPart) && <small lang="en">{structureName(hoveredPart, "en")}</small>}
-            </p>}
-            {building && !error && <progress className="model-progress" aria-label="Các hệ giải phẫu đã nạp" value={loadedSystems} max={roots.length} />}
-            <ExplodeControls value={explosionAmount} disabled={building || error} onChange={changeExplosion} />
+          <div className="model-focus-frame" ref={focusFrame}>
+            <div className="model-hud">
+              {hoveredPart && !building && <p className="model-status">{structureName(hoveredPart)}
+                {structureName(hoveredPart, "en") !== structureName(hoveredPart) && <small lang="en">{structureName(hoveredPart, "en")}</small>}
+              </p>}
+              <p className={`model-status${error ? " model-error" : ""}`} role={error ? "alert" : "status"}>{!error && !building && meshes.length ? `${visibleIds.size}/${meshes.length} cấu trúc đang hiện` : status}</p>
+              {building && !error && <progress className="model-progress" aria-label="Các hệ giải phẫu đã nạp" value={loadedSystems} max={roots.length} />}
+              <ExplodeControls value={explosionAmount} disabled={building || error} onChange={changeExplosion} />
+            </div>
           </div>
         </section>
       </main>
