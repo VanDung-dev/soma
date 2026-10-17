@@ -91,7 +91,7 @@ function Folder({ target, childrenById, structures, props, revealPath, revealRow
         {title}{english !== title && <small lang="en">{english}</small>}
       </button>
       <small className="tree-count">{ids.length
-          ? `${ids.length} cấu trúc`
+          ? <><span>{ids.length}</span>{" "}<span>cấu trúc</span></>
           : "Chưa có mô hình"}</small>
     </div>
     {open && <ul>

@@ -79,7 +79,7 @@ export function ModelControls({ disabled, onOperate, helpId }: {
   }, [disabled]);
   return <div className="controls-guide" id={helpId} popover="auto" role="region" aria-label="Hướng dẫn điều khiển">
       <div className="guide-heading"><h2>Hướng dẫn điều khiển</h2>
-        <button aria-label="Đóng hướng dẫn" popoverTarget={helpId} popoverTargetAction="hide">×</button>
+        <button className="controls-info" aria-label="Đóng hướng dẫn" popoverTarget={helpId} popoverTargetAction="hide">×</button>
       </div>
       <div className="guide-columns">
         <section aria-label="Bàn phím"><h3>Bàn phím</h3>
