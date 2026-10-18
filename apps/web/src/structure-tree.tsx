@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Catalog, StudyTarget } from "./core";
-import type { Structure } from "./model-viewer";
+import type { Catalog, StudyTarget, Structure } from "./catalog/types";
+import { indexCatalog, structureIds } from "./catalog";
 import { structureName, targetName } from "./anatomy-names";
 
 const systemOrder = [
@@ -12,7 +12,7 @@ const systemOrder = [
 interface TreeProps {
   catalog: Catalog;
   structures: Structure[];
-  visibleIds: Set<string>;
+  visibleIds: ReadonlySet<string>;
   selected: string;
   targetId?: string;
   reveal?: { id: string };
@@ -20,13 +20,7 @@ interface TreeProps {
   onVisibility: (ids: string[], shown: boolean) => void;
   onSelect: (id: string) => void;
   onTarget: (id: string) => void;
-  onFocus: (ids: string[], targetId?: string, revealFolder?: boolean) => void;
-}
-
-export function Magnifier() {
-  return <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-    <circle cx="10" cy="10" r="6" /><path d="m14.5 14.5 5 5" />
-  </svg>;
+  onFocus: (ids: string[], targetId?: string) => void;
 }
 
 function VisibilityCheckbox({ ids, visibleIds, label, disabled, onVisibility }: Pick<TreeProps, "visibleIds" | "disabled" | "onVisibility"> & { ids: string[]; label: string }) {
@@ -41,11 +35,7 @@ function VisibilityCheckbox({ ids, visibleIds, label, disabled, onVisibility }: 
 
 export function StructureTree(props: TreeProps) {
   const children = useMemo(() => {
-    const result = new Map<string | undefined, StudyTarget[]>();
-    for (const target of props.catalog.targets) {
-      const entries = result.get(target.parent_id) ?? [];
-      entries.push(target); result.set(target.parent_id, entries);
-    }
+    const result = indexCatalog(props.catalog).children;
     result.get(undefined)?.sort((a, b) => systemOrder.indexOf(a.group_id) - systemOrder.indexOf(b.group_id));
     return result;
   }, [props.catalog]);
@@ -79,13 +69,13 @@ function Folder({ target, childrenById, structures, props, revealPath, revealRow
   useEffect(() => { if (revealPath.has(target.id)) setOpen(true); }, [revealPath, target.id]);
   const children = childrenById.get(target.id) ?? [];
   // System toggles follow Blender display collections; subfolders retain anatomical cross-references.
-  const ids = target.model?.structure_ids ?? target.structure_ids;
+  const ids = structureIds(target);
   const nestedIds = new Set(children.flatMap(child => child.structure_ids));
   const directIds = ids.filter(id => !nestedIds.has(id));
   const title = targetName(target);
   const english = targetName(target, "en");
   const focusFolder = () => {
-    if (!props.disabled && ids.length) props.onFocus(ids, target.id, !ids.every(id => props.visibleIds.has(id)));
+    if (!props.disabled && ids.length) props.onFocus(ids, target.id);
   };
   return <li data-target-id={target.id}>
     <div className={`tree-row folder-row${props.targetId === target.id ? " is-selected" : ""}`} onDoubleClick={focusFolder}>

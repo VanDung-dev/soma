@@ -1,7 +1,12 @@
 import { useId, useMemo, useState } from "react";
-import { Magnifier } from "./structure-tree";
-import type { Structure } from "./model-viewer";
+import type { Structure } from "./catalog/types";
 import { anatomyNames, structureName } from "./anatomy-names";
+
+function Magnifier() {
+  return <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+    <circle cx="10" cy="10" r="6" /><path d="m14.5 14.5 5 5" />
+  </svg>;
+}
 
 const normalize = (value: string) => value.toLocaleLowerCase("vi").normalize("NFD").replace(/\p{Diacritic}/gu, "")
   .replace(/đ/g, "d").replace(/[^\p{L}\p{N}]+/gu, " ").trim();

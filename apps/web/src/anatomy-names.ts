@@ -1,6 +1,6 @@
 import terminology from "../../../content/anatomy-terminology.json";
-import type { Structure } from "./model-viewer";
-import type { StudyTarget } from "./core";
+import type { Structure } from "./catalog/types";
+import type { StudyTarget } from "./catalog/types";
 
 export type AnatomyLanguage = "vi" | "en";
 const terms: Record<string, { vi: string; en: string }> = terminology.terms;

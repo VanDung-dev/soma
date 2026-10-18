@@ -1,39 +1,36 @@
 import { useEffect, useEffectEvent } from "react";
-import type { AnatomyViewer } from "./wasm/anatomy_wasm";
+import type { CameraCommand } from "./viewer/contracts";
 
 const groups = [
   { label: "Di chuyển camera", controls: [
-    { key: "w", shortcut: "W", label: "Lên", action: (v: AnatomyViewer, step: number) => v.pan(0, 0.06 * step) },
-    { key: "a", shortcut: "A", label: "Trái", action: (v: AnatomyViewer, step: number) => v.pan(-0.06 * step, 0) },
-    { key: "s", shortcut: "S", label: "Xuống", action: (v: AnatomyViewer, step: number) => v.pan(0, -0.06 * step) },
-    { key: "d", shortcut: "D", label: "Phải", action: (v: AnatomyViewer, step: number) => v.pan(0.06 * step, 0) },
+    { key: "w", shortcut: "W", label: "Lên", action: (step: number): CameraCommand => ({ kind: "pan", x: 0, y: 0.06 * step }) },
+    { key: "a", shortcut: "A", label: "Trái", action: (step: number): CameraCommand => ({ kind: "pan", x: -0.06 * step, y: 0 }) },
+    { key: "s", shortcut: "S", label: "Xuống", action: (step: number): CameraCommand => ({ kind: "pan", x: 0, y: -0.06 * step }) },
+    { key: "d", shortcut: "D", label: "Phải", action: (step: number): CameraCommand => ({ kind: "pan", x: 0.06 * step, y: 0 }) },
   ] },
   { label: "Xoay mô hình", controls: [
-    { key: "arrowup", shortcut: "ArrowUp", label: "Lên", action: (v: AnatomyViewer, step: number) => v.rotate(0, Math.PI / 8 * step) },
-    { key: "arrowleft", shortcut: "ArrowLeft", label: "Trái", action: (v: AnatomyViewer, step: number) => v.rotate(Math.PI / 8 * step, 0) },
-    { key: "arrowdown", shortcut: "ArrowDown", label: "Xuống", action: (v: AnatomyViewer, step: number) => v.rotate(0, -Math.PI / 8 * step) },
-    { key: "arrowright", shortcut: "ArrowRight", label: "Phải", action: (v: AnatomyViewer, step: number) => v.rotate(-Math.PI / 8 * step, 0) },
+    { key: "arrowup", shortcut: "ArrowUp", label: "Lên", action: (step: number): CameraCommand => ({ kind: "rotate", x: 0, y: Math.PI / 8 * step }) },
+    { key: "arrowleft", shortcut: "ArrowLeft", label: "Trái", action: (step: number): CameraCommand => ({ kind: "rotate", x: Math.PI / 8 * step, y: 0 }) },
+    { key: "arrowdown", shortcut: "ArrowDown", label: "Xuống", action: (step: number): CameraCommand => ({ kind: "rotate", x: 0, y: -Math.PI / 8 * step }) },
+    { key: "arrowright", shortcut: "ArrowRight", label: "Phải", action: (step: number): CameraCommand => ({ kind: "rotate", x: -Math.PI / 8 * step, y: 0 }) },
   ] },
   { label: "Zoom", controls: [
-    { key: "e", shortcut: "E", label: "Phóng to", action: (v: AnatomyViewer, step: number) => v.zoom(1.2 ** -step) },
-    { key: "q", shortcut: "Q", label: "Thu nhỏ", action: (v: AnatomyViewer, step: number) => v.zoom(1.2 ** step) },
+    { key: "e", shortcut: "E", label: "Phóng to", action: (step: number): CameraCommand => ({ kind: "zoom", factor: 1.2 ** -step }) },
+    { key: "q", shortcut: "Q", label: "Thu nhỏ", action: (step: number): CameraCommand => ({ kind: "zoom", factor: 1.2 ** step }) },
   ] },
   { label: "Góc nhìn", controls: [
-    { key: "r", shortcut: "R", label: "Đặt lại", action: (v: AnatomyViewer) => v.inspect("reset",
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches ? undefined : performance.now()) },
+    { key: "r", shortcut: "R", label: "Đặt lại", action: (): CameraCommand => ({ kind: "reset" }) },
   ] },
 ];
 const controls = groups.flatMap(group => group.controls);
 const arrows: Record<string, string> = { ArrowUp: "↑", ArrowLeft: "←", ArrowDown: "↓", ArrowRight: "→" };
 
-export function ModelControls({ disabled, onOperate, helpId }: {
+export function ModelControls({ disabled, onControl, helpId }: {
   disabled: boolean;
-  onOperate: (action: (viewer: AnatomyViewer) => void) => boolean;
+  onControl: (commands: CameraCommand[]) => boolean;
   helpId: string;
 }) {
-  const run = useEffectEvent((keys: Set<string>, step: number) => onOperate(viewer => {
-    for (const control of controls) if (keys.has(control.key)) control.action(viewer, step);
-  }));
+  const run = useEffectEvent((keys: Set<string>, step: number) => onControl(controls.filter(control => keys.has(control.key)).map(control => control.action(step))));
   useEffect(() => {
     const pressed = new Set<string>();
     let frame = 0, previous = 0;

@@ -1,4 +1,4 @@
-import type { Catalog } from "./core";
+import type { Catalog } from "./catalog/types";
 import { ModelViewer } from "./model-viewer";
 
 export function StudyApp({ catalog }: { catalog: Catalog }) {
