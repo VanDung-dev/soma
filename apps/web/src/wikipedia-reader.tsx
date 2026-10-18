@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import references from "../../../content/wikipedia-references.json";
 import { anatomyNames } from "./anatomy-names";
+import { useLanguage } from "./i18n";
 
 const articles: Record<string, { url: string; status: string }> = references.articles;
 
@@ -24,8 +25,9 @@ function readingUrl(value: unknown) {
 }
 
 export function WikipediaReader({ name, expanded = false }: { name: string; expanded?: boolean }) {
+  const { language, t } = useLanguage();
   const article = wikipediaReference(name);
-  const label = anatomyNames(name).vi;
+  const label = anatomyNames(name)[language];
   const [reload, setReload] = useState(0);
   const [currentUrl, setReadingUrl] = useState(article?.url);
   const [loading, setLoading] = useState(!!article);
@@ -58,28 +60,28 @@ export function WikipediaReader({ name, expanded = false }: { name: string; expa
   }, [article?.url, currentUrl]);
   const search = `https://en.wikipedia.org/w/index.php?title=Special:Search&fulltext=1&search=${encodeURIComponent(name.replace(/^[1-9]:\s*/, ""))}`;
   const proxy = import.meta.env.VITE_WIKIPEDIA_PROXY_URL || "/wikipedia";
-  return <section className="wikipedia-reader" aria-label={`Wikipedia: ${label}`}>
+  return <section className="wikipedia-reader" aria-label={t("wikipedia.section.label", { name: label })}>
     {article ? <iframe key={reload} className="wikipedia-article" ref={frame}
       src={`${proxy}?url=${encodeURIComponent(article.url)}${new URL(article.url).hash}`}
-      title={`Bài Wikipedia về ${label}`} aria-busy={loading}
+      title={t("wikipedia.frame.title", { name: label })} aria-busy={loading}
       sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer"
       onLoad={() => setLoading(false)} />
-      : <p>Chưa gắn bài Wikipedia cho cấu trúc này. <a href={search} target="_blank" rel="noreferrer">Tìm “{name}” trên Wikipedia ↗</a></p>}
+      : <p>{t("wikipedia.notLinked")} <a href={search} target="_blank" rel="noreferrer">{t("wikipedia.search", { name })}</a></p>}
     <div className="reader-actions">
       {article && <>
-        <button onClick={() => { homePage.current = undefined; setReadingUrl(article.url); setLoading(true); setReload(value => value + 1); }}>Nội dung của giải phẫu</button>
-        <a href={currentUrl} target="_blank" rel="noreferrer">Mở Wikipedia</a>
+        <button onClick={() => { homePage.current = undefined; setReadingUrl(article.url); setLoading(true); setReload(value => value + 1); }}>{t("wikipedia.returnToArticle")}</button>
+        <a href={currentUrl} target="_blank" rel="noreferrer">{t("wikipedia.open")}</a>
       </>}
     </div>
     <details className="reference-mapping" onToggle={event => {
         if (event.currentTarget.open) event.currentTarget.scrollIntoView({ block: "nearest" });
       }}>
-        <summary>Lưu ý về tài liệu tham khảo</summary>
+        <summary>{t("wikipedia.notes.summary")}</summary>
         <div className="reference-mapping-description">
-          {article && <p>Liên kết được giữ từ metadata nguồn, chưa được đối chiếu độc lập; bài có thể mô tả phạm vi rộng hơn bộ phận này.</p>}
+          {article && <p>{t("wikipedia.notes.mapping")}</p>}
           <div className="reader-notes">
-            {article && <p className="reader-note">Khung đọc cần kết nối mạng. Nếu trang không hiển thị, hãy dùng liên kết mở bài gốc ở trên.</p>}
-            <p className="reference-notice">Wikipedia chỉ phục vụ tham khảo và học tập; thông tin có thể sai hoặc chưa cập nhật, không thay thế tài liệu chuyên môn hoặc tư vấn y tế.</p>
+            {article && <p className="reader-note">{t("wikipedia.notes.network")}</p>}
+            <p className="reference-notice">{t("wikipedia.notes.disclaimer")}</p>
           </div>
         </div>
       </details>

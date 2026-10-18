@@ -25,6 +25,6 @@ These labels, and any new names added by a later model import, fall back to the 
 
 Update `vi` to refine a draft translation; retain the exact JSON key so its source identity stays stable. `en` is the international/source display name, not an identifier. Check the actual structure and its Latin field when correcting ambiguous terms. This glossary is maintained separately from `anatomy-names.json`, so running the model importer does not overwrite translations.
 
-`apps/web/src/anatomy-names.ts` centralizes display and laterality with a `vi | en` language argument. A future language selector can use that argument without changing source metadata or reference keys. This change does not translate the rest of the interface into English or add a language selector.
+`apps/web/src/anatomy-names.ts` centralizes display and laterality with a `vi | en` language argument. The language selector in Settings uses that argument to change the primary anatomy label while preserving source metadata and reference keys. User-interface strings are loaded from `ui-translations.json`; those translations remain drafts and can be refined without changing anatomy source data.
 
 Run `npm test`, `npm run check`, and `npm run build` after editing. The glossary test checks source keys, nonempty bilingual fields, fallback behavior, source immutability and at least 99% model coverage. The search/browser checks verify that Vietnamese, English and Latin identify the same model structure. These checks validate software behavior, not the medical correctness of the translations.

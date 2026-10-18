@@ -7,11 +7,13 @@ import { MenuBar } from "./menu-bar";
 import { ExplodeControls } from "./explode-controls";
 import { WikipediaReader } from "./wikipedia-reader";
 import { anatomyNames, structureName, targetName } from "./anatomy-names";
+import { useLanguage } from "./i18n";
 import { StudySession } from "./study/session";
 import { ViewerRuntime } from "./viewer/runtime";
 import { measureViewport } from "./viewer/layout";
 
 export function ModelViewer({ catalog }: { catalog: Catalog }) {
+  const { language, t } = useLanguage();
   const helpId = useId();
   const host = useRef<HTMLDivElement>(null);
   const focusFrame = useRef<HTMLDivElement>(null);
@@ -35,6 +37,9 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     void viewer.start(roots);
     return () => { session.disconnect(viewer); viewer.dispose(); if (runtime.current === viewer) runtime.current = null; };
   }, [session]);
+  useEffect(() => {
+    host.current?.querySelector("canvas")?.setAttribute("aria-label", t("viewer.canvas.label"));
+  }, [t]);
   useEffect(() => {
     if (!readerExpanded) return;
     const closeReader = (event: KeyboardEvent) => {
@@ -63,22 +68,30 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const selectedPart = meshes.find(part => part.source_id === readingId);
   const hoveredPart = meshes.find(part => part.source_id === hovered);
   const referenceName = selectedPart?.source_name ?? target?.source_name;
-  const heading = selectedPart ? structureName(selectedPart) : target ? targetName(target) : "Khám phá cơ thể";
-  const englishName = selectedPart ? structureName(selectedPart, "en") : target ? targetName(target, "en") : "";
+  const otherLanguage = language === "vi" ? "en" : "vi";
+  const heading = selectedPart ? structureName(selectedPart, language) : target ? targetName(target, language) : t("information.defaultTitle");
+  const otherHeading = selectedPart ? structureName(selectedPart, otherLanguage) : target ? targetName(target, otherLanguage) : "";
+  const localizedStatus = error
+    ? status.includes("Kết nối hiển thị") ? t("viewer.error.contextLost")
+      : status.includes("xử lý mô hình") ? t("viewer.error.process")
+        : status.includes("hiển thị mô hình") ? t("viewer.error.render") : t("viewer.error.load")
+    : status.startsWith("Đang chuẩn bị cơ thể") ? t("viewer.status.preparing", { loaded: loadedSystems, total: roots.length })
+      : status === "Đang nạp mô hình…" ? t("viewer.status.loading")
+        : status === "Đang hoàn thiện cơ thể…" ? t("viewer.status.finishing") : status;
   return (
     <>
       <MenuBar disabled={building || error} onBack={session.overview} helpId={helpId} />
       <ModelControls disabled={building || error} onControl={session.control} helpId={helpId} />
-      <aside ref={catalogPanel} className="catalog-panel" aria-label="Cây cấu trúc giải phẫu">
-        <div className="catalog-heading"><h2>Cấu trúc</h2><span>{catalog.groups.length} hệ</span></div>
+      <aside ref={catalogPanel} className="catalog-panel" aria-label={t("catalog.navigation.label")}>
+        <div className="catalog-heading"><h2>{t("catalog.heading")}</h2><span>{t("catalog.systemCount", { count: catalog.groups.length })}</span></div>
         <StructureSearch structures={meshes} disabled={building || error} onSelect={id => {
           focusStructures([id]);
           session.revealStructure(id);
           host.current?.querySelector("canvas")?.focus({ preventScroll: true });
         }} />
         <div className="tree-actions">
-          <button disabled={building || error} onClick={() => session.changeVisibility(meshes.map(p => p.source_id), true)}>Hiện tất cả</button>
-          <button disabled={building || error} onClick={() => session.changeVisibility(meshes.map(p => p.source_id), false)}>Ẩn tất cả</button>
+          <button disabled={building || error} onClick={() => session.changeVisibility(meshes.map(p => p.source_id), true)}>{t("catalog.showAll")}</button>
+          <button disabled={building || error} onClick={() => session.changeVisibility(meshes.map(p => p.source_id), false)}>{t("catalog.hideAll")}</button>
         </div>
         <div className="catalog-tree">
           <StructureTree catalog={catalog} structures={meshes} visibleIds={visibleIds} selected={selected} targetId={targetId} reveal={reveal} disabled={building || error}
@@ -87,48 +100,48 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         </div>
       </aside>
       <main id="workspace" tabIndex={-1}>
-        <section className="model-space" aria-label="Mô hình giải phẫu">
+        <section className="model-space" aria-label={t("viewer.section.label")}>
           <div className="model-canvas" ref={host} aria-busy={building && !error} />
           <div className="model-focus-frame" ref={focusFrame}>
             <div ref={hud} className="model-hud">
-              {hoveredPart && !building && <p className="model-status">{structureName(hoveredPart)}
-                {structureName(hoveredPart, "en") !== structureName(hoveredPart) && <small lang="en">{structureName(hoveredPart, "en")}</small>}
+              {hoveredPart && !building && <p className="model-status">{structureName(hoveredPart, language)}
+                {structureName(hoveredPart, otherLanguage) !== structureName(hoveredPart, language) && <small lang={otherLanguage}>{structureName(hoveredPart, otherLanguage)}</small>}
               </p>}
-              <p className={`model-status${error ? " model-error" : ""}`} role={error ? "alert" : "status"}>{!error && !building && meshes.length ? `${visibleIds.size}/${meshes.length} cấu trúc đang hiện` : status}</p>
-              {building && !error && <progress className="model-progress" aria-label="Các hệ giải phẫu đã nạp" value={loadedSystems} max={roots.length} />}
+              <p className={`model-status${error ? " model-error" : ""}`} role={error ? "alert" : "status"}>{!error && !building && meshes.length ? t("viewer.status.visibleCount", { visible: visibleIds.size, total: meshes.length }) : localizedStatus}</p>
+              {building && !error && <progress className="model-progress" aria-label={t("viewer.loading.systems")} value={loadedSystems} max={roots.length} />}
               <ExplodeControls value={explosionAmount} disabled={building || error} onChange={session.changeExplosion} />
             </div>
           </div>
         </section>
       </main>
-      <aside ref={informationPanel} className={`information-panel${readerExpanded ? " reader-expanded" : ""}`} aria-label="Thông tin bộ phận">
+      <aside ref={informationPanel} className={`information-panel${readerExpanded ? " reader-expanded" : ""}`} aria-label={t("information.panel.label")}>
         <header className="information-heading">
           <div>
-            <p className="eyebrow">THÔNG TIN GIẢI PHẪU</p>
+            <p className="eyebrow">{t("information.eyebrow")}</p>
             <h2>{heading}</h2>
-            {englishName && englishName !== heading && <p className="international-name" lang="en">{englishName}</p>}
+            {otherHeading && otherHeading !== heading && <p className="international-name" lang={otherLanguage}>{otherHeading}</p>}
           </div>
           <button ref={readerToggle} className="reader-expand" aria-expanded={readerExpanded} aria-controls="information-content"
             onClick={session.toggleReader}>
-            {readerExpanded ? "Thu nhỏ" : "Mở rộng"}
+            {t(readerExpanded ? "information.collapse" : "information.expand")}
           </button>
         </header>
         <div className="information-content" id="information-content">
           <div className="information-details">
-            {!selectedPart && target && !target.structure_ids.length && <p>Nhánh này chưa có mô hình 3D được liên kết.</p>}
+            {!selectedPart && target && !target.structure_ids.length && <p>{t("information.noLinkedModel")}</p>}
             {selectedPart ? <>
               {selectedPart.latin && <p className="latin-name" lang="la">{selectedPart.latin}</p>}
-              <p className="collection-names">{selectedPart.collections.filter(name => !/^\d:/.test(name)).map(name => anatomyNames(name).vi).join(" · ")}</p>
-            </> : !target && <p className="information-overview">Trỏ vào mô hình để xem tên. Nhấn vào bộ phận hoặc chọn tên trong cây cấu trúc để đọc Wikipedia.</p>}
+              <p className="collection-names">{selectedPart.collections.filter(name => !/^\d:/.test(name)).map(name => anatomyNames(name)[language]).join(" · ")}</p>
+            </> : !target && <p className="information-overview">{t("information.overview")}</p>}
           </div>
           {referenceName && <WikipediaReader key={referenceName} name={referenceName} expanded={readerExpanded} />}
           <details className="model-credit" onToggle={event => {
             if (event.currentTarget.open) event.currentTarget.scrollIntoView({ block: "nearest" });
           }}>
-            <summary>Z-Anatomy — CC BY-SA 4.0</summary>
+            <summary>{t("credit.summary")}</summary>
             <div className="model-credit-description">
-              <p>Gauthier Kervyn và các tác giả, phát triển từ BodyParts3D. Mô hình và phân nhóm dẫn xuất theo CC BY-SA 4.0.</p>
-              <a href={`${import.meta.env.BASE_URL}models/z-anatomy/ATTRIBUTION.md`} target="_blank" rel="noreferrer">Nguồn và giấy phép</a>
+              <p>{t("credit.description")}</p>
+              <a href={`${import.meta.env.BASE_URL}models/z-anatomy/ATTRIBUTION.md`} target="_blank" rel="noreferrer">{t("credit.link")}</a>
             </div>
           </details>
         </div>

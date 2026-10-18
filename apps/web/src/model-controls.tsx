@@ -1,25 +1,27 @@
 import { useEffect, useEffectEvent } from "react";
+import type { MessageKey } from "./i18n";
+import { useLanguage } from "./i18n";
 import type { CameraCommand } from "./viewer/contracts";
 
-const groups = [
-  { label: "Di chuyển camera", controls: [
-    { key: "w", shortcut: "W", label: "Lên", action: (step: number): CameraCommand => ({ kind: "pan", x: 0, y: 0.06 * step }) },
-    { key: "a", shortcut: "A", label: "Trái", action: (step: number): CameraCommand => ({ kind: "pan", x: -0.06 * step, y: 0 }) },
-    { key: "s", shortcut: "S", label: "Xuống", action: (step: number): CameraCommand => ({ kind: "pan", x: 0, y: -0.06 * step }) },
-    { key: "d", shortcut: "D", label: "Phải", action: (step: number): CameraCommand => ({ kind: "pan", x: 0.06 * step, y: 0 }) },
+const groups: { label: MessageKey; controls: { key: string; shortcut: string; label: MessageKey; action: (step: number) => CameraCommand }[] }[] = [
+  { label: "controls.group.camera", controls: [
+    { key: "w", shortcut: "W", label: "controls.direction.up", action: (step: number): CameraCommand => ({ kind: "pan", x: 0, y: 0.06 * step }) },
+    { key: "a", shortcut: "A", label: "controls.direction.left", action: (step: number): CameraCommand => ({ kind: "pan", x: -0.06 * step, y: 0 }) },
+    { key: "s", shortcut: "S", label: "controls.direction.down", action: (step: number): CameraCommand => ({ kind: "pan", x: 0, y: -0.06 * step }) },
+    { key: "d", shortcut: "D", label: "controls.direction.right", action: (step: number): CameraCommand => ({ kind: "pan", x: 0.06 * step, y: 0 }) },
   ] },
-  { label: "Xoay mô hình", controls: [
-    { key: "arrowup", shortcut: "ArrowUp", label: "Lên", action: (step: number): CameraCommand => ({ kind: "rotate", x: 0, y: Math.PI / 8 * step }) },
-    { key: "arrowleft", shortcut: "ArrowLeft", label: "Trái", action: (step: number): CameraCommand => ({ kind: "rotate", x: Math.PI / 8 * step, y: 0 }) },
-    { key: "arrowdown", shortcut: "ArrowDown", label: "Xuống", action: (step: number): CameraCommand => ({ kind: "rotate", x: 0, y: -Math.PI / 8 * step }) },
-    { key: "arrowright", shortcut: "ArrowRight", label: "Phải", action: (step: number): CameraCommand => ({ kind: "rotate", x: -Math.PI / 8 * step, y: 0 }) },
+  { label: "controls.group.rotate", controls: [
+    { key: "arrowup", shortcut: "ArrowUp", label: "controls.direction.up", action: (step: number): CameraCommand => ({ kind: "rotate", x: 0, y: Math.PI / 8 * step }) },
+    { key: "arrowleft", shortcut: "ArrowLeft", label: "controls.direction.left", action: (step: number): CameraCommand => ({ kind: "rotate", x: Math.PI / 8 * step, y: 0 }) },
+    { key: "arrowdown", shortcut: "ArrowDown", label: "controls.direction.down", action: (step: number): CameraCommand => ({ kind: "rotate", x: 0, y: -Math.PI / 8 * step }) },
+    { key: "arrowright", shortcut: "ArrowRight", label: "controls.direction.right", action: (step: number): CameraCommand => ({ kind: "rotate", x: -Math.PI / 8 * step, y: 0 }) },
   ] },
-  { label: "Zoom", controls: [
-    { key: "e", shortcut: "E", label: "Phóng to", action: (step: number): CameraCommand => ({ kind: "zoom", factor: 1.2 ** -step }) },
-    { key: "q", shortcut: "Q", label: "Thu nhỏ", action: (step: number): CameraCommand => ({ kind: "zoom", factor: 1.2 ** step }) },
+  { label: "controls.group.zoom", controls: [
+    { key: "e", shortcut: "E", label: "controls.zoom.in", action: (step: number): CameraCommand => ({ kind: "zoom", factor: 1.2 ** -step }) },
+    { key: "q", shortcut: "Q", label: "controls.zoom.out", action: (step: number): CameraCommand => ({ kind: "zoom", factor: 1.2 ** step }) },
   ] },
-  { label: "Góc nhìn", controls: [
-    { key: "r", shortcut: "R", label: "Đặt lại", action: (): CameraCommand => ({ kind: "reset" }) },
+  { label: "controls.group.view", controls: [
+    { key: "r", shortcut: "R", label: "controls.reset", action: (): CameraCommand => ({ kind: "reset" }) },
   ] },
 ];
 const controls = groups.flatMap(group => group.controls);
@@ -30,6 +32,7 @@ export function ModelControls({ disabled, onControl, helpId }: {
   onControl: (commands: CameraCommand[]) => boolean;
   helpId: string;
 }) {
+  const { t } = useLanguage();
   const run = useEffectEvent((keys: Set<string>, step: number) => onControl(controls.filter(control => keys.has(control.key)).map(control => control.action(step))));
   useEffect(() => {
     const pressed = new Set<string>();
@@ -75,27 +78,27 @@ export function ModelControls({ disabled, onControl, helpId }: {
       document.removeEventListener("visibilitychange", visibilityChanged);
     };
   }, [disabled]);
-  return <div className="controls-guide" id={helpId} popover="auto" role="region" aria-label="Hướng dẫn điều khiển">
-      <div className="guide-heading"><h2>Hướng dẫn điều khiển</h2>
-        <button className="controls-info" aria-label="Đóng hướng dẫn" popoverTarget={helpId} popoverTargetAction="hide">×</button>
+  return <div className="controls-guide" id={helpId} popover="auto" role="region" aria-label={t("controls.guide.title")}>
+      <div className="guide-heading"><h2>{t("controls.guide.title")}</h2>
+        <button className="controls-info" aria-label={t("controls.guide.close")} popoverTarget={helpId} popoverTargetAction="hide">×</button>
       </div>
       <div className="guide-columns">
-        <section aria-label="Bàn phím"><h3>Bàn phím</h3>
+        <section aria-label={t("controls.keyboard.label")}><h3>{t("controls.keyboard.label")}</h3>
           {groups.map(group => <div className="guide-key-group" key={group.label}>
-            <h4>{group.label}</h4>
+            <h4>{t(group.label)}</h4>
             <dl>{group.controls.map(control => <div key={control.key}>
-              <dt><kbd>{arrows[control.shortcut] ?? control.shortcut}</kbd></dt><dd>{control.label}</dd>
+              <dt><kbd>{arrows[control.shortcut] ?? control.shortcut}</kbd></dt><dd>{t(control.label)}</dd>
             </div>)}</dl>
           </div>)}
-          <p className="guide-note">Giữ phím để điều khiển liên tục. Có thể dùng nhiều phím cùng lúc.</p>
-          <p className="guide-note">Tâm xoay nằm tại mô hình hoặc bộ phận đang được tập trung.</p>
-          <p className="guide-note">E/Q phóng to, thu nhỏ theo tâm màn hình.</p>
+          <p className="guide-note">{t("controls.note.holdKeys")}</p>
+          <p className="guide-note">{t("controls.note.rotationCenter")}</p>
+          <p className="guide-note">{t("controls.note.keyboardZoomAnchor")}</p>
         </section>
-        <section aria-label="Chuột"><h3>Chuột</h3><dl className="guide-mouse">
-          <div><dt>Kéo chuột trái</dt><dd>Xoay mô hình</dd></div>
-          <div><dt>Cuộn chuột</dt><dd>Phóng to hoặc thu nhỏ theo vị trí chuột</dd></div>
-          <div><dt>Shift + kéo / kéo chuột phải</dt><dd>Dịch mô hình trên màn hình</dd></div>
-          <div><dt>Trỏ hoặc nhấn vào bộ phận</dt><dd>Xem thông tin giải phẫu</dd></div>
+        <section aria-label={t("controls.mouse.label")}><h3>{t("controls.mouse.label")}</h3><dl className="guide-mouse">
+          <div><dt>{t("controls.mouse.dragLeft")}</dt><dd>{t("controls.mouse.rotate")}</dd></div>
+          <div><dt>{t("controls.mouse.wheel")}</dt><dd>{t("controls.mouse.zoomAtCursor")}</dd></div>
+          <div><dt>{t("controls.mouse.panGesture")}</dt><dd>{t("controls.mouse.pan")}</dd></div>
+          <div><dt>{t("controls.mouse.pointOrClick")}</dt><dd>{t("controls.mouse.showInfo")}</dd></div>
         </dl></section>
       </div>
   </div>;
