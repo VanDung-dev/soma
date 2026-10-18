@@ -1,85 +1,124 @@
 import { getWasm } from '../src/core.ts';
 
-// Run after startup in Vite: (await import('/tests/search.browser.mjs')).checkStructureSearch()
 export async function checkStructureSearch() {
   const { AnatomyViewer } = await getWasm();
   const originalFocus = AnatomyViewer.prototype.focus;
-  const form = document.querySelector('.structure-search'), input = form.querySelector('input');
+  const trigger = document.querySelector('.structure-search-field');
+  const popover = document.querySelector('.structure-search-popover');
+  const form = popover.querySelector('form'), input = form.querySelector('input');
   const assert = (ok, message) => { if (!ok) throw Error(message); };
   const wait = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const open = async () => {
+    if (!popover.matches(':popover-open')) trigger.click();
+    await wait();
+  };
   const enter = async text => {
     input.focus();
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, text);
     input.dispatchEvent(new Event('input', { bubbles: true }));
     await wait();
   };
+  const key = async key => {
+    input.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    await wait();
+  };
+  const tree = document.querySelector('.catalog-tree');
+  const treeState = () => [...tree.querySelectorAll('.folder-toggle')].map(button => button.getAttribute('aria-expanded')).join(',');
   let focused, viewer, calls = 0;
   AnatomyViewer.prototype.focus = function(ids, ...viewport) {
     focused = JSON.parse(ids); viewer = this; calls++;
     return originalFocus.call(this, ids, ...viewport);
   };
   try {
-    assert(!input.disabled && !document.querySelector('.tree-help'), 'Search replaces the help after startup');
-    await enter('');
-    form.requestSubmit(); await wait();
-    assert(calls === 0, 'Empty search must not change the model');
-    assert(!document.querySelector('.tree-actions .tree-focus'), 'The general focus button must be removed');
-    await enter('Femur');
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    assert(!trigger.disabled, 'Wait for startup to finish');
+    if (popover.matches(':popover-open')) { popover.hidePopover(); await wait(); }
+    assert(!tree.querySelector('mark'), 'The catalog must remain a normal tree');
+    const state = treeState(), rowCount = tree.querySelectorAll('.tree-row').length;
+    const action = document.querySelector('.tree-actions > button').getBoundingClientRect();
+    const button = trigger.getBoundingClientRect();
+    assert(trigger.closest('.tree-actions') && Math.abs(action.top + action.height / 2 - button.top - button.height / 2) < 1,
+      'Align the icon-only search button with the tree actions');
+    await open();
+    assert(document.activeElement === input, 'Focus the search input on opening');
+    const bounds = popover.getBoundingClientRect();
+    assert(Math.abs(bounds.left + bounds.width / 2 - innerWidth / 2) < 1
+      && Math.abs(bounds.top + bounds.height / 2 - innerHeight / 2) < 1, 'Center Spotlight like Settings');
+    const settingsStyle = getComputedStyle(document.querySelector('.settings-popover'));
+    const checkSize = () => {
+      const current = popover.getBoundingClientRect();
+      assert(current.width === parseFloat(settingsStyle.width) && current.height === parseFloat(settingsStyle.height),
+        'Keep Spotlight the same size as Settings');
+    };
+    checkSize();
+    assert(!popover.querySelector('.controls-info') && getComputedStyle(popover).backdropFilter === 'none'
+      && getComputedStyle(popover, '::backdrop').backdropFilter === 'none', 'Remove the close button and blur effects');
+    assert(getComputedStyle(trigger).borderRadius === getComputedStyle(document.querySelector('.tree-actions > button')).borderRadius,
+      'Use Radius 2 for the search trigger');
+    const options = () => [...form.querySelectorAll('[role="option"]')];
+    assert(options().length === 20 && form.querySelector('[role="status"]').textContent.startsWith('A–Z'), 'Show alphabetical results before typing');
+    const alphabetic = () => {
+      const names = options().map(option => option.querySelector('span').textContent);
+      const collator = new Intl.Collator(document.documentElement.lang, { sensitivity: 'base', numeric: true, ignorePunctuation: true });
+      assert(names.every((name, i) => !i || collator.compare(names[i - 1], name) <= 0), 'Keep default results in A–Z order');
+    };
+    alphabetic();
+    const list = form.querySelector('[role="listbox"]');
+    list.scrollTop = list.scrollHeight;
     await wait();
-    assert(!form.querySelector('.structure-search-popup'), 'Escape must dismiss the popup');
-    await enter('Femur');
-    document.querySelector('.model-canvas canvas').focus(); await wait();
-    assert(!form.querySelector('.structure-search-popup') && calls === 0, 'Leaving search must dismiss without changing the model');
-    document.querySelector('.tree-actions button:nth-child(2)').click(); await wait();
-    const toolbarTop = document.querySelector('.tree-actions').getBoundingClientRect().top;
+    assert(options().length > 20, 'Load more alphabetical results when scrolling');
+    alphabetic();
+    assert(calls === 0 && treeState() === state, 'Browsing A–Z must preserve the tree and model');
     await enter('FEMUR');
-    const result = form.querySelector('.structure-search-results button');
-    assert(result && /^Xương đùi/.test(result.textContent) && result.querySelector('[lang="en"]').textContent.startsWith('Femur'),
-      'Exact names must be first with Vietnamese primary and English secondary');
-    assert(Math.abs(document.querySelector('.tree-actions').getBoundingClientRect().top - toolbarTop) < 0.5,
-      'Search results must overlay the catalog without pushing its actions down');
-    const bounds = result.getBoundingClientRect();
-    assert(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)?.closest('button') === result,
-      'Popup results must be clickable above the underlying catalog');
-    const id = result.dataset.structureId;
-    result.click(); await wait();
-    const row = document.querySelector(`.structure-tree [data-structure-id="${id}"]`);
-    assert(focused.length === 1 && focused[0] === id && viewer.visible_count() === 1 && viewer.selected_id() === id,
-      'Search must focus, show and select the exact structure even when hidden');
-    assert(row?.classList.contains('is-selected') && row.querySelector('input').checked,
-      'Search must reveal the selected structure inside its tree branch');
-    assert(/Xương đùi/.test(document.querySelector('.information-heading h2').textContent), 'Search must update the information panel in Vietnamese');
-    assert(/Femur/.test(document.querySelector('.international-name').textContent), 'English must remain visible');
-    assert(input.value === '' && !form.querySelector('.structure-search-results'), 'Choosing a result closes suggestions');
-    assert(document.activeElement === document.querySelector('.model-canvas canvas'), 'Focus returns to the model controls');
-    const folder = row.closest('ul').closest('[data-target-id]');
-    folder.querySelector('.folder-toggle').click(); await wait();
-    await enter('Femur');
-    form.requestSubmit(); await wait();
-    assert(document.querySelector(`.structure-tree [data-structure-id="${id}"]`),
-      'Repeating a search must reopen a manually closed branch');
+    checkSize();
+    assert(options().length >= 2 && /^Xương đùi/.test(options()[0].textContent), 'Rank exact bilingual names first');
+    assert(treeState() === state && tree.querySelectorAll('.tree-row').length === rowCount && calls === 0,
+      'Typing must not rebuild, expand or focus the catalog tree');
+    await key('ArrowDown');
+    assert(input.getAttribute('aria-activedescendant') === options()[1].id && options()[1].getAttribute('aria-selected') === 'true',
+      'Arrow keys must navigate the result list');
+    await key('ArrowUp');
+    assert(options()[0].getAttribute('aria-selected') === 'true', 'Navigate back to the first result');
+    await enter('x');
+    assert(options().length === 20 && tree.querySelectorAll('.tree-row').length === rowCount, 'Bound broad searches to 20 result rows');
+    await key('Escape');
+    assert(!popover.matches(':popover-open') && document.activeElement === trigger && input.value === '', 'Escape closes, clears and restores focus');
+    await open();
     await enter('__no_matching_structure__');
-    const before = calls;
-    assert(form.querySelector('[role="status"]').textContent.includes('Không tìm thấy'), 'No matches must be explained');
-    assert(form.querySelector('button[type="submit"]').disabled, 'No matches disables the search action');
+    checkSize();
+    assert(!options().length && form.querySelector('[role="status"]').textContent.includes('Không tìm thấy'), 'Explain when no results match');
     form.requestSubmit(); await wait();
-    assert(calls === before, 'Unmatched searches must preserve the camera');
-    await enter('xuong dui trai');
-    const left = [...form.querySelectorAll('.structure-search-results button')].find(button => button.textContent.includes('Xương đùi · trái'));
-    assert(left, 'Unaccented laterality must find the left structure');
-    const leftId = left.dataset.structureId;
-    left.click(); await wait();
-    assert(viewer.selected_id() === leftId, 'Laterality must resolve to the exact structure ID');
-    await enter('Femur left');
-    assert(form.querySelector('.structure-search-results button').dataset.structureId === leftId,
-      'English and Vietnamese must resolve to the same structure');
+    assert(calls === 0, 'An unmatched search must preserve the camera');
+    await key('Escape');
+    document.querySelector('.tree-actions > button:nth-child(2)').click(); await wait();
+    await open(); await enter('xuong dui trai');
+    const left = options()[0], id = left.dataset.structureId;
+    assert(left.textContent.startsWith('Xương đùi · trái'), 'Unaccented laterality must find the exact structure');
+    form.requestSubmit(); await wait();
+    const row = tree.querySelector('[data-structure-id="' + id + '"]');
+    assert(focused.length === 1 && focused[0] === id && viewer.visible_count() === 1 && viewer.selected_id() === id,
+      'Enter must focus and reveal the exact hidden structure');
+    assert(row?.classList.contains('is-selected') && row.querySelector('input').checked, 'Synchronize the tree selection and visibility');
+    assert(!popover.matches(':popover-open') && document.activeElement === document.querySelector('.model-canvas canvas'),
+      'Close Spotlight and focus the model after choosing a result');
+    assert(/Xương đùi/.test(document.querySelector('.information-heading h2').textContent), 'Update the information panel');
+    await open(); await enter('Femur left');
+    assert(options()[0].dataset.structureId === id, 'English and Vietnamese resolve to the same structure');
     await enter('Os femoris');
-    assert([...form.querySelectorAll('.structure-search-results button')].some(button => button.dataset.structureId === leftId),
-      'Latin remains searchable');
-    await enter('');
-    return { clickFocuses: true, enterFocuses: true, revealsTree: true, hiddenEnabled: true,
-      exactSelection: true, laterality: true, repeatedSearch: true, emptyAndMissingSafe: true, helpRemoved: true,
-      overlaysWithoutReflow: true, dismisses: true, generalFocusRemoved: true, bilingualNames: true, latinSearch: true };
-  } finally { AnatomyViewer.prototype.focus = originalFocus; }
+    assert(options().some(option => option.dataset.structureId === id && option.querySelector('[lang="la"]')), 'Keep Latin search');
+    const clickedId = options()[0].dataset.structureId;
+    options()[0].click(); await wait();
+    assert(viewer.selected_id() === clickedId && !popover.matches(':popover-open'), 'Clicking a result selects and closes Spotlight');
+    await open(); await enter('x');
+    const finalBounds = popover.getBoundingClientRect();
+    assert(finalBounds.left >= 0 && finalBounds.right <= innerWidth && finalBounds.top >= 0 && finalBounds.bottom <= innerHeight,
+      'Keep Spotlight within the viewport');
+    assert(popover.scrollWidth <= popover.clientWidth, 'Results must fit without horizontal overflow');
+    return { iconAligned: true, centered: true, autofocus: true, keyboardNavigation: true, escapeRestoresFocus: true,
+      independentTree: true, resultLimit: 20, exactSelection: true, hiddenEnabled: true, bilingualNames: true, latinSearch: true, viewportFits: true };
+  } finally {
+    AnatomyViewer.prototype.focus = originalFocus;
+    popover.hidePopover();
+    document.querySelector('.app-menu-bar > button').click();
+    await wait();
+  }
 }

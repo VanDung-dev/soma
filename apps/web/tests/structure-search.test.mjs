@@ -8,7 +8,8 @@ import { createServer } from 'vite';
 test('structure search matches names, Latin and laterality, and reveals the selected tree path', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
-    const { searchStructures, StructureSearch } = await server.ssrLoadModule('/src/structure-search.tsx');
+    const { createStructureSearch, StructureSearch } = await server.ssrLoadModule('/src/structure-search.tsx');
+    const searchStructures = (parts, query) => createStructureSearch(parts)(query);
     const { StructureTree } = await server.ssrLoadModule('/src/structure-tree.tsx');
     const part = (id, name, latin, laterality = '') => ({ source_id: id, source_name: name,
       source_object: name, latin, laterality, collections: [] });
@@ -35,6 +36,23 @@ test('structure search matches names, Latin and laterality, and reveals the sele
     assert.match(html, /role="search"/);
     assert.match(html, /<input[^>]*type="search"[^>]*disabled=""/);
     assert.match(html, /<button[^>]*disabled=""[^>]*aria-label="Tìm kiếm"/);
+    assert.match(html, /class="structure-search-field"[^>]*popoverTarget=/);
+    assert.match(html, /class="structure-search-popover"[^>]*popover="auto"[^>]*role="dialog"/);
+    assert.match(html, /role="combobox"/);
+    assert.match(html, /role="listbox"/);
+    assert.doesNotMatch(html, /class="controls-info"/);
+    assert.match(html, /A–Z/);
+    const alphabetical = renderToStaticMarkup(createElement(StructureSearch, {
+      structures: [part('unknown', '???', ''), part('z', 'ZzzAtlas', ''), part('a', 'AaaAtlas', ''), part('m', 'MmmAtlas', '')],
+      disabled: false, onSelect() {},
+    }));
+    assert(alphabetical.indexOf('data-structure-id="a"') < alphabetical.indexOf('data-structure-id="m"'));
+    assert(alphabetical.indexOf('data-structure-id="m"') < alphabetical.indexOf('data-structure-id="z"'));
+    assert(alphabetical.indexOf('data-structure-id="z"') < alphabetical.indexOf('data-structure-id="unknown"'));
+    const find = createStructureSearch(parts);
+    assert.deepEqual(find('femur').map(part => part.source_id), ['right', 'left', 'head']);
+    assert.deepEqual(find('xuong dui trai').map(part => part.source_id), ['left']);
+    assert.deepEqual(find('Clavicula').map(part => part.source_id), ['clavicle']);
 
     const catalog = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
     const metadata = JSON.parse(await readFile(new URL('../public/models/z-anatomy/skeletal-system.json', import.meta.url)));
@@ -54,5 +72,6 @@ test('structure search matches names, Latin and laterality, and reveals the sele
     assert.doesNotMatch(tree, /class="tree-focus"/);
     assert.match(tree, /<small class="tree-count"><span>277<\/span> <span>cấu trúc<\/span><\/small>/);
     assert.match(tree, /aria-keyshortcuts="Shift\+Enter"/);
+    assert.doesNotMatch(tree, /is-search-match|<mark>/);
   } finally { await server.close(); }
 });

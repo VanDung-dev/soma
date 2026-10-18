@@ -36,7 +36,7 @@ function VisibilityCheckbox({ ids, visibleIds, label, disabled, onVisibility }: 
     <input ref={ref} type="checkbox" aria-label={t("tree.showStructure", { name: label })} checked={checked}
       disabled={disabled || !ids.length} onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()}
       onChange={event => onVisibility(ids, event.target.checked)} />
-    <span className="visibility-checkbox-icon" aria-hidden="true"><LineIcon name={checked ? "square-to-confirm-square-twotone-transition" : "confirm-square-twotone-to-square-transition"} size={18} /></span>
+    <span className="visibility-checkbox-icon" aria-hidden="true"><LineIcon name={checked ? "square-to-confirm-square-twotone-transition" : "confirm-square-twotone-to-square-transition"} size={24} /></span>
   </label>;
 }
 
@@ -91,7 +91,7 @@ function Folder({ target, childrenById, structures, props, revealPath, revealRow
     <div className={`tree-row folder-row${props.targetId === target.id ? " is-selected" : ""}`} onDoubleClick={focusFolder}>
       <button className="folder-toggle" aria-label={t(open ? "tree.close" : "tree.open", { name: title })} aria-expanded={open}
         onClick={() => setOpen(!open)} onDoubleClick={event => event.stopPropagation()}>
-        <LineIcon name={open ? "chevron-small-down" : "chevron-small-right"} size={16} />
+        <LineIcon name={open ? "chevron-small-down" : "chevron-small-right"} size={24} />
       </button>
       {ids.length > 0
         ? <VisibilityCheckbox ids={ids} label={title} {...props} />

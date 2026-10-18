@@ -84,14 +84,14 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       <ModelControls disabled={building || error} onControl={session.control} helpId={helpId} />
       <aside ref={catalogPanel} className="catalog-panel" aria-label={t("catalog.navigation.label")}>
         <div className="catalog-heading"><h2>{t("catalog.heading")}</h2><span>{t("catalog.systemCount", { count: catalog.groups.length })}</span></div>
-        <StructureSearch structures={meshes} disabled={building || error} onSelect={id => {
-          focusStructures([id]);
-          session.revealStructure(id);
-          host.current?.querySelector("canvas")?.focus({ preventScroll: true });
-        }} />
         <div className="tree-actions">
           <button disabled={building || error} onClick={() => session.changeVisibility(meshes.map(p => p.source_id), true)}>{t("catalog.showAll")}</button>
           <button disabled={building || error} onClick={() => session.changeVisibility(meshes.map(p => p.source_id), false)}>{t("catalog.hideAll")}</button>
+          <StructureSearch structures={meshes} disabled={building || error} onSelect={id => {
+            focusStructures([id]);
+            session.revealStructure(id);
+            host.current?.querySelector("canvas")?.focus({ preventScroll: true });
+          }} />
         </div>
         <div className="catalog-tree">
           <StructureTree catalog={catalog} structures={meshes} visibleIds={visibleIds} selected={selected} targetId={targetId} reveal={reveal} disabled={building || error}
