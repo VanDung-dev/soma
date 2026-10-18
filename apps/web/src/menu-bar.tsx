@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useLanguage } from "./i18n";
+import { LineIcon } from "./icons";
 
 export function MenuBar({ disabled, onBack, helpId }: {
   disabled: boolean;
@@ -48,26 +49,23 @@ export function MenuBar({ disabled, onBack, helpId }: {
   return <header className="app-menu-bar" aria-label={t("app.navigation.label")}>
     <button className="controls-info" disabled={disabled} onClick={onBack}
       aria-label={t("app.overview")} title={t("app.overview")}>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6M8 12h12" /></svg>
+      <LineIcon name="arrow-small-left" />
     </button>
     <h1 className="app-menu-title" title={t("app.title")}>{t("app.title")}</h1>
     <div className="app-menu-actions">
       <button className="controls-info" popoverTarget={helpId} aria-label={t("app.help")} title={t("app.help")}>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 1.5-2.5 2-2.5 3.5M12 16.5h.01" /></svg>
+        <LineIcon name="alert-circle" />
       </button>
       <button className="controls-info" popoverTarget={settingsId} aria-label={t("app.settings")} title={t("app.settings")}
         onClick={() => setLanguageOptionsOpen(false)}>
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="m9 3-.5 2-2 1-2-.5-2 3.5L4 10.5v3l-1.5 1.5 2 3.5 2-.5 2 1 .5 2h4l.5-2 2-1 2 .5 2-3.5-1.5-1.5v-3L20 9l-2-3.5-2 .5-2-1-.5-2Z" />
-          <circle cx="11" cy="12" r="3" />
-        </svg>
+        <LineIcon name="cog" />
       </button>
     </div>
     <section id={settingsId} className="settings-popover" popover="auto" aria-labelledby={`${settingsId}-title`}>
       <div className="guide-heading">
         <h2 id={`${settingsId}-title`}>{t("app.settings")}</h2>
         <button className="controls-info" aria-label={t("app.settings.close")} popoverTarget={settingsId} popoverTargetAction="hide"
-          onClick={() => setLanguageOptionsOpen(false)}>×</button>
+          onClick={() => setLanguageOptionsOpen(false)}><LineIcon name="close-small" /></button>
       </div>
       <div className="settings-row">
         <span>{t("language.selector.label")}</span>
@@ -75,7 +73,7 @@ export function MenuBar({ disabled, onBack, helpId }: {
           <button ref={languageToggle} className="settings-language-toggle" type="button" aria-haspopup="listbox"
             aria-expanded={languageOptionsOpen} aria-controls={languageOptionsId}
             onClick={() => setLanguageOptionsOpen(open => !open)}>
-            {selectedLanguage}<span aria-hidden="true">⌄</span>
+            {selectedLanguage}<LineIcon name="chevron-small-down" />
           </button>
           <ul ref={languageMenu} id={languageOptionsId} className="settings-language-menu" popover="auto"
             aria-label={t("language.selector.label")} onToggle={event => setLanguageOptionsOpen(event.currentTarget.matches(":popover-open"))}>

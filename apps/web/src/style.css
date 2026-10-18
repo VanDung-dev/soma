@@ -1,4 +1,4 @@
-:root { font-family: "Avenir Next", "Segoe UI", sans-serif; color: #292d2c; background: #f5f2ec; font-synthesis: none; --line: #dfdcd4; --accent: #813f39; --panel-width: clamp(330px, 24vw, 350px); --reference-diameter: 48px; --panel-inset: 16px; --panel-gap: 16px; --panel-padding: 10px; --menu-height: var(--reference-diameter); --panel-radius: calc(var(--reference-diameter) / 2); --inner-radius: calc(var(--panel-radius) - var(--panel-padding)); --detail-radius: calc(var(--inner-radius) - var(--panel-padding)); --control-radius: 8px; --row-radius: 6px; --pill-radius: 999px; }
+:root { font-family: "Avenir Next", "Segoe UI", sans-serif; color: #292d2c; background: #f5f2ec; font-synthesis: none; --line: #dfdcd4; --accent: #9e4b48; --panel-width: clamp(330px, 24vw, 350px); --reference-diameter: 48px; --panel-inset: 16px; --panel-gap: 16px; --panel-padding: 10px; --menu-height: var(--reference-diameter); --panel-radius: calc(var(--reference-diameter) / 2); --inner-radius: calc(var(--panel-radius) - var(--panel-padding)); --detail-radius: calc(var(--inner-radius) - var(--panel-padding)); --control-radius: 8px; --row-radius: 6px; --pill-radius: 999px; }
 * { box-sizing: border-box; }
 body { margin: 0; }
 button, input { font: inherit; }
@@ -14,7 +14,8 @@ button { color: inherit; }
 .app-menu-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .controls-info { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 1px solid var(--line); border-radius: var(--inner-radius); background: #fffdf8; color: var(--accent); }
 .controls-info:not(:disabled):hover { background: #e7ddd2; }
-.controls-info svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.controls-info svg { display: block; width: 14px; height: 14px; }
+.line-md-icon { display: inline-flex; flex: 0 0 14px; align-items: center; justify-content: center; width: 14px; height: 14px; }
 .settings-popover { position: fixed; inset: 50% auto auto 50%; transform: translate(-50%, -50%); margin: 0; width: min(640px, calc(100vw - var(--panel-inset) * 2)); height: min(588px, calc(100dvh - var(--panel-inset) * 2)); max-height: calc(100dvh - var(--panel-inset) * 2); overflow-y: auto; padding: var(--panel-padding); border: 0; border-radius: var(--panel-radius); background: #fbf9f2; color: #292d2c; box-shadow: 0 16px 50px rgba(39,52,45,.22), inset 0 0 0 1px #dfdcd4; }
 .settings-popover .guide-heading { margin-bottom: 14px; }
 .settings-popover .guide-heading h2 { font: 21px/1.3 Georgia, serif; }
@@ -112,10 +113,18 @@ button { color: inherit; }
 .tree-row.folder-row { border-radius: var(--detail-radius); }
 .tree-row:hover { background: #e7e2d8; }
 .tree-row.is-selected { background: #e7ddd2; color: var(--accent); }
-.tree-row input { flex-shrink: 0; width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; margin: 0; }
-.tree-row input:disabled { cursor: default; }
+.visibility-checkbox { position: relative; display: inline-grid; flex: 0 0 18px; place-items: center; width: 18px; height: 18px; cursor: pointer; }
+.visibility-checkbox input { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; margin: 0; appearance: none; opacity: 0; cursor: pointer; }
+.visibility-checkbox input:disabled { cursor: default; }
+.visibility-checkbox-icon { position: relative; display: block; width: 18px; height: 18px; }
+.visibility-checkbox-icon svg { display: block; width: 18px; height: 18px; }
+.visibility-checkbox input:checked + .visibility-checkbox-icon { color: color-mix(in srgb, var(--accent) 90%, white); }
+.visibility-checkbox input:checked + .visibility-checkbox-icon path:first-child { fill: currentColor; fill-opacity: 1 !important; stroke: currentColor; }
+.visibility-checkbox input:checked + .visibility-checkbox-icon path:nth-child(2) { stroke: #fff; }
+.visibility-checkbox input:focus-visible + .visibility-checkbox-icon { outline: 3px solid var(--accent); outline-offset: 3px; }
+.visibility-checkbox input:indeterminate + .visibility-checkbox-icon::after { position: absolute; inset: 8px 4px auto; height: 2px; background: currentColor; content: ""; }
 .tree-no-model { flex-shrink: 0; width: 15px; text-align: center; color: #62675f; }
-.folder-toggle { flex-shrink: 0; border: 0; border-radius: var(--control-radius); background: transparent; width: 24px; min-height: 32px; padding: 0; font-size: 16px; }
+.folder-toggle { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; width: 24px; min-height: 32px; margin-left: -6px; padding: 0; border: 0; border-radius: var(--control-radius); background: transparent; }
 .tree-name { flex: 1; min-width: 0; text-align: left; border: 0; background: transparent; padding: 4px 0; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
 .tree-name small { display: block; color: #62675f; font-size: 11px; line-height: 1.3; margin-top: 3px; }
 .part-row { padding-left: 10px; }

@@ -2,6 +2,7 @@ import { useEffect, useEffectEvent } from "react";
 import type { MessageKey } from "./i18n";
 import { useLanguage } from "./i18n";
 import type { CameraCommand } from "./viewer/contracts";
+import { LineIcon } from "./icons";
 
 const groups: { label: MessageKey; controls: { key: string; shortcut: string; label: MessageKey; action: (step: number) => CameraCommand }[] }[] = [
   { label: "controls.group.camera", controls: [
@@ -80,7 +81,9 @@ export function ModelControls({ disabled, onControl, helpId }: {
   }, [disabled]);
   return <div className="controls-guide" id={helpId} popover="auto" role="region" aria-label={t("controls.guide.title")}>
       <div className="guide-heading"><h2>{t("controls.guide.title")}</h2>
-        <button className="controls-info" aria-label={t("controls.guide.close")} popoverTarget={helpId} popoverTargetAction="hide">×</button>
+        <button className="controls-info" aria-label={t("controls.guide.close")} popoverTarget={helpId} popoverTargetAction="hide">
+          <LineIcon name="close-small" />
+        </button>
       </div>
       <div className="guide-columns">
         <section aria-label={t("controls.keyboard.label")}><h3>{t("controls.keyboard.label")}</h3>

@@ -3,6 +3,7 @@ import type { Catalog, StudyTarget, Structure } from "./catalog/types";
 import { indexCatalog, structureIds } from "./catalog";
 import { structureName, targetName } from "./anatomy-names";
 import { useLanguage } from "./i18n";
+import { LineIcon } from "./icons";
 
 const systemOrder = [
   "group:skeletal-system", "group:muscular-insertions", "group:joints",
@@ -29,10 +30,14 @@ function VisibilityCheckbox({ ids, visibleIds, label, disabled, onVisibility }: 
   const ref = useRef<HTMLInputElement>(null);
   const count = ids.filter(id => visibleIds.has(id)).length;
   const mixed = count > 0 && count < ids.length;
+  const checked = ids.length > 0 && count === ids.length;
   useEffect(() => { if (ref.current) ref.current.indeterminate = mixed; }, [mixed]);
-  return <input ref={ref} type="checkbox" aria-label={t("tree.showStructure", { name: label })} checked={ids.length > 0 && count === ids.length}
-    disabled={disabled || !ids.length} onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()}
-    onChange={event => onVisibility(ids, event.target.checked)} />;
+  return <label className="visibility-checkbox">
+    <input ref={ref} type="checkbox" aria-label={t("tree.showStructure", { name: label })} checked={checked}
+      disabled={disabled || !ids.length} onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()}
+      onChange={event => onVisibility(ids, event.target.checked)} />
+    <span className="visibility-checkbox-icon" aria-hidden="true"><LineIcon name={checked ? "square-to-confirm-square-twotone-transition" : "confirm-square-twotone-to-square-transition"} size={18} /></span>
+  </label>;
 }
 
 export function StructureTree(props: TreeProps) {
@@ -85,7 +90,9 @@ function Folder({ target, childrenById, structures, props, revealPath, revealRow
   return <li data-target-id={target.id}>
     <div className={`tree-row folder-row${props.targetId === target.id ? " is-selected" : ""}`} onDoubleClick={focusFolder}>
       <button className="folder-toggle" aria-label={t(open ? "tree.close" : "tree.open", { name: title })} aria-expanded={open}
-        onClick={() => setOpen(!open)} onDoubleClick={event => event.stopPropagation()}>{open ? "▾" : "▸"}</button>
+        onClick={() => setOpen(!open)} onDoubleClick={event => event.stopPropagation()}>
+        <LineIcon name={open ? "chevron-small-down" : "chevron-small-right"} size={16} />
+      </button>
       {ids.length > 0
         ? <VisibilityCheckbox ids={ids} label={title} {...props} />
         : <span className="tree-no-model" aria-hidden="true">—</span>}
