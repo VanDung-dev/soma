@@ -52,7 +52,7 @@ test('structure search matches names, Latin and laterality, and reveals the sele
     assert.match(tree, /<small lang="en">Femur · (left|right)<\/small>/);
     assert.match(tree, /Bộ xương chi|Xương chi|Xương đùi/);
     assert.doesNotMatch(tree, /class="tree-focus"/);
-    assert.match(tree, /<small class="tree-count">277 cấu trúc<\/small>/);
+    assert.match(tree, /<small class="tree-count"><span>277<\/span> <span>cấu trúc<\/span><\/small>/);
     assert.match(tree, /aria-keyshortcuts="Shift\+Enter"/);
   } finally { await server.close(); }
 });

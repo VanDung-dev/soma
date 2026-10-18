@@ -318,6 +318,10 @@ export async function checkHudCentering() {
       assert(expanded ? calls > before : calls === before,
         'Selection changes must recenter only in the expanded information view');
       const desktop = matchMedia('(min-width: 901px)').matches;
+      if (!desktop) {
+        document.querySelector('.explode-control').scrollIntoView({ block: 'center' });
+        await frames();
+      }
       const area = document.querySelector('.model-canvas').getBoundingClientRect();
       const left = desktop ? document.querySelector('.catalog-panel').getBoundingClientRect().right : area.left;
       const right = desktop ? panel.getBoundingClientRect().left : area.right;

@@ -22,7 +22,7 @@ test('each system checkbox covers only its Blender display collection', async ()
         assert(input, other.title);
         assert.equal(input.includes('checked=""'), other === root, `${root.title}: ${other.title}`);
       }
-      assert(html.includes(`${root.model.structure_ids.length} cấu trúc`), root.title);
+      assert(html.replace(/<[^>]*>/g, '').includes(`${root.model.structure_ids.length} cấu trúc`), root.title);
     }
   } finally {
     await server.close();

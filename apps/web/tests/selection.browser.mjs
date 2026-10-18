@@ -92,7 +92,7 @@ export async function checkSelectionHover() {
     return id;
   };
   try {
-    const bounds = canvas.getBoundingClientRect();
+    const bounds = document.querySelector('.model-focus-frame').getBoundingClientRect();
     canvas.dispatchEvent(new PointerEvent('pointermove', { pointerType: 'mouse',
       clientX: bounds.left + bounds.width / 2, clientY: bounds.top + 20 }));
     await new Promise(resolve => setTimeout(resolve, 200));
