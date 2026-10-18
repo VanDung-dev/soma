@@ -7,3 +7,7 @@ the Apache License, Version 2.0. See LICENSE.
 Anatomy models and source-derived catalog data retain their
 source licenses. See apps/web/public/models/z-anatomy/ATTRIBUTION.md.
 Dependencies retain their own licenses.
+
+Material Line Icons (line-md)
+Copyright 2020 Vjacheslav Trushkin. Licensed under the MIT License.
+https://github.com/cyberalien/line-md/blob/main/license.txt
