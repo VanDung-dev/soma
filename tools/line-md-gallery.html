@@ -2,17 +2,24 @@
 <html lang="vi">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Line MD — icon review</title>
+<title>Line MD — icon và vai trò trong Human Atlas</title>
 <style>
-*{box-sizing:border-box}body{margin:0;padding:32px;font:15px system-ui,sans-serif;background:#f4f4f2;color:#222}
-h1{margin:0 0 28px;font-size:24px}section{margin:0 0 32px}h2{font-size:17px;margin:0 0 12px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+*{box-sizing:border-box}body{margin:0;padding:clamp(16px,4vw,32px);font:15px/1.5 system-ui,sans-serif;background:#f4f4f2;color:#222}
+h1{margin:0 0 8px;font-size:24px}header{margin-bottom:28px}header p{margin:0;color:#555}section{margin:0 0 32px}h2{font-size:17px;margin:0 0 12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:12px}
 article{min-width:0;padding:12px;border:1px solid #ddd;border-radius:12px;background:white}
-.preview{height:112px;display:grid;place-items:center}.preview img{width:80px;height:80px}
+.preview{height:112px;display:grid;place-items:center}.preview svg{width:64px;height:64px}
 code{display:block;overflow-wrap:anywhere;font-size:12px}
+ul{margin:12px 0 0;padding-left:20px}li+li{margin-top:8px}footer{font-size:13px;color:#555}a{color:inherit}
 </style>
-<h1>Line MD — danh sách icon</h1>
-<section><h2>Giao diện</h2><div class="grid"><article><div class="preview"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+<header><h1>Line MD — icon và vai trò trong Human Atlas</h1>
+<p>12 icon · 13 vai trò. Preview phóng lớn; kích thước trong mô tả là kích thước đang dùng trong ứng dụng.</p></header>
+<main><section><h2>Giao diện</h2><div class="grid"><article><div class="preview"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+	<path d="M12 3l2.35 5.76l6.21 0.46l-4.76 4.02l1.49 6.04l-5.29 -3.28l-5.29 3.28l1.49 -6.04l-4.76 -4.02l6.21 -0.46Z" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="66">
+		<animate attributeName="stroke-dashoffset" dur="0.6s" fill="freeze" values="66;0" />
+	</path>
+</svg>
+</div><code>line-md:star-alt</code><ul><li>Chọn giao diện tự động theo hệ thống trong Cài đặt → Giao diện (18 px).</li></ul></article><article><div class="preview"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
 	<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
 		<path d="M12 7c2.76 0 5 2.24 5 5c0 2.76 -2.24 5 -5 5c-2.76 0 -5 -2.24 -5 -5c0 -2.76 2.24 -5 5 -5Z" stroke-dasharray="34">
 			<animate attributeName="stroke-dashoffset" dur="0.4s" fill="freeze" values="34;0" />
@@ -27,7 +34,7 @@ code{display:block;overflow-wrap:anywhere;font-size:12px}
 		</path>
 	</g>
 </svg>
-</div><code>line-md:sunny</code></article><article><div class="preview"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+</div><code>line-md:sunny</code><ul><li>Chọn giao diện sáng trong Cài đặt → Giao diện (18 px).</li></ul></article><article><div class="preview"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
 	<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
 		<path d="M7 6c0 6.08 4.92 11 11 11c0.53 0 1.05 -0.04 1.56 -0.11c-1.61 2.47 -4.39 4.11 -7.56 4.11c-4.97 0 -9 -4.03 -9 -9c0 -3.17 1.64 -5.95 4.11 -7.56c-0.07 0.51 -0.11 1.03 -0.11 1.56Z" stroke-width="2" stroke-dasharray="56">
 			<animate attributeName="stroke-dashoffset" dur="0.6s" fill="freeze" values="56;0" />
@@ -45,12 +52,7 @@ code{display:block;overflow-wrap:anywhere;font-size:12px}
 		</g>
 	</g>
 </svg>
-</div><code>line-md:moon-alt</code></article><article><div class="preview"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-	<path d="M12 3l2.35 5.76l6.21 0.46l-4.76 4.02l1.49 6.04l-5.29 -3.28l-5.29 3.28l1.49 -6.04l-4.76 -4.02l6.21 -0.46Z" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="66">
-		<animate attributeName="stroke-dashoffset" dur="0.6s" fill="freeze" values="66;0" />
-	</path>
-</svg>
-</div><code>line-md:star-alt</code></article></div></section>
+</div><code>line-md:moon-alt</code><ul><li>Chọn giao diện tối trong Cài đặt → Giao diện (18 px).</li></ul></article></div></section>
 <section><h2>Điều hướng</h2><div class="grid"><article><div class="preview"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
 	<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
 		<path d="M19 12h-13.5" stroke-dasharray="16">
@@ -61,18 +63,18 @@ code{display:block;overflow-wrap:anywhere;font-size:12px}
 		</path>
 	</g>
 </svg>
-</div><code>line-md:arrow-small-left</code></article><article><div class="preview"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+</div><code>line-md:arrow-small-left</code><ul><li>Back — quay lại lần chọn hoặc focus cấu trúc/hệ trước đó trên thanh điều hướng (18 px).</li></ul></article><article><div class="preview"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path stroke-dasharray="16" d="M5 12h13.5"><animate fill="freeze" attributeName="stroke-dashoffset" dur="0.3s" values="16;0"/></path><path stroke-dasharray="10" stroke-dashoffset="10" d="M19 12l-5 5M19 12l-5 -5"><animate fill="freeze" attributeName="stroke-dashoffset" begin="0.3s" dur="0.2s" to="0"/></path></g></svg></div><code>line-md:arrow-small-right</code><ul><li>Forward — tiến tới lần chọn hoặc focus cấu trúc/hệ sau khi đã Back trên thanh điều hướng (18 px).</li></ul></article><article><div class="preview"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
 	<path d="M15 12l-5 -5M15 12l-5 5" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="10">
 		<animate attributeName="stroke-dashoffset" dur="0.4s" fill="freeze" values="10;0" />
 	</path>
 </svg>
-</div><code>line-md:chevron-small-right</code></article><article><div class="preview"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+</div><code>line-md:chevron-small-right</code><ul><li>Nhánh đang thu gọn — mở nhánh hệ/thư mục trong cây cấu trúc (24 px).</li></ul></article><article><div class="preview"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
 	<path d="M12 15l-5 -5M12 15l5 -5" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="10">
 		<animate attributeName="stroke-dashoffset" dur="0.4s" fill="freeze" values="10;0" />
 	</path>
 </svg>
-</div><code>line-md:chevron-small-down</code></article></div></section>
-<section><h2>Cài đặt</h2><div class="grid"><article><div class="preview"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+</div><code>line-md:chevron-small-down</code><ul><li>Nhánh đang mở — thu gọn nhánh hệ/thư mục trong cây cấu trúc (24 px).</li></ul></article></div></section>
+<section><h2>Cài đặt và trợ giúp</h2><div class="grid"><article><div class="preview"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
 	<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
 		<path d="M12 9c1.66 0 3 1.34 3 3c0 1.66 -1.34 3 -3 3c-1.66 0 -3 -1.34 -3 -3c0 -1.66 1.34 -3 3 -3Z" stroke-dasharray="22">
 			<animate attributeName="stroke-dashoffset" dur="0.3s" fill="freeze" values="22;0" />
@@ -107,28 +109,7 @@ code{display:block;overflow-wrap:anywhere;font-size:12px}
 		</path>
 	</g>
 </svg>
-</div><code>line-md:cog</code></article></div></section>
-<section><h2>Xác nhận</h2><div class="grid"><article><div class="preview"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-	<g stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
-		<path d="M4 12v-7c0 -0.55 0.45 -1 1 -1h14c0.55 0 1 0.45 1 1v14c0 0.55 -0.45 1 -1 1h-14c-0.55 0 -1 -0.45 -1 -1Z" fill="currentColor" fill-opacity="0.3">
-			<animate attributeName="fill-opacity" dur="0.2s" fill="freeze" values="0;0.3" />
-		</path>
-		<path d="M8 12l3 3l5 -5" fill="none" stroke-dasharray="14" stroke-dashoffset="14">
-			<animate attributeName="stroke-dashoffset" begin="0.2s" dur="0.2s" fill="freeze" to="0" />
-		</path>
-	</g>
-</svg>
-</div><code>line-md:square-to-confirm-square-twotone-transition</code></article><article><div class="preview"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-	<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
-		<path d="M4 12v-7c0 -0.55 0.45 -1 1 -1h14c0.55 0 1 0.45 1 1v14c0 0.55 -0.45 1 -1 1h-14c-0.55 0 -1 -0.45 -1 -1Z">
-			<animate attributeName="fill-opacity" dur="0.2s" fill="freeze" values="0.3;1" />
-		</path>
-		<path d="M8 12l3 3l5 -5" stroke-dasharray="14">
-			<animate attributeName="stroke-dashoffset" begin="0.2s" dur="0.2s" fill="freeze" values="0;14" />
-		</path>
-	</g>
-</svg>
-</div><code>line-md:confirm-square-twotone-to-square-transition</code></article><article><div class="preview"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+</div><code>line-md:cog</code><ul><li>Mở bảng Cài đặt từ thanh điều hướng (18 px).</li></ul></article><article><div class="preview"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
 	<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
 		<path d="M12 3c4.97 0 9 4.03 9 9c0 4.97 -4.03 9 -9 9c-4.97 0 -9 -4.03 -9 -9c0 -4.97 4.03 -9 9 -9Z" stroke-dasharray="60">
 			<animate attributeName="stroke-dashoffset" dur="0.6s" fill="freeze" values="60;0" />
@@ -141,7 +122,7 @@ code{display:block;overflow-wrap:anywhere;font-size:12px}
 		</path>
 	</g>
 </svg>
-</div><code>line-md:alert-circle</code></article><article><div class="preview"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+</div><code>line-md:alert-circle</code><ul><li>Mở bảng Trợ giúp điều khiển bàn phím và chuột từ thanh điều hướng (18 px).</li></ul></article><article><div class="preview"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
 	<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" stroke-dasharray="18">
 		<path d="M7 7l10 10">
 			<animate attributeName="stroke-dashoffset" dur="0.5s" fill="freeze" values="18;0" />
@@ -151,8 +132,41 @@ code{display:block;overflow-wrap:anywhere;font-size:12px}
 		</path>
 	</g>
 </svg>
-</div><code>line-md:close-small</code></article></div></section>
+</div><code>line-md:close-small</code><ul><li>Đóng bảng Cài đặt (18 px).</li><li>Đóng bảng Trợ giúp điều khiển bàn phím và chuột (18 px).</li></ul></article></div></section>
+<section><h2>Hiển thị cấu trúc</h2><div class="grid"><article><div class="preview"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+	<g stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
+		<path d="M4 12v-7c0 -0.55 0.45 -1 1 -1h14c0.55 0 1 0.45 1 1v14c0 0.55 -0.45 1 -1 1h-14c-0.55 0 -1 -0.45 -1 -1Z" fill="currentColor" fill-opacity="0.3">
+			<animate attributeName="fill-opacity" dur="0.2s" fill="freeze" values="0;0.3" />
+		</path>
+		<path d="M8 12l3 3l5 -5" fill="none" stroke-dasharray="14" stroke-dashoffset="14">
+			<animate attributeName="stroke-dashoffset" begin="0.2s" dur="0.2s" fill="freeze" to="0" />
+		</path>
+	</g>
+</svg>
+</div><code>line-md:square-to-confirm-square-twotone-transition</code><ul><li>Checkbox đã chọn — toàn bộ cấu trúc của hệ/thư mục hoặc cấu trúc riêng lẻ đang hiển thị; bấm để ẩn (24 px).</li></ul></article><article><div class="preview"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+	<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
+		<path d="M4 12v-7c0 -0.55 0.45 -1 1 -1h14c0.55 0 1 0.45 1 1v14c0 0.55 -0.45 1 -1 1h-14c-0.55 0 -1 -0.45 -1 -1Z">
+			<animate attributeName="fill-opacity" dur="0.2s" fill="freeze" values="0.3;1" />
+		</path>
+		<path d="M8 12l3 3l5 -5" stroke-dasharray="14">
+			<animate attributeName="stroke-dashoffset" begin="0.2s" dur="0.2s" fill="freeze" values="0;14" />
+		</path>
+	</g>
+</svg>
+</div><code>line-md:confirm-square-twotone-to-square-transition</code><ul><li>Checkbox chưa chọn — cấu trúc đang ẩn; bấm để hiện. Khi chỉ hiện một phần hệ/thư mục, CSS thêm dấu gạch ngang cho trạng thái hỗn hợp (24 px).</li></ul></article></div></section></main>
+<footer>Material Line Icons (line-md) © 2020 Vjacheslav Trushkin · <a href="https://github.com/cyberalien/line-md/blob/main/license.txt">MIT License</a></footer>
 <script>
-document.querySelectorAll('.preview svg').forEach(svg => setInterval(() => svg.setCurrentTime(0), 1600));
+const previews = document.querySelectorAll('.preview svg');
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+function replay() {
+  previews.forEach(svg => {
+    svg.unpauseAnimations();
+    svg.setCurrentTime(reducedMotion.matches ? 10 : 0);
+    if (reducedMotion.matches) svg.pauseAnimations();
+  });
+}
+replay();
+reducedMotion.addEventListener('change', replay);
+setInterval(() => { if (!document.hidden && !reducedMotion.matches) replay(); }, 2000);
 </script>
 </html>
