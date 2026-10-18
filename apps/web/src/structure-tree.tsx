@@ -3,6 +3,12 @@ import type { Catalog, StudyTarget } from "./core";
 import type { Structure } from "./model-viewer";
 import { structureName, targetName } from "./anatomy-names";
 
+const systemOrder = [
+  "group:skeletal-system", "group:muscular-insertions", "group:joints",
+  "group:lymphoid-organs", "group:cardiovascular-system", "group:nervous-system",
+  "group:visceral-systems", "group:muscular-system", "group:body-regions",
+];
+
 interface TreeProps {
   catalog: Catalog;
   structures: Structure[];
@@ -40,6 +46,7 @@ export function StructureTree(props: TreeProps) {
       const entries = result.get(target.parent_id) ?? [];
       entries.push(target); result.set(target.parent_id, entries);
     }
+    result.get(undefined)?.sort((a, b) => systemOrder.indexOf(a.group_id) - systemOrder.indexOf(b.group_id));
     return result;
   }, [props.catalog]);
   const structures = useMemo(() => new Map(props.structures.map(part => [part.source_id, part])), [props.structures]);
