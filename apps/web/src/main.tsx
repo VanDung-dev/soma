@@ -2,12 +2,16 @@ import { createRoot } from "react-dom/client";
 import { StudyApp } from "./study-app";
 import { getCatalog } from "./core";
 import { getInitialLanguage, translateMessage } from "./i18n";
+import { getEffectiveTheme, getInitialTheme } from "./theme";
 import "./style.css";
 
 const root = createRoot(document.getElementById("root")!);
 const language = getInitialLanguage();
 document.documentElement.lang = language;
 document.title = translateMessage("app.title", language);
+const theme = getEffectiveTheme(getInitialTheme());
+document.documentElement.dataset.theme = theme;
+document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#292b2a" : "#f5f2ec");
 root.render(<main className="startup" role="status">{translateMessage("app.startup.loading", language)}</main>);
 
 getCatalog().then(

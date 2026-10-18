@@ -65,6 +65,22 @@
       "vi": "Tiếng Anh",
       "en": "English"
     },
+    "appearance.selector.label": {
+      "vi": "Giao diện",
+      "en": "Appearance"
+    },
+    "appearance.mode.auto": {
+      "vi": "Tự động",
+      "en": "Auto"
+    },
+    "appearance.mode.light": {
+      "vi": "Sáng",
+      "en": "Light"
+    },
+    "appearance.mode.dark": {
+      "vi": "Tối",
+      "en": "Dark"
+    },
     "controls.guide.title": {
       "vi": "Hướng dẫn điều khiển",
       "en": "Controls"

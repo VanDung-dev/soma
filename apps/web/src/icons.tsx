@@ -3,11 +3,12 @@ import arrowSmallLeft from "./icons/line-md/arrow-small-left.svg?raw";
 import chevronSmallDown from "./icons/line-md/chevron-small-down.svg?raw";
 import chevronSmallRight from "./icons/line-md/chevron-small-right.svg?raw";
 import closeSmall from "./icons/line-md/close-small.svg?raw";
-import confirmSquareTwotone from "./icons/line-md/confirm-square-twotone.svg?raw";
 import confirmSquareTwotoneToSquareTransition from "./icons/line-md/confirm-square-twotone-to-square-transition.svg?raw";
 import cog from "./icons/line-md/cog.svg?raw";
-import square from "./icons/line-md/square.svg?raw";
 import squareToConfirmSquareTwotoneTransition from "./icons/line-md/square-to-confirm-square-twotone-transition.svg?raw";
+import moonAlt from "./icons/line-md/moon-alt.svg?raw";
+import starAlt from "./icons/line-md/star-alt.svg?raw";
+import sunny from "./icons/line-md/sunny.svg?raw";
 
 const icons = {
   "alert-circle": alertCircle,
@@ -15,14 +16,15 @@ const icons = {
   "chevron-small-down": chevronSmallDown,
   "chevron-small-right": chevronSmallRight,
   "close-small": closeSmall,
-  "confirm-square-twotone": confirmSquareTwotone,
   "confirm-square-twotone-to-square-transition": confirmSquareTwotoneToSquareTransition,
   cog,
-  square,
+  "moon-alt": moonAlt,
   "square-to-confirm-square-twotone-transition": squareToConfirmSquareTwotoneTransition,
+  "star-alt": starAlt,
+  sunny,
 };
 
-export function LineIcon({ name, size = 14 }: { name: keyof typeof icons; size?: 14 | 16 | 18 }) {
+export function LineIcon({ name, size = 14 }: { name: keyof typeof icons; size?: 14 | 16 | 18 | 24 }) {
   return <span className="line-md-icon" style={{ width: size, height: size, flexBasis: size }} aria-hidden="true"
     dangerouslySetInnerHTML={{ __html: icons[name] }} />;
 }

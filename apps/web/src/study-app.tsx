@@ -1,12 +1,15 @@
 import type { Catalog } from "./catalog/types";
 import { LanguageProvider, useLanguage } from "./i18n";
 import { ModelViewer } from "./model-viewer";
+import { ThemeProvider } from "./theme";
 
 export function StudyApp({ catalog }: { catalog: Catalog }) {
   return (
-    <LanguageProvider>
-      <StudyShell catalog={catalog} />
-    </LanguageProvider>
+    <ThemeProvider>
+      <LanguageProvider>
+        <StudyShell catalog={catalog} />
+      </LanguageProvider>
+    </ThemeProvider>
   );
 }
 
