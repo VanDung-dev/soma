@@ -390,11 +390,15 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const focusStructures = (ids: string[], focusTarget?: string, revealFolder = false) => {
     const focusedId = !focusTarget && ids.length === 1 ? ids[0]! : "";
     if (!ids.length || !operate(renderer => {
-      if (focusTarget && revealFolder) {
-        renderer.set_visibility("[]");
-        renderer.change_visibility(JSON.stringify(ids), true,
-          window.matchMedia("(prefers-reduced-motion: reduce)").matches ? undefined : performance.now());
-      } else if (focusTarget || focusedId) renderer.set_visibility(JSON.stringify(ids));
+      if (focusTarget) {
+        const now = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? undefined : performance.now();
+        const focused = new Set(ids);
+        if (revealFolder) {
+          renderer.change_visibility(JSON.stringify(ids), false);
+          renderer.change_visibility(JSON.stringify(ids), true, now);
+        }
+        renderer.change_visibility(JSON.stringify(meshes.filter(part => !focused.has(part.source_id)).map(part => part.source_id)), false, now);
+      } else if (focusedId) renderer.set_visibility(JSON.stringify(ids));
       renderer.focus(JSON.stringify(ids), ...focusViewport());
       renderer.select(focusedId);
     })) return;

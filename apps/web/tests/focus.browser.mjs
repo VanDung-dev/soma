@@ -19,9 +19,10 @@ export async function checkFocusTree() {
     for (const detail of [1,2]) name.dispatchEvent(new MouseEvent('click', { bubbles: true, detail }));
     name.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 }));
   };
-  let focusCalls = 0, revealCalls = 0, lastIds, lastViewer, imageBounds;
+  let focusCalls = 0, revealCalls = 0, lastHide, lastIds, lastViewer, imageBounds;
   proto.change_visibility = function(ids, shown, ...args) {
     if (shown) revealCalls++;
+    else lastHide = { ids: JSON.parse(ids), now: args[0] };
     return originalVisibility.call(this,ids,shown,...args);
   };
   proto.focus = function(ids, ...frame) {
@@ -55,17 +56,45 @@ export async function checkFocusTree() {
     rootRow.querySelector('.folder-toggle').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     rootRow.querySelector('input').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     assert(focusCalls === 0, 'Disclosure and visibility controls must not trigger double-click focus');
+    assert(catalog.targets.filter(t => t.model).every(t => row(t).querySelector('input').checked),
+      'Start with all systems checked');
+    doubleClick(rootRow);
+    const rootIds = new Set(root.model.structure_ids);
+    const otherIds = new Set(catalog.targets.filter(t => t.model).flatMap(t => t.model.structure_ids).filter(id => !rootIds.has(id)));
+    assert(lastHide && Number.isFinite(lastHide.now) && lastHide.ids.length === otherIds.size
+      && lastHide.ids.every(id => otherIds.has(id)) && revealCalls === 0,
+      'Focusing a checked folder must animate hiding only the other systems');
+    assert(lastViewer.visible_count() === rootIds.size && lastViewer.advance_reconstruction(performance.now()),
+      'Outgoing systems must keep fading after focus updates logical visibility');
+    await new Promise(resolve => setTimeout(resolve, 750));
+    assert(!lastViewer.advance_reconstruction(performance.now()), 'The outgoing fade must complete');
+    [...document.querySelectorAll('.tree-actions button')].find(b => b.textContent === 'Hiện tất cả').click();
+    await new Promise(resolve => setTimeout(resolve, 750));
+    rootRow.querySelector('input').click(); await wait();
+    assert(rootRow.classList.contains('is-selected') && !rootRow.querySelector('input').checked,
+      'Keep a selected folder unchecked to reproduce the visibility guard bug');
+    let revealsBefore = revealCalls;
+    doubleClick(rootRow); await wait();
+    assert(revealCalls === revealsBefore + 1 && rootRow.querySelector('input').checked,
+      'An unchecked folder must reveal even when its row is selected');
+    row(catalog.targets.find(t => t.model && t.id !== root.id)).querySelector('.tree-name').click(); await wait();
+    assert(!rootRow.classList.contains('is-selected') && rootRow.querySelector('input').checked,
+      'Keep a visible folder checked after selecting a different row');
+    revealsBefore = revealCalls;
+    doubleClick(rootRow); await wait();
+    assert(revealCalls === revealsBefore, 'A checked folder must skip reveal even when its row was not selected');
+    const beforeKeyboard = focusCalls, revealsBeforeKeyboard = revealCalls;
     const shortcut = new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true, cancelable: true });
     name.dispatchEvent(shortcut); await wait();
-    assert(shortcut.defaultPrevented && focusCalls === 1 && lastIds.length === root.model.structure_ids.length,
+    assert(shortcut.defaultPrevented && focusCalls === beforeKeyboard + 1 && lastIds.length === root.model.structure_ids.length,
       'Offer Shift+Enter as the keyboard equivalent of folder focus');
-    assert(revealCalls === 0, 'A selected folder must skip the reveal when focused from the keyboard');
+    assert(revealCalls === revealsBeforeKeyboard, 'A checked folder must skip the reveal when focused from the keyboard');
     for (const system of catalog.targets.filter(t => t.model)) {
-      const before = focusCalls, revealsBefore = revealCalls, wasSelected = row(system).classList.contains('is-selected');
+      const before = focusCalls, revealsBefore = revealCalls, wasChecked = row(system).querySelector('input').checked;
       doubleClick(row(system)); await wait();
       assert(focusCalls === before + 1, 'Double-click must focus once after the two normal click events');
-      assert(revealCalls === revealsBefore + (wasSelected ? 0 : 1),
-        'Use the selection before the first click to reveal a newly focused folder');
+      assert(revealCalls === revealsBefore + (wasChecked ? 0 : 1),
+        'Use checkbox visibility to decide whether folder focus needs a reveal');
       const expected = new Set(system.model.structure_ids);
       assert(lastIds.length === expected.size && lastIds.every(id => expected.has(id))
         && lastViewer.visible_count() === expected.size && row(system).querySelector('input').checked,
@@ -77,7 +106,7 @@ export async function checkFocusTree() {
       }
       const focusedReveals = revealCalls;
       doubleClick(row(system)); await wait();
-      assert(revealCalls === focusedReveals, 'Repeated double-click must not restart an already selected folder reveal');
+      assert(revealCalls === focusedReveals, 'Repeated double-click must not restart an already checked folder reveal');
     }
     [...document.querySelectorAll('.tree-actions button')].find(b => b.textContent === 'Ẩn tất cả').click();
     await wait();
@@ -116,7 +145,11 @@ export async function checkFocusTree() {
     assert(lastViewer.visible_count() === child.structure_ids.length && child.structure_ids.every(id => lastIds.includes(id))
       && row(child).querySelector('input').checked && row(branch).querySelector('input').indeterminate,
       'Child double-click must isolate its own branch');
-    row(branch).dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); await wait();
+    row(branch).querySelector('.tree-name').click(); await wait();
+    assert(row(branch).querySelector('input').indeterminate, 'Keep a partially visible folder selected');
+    revealsBefore = revealCalls;
+    doubleClick(row(branch)); await wait();
+    assert(revealCalls === revealsBefore + 1, 'A mixed checkbox must reveal the complete folder');
     assert(row(root).querySelector('input').indeterminate, 'Partially enabled system must remain indeterminate');
     row(otherBranch).querySelector('input').click(); await wait();
     const visibleCount = new Set([...branch.structure_ids, ...otherBranch.structure_ids]).size;
@@ -129,7 +162,8 @@ export async function checkFocusTree() {
     return { generalFocusRemoved: true, allFocusButtonsRemoved: true, doubleClickFocus: true, keyboardFocus: true, raisedTree: true, countInRightColumn: true,
       systemsMatchCheckboxes: true, skeletalExcludesJoints: true, smallModel: true, exactIds: true, checkboxDoesNotZoom: true,
       descendantsEnabled: true, folderIsolates: true, childFolderIsolates: true, individualIsolates: true,
-      checkboxSynchronized: true, viewportFits: true, newFolderReveal: true, selectedFolderSkipsReveal: true };
+      checkboxSynchronized: true, viewportFits: true, uncheckedFolderReveal: true, checkedFolderSkipsReveal: true,
+      selectionDoesNotControlReveal: true, mixedFolderReveal: true, outgoingFolderFade: true };
   } finally {
     proto.focus = originalFocus; proto.render = originalRender; proto.change_visibility = originalVisibility;
   }
