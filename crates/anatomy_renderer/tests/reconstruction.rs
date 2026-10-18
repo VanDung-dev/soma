@@ -1,5 +1,49 @@
-use anatomy_renderer::{Reconstruction, Scene};
+use anatomy_renderer::{Primitive, Reconstruction, Scene};
 use std::path::Path;
+
+#[test]
+fn visibility_reveals_only_changed_parts_and_reverses_from_the_displayed_value() {
+    let mut parts: Vec<Primitive> = (0..3).map(|i| serde_json::from_value(serde_json::json!({
+        "source_id": i.to_string(), "bounds": {"min": [0.0,i as f32,0.0], "max": [0.1,i as f32 + 0.1,0.1]},
+        "color": [0.5,0.5,0.5,1.0], "roughness": 0.6, "metallic": 0.0,
+        "specular": 0.04, "subsurface": 0.0, "double_sided": false, "blend": false,
+        "alpha_cutoff": 0.0, "active": true, "visible": true
+    })).unwrap()).collect();
+    let mut reveal = Reconstruction::default();
+    reveal
+        .append(&parts, parts[0].bounds.union(parts[2].bounds), 0.0, false)
+        .unwrap();
+    parts[0].visible = false;
+    parts[1].visible = false;
+    reveal.set_visibility(&parts, Some(1000.0)).unwrap();
+    assert_eq!(reveal.opacity(0), 1.0);
+    assert!(reveal.fading_out(0));
+    assert!(reveal.advance(1150.0).unwrap());
+    assert!((reveal.opacity(0) - 0.5).abs() < 1e-6);
+    assert_eq!(reveal.opacity(1), 1.0, "Hide from the feet upward");
+    assert_eq!(reveal.opacity(2), 1.0, "Leave other systems unchanged");
+    parts[0].visible = true;
+    reveal.set_visibility(&parts, Some(1150.0)).unwrap();
+    assert!(
+        (reveal.opacity(0) - 0.5).abs() < 1e-6,
+        "Rapid reversal must not jump"
+    );
+    assert!(!reveal.fading_out(0));
+    assert!(reveal.set_visibility(&parts, Some(f64::NAN)).is_err());
+    assert!(reveal.set_visibility(&parts, Some(1100.0)).is_err());
+    reveal.finish();
+    assert_eq!(reveal.opacity(0), 1.0);
+    assert_eq!(reveal.opacity(1), 0.0);
+    assert!(!reveal.fading_out(1));
+    parts[1].visible = true;
+    reveal.set_visibility(&parts, None).unwrap();
+    assert_eq!(
+        reveal.opacity(1),
+        1.0,
+        "Reduced motion must finish immediately"
+    );
+    assert!(!reveal.advance(2000.0).unwrap());
+}
 
 #[test]
 fn reconstruction_reveals_feet_before_head_and_finishes_without_changing_visibility() {

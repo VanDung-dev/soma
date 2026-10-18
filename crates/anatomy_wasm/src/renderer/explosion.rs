@@ -148,7 +148,8 @@ impl AnatomyViewer {
             return Ok(());
         }
         let aspect = self.camera.aspect * self.layout_frame[2] / self.layout_frame[3];
-        self.explosion.layout(&self.scene, aspect);
+        self.explosion
+            .layout_revealed(&self.scene, aspect, &self.reconstruction);
         if let Some(original) = &self.explosion_camera {
             if !self.explosion_target.is_empty() && self.explosion.amount() > 0.0 {
                 self.shadow_cached.set(false);
@@ -156,7 +157,12 @@ impl AnatomyViewer {
             }
             let mut goal = if self.explosion.amount() > 0.0 {
                 self.explosion
-                    .overview_camera(&self.scene, self.camera.aspect, self.layout_frame)
+                    .overview_camera_revealed(
+                        &self.scene,
+                        self.camera.aspect,
+                        self.layout_frame,
+                        &self.reconstruction,
+                    )
                     .map_err(js_error)?
             } else {
                 original.clone()

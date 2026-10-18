@@ -97,6 +97,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       const now = performance.now();
       try {
         cameraAnimating.current = viewer.current!.advance_camera(now);
+        const revealing = !animating.current && viewer.current!.advance_reconstruction(now);
         if (animating.current) {
           if (now - lastAnimationFrame.current >= 1000 / 30) {
             lastAnimationFrame.current = now;
@@ -111,7 +112,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
             explosionMode.current = false; reassembling.current = false;
           }
         } else viewer.current?.render();
-        if (cameraAnimating.current) scheduleRender();
+        if (cameraAnimating.current || revealing) scheduleRender();
       }
       catch (cause) { failed.current = true; animating.current = false; console.error(cause); setError(true); setStatus("Không thể hiển thị mô hình. Hãy tải lại trang để thử lại."); }
     });
@@ -378,17 +379,22 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const heading = selectedPart ? structureName(selectedPart) : target ? targetName(target) : "Khám phá cơ thể";
   const englishName = selectedPart ? structureName(selectedPart, "en") : target ? targetName(target, "en") : "";
   const changeVisibility = (ids: string[], shown: boolean) => {
-    if (!operate(renderer => renderer.change_visibility(JSON.stringify(ids), shown))) return;
+    if (!operate(renderer => renderer.change_visibility(JSON.stringify(ids), shown,
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ? undefined : performance.now()))) return;
     setVisibleIds(current => {
       const next = new Set(current);
       for (const id of ids) { if (shown) next.add(id); else next.delete(id); }
       return next;
     });
   };
-  const focusStructures = (ids: string[], focusTarget?: string) => {
+  const focusStructures = (ids: string[], focusTarget?: string, revealFolder = false) => {
     const focusedId = !focusTarget && ids.length === 1 ? ids[0]! : "";
     if (!ids.length || !operate(renderer => {
-      if (focusTarget || focusedId) renderer.set_visibility(JSON.stringify(ids));
+      if (focusTarget && revealFolder) {
+        renderer.set_visibility("[]");
+        renderer.change_visibility(JSON.stringify(ids), true,
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches ? undefined : performance.now());
+      } else if (focusTarget || focusedId) renderer.set_visibility(JSON.stringify(ids));
       renderer.focus(JSON.stringify(ids), ...focusViewport());
       renderer.select(focusedId);
     })) return;

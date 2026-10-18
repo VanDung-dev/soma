@@ -209,7 +209,7 @@ impl AnatomyViewer {
             .iter()
             .enumerate()
             .filter(|(i, p)| {
-                p.visible
+                (p.visible || (!picking && self.reconstruction.fading_out(*i)))
                     && (!shadow_pass || !p.blend || opaque_layout)
                     && self.reconstruction.opacity(*i) > 0.0
             })

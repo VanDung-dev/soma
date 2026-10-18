@@ -4,6 +4,7 @@ import { getCatalog, getWasm } from '../src/core.ts';
 export async function checkFocusTree() {
   const catalog = await getCatalog(), { AnatomyViewer } = await getWasm();
   const proto = AnatomyViewer.prototype, originalFocus = proto.focus, originalRender = proto.render;
+  const originalVisibility = proto.change_visibility;
   const canvas = document.querySelector('.model-canvas canvas'), gl = canvas.getContext('webgl2');
   const assert = (ok, message) => { if (!ok) throw Error(message); };
   assert(document.querySelector('.model-canvas').getAttribute('aria-busy') === 'false' && !document.querySelector('.model-error'),
@@ -15,9 +16,14 @@ export async function checkFocusTree() {
   const row = target => document.querySelector(`[data-target-id="${target.id}"] > .tree-row`);
   const doubleClick = element => {
     const name = element.querySelector('.tree-name');
-    name.click(); name.click(); name.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    for (const detail of [1,2]) name.dispatchEvent(new MouseEvent('click', { bubbles: true, detail }));
+    name.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 }));
   };
-  let focusCalls = 0, lastIds, lastViewer, imageBounds;
+  let focusCalls = 0, revealCalls = 0, lastIds, lastViewer, imageBounds;
+  proto.change_visibility = function(ids, shown, ...args) {
+    if (shown) revealCalls++;
+    return originalVisibility.call(this,ids,shown,...args);
+  };
   proto.focus = function(ids, ...frame) {
     focusCalls++; lastIds = JSON.parse(ids); lastViewer = this;
     return originalFocus.call(this, ids, ...frame);
@@ -53,10 +59,13 @@ export async function checkFocusTree() {
     name.dispatchEvent(shortcut); await wait();
     assert(shortcut.defaultPrevented && focusCalls === 1 && lastIds.length === root.model.structure_ids.length,
       'Offer Shift+Enter as the keyboard equivalent of folder focus');
+    assert(revealCalls === 0, 'A selected folder must skip the reveal when focused from the keyboard');
     for (const system of catalog.targets.filter(t => t.model)) {
-      const before = focusCalls;
+      const before = focusCalls, revealsBefore = revealCalls, wasSelected = row(system).classList.contains('is-selected');
       doubleClick(row(system)); await wait();
       assert(focusCalls === before + 1, 'Double-click must focus once after the two normal click events');
+      assert(revealCalls === revealsBefore + (wasSelected ? 0 : 1),
+        'Use the selection before the first click to reveal a newly focused folder');
       const expected = new Set(system.model.structure_ids);
       assert(lastIds.length === expected.size && lastIds.every(id => expected.has(id))
         && lastViewer.visible_count() === expected.size && row(system).querySelector('input').checked,
@@ -66,6 +75,9 @@ export async function checkFocusTree() {
         assert(!row(joints).querySelector('input').checked && !row(joints).querySelector('input').indeterminate,
           'Skeletal focus must not enable any joints');
       }
+      const focusedReveals = revealCalls;
+      doubleClick(row(system)); await wait();
+      assert(revealCalls === focusedReveals, 'Repeated double-click must not restart an already selected folder reveal');
     }
     [...document.querySelectorAll('.tree-actions button')].find(b => b.textContent === 'Ẩn tất cả').click();
     await wait();
@@ -117,8 +129,8 @@ export async function checkFocusTree() {
     return { generalFocusRemoved: true, allFocusButtonsRemoved: true, doubleClickFocus: true, keyboardFocus: true, raisedTree: true, countInRightColumn: true,
       systemsMatchCheckboxes: true, skeletalExcludesJoints: true, smallModel: true, exactIds: true, checkboxDoesNotZoom: true,
       descendantsEnabled: true, folderIsolates: true, childFolderIsolates: true, individualIsolates: true,
-      checkboxSynchronized: true, viewportFits: true };
+      checkboxSynchronized: true, viewportFits: true, newFolderReveal: true, selectedFolderSkipsReveal: true };
   } finally {
-    proto.focus = originalFocus; proto.render = originalRender;
+    proto.focus = originalFocus; proto.render = originalRender; proto.change_visibility = originalVisibility;
   }
 }

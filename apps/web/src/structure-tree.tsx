@@ -14,7 +14,7 @@ interface TreeProps {
   onVisibility: (ids: string[], shown: boolean) => void;
   onSelect: (id: string) => void;
   onTarget: (id: string) => void;
-  onFocus: (ids: string[], targetId?: string) => void;
+  onFocus: (ids: string[], targetId?: string, revealFolder?: boolean) => void;
 }
 
 export function Magnifier() {
@@ -77,9 +77,18 @@ function Folder({ target, childrenById, structures, props, revealPath, revealRow
   const directIds = ids.filter(id => !nestedIds.has(id));
   const title = targetName(target);
   const english = targetName(target, "en");
-  const focusFolder = () => { if (!props.disabled && ids.length) props.onFocus(ids, target.id); };
+  // The first click selects the row before the dblclick event arrives.
+  const selectedBeforeClick = useRef<boolean | undefined>(undefined);
+  const focusFolder = (reveal = props.targetId !== target.id) => {
+    selectedBeforeClick.current = undefined;
+    if (!props.disabled && ids.length) props.onFocus(ids, target.id, reveal);
+  };
   return <li data-target-id={target.id}>
-    <div className={`tree-row folder-row${props.targetId === target.id ? " is-selected" : ""}`} onDoubleClick={focusFolder}>
+    <div className={`tree-row folder-row${props.targetId === target.id ? " is-selected" : ""}`}
+      onClickCapture={event => { if (event.detail === 1) selectedBeforeClick.current = props.targetId === target.id; }}
+      onDoubleClick={() => {
+        focusFolder(!(selectedBeforeClick.current ?? (props.targetId === target.id)));
+      }}>
       <button className="folder-toggle" aria-label={`${open ? "Đóng" : "Mở"} ${title}`} aria-expanded={open}
         onClick={() => setOpen(!open)} onDoubleClick={event => event.stopPropagation()}>{open ? "▾" : "▸"}</button>
       {ids.length > 0

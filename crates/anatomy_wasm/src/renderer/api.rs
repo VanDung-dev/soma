@@ -77,22 +77,46 @@ impl AnatomyViewer {
     }
 
     pub fn render_reconstruction(&mut self, now: f64) -> Result<bool, JsValue> {
-        let active = self.reconstruction.advance(now).map_err(js_error)?;
-        self.shadow_cached.set(false);
+        let active = self.advance_reconstruction(now)?;
         self.draw(false);
         Ok(active)
     }
 
-    pub fn finish_reconstruction(&mut self) {
-        self.reconstruction.finish();
+    pub fn advance_reconstruction(&mut self, now: f64) -> Result<bool, JsValue> {
+        let hiding = (0..self.scene.parts.len()).any(|i| self.reconstruction.fading_out(i));
+        let active = self.reconstruction.advance(now).map_err(js_error)?;
+        if hiding && !active && self.exploding {
+            let before = self.camera.clone();
+            self.relayout_explosion()?;
+            self.transition_camera(before, Some(now));
+        }
         self.shadow_cached.set(false);
+        Ok(active)
+    }
+
+    pub fn finish_reconstruction(&mut self) -> Result<(), JsValue> {
+        self.reconstruction.finish();
+        self.relayout_explosion()?;
+        self.shadow_cached.set(false);
+        Ok(())
     }
 
     /// The host calls render once after batching mutations for the next frame.
-    pub fn change_visibility(&mut self, ids_json: &str, shown: bool) -> Result<(), JsValue> {
+    pub fn change_visibility(
+        &mut self,
+        ids_json: &str,
+        shown: bool,
+        now: Option<f64>,
+    ) -> Result<(), JsValue> {
+        if let Some(now) = now {
+            self.reconstruction.check_time(now).map_err(js_error)?;
+        }
         let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
         self.scene
             .change_visibility(&ids, shown)
+            .map_err(js_error)?;
+        self.reconstruction
+            .set_visibility(&self.scene.parts, now)
             .map_err(js_error)?;
         self.relayout_explosion()?;
         self.shadow_cached.set(false);
@@ -102,6 +126,9 @@ impl AnatomyViewer {
     pub fn set_visibility(&mut self, ids_json: &str) -> Result<(), JsValue> {
         let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
         self.scene.set_visibility(&ids).map_err(js_error)?;
+        self.reconstruction
+            .set_visibility(&self.scene.parts, None)
+            .map_err(js_error)?;
         self.relayout_explosion()?;
         self.shadow_cached.set(false);
         Ok(())
@@ -257,7 +284,11 @@ impl AnatomyViewer {
 
     pub fn subset(&mut self, ids_json: &str) -> Result<(), JsValue> {
         let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
-        if let Some(bounds) = self.scene.subset(&ids).map_err(js_error)? {
+        let bounds = self.scene.subset(&ids).map_err(js_error)?;
+        self.reconstruction
+            .set_visibility(&self.scene.parts, None)
+            .map_err(js_error)?;
+        if let Some(bounds) = bounds {
             self.cancel_camera_transition();
             self.explosion_camera = None;
             self.relayout_explosion()?;
@@ -292,6 +323,9 @@ impl AnatomyViewer {
         )
         .map_err(js_error)?;
         self.scene.change_visibility(&ids, true).map_err(js_error)?;
+        self.reconstruction
+            .set_visibility(&self.scene.parts, None)
+            .map_err(js_error)?;
         self.cancel_camera_transition();
         self.explosion_camera = None;
         self.relayout_explosion()?;
@@ -333,11 +367,17 @@ impl AnatomyViewer {
         if action == "reset" {
             if self.exploding && self.explosion.amount() > 0.0 {
                 let aspect = self.camera.aspect * self.layout_frame[2] / self.layout_frame[3];
-                self.explosion.layout(&self.scene, aspect);
+                self.explosion
+                    .layout_revealed(&self.scene, aspect, &self.reconstruction);
                 self.explosion.finish();
                 self.camera = self
                     .explosion
-                    .overview_camera(&self.scene, self.camera.aspect, self.layout_frame)
+                    .overview_camera_revealed(
+                        &self.scene,
+                        self.camera.aspect,
+                        self.layout_frame,
+                        &self.reconstruction,
+                    )
                     .map_err(js_error)?;
             } else {
                 self.explosion.finish();
@@ -345,23 +385,29 @@ impl AnatomyViewer {
                 self.camera
                     .resize(self.canvas.width(), self.canvas.height());
             }
-        } else if let Some(bounds) = self.scene.inspect(action).map_err(js_error)? {
-            self.relayout_explosion()?;
-            self.explosion.finish();
-            let ids: std::collections::HashSet<_> = if action == "all" {
-                self.scene
-                    .parts
-                    .iter()
-                    .filter(|p| p.visible)
-                    .map(|p| p.source_id.clone())
-                    .collect()
-            } else {
-                [self.scene.selected.clone()].into_iter().collect()
-            };
-            self.camera.fit(
-                self.display_bounds(&ids.into_iter().collect::<Vec<_>>())?
-                    .unwrap_or(bounds),
-            );
+        } else {
+            let bounds = self.scene.inspect(action).map_err(js_error)?;
+            self.reconstruction
+                .set_visibility(&self.scene.parts, None)
+                .map_err(js_error)?;
+            if let Some(bounds) = bounds {
+                self.relayout_explosion()?;
+                self.explosion.finish();
+                let ids: std::collections::HashSet<_> = if action == "all" {
+                    self.scene
+                        .parts
+                        .iter()
+                        .filter(|p| p.visible)
+                        .map(|p| p.source_id.clone())
+                        .collect()
+                } else {
+                    [self.scene.selected.clone()].into_iter().collect()
+                };
+                self.camera.fit(
+                    self.display_bounds(&ids.into_iter().collect::<Vec<_>>())?
+                        .unwrap_or(bounds),
+                );
+            }
         }
         self.center_camera()?;
         self.transition_camera(before, now);

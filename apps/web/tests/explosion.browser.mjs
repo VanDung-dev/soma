@@ -10,6 +10,11 @@ export async function checkExplosion() {
   const gl = canvas.getContext('webgl2'), locations = new Map(), offsets = [];
   const getLocation = gl.getUniformLocation, setVector = gl.uniform3fv, setMatrix = gl.uniformMatrix4fv;
   let matrix, viewer, sphereDraws = 0;
+  const reveals = [], setFloat = gl.uniform1f;
+  gl.uniform1f = function(location, value) {
+    if (locations.get(location) === 'reveal') reveals.push(value);
+    return setFloat.call(this, location, value);
+  };
   const drawArrays = gl.drawArrays;
   gl.drawArrays = function(...args) { sphereDraws++; return drawArrays.apply(this,args); };
   gl.getUniformLocation = function(program, name) {
@@ -35,7 +40,7 @@ export async function checkExplosion() {
     indices.push(base,base+1,base+2,base,base+2,base+3);
   }
   const pixels = () => {
-    offsets.length = 0; sphereDraws = 0; viewer.render();
+    offsets.length = 0; reveals.length = 0; sphereDraws = 0; viewer.render();
     const rgba = new Uint8Array(256 * 256 * 4);
     gl.readPixels(0, 0, 256, 256, gl.RGBA, gl.UNSIGNED_BYTE, rgba);
     assert(gl.getError() === gl.NO_ERROR, 'Explosion produced a WebGL error');
@@ -52,7 +57,22 @@ export async function checkExplosion() {
         parts: [part('a',-0.9,-0.55),part('a',-0.55,-0.2),part('b',0.2,0.9)] },
       draws: [[6,0],[6,24],[6,48]], vertex_count: 12, index_count: 18 })]);
     viewer.configure_explosion('[["a"],["b"]]');
+    const assembled = pixels();
+    viewer.select('a'); viewer.change_visibility('["a"]', false, 100);
     pixels();
+    assert(viewer.visible_count() === 1 && viewer.selected_id() === '', 'Hiding updates logical visibility and clears selection immediately');
+    assert(reveals.slice(-3).every(value => value === 1), 'The hidden system must start fading from its displayed state');
+    assert(viewer.advance_reconstruction(250), 'Animate only the changed system'); pixels();
+    assert(reveals.slice(-3).every((value,i) => Math.abs(value - (i < 2 ? 0.5 : 1)) < 1e-6),
+      'Fade every material of the changed structure while keeping the other system fully visible');
+    assert(pickCenter(-0.72,[0,0,0]) === '', 'A fading hidden structure must stop intercepting clicks');
+    viewer.change_visibility('["a"]', true, 250); pixels();
+    assert(Math.abs(reveals.at(-3) - 0.5) < 1e-6, 'Rapid toggles must reverse without restarting the reveal');
+    viewer.finish_reconstruction();
+    assert(pixels().every((value,i) => value === assembled[i]), 'Finishing the reveal must restore the exact original image');
+    viewer.change_visibility('["a"]', false); pixels();
+    assert(reveals.at(-1) === 1 && viewer.visible_count() === 1, 'Reduced motion hides immediately without affecting other systems');
+    viewer.set_visibility('["a","b"]'); pixels();
     const defaultMatrix = JSON.stringify(matrix);
     // Start manual-camera checks wide enough for the full system-sized layer spacing.
     viewer.set_explode_mode(true); viewer.set_explode(0.6, 0, false); viewer.inspect('reset');
@@ -337,7 +357,8 @@ export async function checkExplosion() {
       closeRestoresCamera: true, repeatedClosePreservesView: true, resetClearsCenter: true,
       smoothCamera: true, rapidToggles: true, manualInterrupt: true, reducedMotionFinish: true,
       unselectedOverview: true, overviewFitsPanels: true, overviewRestoresCamera: true, focusCancelsOverview: true,
-      selectedContainment: true, selectedCentering: true, smoothSelectedTracking: true, selectedTrackingInterrupt: true };
+      selectedContainment: true, selectedCentering: true, smoothSelectedTracking: true, selectedTrackingInterrupt: true,
+      partialVisibilityAnimation: true, reversibleVisibility: true, hiddenPicking: true };
   } finally { viewer?.free(); canvas.remove(); }
 }
 

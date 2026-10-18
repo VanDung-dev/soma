@@ -1,4 +1,4 @@
-use crate::{Bounds, Camera, Scene};
+use crate::{Bounds, Camera, Reconstruction, Scene};
 use glam::Vec3;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -59,9 +59,23 @@ impl Explosion {
     }
 
     pub fn layout(&mut self, scene: &Scene, aspect: f32) -> Bounds {
+        self.layout_revealed(scene, aspect, &Reconstruction::default())
+    }
+
+    pub fn layout_revealed(
+        &mut self,
+        scene: &Scene,
+        aspect: f32,
+        reveal: &Reconstruction,
+    ) -> Bounds {
         // Shelf layout adapted from human-atlas-demo; see LICENSES/human-atlas-demo-MIT.txt.
         let mut structures = BTreeMap::<&str, Bounds>::new();
-        for part in scene.parts.iter().filter(|p| p.visible) {
+        for (_, part) in scene
+            .parts
+            .iter()
+            .enumerate()
+            .filter(|(i, p)| p.visible || reveal.fading_out(*i))
+        {
             structures
                 .entry(&part.source_id)
                 .and_modify(|bounds| *bounds = bounds.union(part.bounds))
@@ -130,7 +144,7 @@ impl Explosion {
             .parts
             .iter()
             .enumerate()
-            .filter(|(_, p)| p.visible)
+            .filter(|(i, p)| p.visible || reveal.fading_out(*i))
             .map(|(i, p)| p.bounds.translated(self.targets[i]))
             .reduce(Bounds::union)
             .unwrap_or(scene.bounds)
@@ -142,12 +156,23 @@ impl Explosion {
         aspect: f32,
         frame: [f32; 4],
     ) -> Result<Camera, String> {
+        self.overview_camera_revealed(scene, aspect, frame, &Reconstruction::default())
+    }
+
+    pub fn overview_camera_revealed(
+        &self,
+        scene: &Scene,
+        aspect: f32,
+        frame: [f32; 4],
+        reveal: &Reconstruction,
+    ) -> Result<Camera, String> {
         let displayed: Vec<_> = scene
             .parts
             .iter()
             .zip(&self.targets)
-            .filter(|(part, _)| part.visible)
-            .map(|(part, offset)| part.bounds.translated(*offset))
+            .enumerate()
+            .filter(|(i, (part, _))| part.visible || reveal.fading_out(*i))
+            .map(|(_, (part, offset))| part.bounds.translated(*offset))
             .collect();
         let bounds = displayed
             .iter()

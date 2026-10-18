@@ -1,4 +1,4 @@
-use anatomy_renderer::{Bounds, Camera, Explosion, Primitive, Scene};
+use anatomy_renderer::{Bounds, Camera, Explosion, Primitive, Reconstruction, Scene};
 use glam::Vec3;
 
 fn scene() -> Scene {
@@ -28,6 +28,33 @@ fn scene() -> Scene {
 
 fn groups() -> Vec<Vec<String>> {
     vec![vec!["a".into()], vec!["b".into(), "c".into()]]
+}
+
+#[test]
+fn fading_systems_keep_their_separated_positions_until_they_disappear() {
+    let mut scene = scene();
+    let mut reveal = Reconstruction::default();
+    reveal
+        .append(&scene.parts, scene.bounds, 0.0, false)
+        .unwrap();
+    let mut explosion = Explosion::new(&scene, groups()).unwrap();
+    explosion.set(0.3, 0.0).unwrap();
+    explosion.layout(&scene, 1.0);
+    explosion.finish();
+    let before = explosion.offset(0);
+    scene.change_visibility(&["a".into()], false).unwrap();
+    reveal.set_visibility(&scene.parts, Some(100.0)).unwrap();
+    explosion.layout_revealed(&scene, 1.0, &reveal);
+    explosion.finish();
+    assert_eq!(
+        explosion.offset(0),
+        before,
+        "Fading tissue must stay in its depth layer"
+    );
+    reveal.finish();
+    explosion.layout_revealed(&scene, 1.0, &reveal);
+    explosion.finish();
+    assert_eq!(explosion.offset(0), Vec3::ZERO);
 }
 
 #[test]
