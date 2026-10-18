@@ -8,21 +8,13 @@ ASSET_DIR = ROOT / 'src' / 'icons' / 'line-md'
 GALLERY = ROOT / 'tools' / 'line-md-gallery.html'
 SOURCE = 'https://raw.githubusercontent.com/cyberalien/line-md/main/svg'
 GROUPS = {
-    'Công tắc': [
-        'switch-off',
-        'switch-to-switch-off-transition',
-        'switch-off-twotone-to-switch-twotone-transition',
-        'switch-twotone',
-    ],
     'Giao diện': [
-        'sunny-outline-to-moon-alt-loop-transition',
         'sunny',
         'moon-alt',
-        'moon-to-sunny-outline-loop-transition',
+        'star-alt',
     ],
     'Điều hướng': [
         'arrow-small-left',
-        'arrow-small-right',
         'chevron-small-right',
         'chevron-small-down',
     ],
@@ -30,9 +22,7 @@ GROUPS = {
         'cog',
     ],
     'Xác nhận': [
-        'square',
         'square-to-confirm-square-twotone-transition',
-        'confirm-square-twotone',
         'confirm-square-twotone-to-square-transition',
         'alert-circle',
         'close-small',
