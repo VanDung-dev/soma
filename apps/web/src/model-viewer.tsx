@@ -467,10 +467,10 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
             <h2>{heading}</h2>
             {englishName && englishName !== heading && <p className="international-name" lang="en">{englishName}</p>}
           </div>
-          {referenceName && <button ref={readerToggle} className="reader-expand" aria-expanded={readerExpanded} aria-controls="information-content"
+          <button ref={readerToggle} className="reader-expand" aria-expanded={readerExpanded} aria-controls="information-content"
             onClick={() => setReaderExpanded(value => !value)}>
             {readerExpanded ? "Thu nhỏ" : "Mở rộng"}
-          </button>}
+          </button>
         </header>
         <div className="information-content" id="information-content">
           <div className="information-details">
