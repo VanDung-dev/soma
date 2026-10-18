@@ -20,6 +20,10 @@ export async function checkTheme() {
     const track = control.getBoundingClientRect();
     const thumb = control.querySelector('.settings-theme-thumb').getBoundingClientRect();
     assert(thumb.left >= track.left && thumb.right <= track.right && thumb.top >= track.top && thumb.bottom <= track.bottom, 'Keep the thumb inside its track');
+    assert(getComputedStyle(control.closest('.settings-row')).borderRadius === '14px', 'Use Radius 2 for the settings row');
+    assert(getComputedStyle(control).borderRadius === '4px' && getComputedStyle(slider).borderRadius === '4px', 'Use Radius 3 for the track and input');
+    const thumbStyle = getComputedStyle(control.querySelector('.settings-theme-thumb'));
+    assert(parseFloat(thumbStyle.borderRadius) === 4 - parseFloat(thumbStyle.left), 'Derive the thumb radius from the track inset');
   };
   const popover = control.closest('[popover]');
   const wasOpen = popover.matches(':popover-open');

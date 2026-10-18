@@ -1,5 +1,6 @@
 import alertCircle from "./icons/line-md/alert-circle.svg?raw";
 import arrowSmallLeft from "./icons/line-md/arrow-small-left.svg?raw";
+import arrowSmallRight from "./icons/line-md/arrow-small-right.svg?raw";
 import chevronSmallDown from "./icons/line-md/chevron-small-down.svg?raw";
 import chevronSmallRight from "./icons/line-md/chevron-small-right.svg?raw";
 import closeSmall from "./icons/line-md/close-small.svg?raw";
@@ -13,6 +14,7 @@ import sunny from "./icons/line-md/sunny.svg?raw";
 const icons = {
   "alert-circle": alertCircle,
   "arrow-small-left": arrowSmallLeft,
+  "arrow-small-right": arrowSmallRight,
   "chevron-small-down": chevronSmallDown,
   "chevron-small-right": chevronSmallRight,
   "close-small": closeSmall,

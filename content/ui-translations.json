@@ -17,6 +17,14 @@
       "vi": "Về góc nhìn tổng thể",
       "en": "Return to overview"
     },
+    "app.back": {
+      "vi": "Quay lại",
+      "en": "Back"
+    },
+    "app.forward": {
+      "vi": "Tiến tới",
+      "en": "Forward"
+    },
     "app.help": {
       "vi": "Trợ giúp",
       "en": "Help"

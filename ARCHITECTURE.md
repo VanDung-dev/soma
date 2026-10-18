@@ -44,6 +44,10 @@ flowchart LR
 the article being read, reader expansion and the explosion control value.
 React subscribes with `useSyncExternalStore`. Treat snapshots and their collections
 as read-only. Expanded tree branches and the search query remain local UI state.
+The session also owns Back/Forward history for selected and focused anatomy
+destinations. Hover, visibility controls and manual camera movement do not add
+history entries. Returning to a focused destination reapplies its focus command;
+navigation does not store individual pan, rotation or zoom positions.
 
 The runtime owns its canvas, WASM instance, worker lifecycle, animation scheduling,
 input bindings and observers. Rust owns rendered geometry, camera coordinates and

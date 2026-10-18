@@ -24,7 +24,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const runtime = useRef<ViewerRuntime | null>(null);
   const session = useMemo(() => new StudySession(catalog), [catalog]);
   const { meshes, building, error, status, loadedSystems, selected, hovered, readingId, targetId,
-    visibleIds, readerExpanded, explosionAmount, reveal } = useSyncExternalStore(session.subscribe, session.getSnapshot);
+    visibleIds, readerExpanded, explosionAmount, reveal, canGoBack, canGoForward } = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const roots = session.catalog.roots;
   const target = targetId ? session.catalog.targets.get(targetId) : undefined;
   const focusViewport = () => measureViewport({ host: host.current!, frame: focusFrame.current!,
@@ -80,7 +80,8 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         : status === "Đang hoàn thiện cơ thể…" ? t("viewer.status.finishing") : status;
   return (
     <>
-      <MenuBar disabled={building || error} onBack={session.overview} helpId={helpId} />
+      <MenuBar disabled={building || error} canGoBack={canGoBack} canGoForward={canGoForward}
+        onBack={session.back} onForward={session.forward} helpId={helpId} />
       <ModelControls disabled={building || error} onControl={session.control} helpId={helpId} />
       <aside ref={catalogPanel} className="catalog-panel" aria-label={t("catalog.navigation.label")}>
         <div className="catalog-heading"><h2>{t("catalog.heading")}</h2><span>{t("catalog.systemCount", { count: catalog.groups.length })}</span></div>

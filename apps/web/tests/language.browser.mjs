@@ -17,7 +17,11 @@ export async function checkLanguage() {
     const track = control.getBoundingClientRect();
     const thumb = control.querySelector('.settings-language-thumb').getBoundingClientRect();
     const option = control.querySelectorAll('.settings-language-option')[Number(value)].getBoundingClientRect();
-    assert(thumb.width === thumb.height && thumb.width === 30, 'Use the same circular thumb as theme');
+    assert(thumb.width === thumb.height && thumb.width === 30, 'Keep the same thumb size as theme');
+    assert(getComputedStyle(control.closest('.settings-row')).borderRadius === '14px', 'Use Radius 2 for the settings row');
+    assert(getComputedStyle(control).borderRadius === '4px' && getComputedStyle(slider).borderRadius === '4px', 'Use Radius 3 for the track and input');
+    const thumbStyle = getComputedStyle(control.querySelector('.settings-language-thumb'));
+    assert(parseFloat(thumbStyle.borderRadius) === 4 - parseFloat(thumbStyle.left), 'Derive the thumb radius from the track inset');
     assert(Math.abs(thumb.left + thumb.width / 2 - option.left - option.width / 2) < 1, 'Center the thumb on the chosen language');
     assert(thumb.left >= track.left && thumb.right <= track.right, 'Keep the thumb inside the track');
     assert(getComputedStyle(control).height === getComputedStyle(document.querySelector('.settings-theme-control')).height, 'Match the theme control height');
@@ -29,7 +33,7 @@ export async function checkLanguage() {
     await wait(); check('1');
     slider.focus();
     assert(getComputedStyle(control).outlineStyle === 'solid', 'Show keyboard focus on the track');
-    return { bothLanguages: true, circularThumb: true, aligned: true, rapidChanges: true, accessibleValue: true, focus: true };
+    return { bothLanguages: true, nestedRadii: true, aligned: true, rapidChanges: true, accessibleValue: true, focus: true };
   } finally {
     choose(originalValue);
     await wait();

@@ -245,7 +245,7 @@ export async function checkPointerBounds() {
     pointer('pointercancel', inside); pointer('pointerleave', outside[0]);
     canvas.setPointerCapture = capture; canvas.releasePointerCapture = release; canvas.hasPointerCapture = has;
     for (const [method, original] of Object.entries(originals)) proto[method] = original;
-    document.querySelector('.app-menu-bar [aria-label="Về góc nhìn tổng thể"]').click();
+    for (const back = document.querySelector('.app-menu-history button'); !back.disabled;) { back.click(); await new Promise(requestAnimationFrame); }
   }
 }
 

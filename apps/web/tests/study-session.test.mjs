@@ -69,6 +69,73 @@ test('study commands share folder visibility policy independently of UI selectio
   } finally { await server.close(); }
 });
 
+test('Back and Forward follow anatomy navigation without recording hover or manual camera controls', async () => {
+  const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
+  try {
+    const { StudySession } = await server.ssrLoadModule('/src/study/session.ts');
+    const catalog = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
+    const roots = catalog.targets.filter(target => !target.parent_id && target.model);
+    const meshes = [...new Set(roots.flatMap(target => target.model.structure_ids))].map(source_id => ({ source_id }));
+    let succeeds = true;
+    const calls = [];
+    const viewer = {
+      select: id => { calls.push(['select', id]); return succeeds; },
+      focus: (...args) => { calls.push(['focus', ...args]); return succeeds; },
+      overview: () => { calls.push(['overview']); return succeeds; },
+      changeVisibility: () => succeeds, setExplosion: () => succeeds, retargetExplosion() {}, control: () => true,
+    };
+    const session = new StudySession(catalog);
+    session.connect(viewer); session.updateViewer({ meshes, building: false });
+    assert.equal(session.back(), false);
+    assert.equal(session.forward(), false);
+    assert.equal(session.getSnapshot().canGoBack, false);
+    assert.equal(session.getSnapshot().canGoForward, false);
+    session.browseTarget(roots[0].id);
+    session.browseTarget(roots[0].id);
+    session.updateViewer({ hovered: meshes[0].source_id });
+    session.changeExplosion(20);
+    session.control([{ kind: 'zoom', factor: 1.1 }]);
+    assert(session.back());
+    assert.equal(session.getSnapshot().targetId, undefined);
+    assert.equal(session.getSnapshot().canGoBack, false, 'Repeated selection and non-navigation actions must not add steps');
+    assert(session.forward());
+    assert.equal(session.getSnapshot().targetId, roots[0].id);
+    const id = roots[0].model.structure_ids[0];
+    session.browseStructure(id);
+    session.focus([id]);
+    session.pick(id);
+    assert(session.back());
+    assert.equal(session.getSnapshot().targetId, roots[0].id, 'Selection followed by focus is one destination');
+    assert(session.forward());
+    assert.deepEqual(session.getSnapshot().focusedIds, [id], 'Forward must replay the structure focus');
+    assert.deepEqual(calls.findLast(call => call[0] === 'focus'), ['focus', [id], false, false]);
+    assert.equal(session.getSnapshot().reveal.id, id);
+    assert(session.focus([], roots[1].id));
+    assert(session.back());
+    assert(session.forward());
+    assert.equal(session.getSnapshot().targetId, roots[1].id);
+    assert.deepEqual(session.getSnapshot().focusedIds, roots[1].model.structure_ids, 'Restore focused system membership');
+    assert(session.back());
+    assert.equal(session.getSnapshot().canGoForward, true);
+    session.browseTarget(roots[2].id);
+    assert.equal(session.getSnapshot().canGoForward, false, 'A new destination truncates the forward branch');
+    assert.equal(session.forward(), false);
+    const before = session.getSnapshot();
+    succeeds = false;
+    assert.equal(session.back(), false);
+    assert.equal(session.browseStructure(meshes[1].source_id), false);
+    assert.equal(session.browseTarget(roots[3].id), false);
+    assert.equal(session.getSnapshot(), before, 'Failed navigation must not move history or commit state');
+    succeeds = true;
+    assert(session.back());
+    assert.equal(session.getSnapshot().readingId, id);
+    assert(session.forward());
+    assert.equal(session.getSnapshot().targetId, roots[2].id);
+    const other = new StudySession(catalog);
+    assert.equal(other.getSnapshot().canGoBack, false, 'Navigation history belongs to one session');
+  } finally { await server.close(); }
+});
+
 test('model metadata validation preserves identities and rejects malformed or mismatched packages', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {

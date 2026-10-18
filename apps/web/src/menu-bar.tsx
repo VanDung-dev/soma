@@ -5,33 +5,42 @@ import { useTheme } from "./theme";
 
 const themeOptions = ["auto", "light", "dark"] as const;
 
-export function MenuBar({ disabled, onBack, helpId }: {
+export function MenuBar({ disabled, canGoBack, canGoForward, onBack, onForward, helpId }: {
   disabled: boolean;
+  canGoBack: boolean;
+  canGoForward: boolean;
   onBack: () => void;
+  onForward: () => void;
   helpId: string;
 }) {
   const settingsId = useId();
   const { language, setLanguage, t } = useLanguage();
   const { theme, setTheme } = useTheme();
   return <header className="app-menu-bar" aria-label={t("app.navigation.label")}>
-    <button className="controls-info" disabled={disabled} onClick={onBack}
-      aria-label={t("app.overview")} title={t("app.overview")}>
-      <LineIcon name="arrow-small-left" />
-    </button>
+    <div className="app-menu-history">
+      <button className="controls-info" disabled={disabled || !canGoBack} onClick={onBack}
+        aria-label={t("app.back")} title={t("app.back")}>
+        <LineIcon name="arrow-small-left" size={18} />
+      </button>
+      <button className="controls-info" disabled={disabled || !canGoForward} onClick={onForward}
+        aria-label={t("app.forward")} title={t("app.forward")}>
+        <LineIcon name="arrow-small-right" size={18} />
+      </button>
+    </div>
     <h1 className="app-menu-title" title={t("app.title")}>{t("app.title")}</h1>
     <div className="app-menu-actions">
       <button className="controls-info" popoverTarget={helpId} aria-label={t("app.help")} title={t("app.help")}>
-        <LineIcon name="alert-circle" />
+        <LineIcon name="alert-circle" size={18} />
       </button>
       <button className="controls-info" popoverTarget={settingsId} aria-label={t("app.settings")} title={t("app.settings")}>
-        <LineIcon name="cog" />
+        <LineIcon name="cog" size={18} />
       </button>
     </div>
     <section id={settingsId} className="settings-popover" popover="auto" aria-labelledby={`${settingsId}-title`}>
       <div className="guide-heading">
         <h2 id={`${settingsId}-title`}>{t("app.settings")}</h2>
         <button className="controls-info" aria-label={t("app.settings.close")} popoverTarget={settingsId} popoverTargetAction="hide">
-          <LineIcon name="close-small" />
+          <LineIcon name="close-small" size={18} />
         </button>
       </div>
       <div className="settings-row">

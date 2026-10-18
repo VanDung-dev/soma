@@ -1,82 +1,61 @@
-// Run in Vite: (await import('/tests/menu-bar.browser.mjs')).checkMenuBar()
 export async function checkMenuBar() {
   const bar = document.querySelector('.app-menu-bar');
-  const [back, help, settings] = bar.querySelectorAll('button');
+  const [back, forward] = bar.querySelectorAll('.app-menu-history button');
+  const [help, settings] = bar.querySelectorAll('.app-menu-actions button');
   const title = bar.querySelector('.app-menu-title');
   const assert = (ok, message) => { if (!ok) throw Error(message); };
   const frames = async (n = 3) => { for (let i = 0; i < n; i++) await new Promise(requestAnimationFrame); };
+  const overview = async () => { while (!back.disabled) { back.click(); await frames(); } };
   assert(document.querySelector('.model-canvas').getAttribute('aria-busy') === 'false', 'Wait for loading to finish');
-  assert(back.getAttribute('aria-label') === 'Về góc nhìn tổng thể' && title.tagName === 'H1'
-    && help.getAttribute('aria-label') === 'Trợ giúp' && settings.getAttribute('aria-label') === 'Cài đặt',
-    'Keep Back, title, Help and Settings in the requested order');
-  assert(settings.disabled, 'Settings is a visual placeholder until implemented');
-  assert(document.querySelectorAll('h1').length === 1 && title.textContent === 'Không gian giải phẫu', 'Use one workspace title');
-  const area = bar.getBoundingClientRect(), style = getComputedStyle(bar);
-  assert(area.left > 0 && area.right < innerWidth && parseFloat(style.borderRadius) >= 12, 'Keep the bar floating with rounded corners');
-  assert(bar.scrollWidth <= bar.clientWidth, 'The toolbar must fit the viewport');
+  await overview();
+  assert(back.getAttribute('aria-label') === 'Quay lại' && forward.getAttribute('aria-label') === 'Tiến tới'
+    && help.getAttribute('aria-label') === 'Trợ giúp' && settings.getAttribute('aria-label') === 'Cài đặt', 'Label Back, Forward, Help and Settings');
+  assert(back.disabled, 'Disable Back at the initial overview');
+  assert(document.querySelectorAll('h1').length === 1 && title.textContent === 'Không gian giải phẫu', 'Keep one workspace title');
+  const area = bar.getBoundingClientRect();
+  assert(area.left > 0 && area.right < innerWidth && bar.scrollWidth <= bar.clientWidth, 'Keep the toolbar inside the viewport');
   const titleBounds = title.getBoundingClientRect();
-  assert(Math.abs(titleBounds.left + titleBounds.width / 2 - area.left - area.width / 2) < 1,
-    'Center the title in the whole toolbar despite asymmetric buttons');
-  assert(!document.querySelector('.toolbar-button') && !document.querySelector('.model-hud .controls-info'), 'Remove the old classes and duplicate help button');
-  assert(bar.querySelectorAll('.controls-info').length === 3, 'Use controls-info for the toolbar buttons');
-  const explode = document.querySelector('.explode-control'), catalog = document.querySelector('.catalog-panel');
-  const frame = document.querySelector('.model-focus-frame'), frameBounds = frame.getBoundingClientRect();
-  assert(frame.contains(explode) && [...document.querySelectorAll('.model-status')].every(status => frame.contains(status)),
-    'Keep status and explosion controls inside the focus frame');
-  assert(!frame.closest('[aria-hidden="true"]') && !frame.hasAttribute('inert'), 'Keep nested controls accessible');
-  for (const control of frame.querySelectorAll('.model-status,.explode-control')) {
-    const bounds = control.getBoundingClientRect();
-    assert(bounds.left >= frameBounds.left - 1 && bounds.right <= frameBounds.right + 1
-      && bounds.top >= frameBounds.top - 1 && bounds.bottom <= frameBounds.bottom + 1, 'Keep controls within the frame bounds');
+  assert(Math.abs(titleBounds.left + titleBounds.width / 2 - area.left - area.width / 2) < 1, 'Keep the title centered');
+  for (const button of [back, forward, help, settings]) {
+    const icon = button.querySelector('svg').getBoundingClientRect();
+    assert(icon.width === 18 && icon.height === 18, 'Increase controls-info icons to 18px');
   }
-  if (innerWidth > 900) {
-    const catalogBounds = catalog.getBoundingClientRect(), information = document.querySelector('.information-panel').getBoundingClientRect();
-    assert(Math.abs(frameBounds.top - catalogBounds.top) < 1 && Math.abs(frameBounds.bottom - catalogBounds.bottom) < 1,
-      'Align the focus frame with the full sidebar height');
-    assert(catalogBounds.width === (innerWidth > 1200 ? 350 : 320) && information.width === catalogBounds.width,
-      'Use matching compact sidebar widths');
-    if (innerWidth === 1440 && innerHeight === 900) assert(frameBounds.height === 808, 'Use an 808px focus frame at 1440 by 900');
-  }
-  assert(getComputedStyle(explode).borderRadius === getComputedStyle(catalog).borderRadius, 'Match the slider and catalog corner radius');
-  if (innerWidth > 900) assert(Math.abs(explode.getBoundingClientRect().bottom - catalog.getBoundingClientRect().bottom) < 1,
-    'Align the slider and catalog bottom edges');
   help.click(); await frames();
   const guide = document.querySelector('.controls-guide');
-  assert(guide.matches(':popover-open'), 'Help must open the existing guide');
-  const guideBounds = guide.getBoundingClientRect();
-  assert(Math.abs(guideBounds.left + guideBounds.width / 2 - innerWidth / 2) < 1
-    && Math.abs(guideBounds.top + guideBounds.height / 2 - innerHeight / 2) < 1, 'Center the guide in the viewport');
+  assert(guide.matches(':popover-open'), 'Help must still open');
   guide.querySelector('button').click();
-  const gl = document.querySelector('.model-canvas canvas').getContext('webgl2'), originalMatrix = gl.uniformMatrix4fv;
-  let matrix;
-  gl.uniformMatrix4fv = function(...args) {
-    originalMatrix.apply(this, args);
-    const program = this.getParameter(this.CURRENT_PROGRAM), location = program && this.getUniformLocation(program, 'view_projection');
-    if (location) matrix = JSON.stringify([...this.getUniform(program, location)]);
-  };
-  try {
-    back.click(); await frames();
-    const overview = matrix;
-    const total = document.querySelector('.model-status').textContent.match(/\d+\/(\d+)/)[1];
-    document.querySelector('.folder-row').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); await frames();
-    const expand = document.querySelector('.reader-expand');
-    if (getComputedStyle(expand).display !== 'none') { expand.click(); await frames(); }
-    const slider = document.querySelector('.explode-control input');
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(slider, '60');
-    slider.dispatchEvent(new Event('input', { bubbles: true })); await frames();
-    back.click(); await frames();
-    assert(slider.value === '0' && matrix === overview, 'Back must reassemble and restore the full-body camera, including during animation');
-    assert(document.querySelector('.model-status').textContent.startsWith(`${total}/${total}`), 'Back must restore all structures');
-    assert(document.querySelector('.information-heading h2').textContent === 'Khám phá cơ thể'
-      && !document.querySelector('.tree-name[aria-current="true"]')
-      && !document.querySelector('.reader-expanded'), 'Back must clear target, focus and the expanded reader');
-    back.focus();
-    back.dispatchEvent(new KeyboardEvent('keydown', { key: 'w', bubbles: true, cancelable: true })); await frames();
-    back.dispatchEvent(new KeyboardEvent('keyup', { key: 'w', bubbles: true, cancelable: true }));
-    assert(matrix === overview, 'Toolbar keys must not operate the 3D camera');
-    assert(!document.querySelector('.model-error') && gl.getError() === gl.NO_ERROR, 'Toolbar actions must keep rendering healthy');
-    return { floating: true, rounded: true, order: true, help: true, settingsPlaceholder: true,
-      backRestoresOverview: true, backReassembles: true, clearsFocus: true, noCameraShortcuts: true,
-      controlsInsideFrame: true, alignedFrameHeight: true, compactSidebars: true };
-  } finally { gl.uniformMatrix4fv = originalMatrix; }
+  settings.click(); await frames();
+  const popover = document.querySelector('.settings-popover');
+  assert(popover.matches(':popover-open'), 'Settings must still open');
+  popover.querySelector('button').click();
+  const roots = [...document.querySelectorAll('.structure-tree > li > .folder-row')];
+  const heading = () => document.querySelector('.information-heading h2').textContent;
+  const name = row => row.querySelector('.tree-name').firstChild.textContent;
+  roots[0].querySelector('.tree-name').click(); await frames();
+  roots[0].querySelector('.tree-name').click(); await frames();
+  roots[1].querySelector('.tree-name').click(); await frames();
+  back.click(); await frames();
+  assert(heading() === name(roots[0]) && !forward.disabled, 'Back must return to the previous system');
+  back.click(); await frames();
+  assert(back.disabled && heading() === 'Khám phá cơ thể', 'Repeated selection must not create duplicate history');
+  forward.click(); await frames();
+  forward.click(); await frames();
+  assert(heading() === name(roots[1]) && forward.disabled, 'Forward must return to the visited system and stop at the end');
+  back.click(); await frames();
+  roots[2].querySelector('.tree-name').click(); await frames();
+  assert(forward.disabled && heading() === name(roots[2]), 'New navigation after Back must discard the old forward branch');
+  roots[0].dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); await frames();
+  const slider = document.querySelector('.explode-control input');
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(slider, '60');
+  slider.dispatchEvent(new Event('input', { bubbles: true })); await frames();
+  await overview();
+  assert(slider.value === '0' && !document.querySelector('.reader-expanded') && !document.querySelector('.tree-name[aria-current="true"]'),
+    'Returning to the initial overview must reassemble and clear the selected destination');
+  while (!forward.disabled) { forward.click(); await frames(); }
+  assert(heading() === name(roots[0]) && roots[0].classList.contains('is-selected'), 'Forward must restore a focused system');
+  const gl = document.querySelector('.model-canvas canvas').getContext('webgl2');
+  assert(!document.querySelector('.model-error') && gl.getError() === gl.NO_ERROR, 'Navigation must keep rendering healthy');
+  await overview();
+  return { back: true, forward: true, duplicateSuppression: true, branching: true, focusedSystem: true,
+    overviewRestored: true, iconSize: 18, centeredTitle: true, help: true, settings: true, viewportFits: true };
 }

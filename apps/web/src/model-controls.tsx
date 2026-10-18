@@ -82,27 +82,26 @@ export function ModelControls({ disabled, onControl, helpId }: {
   return <div className="controls-guide" id={helpId} popover="auto" role="region" aria-label={t("controls.guide.title")}>
       <div className="guide-heading"><h2>{t("controls.guide.title")}</h2>
         <button className="controls-info" aria-label={t("controls.guide.close")} popoverTarget={helpId} popoverTargetAction="hide">
-          <LineIcon name="close-small" />
+          <LineIcon name="close-small" size={18} />
         </button>
       </div>
-      <div className="guide-columns">
-        <section aria-label={t("controls.keyboard.label")}><h3>{t("controls.keyboard.label")}</h3>
-          {groups.map(group => <div className="guide-key-group" key={group.label}>
-            <h4>{t(group.label)}</h4>
-            <dl>{group.controls.map(control => <div key={control.key}>
-              <dt><kbd>{arrows[control.shortcut] ?? control.shortcut}</kbd></dt><dd>{t(control.label)}</dd>
-            </div>)}</dl>
-          </div>)}
-          <p className="guide-note">{t("controls.note.holdKeys")}</p>
-          <p className="guide-note">{t("controls.note.rotationCenter")}</p>
-          <p className="guide-note">{t("controls.note.keyboardZoomAnchor")}</p>
-        </section>
-        <section aria-label={t("controls.mouse.label")}><h3>{t("controls.mouse.label")}</h3><dl className="guide-mouse">
-          <div><dt>{t("controls.mouse.dragLeft")}</dt><dd>{t("controls.mouse.rotate")}</dd></div>
-          <div><dt>{t("controls.mouse.wheel")}</dt><dd>{t("controls.mouse.zoomAtCursor")}</dd></div>
-          <div><dt>{t("controls.mouse.panGesture")}</dt><dd>{t("controls.mouse.pan")}</dd></div>
-          <div><dt>{t("controls.mouse.pointOrClick")}</dt><dd>{t("controls.mouse.showInfo")}</dd></div>
-        </dl></section>
+      <div className="guide-content">
+        <div className="guide-columns">
+          <section aria-label={t("controls.keyboard.label")}><h3>{t("controls.keyboard.label")}</h3>
+            {groups.map(group => <div className="guide-key-group" key={group.label}>
+              <h4>{t(group.label)}</h4>
+              <dl>{group.controls.map(control => <div key={control.key}>
+                <dt><kbd>{arrows[control.shortcut] ?? control.shortcut}</kbd></dt><dd>{t(control.label)}</dd>
+              </div>)}</dl>
+            </div>)}
+          </section>
+          <section aria-label={t("controls.mouse.label")}><h3>{t("controls.mouse.label")}</h3><dl className="guide-mouse">
+            <div><dt>{t("controls.mouse.dragLeft")}</dt><dd>{t("controls.mouse.rotate")}</dd></div>
+            <div><dt>{t("controls.mouse.wheel")}</dt><dd>{t("controls.mouse.zoomAtCursor")}</dd></div>
+            <div><dt>{t("controls.mouse.panGesture")}</dt><dd>{t("controls.mouse.pan")}</dd></div>
+            <div><dt>{t("controls.mouse.pointOrClick")}</dt><dd>{t("controls.mouse.showInfo")}</dd></div>
+          </dl></section>
+        </div>
       </div>
   </div>;
 }

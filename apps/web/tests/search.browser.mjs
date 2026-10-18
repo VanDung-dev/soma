@@ -118,7 +118,7 @@ export async function checkStructureSearch() {
   } finally {
     AnatomyViewer.prototype.focus = originalFocus;
     popover.hidePopover();
-    document.querySelector('.app-menu-bar > button').click();
+    for (const back = document.querySelector('.app-menu-history button'); !back.disabled;) { back.click(); await wait(); }
     await wait();
   }
 }
