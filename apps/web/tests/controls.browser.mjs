@@ -52,6 +52,23 @@ export async function checkControls() {
     assert(guide.innerText.includes('Shift + kéo') && guide.innerText.includes('Cuộn chuột'), 'Document mouse gestures');
     guide.querySelector('button').click(); await frames(1);
     assert(!guide.matches(':popover-open'), 'Close button must hide the guide');
+    const shell = document.querySelector('.study-shell');
+    for (const control of [document.querySelector('.explode-control input'), document.querySelector('.folder-toggle'),
+      document.querySelector('.visibility-checkbox input')]) {
+      control.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }));
+      control.focus();
+      control.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'mouse' }));
+      calls.length = 0;
+      assert(!send('keydown', 'r', control), 'Focused controls must retain their existing shortcut handling');
+      send('keyup', 'r', control);
+      const indicator = control.type === 'checkbox' ? control.nextElementSibling : control;
+      assert(getComputedStyle(indicator).outlineStyle === 'none', 'R after a pointer click must not reveal a control outline');
+      assert(!calls.length && document.activeElement === control, 'Focus styling must preserve control focus and camera state');
+      for (const key of ['Tab', 'ArrowRight']) {
+        send('keydown', key, control); send('keyup', key, control);
+        assert(shell.dataset.focusSource === 'keyboard', 'Keyboard navigation must restore focus indicators');
+      }
+    }
     for (const [key, method, args] of expected) {
       canvas.focus(); calls.length = 0;
       assert(send('keydown', key), `${key}: prevent page scrolling`);
