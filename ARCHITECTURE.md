@@ -15,6 +15,7 @@ they do not copy the model screen's loading or interaction code.
 | Canvas lifecycle and renderer commands | `apps/web/src/viewer/runtime.ts` | `ViewerRuntime` |
 | Download, metadata validation and preparation worker | `apps/web/src/viewer/loader.ts` | `loadModels`, `validateMetadata` |
 | Pointer input and wheel coordinates | `apps/web/src/viewer/input.ts` | `bindViewerInput` (internal to the runtime) |
+| App context menu and text clipboard | `apps/web/src/context-menu.tsx`, `clipboard.ts` | `ContextMenu`, `textContext` |
 | Study screen geometry | `apps/web/src/viewer/layout.ts` | `measureViewport` |
 | Screen composition and focus restoration | `apps/web/src/model-viewer.tsx` | `ModelViewer` |
 | Reference reading | `apps/web/src/wikipedia-reader.tsx` | `WikipediaReader` |
@@ -53,6 +54,25 @@ The runtime owns its canvas, WASM instance, worker lifecycle, animation scheduli
 input bindings and observers. Rust owns rendered geometry, camera coordinates and
 animation progress. Scene visibility is the renderer's projection of study commands;
 UI code must not mutate it separately.
+
+Manual separation uses `Separation` in the renderer, keyed by stable structure IDs,
+so all material primitives move together without changing source geometry.
+The runtime publishes the active moving ID and separated IDs to the session and
+owns pointer drag transactions. Capture loss cancels the current drag; T restores
+the dragged or selected structure. Detached structures remain draggable while
+other structures cannot move. Manual separation and automatic
+explosion are mutually exclusive. Picking, outlines, shadows and displayed bounds
+use the same composed offsets.
+Model context actions require an existing selection and never select on right-click.
+While moving a structure, left drags on other anatomy do not rotate the scene;
+background drags retain camera navigation. Reference reading is limited to the
+structure in movement mode or structures with committed separation offsets.
+
+The context menu handles the whole application and keeps clipboard access behind
+explicit Copy/Paste actions. It captures text selections before moving focus and
+restores them before editing. Shift plus a secondary click leaves the native menu
+available. The sandboxed Wikipedia frame forwards only menu coordinates and selected
+text; the parent validates the frame window and payload before showing its menu.
 
 `ModelViewer` owns device graphics preferences, independently of study history.
 `ViewerRuntime.setGraphics` applies model display resolution and frame limits;
@@ -118,6 +138,7 @@ Browser probes run against Vite after `.model-canvas[aria-busy="false"]`:
 (await import('/tests/viewer-runtime.browser.mjs')).checkViewerRuntime()
 (await import('/tests/focus.browser.mjs')).checkFocusTree()
 (await import('/tests/controls.browser.mjs')).checkControls()
+(await import('/tests/context-menu.browser.mjs')).checkContextMenu()
 ```
 
 Focus checks assume a fresh page with every system initially visible. Camera,

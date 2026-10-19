@@ -77,6 +77,27 @@ grid can be disabled independently.
 
 ## Common problems
 
+### Context menu and moving structures
+
+Right-click anywhere in the app for Copy/Paste. Select a structure with a left click
+before right-clicking it for model actions; keyboard selection also enables these actions.
+Shift + right-click opens the browser's menu. Paste is available in editable text
+fields and may require browser clipboard permission; if denied, use Ctrl+V (Mac: ⌘V).
+
+Choose **Move to inspect** on the selected structure, then drag it with the left mouse button.
+During separation, dragging other structures leaves the body still. Drag the background
+to rotate, or drag with the right button to pan. Separated structures remain draggable.
+Select one and press **T**, or choose **Restore position**, to restore its original
+position without resetting the camera.
+Return automatic explosion to 0% before moving individual structures; reassemble
+manual positions before using automatic explosion again.
+The information reader is available only for structures in movement mode or with a
+separated position. Restoring a structure removes its extra reading controls.
+
+**Esc** toggles Settings, **G** toggles the controls guide, and **F** opens structure
+search. **Ctrl+[ / Ctrl+]** (Mac: **⌘[ / ⌘]**) navigates study history. Shortcuts do
+not interrupt text entry; Escape dismisses an open menu or search before opening Settings.
+
 ### Rust or GLSL changes do not appear
 
 Rebuild WASM, then reload the page:
