@@ -564,6 +564,39 @@ impl AnatomyViewer {
         self.scene.selected.clone()
     }
 
+    pub fn structure_offset(&self, id: &str) -> Vec<f32> {
+        self.separation.offset(id).to_array().to_vec()
+    }
+
+    pub fn move_structure(&mut self, id: &str, x: f32, y: f32) -> Result<(), JsValue> {
+        if self.exploding {
+            return Err(js_error(
+                "Return explosion to zero before moving a structure",
+            ));
+        }
+        self.cancel_camera_transition();
+        self.separation
+            .drag(&self.scene, &self.camera, id, x, y)
+            .map_err(js_error)?;
+        self.shadow_cached.set(false);
+        Ok(())
+    }
+
+    pub fn restore_structure(&mut self, id: &str, offset: Option<Vec<f32>>) -> Result<(), JsValue> {
+        if let Some(offset) = offset {
+            let offset: [f32; 3] = offset
+                .try_into()
+                .map_err(|_| js_error("Invalid structure position"))?;
+            self.separation
+                .set(&self.scene, id, offset)
+                .map_err(js_error)?;
+        } else {
+            self.separation.clear(id);
+        }
+        self.shadow_cached.set(false);
+        Ok(())
+    }
+
     pub fn pick(&mut self, x: u32, y: u32) -> Result<String, JsValue> {
         if x >= self.canvas.width() || y >= self.canvas.height() {
             return Ok(String::new());
@@ -604,6 +637,10 @@ impl AnatomyViewer {
 }
 
 impl AnatomyViewer {
+    pub(crate) fn part_offset(&self, index: usize) -> [f32; 3] {
+        (self.explosion.offset(index) + self.separation.offset(&self.scene.parts[index].source_id))
+            .to_array()
+    }
     pub(super) fn transition_camera(&mut self, before: Camera, now: Option<f64>) {
         if let Some(now) = now {
             let goal = std::mem::replace(&mut self.camera, before);

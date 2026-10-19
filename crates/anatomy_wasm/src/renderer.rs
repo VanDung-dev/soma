@@ -7,7 +7,7 @@ mod shaders;
 mod uniforms;
 mod util;
 
-use anatomy_renderer::{Camera, Explosion, PackedScene, Reconstruction, Scene};
+use anatomy_renderer::{Camera, Explosion, PackedScene, Reconstruction, Scene, Separation};
 use js_sys::{Float32Array, Uint32Array};
 use std::cell::Cell;
 use wasm_bindgen::{JsCast, prelude::*};
@@ -31,6 +31,7 @@ pub struct AnatomyViewer {
     pub(crate) uncentered_camera: Option<Camera>,
     pub(crate) camera_transition: Option<(Camera, f64)>,
     pub(crate) explosion: Explosion,
+    pub(crate) separation: Separation,
     pub(crate) uniforms: Uniforms,
     pub(crate) sphere_uniforms: SphereUniforms,
     pub(crate) outline_uniforms: OutlineUniforms,
@@ -126,6 +127,7 @@ impl AnatomyViewer {
             uncentered_camera: None,
             camera_transition: None,
             explosion: Explosion::default(),
+            separation: Separation::default(),
             uniforms,
             sphere_uniforms,
             outline_uniforms,

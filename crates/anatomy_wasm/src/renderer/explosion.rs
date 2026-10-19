@@ -16,6 +16,11 @@ impl AnatomyViewer {
     }
 
     pub fn set_explode_mode(&mut self, enabled: bool) -> Result<(), JsValue> {
+        if enabled && !self.separation.is_empty() {
+            return Err(js_error(
+                "Restore moved structures before enabling explosion",
+            ));
+        }
         if enabled && !self.explosion.configured() {
             return Err(js_error("Configure explosion groups first"));
         }
@@ -179,10 +184,7 @@ impl AnatomyViewer {
     }
 
     pub(crate) fn display_bounds(&self, ids: &[String]) -> Result<Option<Bounds>, JsValue> {
-        let bounds = self.scene.bounds_for(ids).map_err(js_error)?;
-        if !self.exploding {
-            return Ok(bounds);
-        }
+        self.scene.bounds_for(ids).map_err(js_error)?;
         let ids: HashSet<_> = ids.iter().map(String::as_str).collect();
         Ok(self
             .scene
@@ -190,7 +192,7 @@ impl AnatomyViewer {
             .iter()
             .enumerate()
             .filter(|(_, p)| p.active && ids.contains(p.source_id.as_str()))
-            .map(|(i, p)| p.bounds.translated(self.explosion.offset(i)))
+            .map(|(i, p)| p.bounds.translated(self.part_offset(i).into()))
             .reduce(Bounds::union))
     }
 }

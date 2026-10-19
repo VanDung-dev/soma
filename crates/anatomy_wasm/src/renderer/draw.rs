@@ -81,12 +81,7 @@ impl AnatomyViewer {
             gl.uniform4fv_with_f32_array(Some(&u.color), &part.color);
             gl.uniform1f(Some(&u.cutoff), part.alpha_cutoff);
             gl.uniform1f(Some(&u.reveal), self.reconstruction.opacity(i));
-            if self.exploding {
-                gl.uniform3fv_with_f32_array(
-                    Some(&u.part_offset),
-                    &self.explosion.offset(i).to_array(),
-                );
-            }
+            gl.uniform3fv_with_f32_array(Some(&u.part_offset), &self.part_offset(i));
             let (vao, count, offset) = self.draws[i];
             gl.bind_vertex_array(Some(&self.gpu.vaos[vao]));
             gl.draw_elements_with_i32(Gl::TRIANGLES, count, Gl::UNSIGNED_INT, offset);
@@ -223,8 +218,14 @@ impl AnatomyViewer {
                 let b = &self.scene.parts[b_index];
                 a.blend.cmp(&b.blend).then_with(|| {
                     if a.blend {
-                        let a_center = a.bounds.center() + self.explosion.offset(a_index);
-                        let b_center = b.bounds.center() + self.explosion.offset(b_index);
+                        let a_center = a
+                            .bounds
+                            .translated(self.part_offset(a_index).into())
+                            .center();
+                        let b_center = b
+                            .bounds
+                            .translated(self.part_offset(b_index).into())
+                            .center();
                         b_center
                             .distance_squared(eye)
                             .total_cmp(&a_center.distance_squared(eye))
@@ -279,12 +280,7 @@ impl AnatomyViewer {
                 ((index >> 16) & 255) as f32 / 255.0,
             );
             gl.uniform1f(Some(&u.reveal), self.reconstruction.opacity(i));
-            if self.exploding {
-                gl.uniform3fv_with_f32_array(
-                    Some(&u.part_offset),
-                    &self.explosion.offset(i).to_array(),
-                );
-            }
+            gl.uniform3fv_with_f32_array(Some(&u.part_offset), &self.part_offset(i));
             let (vao, count, offset) = self.draws[i];
             if bound_vao != vao {
                 gl.bind_vertex_array(Some(&self.gpu.vaos[vao]));
