@@ -32,7 +32,7 @@ test('manual movement blocks automatic explosion and preserves study navigation'
   } finally { await server.close(); }
 });
 
-test('reference reading is available only while a structure is moving or separated', async () => {
+test('reader panel toggles at all times while reference reading remains limited to moving or separated structures', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
     const { StudySession } = await server.ssrLoadModule('/src/study/session.ts');
@@ -41,18 +41,20 @@ test('reference reading is available only while a structure is moving or separat
     const [a, b] = catalog.targets.find(target => target.model).model.structure_ids;
     session.connect({ select: () => true, retargetExplosion() {} });
     session.pick(a); session.toggleReader();
-    assert.equal(session.getSnapshot().readerExpanded, false);
+    assert.equal(session.getSnapshot().readerExpanded, true, 'The information panel can expand without a reference article');
+    session.toggleReader();
     session.updateViewer({ movingId: a }); session.toggleReader();
     assert.equal(session.getSnapshot().readerExpanded, true, 'Enabling separation permits reading before the first drag');
     session.pick(b);
     assert.equal(session.getSnapshot().readerExpanded, false, 'Selecting an ordinary structure closes the reader');
-    session.toggleReader(); assert.equal(session.getSnapshot().readerExpanded, false);
+    session.toggleReader(); assert.equal(session.getSnapshot().readerExpanded, true, 'The panel remains expandable without a reference article');
+    session.toggleReader();
     session.updateViewer({ movingId: '', separatedIds: new Set([a]) });
     session.browseStructure(a); session.toggleReader();
     assert.equal(session.getSnapshot().readerExpanded, true, 'A displaced structure remains readable after finishing movement');
     session.updateViewer({ separatedIds: new Set() });
     assert.equal(session.getSnapshot().readerExpanded, false, 'Restoring the last position closes the reader');
-    session.toggleReader(); assert.equal(session.getSnapshot().readerExpanded, false);
+    session.toggleReader(); assert.equal(session.getSnapshot().readerExpanded, true, 'The panel can still expand when reading is unavailable');
   } finally { await server.close(); }
 });
 

@@ -73,7 +73,8 @@ export async function checkCameraStability() {
       assert(reframes === 0, 'Selection in the collapsed information view must not reframe the scene');
       if (amount === 0) assert(same(snapshot(), zoomed), 'Normal model selection must preserve the zoomed camera');
       canvas.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
-      assert(!document.querySelector('.reader-expand'), 'Ordinary selection must not offer reference reading');
+      assert(document.querySelector('.reader-expand') && !document.querySelector('.reader-expand').disabled,
+        'Keep the reader control visible and enabled for ordinary selection');
       if (amount > 0) {
         results.push({ separation: amount, hoverKeepsZoom: true, selectionDoesNotReframe: true, readerRequiresManualSeparation: true });
         continue;

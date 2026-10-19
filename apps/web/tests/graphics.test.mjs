@@ -57,6 +57,9 @@ test('frame limits coalesce redraws, finish animations, and stop when idle or di
       render: () => draws++, render_reconstruction: () => { draws++; return --remaining > 0; },
       set_graphics() {}, selected_id: () => '', free() {},
     };
+    runtime.scheduleRender();
+    assert.equal(pending.size, 0, 'Partially uploaded anatomy must not render during loading');
+    runtime.loading = false;
     const tick = time => {
       now = time;
       const callbacks = [...pending.values()]; pending.clear();

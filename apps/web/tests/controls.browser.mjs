@@ -314,15 +314,16 @@ export async function checkHudCentering() {
     let before = calls;
     for (const part of parts) { part.click(); await frames(); }
     assert(calls === before, 'Normal information view must not recenter when the selection changes');
-    assert(!document.querySelector('.reader-expand'), 'Ordinary structures must not offer reading controls');
+    assert(document.querySelector('.reader-expand') && !document.querySelector('.reader-expand').disabled,
+      'Keep reading controls visible and enabled for ordinary structures');
     const enableReading = async part => {
       part.click(); await frames();
       part.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: -1 })); await frames();
       [...document.querySelectorAll('.context-menu button')].find(button => button.querySelector('span')?.textContent === 'Tách để quan sát').click(); await frames();
     };
+    await enableReading(parts[1]);
     let index = 0;
     for (const expanded of [true, false, true, false]) {
-      if (!document.querySelector('.reader-expand')) await enableReading(parts[(index + 1) % 2]);
       before = calls;
       if (expanded) beforeExpand = viewMatrix;
       document.querySelector('.reader-expand').click();
@@ -339,7 +340,7 @@ export async function checkHudCentering() {
       const next = parts[index++ % 2];
       next.click(); await frames();
       await settleCamera();
-      assert(calls === before && !panel.classList.contains('reader-expanded') && !document.querySelector('.reader-expand'),
+      assert(calls === before && !panel.classList.contains('reader-expanded') && !document.querySelector('.reader-expand').disabled,
         'Selecting an ordinary structure must close reading without recentering');
       if (expanded) {
         await enableReading(next); await settleCamera(); beforeExpand = viewMatrix;
