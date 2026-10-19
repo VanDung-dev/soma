@@ -47,7 +47,7 @@ test('frame limits coalesce redraws, finish animations, and stop when idle or di
     const host = { appendChild() {}, getBoundingClientRect: () => ({ width: 800, height: 600 }) };
     const canvas = { setAttribute() {}, addEventListener() {}, removeEventListener() {}, remove() {} };
     globalThis.document = { createElement: () => canvas };
-    globalThis.window = { devicePixelRatio: 1,
+    globalThis.window = { devicePixelRatio: 1, addEventListener() {}, removeEventListener() {},
       matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
       setInterval: callback => { timers.set(++timerId, callback); return timerId; }, clearInterval: id => timers.delete(id) };
     globalThis.ResizeObserver = class { observe() {} disconnect() {} };

@@ -47,7 +47,7 @@ export async function checkControls() {
     const keyboard = guide.querySelector('[aria-label="Bàn phím"]').getBoundingClientRect();
     const mouse = guide.querySelector('[aria-label="Chuột"]').getBoundingClientRect();
     assert(keyboard.right < mouse.left, 'Keyboard instructions must be left of mouse instructions');
-    assert(guide.querySelectorAll('kbd').length === expected.length, 'Document all keyboard controls');
+    assert(guide.querySelectorAll('kbd').length === expected.length + 6, 'Document camera and app shortcuts');
     assert(guide.innerText.includes('Di chuyển camera') && guide.innerText.includes('Xoay mô hình'), 'Distinguish camera movement from model rotation');
     assert(guide.innerText.includes('Shift + kéo') && guide.innerText.includes('Cuộn chuột'), 'Document mouse gestures');
     guide.querySelector('button').click(); await frames(1);
@@ -314,12 +314,18 @@ export async function checkHudCentering() {
     let before = calls;
     for (const part of parts) { part.click(); await frames(); }
     assert(calls === before, 'Normal information view must not recenter when the selection changes');
+    assert(!document.querySelector('.reader-expand'), 'Ordinary structures must not offer reading controls');
+    const enableReading = async part => {
+      part.click(); await frames();
+      part.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: -1 })); await frames();
+      [...document.querySelectorAll('.context-menu button')].find(button => button.querySelector('span')?.textContent === 'Tách để quan sát').click(); await frames();
+    };
     let index = 0;
     for (const expanded of [true, false, true, false]) {
+      if (!document.querySelector('.reader-expand')) await enableReading(parts[(index + 1) % 2]);
       before = calls;
       if (expanded) beforeExpand = viewMatrix;
-      if (index === 3) document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
-      else document.querySelector('.reader-expand').click();
+      document.querySelector('.reader-expand').click();
       await frames();
       await Promise.all(panel.getAnimations().map(animation => animation.finished.catch(() => {})));
       await frames();
@@ -330,10 +336,18 @@ export async function checkHudCentering() {
       if (!expanded) assert(beforeExpand && viewMatrix === beforeExpand,
         'Closing the expanded information panel must redraw the exact camera from before opening');
       before = calls;
-      parts[index++ % 2].click(); await frames();
+      const next = parts[index++ % 2];
+      next.click(); await frames();
       await settleCamera();
-      assert(expanded ? calls > before : calls === before,
-        'Selection changes must recenter only in the expanded information view');
+      assert(calls === before && !panel.classList.contains('reader-expanded') && !document.querySelector('.reader-expand'),
+        'Selecting an ordinary structure must close reading without recentering');
+      if (expanded) {
+        await enableReading(next); await settleCamera(); beforeExpand = viewMatrix;
+        document.querySelector('.reader-expand').click(); await frames();
+        await Promise.all(panel.getAnimations().map(animation => animation.finished.catch(() => {})));
+        await settleCamera();
+        assert(calls > before, 'Reopening reading for a separated structure must center it');
+      }
       const desktop = matchMedia('(min-width: 901px)').matches;
       if (!desktop) {
         document.querySelector('.explode-control').scrollIntoView({ block: 'center' });
@@ -364,12 +378,14 @@ export async function checkHudCentering() {
       states.push({ expanded, center: expected });
     }
     return { viewport: innerWidth, centeredAndClickable: true, expandedOnlyFocus: true,
-      normalSelectionKeepsView: true, closeRestoresCamera: true, escapeRestoresCamera: true, states };
+      normalSelectionKeepsView: true, closeRestoresCamera: true, states };
   } finally {
     if (panel.classList.contains('reader-expanded')) {
       document.querySelector('.reader-expand').click(); await frames();
       await settleCamera();
     }
+    document.querySelector('canvas').focus();
+    document.querySelector('canvas').dispatchEvent(new KeyboardEvent('keydown', { key: 't', bubbles: true, cancelable: true }));
     proto.center = originalCenter;
     proto.advance_camera = originalAdvance;
     gl.uniformMatrix4fv = originalMatrix;

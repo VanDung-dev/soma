@@ -36,6 +36,7 @@ test('Wikipedia proxy preserves the original page and isolates read-only upstrea
     assert(html.includes('header.vector-header { display: none !important; }'));
     assert(html.includes('<header class="vector-header">Wikipedia</header><h1>Skeleton</h1>'));
     assert(html.includes('<script src="/w/load.php"></script>') && html.includes('id="p-lang-btn-checkbox"') && html.includes('id="vector-page-titlebar-toc-checkbox"'));
+    assert(html.includes("wikipedia:contextmenu") && html.includes("event.button === 2"));
     assert(!html.includes('reader-navigation'));
     assert(response.headers.get('content-security-policy').includes('sandbox allow-scripts'));
     assert(!response.headers.get('content-security-policy').includes('allow-same-origin'));
@@ -56,7 +57,10 @@ test('Wikipedia proxy preserves the original page and isolates read-only upstrea
     mode = 'error';
     const offline = await nativeFetch(base + encodeURIComponent('https://en.wikipedia.org/wiki/Skeleton'));
     assert.equal(offline.status, 502);
-    assert((await offline.text()).includes('Không tải được Wikipedia'));
+    const offlineHtml = await offline.text();
+    assert(offlineHtml.includes('Không tải được Wikipedia') && offlineHtml.includes('wikipedia:contextmenu'));
+    assert(offline.headers.get('content-security-policy').includes("default-src 'none'")
+      && !offline.headers.get('content-security-policy').includes('allow-same-origin'));
     mode = 'slow';
     const start = new Promise(resolve => { started = resolve; });
     const abort = new Promise(resolve => { aborted = resolve; });

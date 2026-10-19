@@ -3,6 +3,59 @@ import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 import { readFile } from 'node:fs/promises';
 
+test('manual movement blocks automatic explosion and preserves study navigation', async () => {
+  const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
+  try {
+    const { StudySession } = await server.ssrLoadModule('/src/study/session.ts');
+    const catalog = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
+    const session = new StudySession(catalog), calls = [];
+    const id = catalog.targets.find(target => target.model).model.structure_ids[0];
+    session.connect({ setMoving: id => { calls.push(['move', id]); return true; },
+      restoreStructure: id => { calls.push(['restore', id]); return true; },
+      setExplosion: value => { calls.push(['explode', value]); return true; } });
+    session.updateViewer({ meshes: [{ source_id: id }], building: false });
+    assert.equal(session.setMoving('missing'), false);
+    session.changeExplosion(30);
+    assert.equal(session.setMoving(id), false);
+    session.changeExplosion(0);
+    assert.equal(session.setMoving(id), false, 'A visible structure must be selected before entering movement mode');
+    session.updateViewer({ selected: id });
+    assert(session.setMoving(id));
+    session.updateViewer({ movingId: id, separatedIds: new Set([id]) });
+    const before = session.getSnapshot();
+    session.changeExplosion(60);
+    assert.equal(session.getSnapshot(), before);
+    assert.equal(calls.at(-1)[0], 'move');
+    assert(session.restoreStructure(id));
+    assert.equal(session.getSnapshot().canGoBack, false);
+    assert.equal(session.getSnapshot().readingId, '');
+  } finally { await server.close(); }
+});
+
+test('reference reading is available only while a structure is moving or separated', async () => {
+  const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
+  try {
+    const { StudySession } = await server.ssrLoadModule('/src/study/session.ts');
+    const catalog = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
+    const session = new StudySession(catalog);
+    const [a, b] = catalog.targets.find(target => target.model).model.structure_ids;
+    session.connect({ select: () => true, retargetExplosion() {} });
+    session.pick(a); session.toggleReader();
+    assert.equal(session.getSnapshot().readerExpanded, false);
+    session.updateViewer({ movingId: a }); session.toggleReader();
+    assert.equal(session.getSnapshot().readerExpanded, true, 'Enabling separation permits reading before the first drag');
+    session.pick(b);
+    assert.equal(session.getSnapshot().readerExpanded, false, 'Selecting an ordinary structure closes the reader');
+    session.toggleReader(); assert.equal(session.getSnapshot().readerExpanded, false);
+    session.updateViewer({ movingId: '', separatedIds: new Set([a]) });
+    session.browseStructure(a); session.toggleReader();
+    assert.equal(session.getSnapshot().readerExpanded, true, 'A displaced structure remains readable after finishing movement');
+    session.updateViewer({ separatedIds: new Set() });
+    assert.equal(session.getSnapshot().readerExpanded, false, 'Restoring the last position closes the reader');
+    session.toggleReader(); assert.equal(session.getSnapshot().readerExpanded, false);
+  } finally { await server.close(); }
+});
+
 test('study commands share folder visibility policy independently of UI selection', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {

@@ -73,6 +73,13 @@ export async function checkCameraStability() {
       assert(reframes === 0, 'Selection in the collapsed information view must not reframe the scene');
       if (amount === 0) assert(same(snapshot(), zoomed), 'Normal model selection must preserve the zoomed camera');
       canvas.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
+      assert(!document.querySelector('.reader-expand'), 'Ordinary selection must not offer reference reading');
+      if (amount > 0) {
+        results.push({ separation: amount, hoverKeepsZoom: true, selectionDoesNotReframe: true, readerRequiresManualSeparation: true });
+        continue;
+      }
+      canvas.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: -1 })); await wait();
+      [...document.querySelectorAll('.context-menu button')].find(button => button.querySelector('span')?.textContent === 'Tách để quan sát').click(); await wait();
       document.querySelector('.reader-expand').click(); await wait();
       await Promise.all(document.querySelector('.information-panel').getAnimations().map(animation => animation.finished));
       await wait();
@@ -92,6 +99,7 @@ export async function checkCameraStability() {
       await Promise.all(document.querySelector('.information-panel').getAnimations().map(animation => animation.finished));
       await wait();
       viewer.finish_camera_transition();
+      canvas.focus(); canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 't', bubbles: true, cancelable: true })); await wait();
       assert(gl.getError() === gl.NO_ERROR && !document.querySelector('.model-error'), 'Keep the renderer healthy');
       results.push({ separation: amount, hoverKeepsZoom: true, selectionDoesNotReframe: true, expandedReaderKeepsManualZoom: true });
     }
