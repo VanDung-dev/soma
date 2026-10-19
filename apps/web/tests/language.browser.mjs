@@ -18,7 +18,7 @@ export async function checkLanguage() {
     const thumb = control.querySelector('.settings-language-thumb').getBoundingClientRect();
     const option = control.querySelectorAll('.settings-language-option')[Number(value)].getBoundingClientRect();
     assert(thumb.width === thumb.height && thumb.width === 30, 'Keep the same thumb size as theme');
-    assert(getComputedStyle(control.closest('.settings-row')).borderRadius === '14px', 'Use Radius 2 for the settings row');
+    assert(getComputedStyle(control.closest('.settings-content')).borderRadius === '14px', 'Use Radius 2 for the shared settings surface');
     assert(getComputedStyle(control).borderRadius === '4px' && getComputedStyle(slider).borderRadius === '4px', 'Use Radius 3 for the track and input');
     const thumbStyle = getComputedStyle(control.querySelector('.settings-language-thumb'));
     assert(parseFloat(thumbStyle.borderRadius) === 4 - parseFloat(thumbStyle.left), 'Derive the thumb radius from the track inset');

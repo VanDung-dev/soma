@@ -16,17 +16,40 @@ export async function checkMenuBar() {
   assert(area.left > 0 && area.right < innerWidth && bar.scrollWidth <= bar.clientWidth, 'Keep the toolbar inside the viewport');
   const titleBounds = title.getBoundingClientRect();
   assert(Math.abs(titleBounds.left + titleBounds.width / 2 - area.left - area.width / 2) < 1, 'Keep the title centered');
-  for (const button of [back, forward, help, settings]) {
+  const checkButton = button => {
+    const bounds = button.getBoundingClientRect();
+    const style = getComputedStyle(button);
     const icon = button.querySelector('svg').getBoundingClientRect();
-    assert(icon.width === 18 && icon.height === 18, 'Increase controls-info icons to 18px');
-  }
+    assert(bounds.width === 28 && bounds.height === 28 && style.borderRadius === '14px'
+      && style.borderWidth === '1px' && icon.width === 14 && icon.height === 14, 'Use circular 28px controls with Radius 2 and 14px icons');
+  };
+  const checkPanel = panel => {
+    const content = panel.querySelector('.settings-content, .guide-content');
+    const outer = panel.getBoundingClientRect();
+    const inner = content.getBoundingClientRect();
+    for (const inset of [inner.left - outer.left, outer.right - inner.right, outer.bottom - inner.bottom]) {
+      assert(Math.abs(inset - 10) < 1, 'Extend content to the shared 10px side and bottom insets');
+    }
+    assert(getComputedStyle(content).borderRadius === '14px', 'Use Radius 2 for nested content');
+    checkButton(panel.querySelector('.controls-info'));
+  };
+  for (const button of [back, forward, help, settings]) checkButton(button);
   help.click(); await frames();
   const guide = document.querySelector('.controls-guide');
   assert(guide.matches(':popover-open'), 'Help must still open');
+  checkPanel(guide);
   guide.querySelector('button').click();
   settings.click(); await frames();
   const popover = document.querySelector('.settings-popover');
   assert(popover.matches(':popover-open'), 'Settings must still open');
+  checkPanel(popover);
+  const content = popover.querySelector('.settings-content');
+  assert(content && getComputedStyle(content).borderRadius === '14px', 'Group settings on one Radius 2 surface');
+  for (const row of popover.querySelectorAll('.settings-row')) {
+    const style = getComputedStyle(row);
+    assert(row.parentElement === content && style.backgroundColor === 'rgba(0, 0, 0, 0)'
+      && style.boxShadow === 'none' && style.borderStyle === 'none', 'Keep every settings row on the shared surface without its own background or border');
+  }
   popover.querySelector('button').click();
   const roots = [...document.querySelectorAll('.structure-tree > li > .folder-row')];
   const heading = () => document.querySelector('.information-heading h2').textContent;
@@ -57,5 +80,5 @@ export async function checkMenuBar() {
   assert(!document.querySelector('.model-error') && gl.getError() === gl.NO_ERROR, 'Navigation must keep rendering healthy');
   await overview();
   return { back: true, forward: true, duplicateSuppression: true, branching: true, focusedSystem: true,
-    overviewRestored: true, iconSize: 18, centeredTitle: true, help: true, settings: true, viewportFits: true };
+    overviewRestored: true, iconSize: 14, centeredTitle: true, help: true, settings: true, viewportFits: true };
 }

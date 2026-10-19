@@ -20,7 +20,7 @@ export async function checkTheme() {
     const track = control.getBoundingClientRect();
     const thumb = control.querySelector('.settings-theme-thumb').getBoundingClientRect();
     assert(thumb.left >= track.left && thumb.right <= track.right && thumb.top >= track.top && thumb.bottom <= track.bottom, 'Keep the thumb inside its track');
-    assert(getComputedStyle(control.closest('.settings-row')).borderRadius === '14px', 'Use Radius 2 for the settings row');
+    assert(getComputedStyle(control.closest('.settings-content')).borderRadius === '14px', 'Use Radius 2 for the shared settings surface');
     assert(getComputedStyle(control).borderRadius === '4px' && getComputedStyle(slider).borderRadius === '4px', 'Use Radius 3 for the track and input');
     const thumbStyle = getComputedStyle(control.querySelector('.settings-theme-thumb'));
     assert(parseFloat(thumbStyle.borderRadius) === 4 - parseFloat(thumbStyle.left), 'Derive the thumb radius from the track inset');
@@ -32,8 +32,10 @@ export async function checkTheme() {
     choose('1'); await wait(1000); settled('1');
     choose('2'); await wait(300);
     assert(root.dataset.theme === 'dark', 'Start changing theme without the old one-second delay');
-    if (originalTransition && !originalMatchMedia.call(window, '(prefers-reduced-motion: reduce)').matches) {
-      assert(document.getAnimations().some(animation => animation.animationName === 'theme-reveal'), 'Run the circular reveal');
+    for (const element of [popover.querySelector('h2'), control, popover.querySelector('.settings-checkbox'), popover.querySelector('.settings-content')]) {
+      const rect = element.getBoundingClientRect();
+      assert(popover.contains(document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)),
+        'Keep clicks inside Settings targeted at the open popover during theme changes');
     }
     await wait(700); settled('2');
     const darkStyle = getComputedStyle(root);
@@ -42,6 +44,13 @@ export async function checkTheme() {
     await wait(1000); settled('2');
     choose('1'); await wait(260); choose('2'); await wait(1000); settled('2');
     choose('0'); await wait(1000); settled('0');
+    if (originalTransition && !originalMatchMedia.call(window, '(prefers-reduced-motion: reduce)').matches) {
+      popover.hidePopover();
+      choose(expected('0') === 'dark' ? '1' : '2'); await wait(300);
+      assert(document.getAnimations().some(animation => animation.animationName === 'theme-reveal'), 'Keep the circular reveal when no popover is open');
+      await wait(700); settled(slider.value);
+      popover.showPopover();
+    }
     document.startViewTransition = undefined;
     choose(expected('0') === 'dark' ? '1' : '2'); await wait(1000); settled(slider.value);
     document.startViewTransition = originalTransition;
@@ -51,7 +60,7 @@ export async function checkTheme() {
     choose(next); await wait(60); settled(next);
     assert(getComputedStyle(control.querySelector('.settings-theme-thumb')).transitionProperty.includes('transform')
       || originalMatchMedia.call(window, '(prefers-reduced-motion: reduce)').matches, 'Animate the thumb with transforms');
-    return { reveal: true, rapidChanges: true, auto: true, fallback: true, reducedMotionImmediate: true, thumbContained: true };
+    return { interactivePopover: true, revealWhenClosed: true, rapidChanges: true, auto: true, fallback: true, reducedMotionImmediate: true, thumbContained: true };
   } finally {
     document.startViewTransition = originalTransition;
     window.matchMedia = originalMatchMedia;

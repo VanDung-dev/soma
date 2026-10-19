@@ -34,6 +34,7 @@ export function checkShadowFiltering() {
     assert(gl.getProgramParameter(program, gl.LINK_STATUS), gl.getProgramInfoLog(program));
     gl.useProgram(program);
     const loc = name => gl.getUniformLocation(program, name), size = 64;
+    gl.uniform1i(loc('shadow_quality'), 2);
     gl.uniformMatrix4fv(loc('shadow_projection'), false,
       new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]));
     gl.uniform2f(loc('shadow_texel'), 1 / size, 1 / size);

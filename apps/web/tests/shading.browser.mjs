@@ -97,6 +97,8 @@ export function checkShading() {
       previous = rgba[0];
     }
     const model = link(fragment), loc = name => gl.getUniformLocation(model, name);
+    gl.uniform1i(loc('shadow_quality'), 2);
+    gl.uniform1i(loc('lighting_quality'), 2);
     gl.uniform4f(loc('base_color'), 0.5, 0.5, 0.5, 1);
     gl.uniform1f(loc('roughness'), 1); gl.uniform1f(loc('reveal'), 1);
     gl.uniform1f(loc('specular'), 0.04);
@@ -132,6 +134,36 @@ export function checkShading() {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([51, 0, 0, 255]));
     const shadowed = pixel();
     assert(shadowed.slice(0, 3).every((v, i) => v < lit[i] - 10), 'Occluders must cast a key-light shadow');
+    gl.uniform1i(loc('shadow_quality'), 1);
+    assert(pixel().slice(0, 3).every((v, i) => v < lit[i] - 10), 'Balanced quality must keep key-light shadows');
+    gl.uniform1i(loc('shadow_quality'), 0);
+    assert(pixel().every((v, i) => Math.abs(v - lit[i]) <= 1), 'Low quality must bypass shadow sampling');
+    const lighting = [0, 1, 2].map(level => {
+      gl.uniform1i(loc('lighting_quality'), level);
+      const rgba = pixel();
+      assert(rgba[3] === 255 && rgba.slice(0, 3).every(value => value > 0), 'Every lighting level must keep anatomy visible');
+      assert(gl.getUniform(model, loc('shadow_quality')) === 0, 'Lighting must not change shadow quality');
+      return rgba;
+    });
+    assert(new Set(lighting.map(JSON.stringify)).size > 1, 'Lighting quality must change surface shading');
+    const rearLighting = [[-0.591979, -0.361874, -0.720144], [-0.241563, -0.850124, 0.467906]].map(normal => {
+      gl.uniformMatrix3fv(loc('surface_basis'), false, new Float32Array([1, 0, 0, 0, 1, 0, ...normal]));
+      gl.uniform3fv(loc('eye'), normal.map(value => value * 10));
+      gl.uniform1f(loc('specular'), 0);
+      return [0, 1, 2].map(level => { gl.uniform1i(loc('lighting_quality'), level); return pixel(); });
+    });
+    assert(rearLighting[0][1].slice(0, 3).some((value, i) => value > rearLighting[0][0][i] + 10),
+      'Balanced lighting must enable the rear fill light, which must be absent on Low');
+    assert(rearLighting[1][2].slice(0, 3).some((value, i) => value > rearLighting[1][1][i] + 10),
+      'High lighting must enable the rear rim light, which must be absent on Balanced');
+    const fill = [-0.591979, -0.361874, -0.720144];
+    gl.uniformMatrix3fv(loc('surface_basis'), false, new Float32Array([1, 0, 0, 0, 1, 0, ...fill]));
+    gl.uniform3fv(loc('eye'), fill.map(value => value * 10)); gl.uniform1f(loc('roughness'), 0.25);
+    gl.uniform1f(loc('specular'), 0.04);
+    gl.uniform1i(loc('lighting_quality'), 1); const basicFill = pixel();
+    gl.uniform1i(loc('lighting_quality'), 2); const detailedFill = pixel();
+    assert(detailedFill.slice(0, 3).some((value, i) => value > basicFill[i] + 10), 'High lighting must add detailed fill-light reflections');
+    gl.uniform1i(loc('shadow_quality'), 2);
     gl.uniform1i(loc('shadow_pass'), 1); const depth = pixel();
     assert(Math.abs((depth[0] + depth[1] / 255 + depth[2] / 65025) / 255 - 0.5) < 0.0001, 'Shadow depth must survive RGBA8 packing');
     gl.uniform1i(loc('shadow_pass'), 0);
@@ -142,7 +174,7 @@ export function checkShading() {
     gl.uniform1f(loc('alpha_cutoff'), 0.2); assert(pixel().every(v => v === 0), 'Preserve alpha mask');
     gl.uniform1f(loc('alpha_cutoff'), 0); gl.uniform1f(loc('reveal'), 0);
     assert(pixel().every(v => v === 0), 'Reconstruction must still hide unrevealed surfaces');
-    return { filmicSamples: samples.length, cameraLighting: { front, side, back }, shadows: { lit, shadowed }, subsurface: true, picking: true, opacity: true, alphaMask: true, reconstruction: true };
+    return { filmicSamples: samples.length, cameraLighting: { front, side, back }, shadows: { lit, shadowed }, lightingLevels: lighting, rearLighting, subsurface: true, picking: true, opacity: true, alphaMask: true, reconstruction: true };
   } finally {
     programs.forEach(program => gl.deleteProgram(program)); shaders.forEach(shader => gl.deleteShader(shader));
     textures.forEach(texture => gl.deleteTexture(texture));

@@ -101,7 +101,7 @@ export async function checkControls() {
     for (const modifier of ['ctrlKey', 'metaKey', 'altKey', 'isComposing']) {
       assert(!send('keydown', 'q', canvas, { [modifier]: true }), 'Preserve shortcuts and IME');
     }
-    const treeInput = document.querySelector('.catalog-panel input');
+    const treeInput = document.querySelector('.catalog-panel .visibility-checkbox input');
     treeInput.focus(); assert(!send('keydown', 'ArrowDown', treeInput), 'Preserve catalog keyboard navigation');
     canvas.focus(); calls.length = 0;
     const transform = (matrix, point) => {
