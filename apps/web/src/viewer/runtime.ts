@@ -5,6 +5,8 @@ import type { AnatomyViewer } from "../wasm/anatomy_wasm";
 import type { CameraCommand, StudyViewer, ViewerState, Viewport } from "./contracts";
 import { bindViewerInput } from "./input";
 import { loadModels } from "./loader";
+import { defaultGraphics, qualityLevels, renderScales } from "./graphics";
+import type { GraphicsSettings } from "./graphics";
 
 export class ViewerRuntime implements StudyViewer {
   private viewer: AnatomyViewer | undefined;
@@ -21,7 +23,11 @@ export class ViewerRuntime implements StudyViewer {
   private reassembling = false;
   private cameraAnimating = false;
   private renderFrame = 0;
-  private lastAnimationFrame = 0;
+  private lastRenderTime = -Infinity;
+  private graphics: GraphicsSettings = defaultGraphics;
+  private fpsFrames = 0;
+  private fpsStarted = 0;
+  private fpsTimer = 0;
   private meshes: Structure[] = [];
 
   constructor(private host: HTMLElement, private options: {
@@ -29,6 +35,7 @@ export class ViewerRuntime implements StudyViewer {
     frame: () => DOMRect;
     onState: (patch: Partial<ViewerState>) => void;
     onPick: (id: string) => void;
+    onFps?: (fps: number) => void;
   }) {
     this.canvas.setAttribute("role", "img");
     this.canvas.tabIndex = 0;
@@ -64,6 +71,7 @@ export class ViewerRuntime implements StudyViewer {
         }
       }
       this.resize();
+      this.setGraphics(this.graphics);
       this.viewer!.configure_explosion(JSON.stringify(roots.map(root => root.model!.structure_ids)));
       if (this.failed) throw new Error("Model rendering failed");
       this.meshes = [...new Map(packages.flatMap(pkg => pkg.structures).map(part => [part.source_id, part])).values()]
@@ -78,6 +86,7 @@ export class ViewerRuntime implements StudyViewer {
 
   private fail(cause: unknown, status: string) {
     this.failed = true; this.animating = false; this.abort.abort();
+    this.stopFpsMeter();
     console.error(cause);
     this.options.onState({ error: true, status });
   }
@@ -101,14 +110,14 @@ export class ViewerRuntime implements StudyViewer {
       this.renderFrame = 0;
       if (this.failed || this.disposed) return;
       const now = performance.now();
+      const interval = 1000 / this.graphics.frameRate;
+      if (now - this.lastRenderTime + 0.5 < interval) { this.scheduleRender(); return; }
+      this.lastRenderTime = now;
       try {
         this.cameraAnimating = this.viewer!.advance_camera(now);
         const revealing = !this.animating && this.viewer!.advance_reconstruction(now);
         if (this.animating) {
-          if (now - this.lastAnimationFrame >= 1000 / 30) {
-            this.lastAnimationFrame = now;
-            this.animating = this.viewer!.render_reconstruction(now);
-          }
+          this.animating = this.viewer!.render_reconstruction(now);
           if (this.animating) this.scheduleRender();
           else if (!this.loading) this.options.onState({ building: false });
         } else if (this.exploding) {
@@ -118,6 +127,7 @@ export class ViewerRuntime implements StudyViewer {
             this.exploding = false; this.reassembling = false;
           }
         } else this.viewer!.render();
+        if (this.graphics.showFps) this.fpsFrames++;
         if (this.cameraAnimating || revealing) this.scheduleRender();
       } catch (cause) { this.fail(cause, "Không thể hiển thị mô hình. Hãy tải lại trang để thử lại."); }
     });
@@ -126,13 +136,40 @@ export class ViewerRuntime implements StudyViewer {
   private resize = () => {
     const { width, height } = this.host.getBoundingClientRect();
     if (width > 0 && height > 0) {
-      const ratio = Math.min(window.devicePixelRatio, 2);
+      const ratio = Math.min(window.devicePixelRatio, 2) * renderScales[this.graphics.modelQuality];
       this.operate(viewer => {
         viewer.resize(Math.max(1, Math.round(width * ratio)), Math.max(1, Math.round(height * ratio)));
         viewer.reframe(...this.options.viewport());
       });
     }
   };
+
+  setGraphics(settings: GraphicsSettings) {
+    if (settings.showFps !== this.graphics.showFps) {
+      this.stopFpsMeter();
+      if (settings.showFps && !this.disposed && !this.failed) {
+        this.fpsStarted = performance.now();
+        this.fpsTimer = window.setInterval(() => {
+          const now = performance.now();
+          this.options.onFps?.(Math.round(this.fpsFrames * 1000 / Math.max(1, now - this.fpsStarted)));
+          this.fpsFrames = 0; this.fpsStarted = now;
+        }, 1000);
+      }
+    }
+    this.graphics = settings;
+    this.lastRenderTime = -Infinity;
+    if (!this.viewer) return !this.disposed && !this.failed;
+    const { width, height } = this.host.getBoundingClientRect();
+    const shadowLevel = settings.shadowQuality === "off" ? 0 : settings.shadowQuality === "low" ? 1 : 2;
+    const ratio = Math.min(window.devicePixelRatio, 2) * renderScales[settings.modelQuality];
+    return this.operate(viewer => viewer.set_graphics(shadowLevel, qualityLevels[settings.lightingQuality], settings.grid,
+      Math.max(1, Math.round(width * ratio)), Math.max(1, Math.round(height * ratio))));
+  }
+
+  private stopFpsMeter() {
+    window.clearInterval(this.fpsTimer); this.fpsTimer = 0; this.fpsFrames = 0;
+    this.options.onFps?.(0);
+  }
 
   private animationTime() { return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? undefined : performance.now(); }
 
@@ -228,6 +265,7 @@ export class ViewerRuntime implements StudyViewer {
     this.motion.removeEventListener("change", this.motionChanged);
     this.canvas.removeEventListener("webglcontextlost", this.contextLost);
     cancelAnimationFrame(this.renderFrame); this.renderFrame = 0;
+    this.stopFpsMeter();
     this.viewer?.free(); this.viewer = undefined; this.canvas.remove();
   }
 }

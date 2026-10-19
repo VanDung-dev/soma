@@ -82,7 +82,7 @@ export function ModelControls({ disabled, onControl, helpId }: {
   return <div className="controls-guide" id={helpId} popover="auto" role="region" aria-label={t("controls.guide.title")}>
       <div className="guide-heading"><h2>{t("controls.guide.title")}</h2>
         <button className="controls-info" aria-label={t("controls.guide.close")} popoverTarget={helpId} popoverTargetAction="hide">
-          <LineIcon name="close-small" size={18} />
+          <LineIcon name="close-small" size={14} />
         </button>
       </div>
       <div className="guide-content">

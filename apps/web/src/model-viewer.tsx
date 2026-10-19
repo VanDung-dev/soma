@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useSyncExternalStore } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { Catalog } from "./catalog/types";
 import { StructureTree } from "./structure-tree";
 import { StructureSearch } from "./structure-search";
@@ -11,9 +11,12 @@ import { useLanguage } from "./i18n";
 import { StudySession } from "./study/session";
 import { ViewerRuntime } from "./viewer/runtime";
 import { measureViewport } from "./viewer/layout";
+import { graphicsStorageKey, readGraphicsSettings } from "./viewer/graphics";
 
 export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const { language, t } = useLanguage();
+  const [graphics, setGraphics] = useState(readGraphicsSettings);
+  const [fps, setFps] = useState(0);
   const helpId = useId();
   const host = useRef<HTMLDivElement>(null);
   const focusFrame = useRef<HTMLDivElement>(null);
@@ -32,11 +35,16 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
 
   useEffect(() => {
     const viewer = new ViewerRuntime(host.current!, { viewport: focusViewport,
-      frame: () => focusFrame.current!.getBoundingClientRect(), onState: session.updateViewer, onPick: session.pick });
+      frame: () => focusFrame.current!.getBoundingClientRect(), onState: session.updateViewer, onPick: session.pick, onFps: setFps });
     runtime.current = viewer; session.connect(viewer);
+    viewer.setGraphics(graphics);
     void viewer.start(roots);
     return () => { session.disconnect(viewer); viewer.dispose(); if (runtime.current === viewer) runtime.current = null; };
   }, [session]);
+  useEffect(() => {
+    runtime.current?.setGraphics(graphics);
+    try { window.localStorage.setItem(graphicsStorageKey, JSON.stringify(graphics)); } catch {}
+  }, [graphics, session]);
   useEffect(() => {
     host.current?.querySelector("canvas")?.setAttribute("aria-label", t("viewer.canvas.label"));
   }, [t]);
@@ -55,10 +63,10 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       if (!building && !error) runtime.current?.centerReader(readerExpanded);
     };
     const observer = new ResizeObserver(centerControls);
-    for (const element of [host.current!, catalogPanel.current!, informationPanel.current!, hud.current!]) observer.observe(element);
+    for (const element of [host.current!, catalogPanel.current!, informationPanel.current!]) observer.observe(element);
     centerControls();
     return () => observer.disconnect();
-  }, [session, building, error, selected, readerExpanded]);
+  }, [session, building, error, readerExpanded ? selected : "", readerExpanded]);
 
   const focusStructures = (ids: string[], focusTarget?: string) => {
     if (!session.focus(ids, focusTarget)) return;
@@ -81,7 +89,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   return (
     <>
       <MenuBar disabled={building || error} canGoBack={canGoBack} canGoForward={canGoForward}
-        onBack={session.back} onForward={session.forward} helpId={helpId} />
+        onBack={session.back} onForward={session.forward} helpId={helpId} graphics={graphics} onGraphicsChange={setGraphics} />
       <ModelControls disabled={building || error} onControl={session.control} helpId={helpId} />
       <aside ref={catalogPanel} className="catalog-panel" aria-label={t("catalog.navigation.label")}>
         <div className="catalog-heading"><h2>{t("catalog.heading")}</h2><span>{t("catalog.systemCount", { count: catalog.groups.length })}</span></div>
@@ -104,6 +112,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         <section className="model-space" aria-label={t("viewer.section.label")}>
           <div className="model-canvas" ref={host} aria-busy={building && !error} />
           <div className="model-focus-frame" ref={focusFrame}>
+            {graphics.showFps && <span className="model-fps" aria-label={t("graphics.fps.current", { count: fps })}>{fps} FPS</span>}
             <div ref={hud} className="model-hud">
               {hoveredPart && !building && <p className="model-status">{structureName(hoveredPart, language)}
                 {structureName(hoveredPart, otherLanguage) !== structureName(hoveredPart, language) && <small lang={otherLanguage}>{structureName(hoveredPart, otherLanguage)}</small>}
