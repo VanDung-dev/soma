@@ -245,6 +245,10 @@
       "vi": "Mức độ tách",
       "en": "Explode amount"
     },
+    "explode.locked": {
+      "vi": "Khóa khi đang di chuyển cấu trúc",
+      "en": "Locked while moving a structure"
+    },
     "catalog.navigation.label": {
       "vi": "Cây cấu trúc giải phẫu",
       "en": "Anatomy structure tree"
@@ -322,8 +326,8 @@
       "en": "Double-click or press Shift+Enter to focus {name}"
     },
     "viewer.canvas.label": {
-      "vi": "Mô hình 3D cơ thể người. W A S D để di chuyển camera lên, trái, xuống, phải; phím mũi tên để xoay mô hình. E để phóng to, Q để thu nhỏ theo tâm màn hình, R để đặt lại. Kéo để xoay, Shift và kéo để dịch mô hình, cuộn để phóng to theo vị trí chuột, trỏ vào để xem thông tin.",
-      "en": "3D human anatomy model. Use W A S D to move the camera up, left, down, and right; use the arrow keys to rotate the model. Press E to zoom in, Q to zoom out toward the center of the screen, and R to reset. Drag to rotate, hold Shift while dragging to pan, scroll to zoom toward the pointer, and point to a structure to view information."
+      "vi": "Mô hình 3D cơ thể người. W A S D để di chuyển camera lên, trái, xuống, phải; phím mũi tên để xoay mô hình. E để phóng to, Q để thu nhỏ theo tâm màn hình, R để đặt lại. Kéo để xoay, Shift và kéo để dịch mô hình, cuộn để phóng to theo vị trí chuột, trỏ vào để xem thông tin. Chọn cấu trúc trước, rồi chuột phải để tách; chỉ cấu trúc đang tách mới kéo được và có phần đọc thêm. T khôi phục cấu trúc đang chọn. Esc mở cài đặt, G mở hướng dẫn, F tìm cấu trúc.",
+      "en": "3D human anatomy model. Use W A S D to move the camera up, left, down, and right; use the arrow keys to rotate the model. Press E to zoom in, Q to zoom out toward the center of the screen, and R to reset. Drag to rotate, hold Shift while dragging to pan, scroll to zoom toward the pointer, and point to a structure to view information. Select a structure before right-clicking to separate it; only separated structures can be moved and offer further reading. T restores the selected structure. Esc opens settings, G opens the guide, F finds a structure."
     },
     "viewer.section.label": {
       "vi": "Mô hình giải phẫu",
@@ -390,8 +394,8 @@
       "en": "No 3D model is linked to this branch."
     },
     "information.overview": {
-      "vi": "Trỏ vào mô hình để xem tên. Nhấn vào bộ phận hoặc chọn tên trong cây cấu trúc để đọc Wikipedia.",
-      "en": "Point to the model to see a name. Click a structure or select it in the tree to read its Wikipedia article."
+      "vi": "Chọn cấu trúc bằng chuột trái, rồi chuột phải → Tách để quan sát và đọc thêm.",
+      "en": "Left-click a structure, then right-click → Move to inspect and read more."
     },
     "credit.summary": {
       "vi": "Z-Anatomy — CC BY-SA 4.0",
@@ -444,6 +448,70 @@
     "wikipedia.notes.disclaimer": {
       "vi": "Wikipedia chỉ phục vụ tham khảo và học tập; thông tin có thể sai hoặc chưa cập nhật, không thay thế tài liệu chuyên môn hoặc tư vấn y tế.",
       "en": "Wikipedia is for reference and learning only. Its information may be inaccurate or outdated and does not replace professional sources or medical advice."
+    },
+    "context.label": {
+      "vi": "Thao tác",
+      "en": "Actions"
+    },
+    "context.copy": {
+      "vi": "Sao chép",
+      "en": "Copy"
+    },
+    "context.paste": {
+      "vi": "Dán",
+      "en": "Paste"
+    },
+    "context.copied": {
+      "vi": "Đã sao chép",
+      "en": "Copied"
+    },
+    "context.copyFailed": {
+      "vi": "Chưa sao chép được. Hãy chọn chữ rồi nhấn Ctrl+C (Mac: ⌘C).",
+      "en": "Could not copy. Select text and press Ctrl+C (Mac: ⌘C)."
+    },
+    "context.pasteFailed": {
+      "vi": "Chưa dán được. Nhấn Ctrl+V (Mac: ⌘V) trong ô nhập.",
+      "en": "Could not paste. Press Ctrl+V (Mac: ⌘V) in the text field."
+    },
+    "context.detach": {
+      "vi": "Tách để quan sát",
+      "en": "Move to inspect"
+    },
+    "context.hide": {
+      "vi": "Ẩn cấu trúc",
+      "en": "Hide structure"
+    },
+    "context.show": {
+      "vi": "Hiện cấu trúc",
+      "en": "Show structure"
+    },
+    "context.restore": {
+      "vi": "Đưa về vị trí gốc",
+      "en": "Restore position"
+    },
+    "context.dragHint": {
+      "vi": "Kéo cấu trúc để di chuyển · T để khôi phục",
+      "en": "Drag structure to move · T to restore"
+    },
+    "context.rightClick": {
+      "vi": "Chuột phải",
+      "en": "Right click"
+    },
+    "context.menuHint": {
+      "vi": "Mở menu thao tác",
+      "en": "Open actions menu"
+    },
+    "context.nativeHint": {
+      "vi": "Mở menu trình duyệt",
+      "en": "Open browser menu"
+    },
+    "context.explosionFirst": {
+      "vi": "Đưa mức độ tách về 0% trước khi di chuyển",
+      "en": "Return explosion to 0% before moving"
+    },
+    "shortcuts.app": {
+      "vi": "Thao tác ứng dụng",
+      "en": "App actions"
     }
   }
 }
