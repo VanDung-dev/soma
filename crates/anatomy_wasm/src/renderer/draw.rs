@@ -42,7 +42,7 @@ impl AnatomyViewer {
         let gl = &self.gpu.gl;
         if picking {
             self.shadow_cached.set(false);
-        } else if !self.shadow_cached.replace(true) {
+        } else if self.shadow_quality > 0 && !self.shadow_cached.replace(true) {
             // Refresh the key light's shadow map on its dedicated framebuffer.
             gl.bind_framebuffer(Gl::FRAMEBUFFER, self.gpu.shadow_framebuffer.as_ref());
             self.draw_pass(false, true);
@@ -151,7 +151,7 @@ impl AnatomyViewer {
             gl.clear_color(0.0, 0.0, 0.0, 0.0);
         }
         gl.clear(Gl::COLOR_BUFFER_BIT | Gl::DEPTH_BUFFER_BIT);
-        if !picking && !shadow_pass {
+        if !picking && !shadow_pass && self.show_grid {
             self.draw_sphere();
         }
         gl.use_program(self.gpu.program.as_ref());
@@ -177,6 +177,8 @@ impl AnatomyViewer {
             &shadow_projection.to_cols_array(),
         );
         gl.uniform1i(Some(&u.shadow_pass), i32::from(shadow_pass));
+        gl.uniform1i(Some(&u.shadow_quality), self.shadow_quality as i32);
+        gl.uniform1i(Some(&u.lighting_quality), self.lighting_quality as i32);
         gl.uniform1i(Some(&u.shadow_map), 0);
         let shadow_texel = 1.0 / self.gpu.shadow_size.max(1) as f32;
         gl.uniform2f(Some(&u.shadow_texel), shadow_texel, shadow_texel);

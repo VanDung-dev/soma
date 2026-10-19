@@ -135,7 +135,49 @@ impl AnatomyViewer {
     }
 
     pub fn resize(&mut self, width: u32, height: u32) -> Result<(), JsValue> {
+        self.resize_render_targets(width, height, self.shadow_quality)?;
         self.cancel_camera_transition();
+        if self.exploding {
+            self.camera.aspect = width as f32 / height as f32;
+        } else {
+            self.camera.resize(width, height);
+        }
+        self.relayout_explosion()?;
+        self.center_camera()?;
+        Ok(())
+    }
+
+    pub fn set_graphics(
+        &mut self,
+        shadow_quality: u32,
+        lighting_quality: u32,
+        show_grid: bool,
+        width: u32,
+        height: u32,
+    ) -> Result<(), JsValue> {
+        if shadow_quality > 2 || lighting_quality > 2 {
+            return Err(js_error("Invalid graphics quality"));
+        }
+        if shadow_quality != self.shadow_quality
+            || width != self.canvas.width()
+            || height != self.canvas.height()
+        {
+            self.resize_render_targets(width, height, shadow_quality)?;
+        }
+        self.shadow_quality = shadow_quality;
+        self.lighting_quality = lighting_quality;
+        self.show_grid = show_grid;
+        Ok(())
+    }
+}
+
+impl AnatomyViewer {
+    fn resize_render_targets(
+        &mut self,
+        width: u32,
+        height: u32,
+        quality: u32,
+    ) -> Result<(), JsValue> {
         let gl = &self.gpu.gl;
         let limit = gl
             .get_parameter(Gl::MAX_RENDERBUFFER_SIZE)?
@@ -147,11 +189,6 @@ impl AnatomyViewer {
         self.canvas.set_width(width);
         self.shadow_cached.set(false);
         self.canvas.set_height(height);
-        if self.exploding {
-            self.camera.aspect = width as f32 / height as f32;
-        } else {
-            self.camera.resize(width, height);
-        }
         gl.bind_texture(Gl::TEXTURE_2D, self.gpu.texture.as_ref());
         gl.tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MIN_FILTER, Gl::NEAREST as i32);
         gl.tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MAG_FILTER, Gl::NEAREST as i32);
@@ -227,11 +264,12 @@ impl AnatomyViewer {
         // Dedicated shadow map: square, decoupled from canvas size so light-space
         // texels stay small even when the viewport is small. Packed RGB depth must
         // be sampled with NEAREST, so resolution (not filtering) carries quality.
-        let shadow_size = width
-            .max(height)
-            .saturating_mul(2)
-            .clamp(1024, 2048)
-            .min(limit);
+        let shadow_size = match quality {
+            0 => 1,
+            1 => 1024,
+            _ => 2048,
+        }
+        .min(limit);
         gl.bind_texture(Gl::TEXTURE_2D, self.gpu.shadow_texture.as_ref());
         gl.tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MIN_FILTER, Gl::NEAREST as i32);
         gl.tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MAG_FILTER, Gl::NEAREST as i32);
@@ -277,11 +315,12 @@ impl AnatomyViewer {
             return Err(js_error("Shadow framebuffer allocation failed"));
         }
         self.gpu.shadow_size = shadow_size;
-        self.relayout_explosion()?;
-        self.center_camera()?;
         Ok(())
     }
+}
 
+#[wasm_bindgen]
+impl AnatomyViewer {
     pub fn subset(&mut self, ids_json: &str) -> Result<(), JsValue> {
         let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
         let bounds = self.scene.subset(&ids).map_err(js_error)?;

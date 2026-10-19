@@ -37,6 +37,9 @@ pub struct AnatomyViewer {
     pub(crate) draws: Vec<(usize, i32, i32)>,
     pub(crate) reconstruction: Reconstruction,
     pub(crate) shadow_cached: Cell<bool>,
+    pub(crate) shadow_quality: u32,
+    pub(crate) lighting_quality: u32,
+    pub(crate) show_grid: bool,
     pub(crate) canvas: HtmlCanvasElement,
 }
 
@@ -132,6 +135,9 @@ impl AnatomyViewer {
                 .collect(),
             reconstruction,
             shadow_cached: Cell::new(false),
+            shadow_quality: 2,
+            lighting_quality: 2,
+            show_grid: true,
             canvas,
         };
         viewer.resize(viewer.canvas.width().max(1), viewer.canvas.height().max(1))?;
