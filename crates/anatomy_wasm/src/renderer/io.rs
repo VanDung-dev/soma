@@ -33,13 +33,10 @@ pub(crate) fn load_packages(packages: js_sys::Array, ids_json: &str) -> Result<S
     }
     let mut scenes = Vec::new();
     for (package, expected) in packages.iter().zip(ids) {
-        if !package.is_instance_of::<js_sys::Uint8Array>() {
-            return Err(js_error("Invalid GLB package"));
-        }
-        scenes.push(
-            Scene::from_glb(&js_sys::Uint8Array::new(&package).to_vec(), &expected)
-                .map_err(js_error)?,
-        );
+        let bytes = package
+            .dyn_into::<js_sys::Uint8Array>()
+            .map_err(|_| js_error("Invalid GLB package"))?;
+        scenes.push(Scene::from_glb(&bytes.to_vec(), &expected).map_err(js_error)?);
     }
     Scene::merge(scenes).map_err(js_error)
 }

@@ -47,6 +47,15 @@ impl AnatomyViewer {
         Ok(())
     }
 
+    pub fn start_reconstruction(&mut self, now: f64, animate: bool) -> Result<(), JsValue> {
+        self.reconstruction.rebase(now).map_err(js_error)?;
+        if !animate {
+            self.reconstruction.finish();
+        }
+        self.shadow_cached.set(false);
+        Ok(())
+    }
+
     #[wasm_bindgen(js_name = appendPrepared)]
     pub fn append_prepared(
         &mut self,
