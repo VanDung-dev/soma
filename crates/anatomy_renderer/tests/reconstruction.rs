@@ -109,4 +109,27 @@ fn reconstruction_reveals_feet_before_head_and_finishes_without_changing_visibil
         .unwrap();
     reconstruction.finish();
     assert!(!reconstruction.advance(5000.0).unwrap());
+
+    let mut delayed = Reconstruction::default();
+    let mut reference = Reconstruction::default();
+    for _ in 0..2 {
+        delayed
+            .append(&scene.parts[..1], scene.bounds, 1000.0, true)
+            .unwrap();
+        reference
+            .append(&scene.parts[..1], scene.bounds, 1000.0, true)
+            .unwrap();
+    }
+    assert!(delayed.rebase(f64::NAN).is_err());
+    assert!(delayed.rebase(999.0).is_err());
+    delayed.rebase(10000.0).unwrap();
+    for elapsed in [0.0, 150.0, 400.0, 800.0, 1300.0, 2500.0] {
+        assert_eq!(
+            delayed.advance(10000.0 + elapsed).unwrap(),
+            reference.advance(1000.0 + elapsed).unwrap()
+        );
+        for index in 0..2 {
+            assert!((delayed.opacity(index) - reference.opacity(index)).abs() < 1e-5);
+        }
+    }
 }

@@ -57,6 +57,15 @@ impl Reconstruction {
     pub fn opacity(&self, index: usize) -> f32 {
         self.reveals[index].value(self.time)
     }
+    pub fn rebase(&mut self, now: f64) -> Result<(), String> {
+        self.check_time(now)?;
+        let offset = now - self.time;
+        for reveal in &mut self.reveals {
+            reveal.start += offset;
+        }
+        self.time = now;
+        Ok(())
+    }
     pub fn fading_out(&self, index: usize) -> bool {
         self.reveals
             .get(index)
