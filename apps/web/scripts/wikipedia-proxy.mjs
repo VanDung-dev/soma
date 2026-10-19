@@ -51,6 +51,24 @@ function frameBridge(source) {
     }
   }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['href'] });
   addEventListener('hashchange', () => report('location'));
+  addEventListener('pointerdown', () => parent.postMessage({ type: 'wikipedia:pointerdown' }, '*'));
+  addEventListener('keydown', event => {
+    if (event.defaultPrevented || event.repeat || event.isComposing || event.altKey || event.shiftKey) return;
+    const key = event.key.toLowerCase();
+    if (key !== 'escape' && (event.target.isContentEditable || event.target.closest?.('input, textarea, select, [role="textbox"]'))) return;
+    const command = /Mac|iPhone|iPad/i.test(navigator.platform) ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+    if (command ? !['[', ']'].includes(key) && !['BracketLeft', 'BracketRight'].includes(event.code)
+      : event.metaKey || event.ctrlKey || !['escape', 'g', 'f', 't'].includes(key)) return;
+    event.preventDefault();
+    parent.postMessage({ type: 'wikipedia:shortcut', key: event.key, code: event.code,
+      metaKey: event.metaKey, ctrlKey: event.ctrlKey }, '*');
+  });
+  addEventListener('contextmenu', event => {
+    if (event.shiftKey && event.button === 2) return;
+    event.preventDefault();
+    parent.postMessage({ type: 'wikipedia:contextmenu', x: event.clientX, y: event.clientY,
+      text: getSelection()?.toString().slice(0, 1_000_000) ?? '' }, '*');
+  });
   addEventListener('message', event => {
     if (event.source !== parent || event.data?.type !== 'wikipedia:reset') return;
     const url = new URL(event.data.url);
@@ -104,8 +122,9 @@ export async function wikipediaProxy(req, res, next) {
     }).end(html);
   } catch {
     if (res.destroyed) return;
-    res.writeHead(502, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': "default-src 'none'" })
-      .end('<!doctype html><html lang="vi"><meta charset="utf-8"><p>Không tải được Wikipedia. Hãy thử “Về bài của bộ phận” hoặc mở bài gốc.</p></html>');
+    res.writeHead(502, { 'Content-Type': 'text/html; charset=utf-8',
+      'Content-Security-Policy': "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; base-uri https://*.wikipedia.org" })
+      .end(wikipediaPage('<!doctype html><html lang="vi"><head><meta charset="utf-8"></head><body><p>Không tải được Wikipedia. Hãy thử “Về bài của bộ phận” hoặc mở bài gốc.</p></body></html>', source));
   }
 }
 
