@@ -73,6 +73,50 @@
       "vi": "Tiếng Anh",
       "en": "English"
     },
+    "graphics.shadow.label": {
+      "vi": "Chất lượng bóng",
+      "en": "Shadow quality"
+    },
+    "graphics.lighting.label": {
+      "vi": "Chất lượng ánh sáng",
+      "en": "Lighting quality"
+    },
+    "graphics.model.label": {
+      "vi": "Độ nét hiển thị",
+      "en": "Display sharpness"
+    },
+    "graphics.model.description": {
+      "vi": "Độ nét hiển thị; giữ nguyên hình học mô hình",
+      "en": "Display resolution; model geometry stays unchanged"
+    },
+    "graphics.fps.label": {
+      "vi": "Hiển thị FPS thực tế",
+      "en": "Show actual FPS"
+    },
+    "graphics.fps.current": {
+      "vi": "Tốc độ render: {count} FPS",
+      "en": "Render rate: {count} FPS"
+    },
+    "graphics.quality.off": {
+      "vi": "Tắt",
+      "en": "Off"
+    },
+    "graphics.quality.low": {
+      "vi": "Thấp",
+      "en": "Low"
+    },
+    "graphics.quality.high": {
+      "vi": "Cao",
+      "en": "High"
+    },
+    "graphics.frameRate.label": {
+      "vi": "Giới hạn khung hình",
+      "en": "Frame rate limit"
+    },
+    "graphics.grid.label": {
+      "vi": "Lưới nền",
+      "en": "Background grid"
+    },
     "appearance.selector.label": {
       "vi": "Giao diện",
       "en": "Appearance"

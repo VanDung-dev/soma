@@ -59,6 +59,22 @@ npm run desktop:build
 
 The executable is written to `target/release/`. This command does not create an installer or sign the app.
 
+## Graphics settings
+
+Settings applies independent graphics controls immediately and saves them on the
+device. Shadow quality offers High (2048px, sixteen filter samples), Low (1024px,
+four samples), and Off. Lighting quality offers High with all three lights and
+detailed reflections, or Low with diffuse main-light shading. Ambient light remains
+available at both levels. Display sharpness offers High (100% render resolution)
+and Low (50%); geometry and camera position stay unchanged. New preferences default
+to shadows off, lighting/sharpness high, and a 60 FPS limit. Saved Balanced lighting
+and sharpness values migrate to High; display-refresh frame limits migrate to 60 FPS.
+
+The frame rate limit (60 or 30 FPS) applies while rendering.
+Show actual FPS counts viewer frames over one-second intervals and reports zero
+when idle; enabling the counter does not force continuous rendering. The background
+grid can be disabled independently.
+
 ## Common problems
 
 ### Rust or GLSL changes do not appear

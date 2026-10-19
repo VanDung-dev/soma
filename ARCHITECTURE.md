@@ -54,6 +54,15 @@ input bindings and observers. Rust owns rendered geometry, camera coordinates an
 animation progress. Scene visibility is the renderer's projection of study commands;
 UI code must not mutate it separately.
 
+`ModelViewer` owns device graphics preferences, independently of study history.
+`ViewerRuntime.setGraphics` applies model display resolution and frame limits;
+`AnatomyViewer.set_graphics` configures independent shadow and lighting quality
+and the background grid. The runtime counts actual viewer frames and publishes
+FPS through `onFps`, separately from study snapshots. Its sampling timer runs only
+while the counter is enabled and is cleared on failure or disposal.
+Changing graphics quality reallocates render targets without reframing the camera
+or changing anatomy visibility.
+
 The `StudyViewer` interface in `viewer/contracts.ts` connects the session to the
 runtime. Geometry-changing session commands commit visibility and focus state only
 after the runtime reports success. Runtime failures publish an error and stop
