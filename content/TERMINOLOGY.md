@@ -23,7 +23,7 @@ These labels, and any new names added by a later model import, fall back to the 
 
 ## Editing and reuse
 
-Update `vi` to refine a draft translation; retain the exact JSON key so its source identity stays stable. `en` is the international/source display name, not an identifier. Check the actual structure and its Latin field when correcting ambiguous terms. This glossary is maintained separately from `anatomy-names.json`, so running the model importer does not overwrite translations.
+Update `vi` to refine a draft translation; retain the exact JSON key so its source identity stays stable. `en` is the international/source display name, not an identifier. Check the actual structure and its Latin field when correcting ambiguous terms. This glossary is maintained separately from `anatomy-names.jsonl`, so running the model importer does not overwrite translations.
 
 `apps/web/src/anatomy-names.ts` centralizes display and laterality with a `vi | en` language argument. The language selector in Settings uses that argument to change the primary anatomy label while preserving source metadata and reference keys. User-interface strings are loaded from `ui-translations.json`; those translations remain drafts and can be refined without changing anatomy source data.
 

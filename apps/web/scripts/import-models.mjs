@@ -80,6 +80,8 @@ for (const model of manifest.models) {
     inventory.set(part.source_name, entry);
   }
 }
-await writeFile(join(root, 'content/anatomy-names.json'), JSON.stringify([...inventory.values()]
+await writeFile(join(root, 'content/anatomy-names.jsonl'), [...inventory.values()]
   .map(entry => ({ name: entry.name, structure_ids: [...entry.structure_ids].sort() }))
-  .sort((a, b) => a.name.localeCompare(b.name, 'en')), null, 2) + '\n');
+  .sort((a, b) => a.name.localeCompare(b.name, 'en'))
+  .map(entry => JSON.stringify(entry))
+  .join('\n') + '\n');

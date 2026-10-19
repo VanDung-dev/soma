@@ -9,6 +9,7 @@ const manifest = JSON.parse(await readFile(new URL('manifest.json', folder)));
 const selectionBytes = await readFile(new URL('../../../content/z-anatomy-selections.json', import.meta.url));
 const selections = JSON.parse(selectionBytes);
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+const parseJsonl = text => text.split('\n').filter(Boolean).map(line => JSON.parse(line));
 const availableIds = new Set(manifest.models.flatMap(m => m.source_ids));
 test('Z-Anatomy preserves geometry, structure identity, names and materials', async () => {
   assert.equal(manifest.source, 'Z-Anatomy');
@@ -97,7 +98,7 @@ test('Z-Anatomy preserves geometry, structure identity, names and materials', as
   assert(manifest.excluded_objects.every(o => o.object && o.reason));
   const heart = JSON.parse(await readFile(new URL('cardiovascular-system.json', folder)));
   assert(heart.structures.some(s => s.source_name === 'Right atrium'));
-  const names = JSON.parse(await readFile(new URL('../../../content/anatomy-names.json', import.meta.url)));
+  const names = parseJsonl(await readFile(new URL('../../../content/anatomy-names.jsonl', import.meta.url), 'utf8'));
   assert.equal(names.length, 2053);
   assert.equal(new Set(names.map(entry => entry.name)).size, names.length);
   assert.deepEqual(names.flatMap(entry => entry.structure_ids).sort(), [...inventory.keys()].sort());

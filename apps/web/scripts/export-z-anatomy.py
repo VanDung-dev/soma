@@ -17,6 +17,63 @@ output = root / '.cache' / 'z-anatomy' / 'export'
 output.mkdir(parents=True, exist_ok=True)
 selection_bytes = (root / 'content/z-anatomy-selections.json').read_bytes()
 selections = json.loads(selection_bytes)
+INLINE_LIMIT = 500
+PACK = 8
+
+def inline(value):
+    return json.dumps(value, ensure_ascii=False, separators=(', ', ': '))
+
+def wrapped(values, indent):
+    lines = []
+    for index in range(0, len(values), PACK):
+        chunk = values[index:index + PACK]
+        lines.append(' ' * indent + ', '.join(inline(value) for value in chunk) + (',' if index + PACK < len(values) else ''))
+    return lines
+
+def format_target(target):
+    single = inline(target)
+    if len(single) <= INLINE_LIMIT:
+        return ['    ' + single]
+    lines = ['    {']
+    items = list(target.items())
+    for index, (key, value) in enumerate(items):
+        comma = ',' if index < len(items) - 1 else ''
+        if key == 'structure_ids' and isinstance(value, list) and len(inline(value)) > INLINE_LIMIT:
+            lines.append('      "structure_ids": [')
+            lines.extend(wrapped(value, 8))
+            lines.append('      ]' + comma)
+        elif key == 'model' and isinstance(value, dict) and len(inline(value)) > INLINE_LIMIT:
+            lines.append('      "model": {"path": ' + inline(value['path']) + ', "scope": ' + inline(value['scope']) + ', "structure_ids": [')
+            lines.extend(wrapped(value['structure_ids'], 8))
+            lines.append('      ]}' + comma)
+        else:
+            lines.append('      ' + inline(key) + ': ' + inline(value) + comma)
+    lines.append('    }')
+    return lines
+
+def format_catalog(catalog):
+    lines = ['{']
+    keys = list(catalog)
+    for index, key in enumerate(keys):
+        value = catalog[key]
+        comma = ',' if index < len(keys) - 1 else ''
+        if key == 'groups':
+            lines.append('  "groups": [')
+            for group_index, group in enumerate(value):
+                lines.append('    ' + inline(group) + (',' if group_index < len(value) - 1 else ''))
+            lines.append('  ]' + comma)
+        elif key == 'targets':
+            lines.append('  "targets": [')
+            for target_index, target in enumerate(value):
+                block = format_target(target)
+                block[-1] += ',' if target_index < len(value) - 1 else ''
+                lines.extend(block)
+            lines.append('  ]' + comma)
+        else:
+            lines.append('  ' + inline(key) + ': ' + inline(value) + comma)
+    lines.append('}')
+    return '\n'.join(lines) + '\n'
+
 source_objects = list(bpy.data.objects)
 source_collections = dict(bpy.data.collections.items())
 translation_text = bpy.data.texts.get('Translations')
@@ -275,4 +332,4 @@ manifest['fallback_materials'] = sorted(fallback_materials)
 manifest['repaired_meshes'] = repaired
 (output / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf8')
 
-(output / 'catalog.json').write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + '\n', encoding='utf8')
+(output / 'catalog.json').write_text(format_catalog(catalog), encoding='utf8')

@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { createServer } from 'vite';
 
+const parseJsonl = text => text.split('\n').filter(Boolean).map(line => JSON.parse(line));
+
 test('bilingual names preserve source identity and have safe, explicit fallbacks', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
@@ -21,7 +23,7 @@ test('bilingual names preserve source identity and have safe, explicit fallbacks
     assert.equal(targetName({ source_name: '1: Skeletal system', title: 'Hệ xương' }), 'Hệ xương');
     assert.equal(targetName({ source_name: '1: Skeletal system', title: 'Hệ xương' }, 'en'), 'Skeletal system');
 
-    const inventory = JSON.parse(await readFile(new URL('../../../content/anatomy-names.json', import.meta.url)));
+    const inventory = parseJsonl(await readFile(new URL('../../../content/anatomy-names.jsonl', import.meta.url), 'utf8'));
     const catalog = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
     const glossary = JSON.parse(await readFile(new URL('../../../content/anatomy-terminology.json', import.meta.url)));
     const sources = new Set([...inventory.map(x => x.name), ...catalog.targets.map(x => x.source_name)]);

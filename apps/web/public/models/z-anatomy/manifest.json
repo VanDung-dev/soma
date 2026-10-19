@@ -2,7 +2,7 @@
   "source": "Z-Anatomy",
   "source_file": "Z-Anatomy/Startup.blend",
   "source_sha256": "9f08a17ea0115fed80b2a73ecdf0a1bc2ab2f6956f37c593ce23d513ea35afcd",
-  "selections_sha256": "638e1e520c622ad5ad6dffeb465e8c8e6297cb4544eae5a04c6f66d72dd36b8e",
+  "selections_sha256": "052c0322db02b43721b13e11230eba48c095227da55305803b644ef95ca876b3",
   "blender": "5.2.2 LTS",
   "units": "metres",
   "up_axis": "Y",
