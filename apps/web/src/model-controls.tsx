@@ -3,6 +3,8 @@ import type { MessageKey } from "./i18n";
 import { useLanguage } from "./i18n";
 import type { CameraCommand } from "./viewer/contracts";
 import { LineIcon } from "./icons";
+import { appShortcuts, shortcutLabel } from "./shortcuts";
+import type { AppShortcut } from "./shortcuts";
 
 const groups: { label: MessageKey; controls: { key: string; shortcut: string; label: MessageKey; action: (step: number) => CameraCommand }[] }[] = [
   { label: "controls.group.camera", controls: [
@@ -54,7 +56,7 @@ export function ModelControls({ disabled, onControl, helpId }: {
     const keyDown = (event: KeyboardEvent) => {
       if (disabled || event.defaultPrevented || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target;
-      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [role='textbox'], .app-menu-bar, .controls-guide, .catalog-panel, .information-panel"))) return;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [role='textbox'], [role='menu'], .app-menu-bar, .controls-guide, .catalog-panel, .information-panel"))) return;
       const key = event.key.toLowerCase();
       if (!controls.some(control => control.key === key)) return;
       event.preventDefault();
@@ -94,8 +96,16 @@ export function ModelControls({ disabled, onControl, helpId }: {
                 <dt><kbd>{arrows[control.shortcut] ?? control.shortcut}</kbd></dt><dd>{t(control.label)}</dd>
               </div>)}</dl>
             </div>)}
+            <div className="guide-key-group guide-app-shortcuts">
+              <h4>{t("shortcuts.app")}</h4>
+              <dl>{(Object.keys(appShortcuts) as AppShortcut[]).map(action => <div key={action}>
+                <dt><kbd>{shortcutLabel(action)}</kbd></dt><dd>{t(appShortcuts[action].label)}</dd>
+              </div>)}</dl>
+            </div>
           </section>
           <section aria-label={t("controls.mouse.label")}><h3>{t("controls.mouse.label")}</h3><dl className="guide-mouse">
+            <div><dt>{t("context.rightClick")}</dt><dd>{t("context.menuHint")}</dd></div>
+            <div><dt>Shift + {t("context.rightClick")}</dt><dd>{t("context.nativeHint")}</dd></div>
             <div><dt>{t("controls.mouse.dragLeft")}</dt><dd>{t("controls.mouse.rotate")}</dd></div>
             <div><dt>{t("controls.mouse.wheel")}</dt><dd>{t("controls.mouse.zoomAtCursor")}</dd></div>
             <div><dt>{t("controls.mouse.panGesture")}</dt><dd>{t("controls.mouse.pan")}</dd></div>

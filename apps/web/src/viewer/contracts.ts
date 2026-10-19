@@ -15,7 +15,8 @@ export interface ViewerState {
   error: boolean;
   meshes: Structure[];
   selected: string;
-  hovered: string;
+  movingId: string;
+  separatedIds: ReadonlySet<string>;
 }
 
 export interface StudyViewer {
@@ -26,4 +27,6 @@ export interface StudyViewer {
   retargetExplosion(value: number, ids: string[]): void;
   overview(): boolean;
   control(commands: CameraCommand[]): boolean;
+  setMoving(id: string): boolean;
+  restoreStructure(id: string): boolean;
 }

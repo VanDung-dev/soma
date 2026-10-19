@@ -34,8 +34,9 @@ export function createStructureSearch(structures: Structure[]) {
   };
 }
 
-export function StructureSearch({ structures, disabled, onSelect }: {
+export function StructureSearch({ structures, disabled, onSelect, triggerId }: {
   structures: Structure[]; disabled: boolean; onSelect: (id: string) => void;
+  triggerId?: string;
 }) {
   const id = useId();
   const { language, t } = useLanguage();
@@ -69,8 +70,8 @@ export function StructureSearch({ structures, disabled, onSelect }: {
     trigger.current?.focus({ preventScroll: true });
   };
   return <>
-    <button ref={trigger} className="structure-search-field" type="button" disabled={disabled} popoverTarget={id}
-      aria-label={t("search.submit")} title={t("search.submit")}><Magnifier /></button>
+    <button ref={trigger} id={triggerId} className="structure-search-field" type="button" disabled={disabled} popoverTarget={id}
+      aria-label={t("search.submit")} title={`${t("search.submit")} (F)`}><Magnifier /></button>
     <section ref={popover} id={id} className="structure-search-popover" popover="auto" role="dialog" aria-label={t("search.label")}
       onToggle={event => {
         if (event.currentTarget.matches(":popover-open")) {

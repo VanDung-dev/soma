@@ -1,41 +1,41 @@
-import { useId } from "react";
 import { useLanguage } from "./i18n";
 import { LineIcon } from "./icons";
 import { useTheme } from "./theme";
 import type { GraphicsSettings } from "./viewer/graphics";
+import { shortcutLabel } from "./shortcuts";
 
 const themeOptions = ["auto", "light", "dark"] as const;
 
-export function MenuBar({ disabled, canGoBack, canGoForward, onBack, onForward, helpId, graphics, onGraphicsChange }: {
+export function MenuBar({ disabled, canGoBack, canGoForward, onBack, onForward, helpId, settingsId, graphics, onGraphicsChange }: {
   disabled: boolean;
   canGoBack: boolean;
   canGoForward: boolean;
   onBack: () => void;
   onForward: () => void;
   helpId: string;
+  settingsId: string;
   graphics: GraphicsSettings;
   onGraphicsChange: (settings: GraphicsSettings) => void;
 }) {
-  const settingsId = useId();
   const { language, setLanguage, t } = useLanguage();
   const { theme, setTheme } = useTheme();
   return <header className="app-menu-bar" aria-label={t("app.navigation.label")}>
     <div className="app-menu-history">
       <button className="controls-info" disabled={disabled || !canGoBack} onClick={onBack}
-        aria-label={t("app.back")} title={t("app.back")}>
+        aria-label={t("app.back")} title={`${t("app.back")} (${shortcutLabel("back")})`}>
         <LineIcon name="arrow-small-left" size={14} />
       </button>
       <button className="controls-info" disabled={disabled || !canGoForward} onClick={onForward}
-        aria-label={t("app.forward")} title={t("app.forward")}>
+        aria-label={t("app.forward")} title={`${t("app.forward")} (${shortcutLabel("forward")})`}>
         <LineIcon name="arrow-small-right" size={14} />
       </button>
     </div>
     <h1 className="app-menu-title" title={t("app.title")}>{t("app.title")}</h1>
     <div className="app-menu-actions">
-      <button className="controls-info" popoverTarget={helpId} aria-label={t("app.help")} title={t("app.help")}>
+      <button className="controls-info" popoverTarget={helpId} aria-label={t("app.help")} title={`${t("app.help")} (G)`}>
         <LineIcon name="alert-circle" size={14} />
       </button>
-      <button className="controls-info" popoverTarget={settingsId} aria-label={t("app.settings")} title={t("app.settings")}>
+      <button className="controls-info" popoverTarget={settingsId} aria-label={t("app.settings")} title={`${t("app.settings")} (Esc)`}>
         <LineIcon name="cog" size={14} />
       </button>
     </div>

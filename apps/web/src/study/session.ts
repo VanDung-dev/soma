@@ -25,7 +25,7 @@ export class StudySession {
   private navigating = false;
   private state: StudyState = {
     building: true, loadedSystems: 0, status: "Đang nạp mô hình…", error: false, meshes: [],
-    selected: "", hovered: "", focusedIds: [], readingId: "", visibleIds: new Set(), readerExpanded: false, explosionAmount: 0,
+    selected: "", movingId: "", separatedIds: new Set(), focusedIds: [], readingId: "", visibleIds: new Set(), readerExpanded: false, explosionAmount: 0,
     canGoBack: false, canGoForward: false,
   };
 
@@ -47,8 +47,13 @@ export class StudySession {
   }
 
   updateViewer = (patch: Partial<ViewerState>) => {
-    this.update(patch.meshes ? { ...patch, visibleIds: new Set(patch.meshes.map(part => part.source_id)) } : patch);
+    const movingId = patch.movingId ?? this.state.movingId;
+    const separatedIds = patch.separatedIds ?? this.state.separatedIds;
+    this.update({ ...patch, ...(patch.meshes ? { visibleIds: new Set(patch.meshes.map(part => part.source_id)) } : {}),
+      ...(!this.state.targetId && (!this.state.readingId || movingId !== this.state.readingId && !separatedIds.has(this.state.readingId)) ? { readerExpanded: false } : {}) });
   };
+
+  private canRead(id = this.state.readingId) { return !!id && (id === this.state.movingId || this.state.separatedIds.has(id)); }
 
   private explosionIds() { return this.state.readingId ? [this.state.readingId] : this.state.focusedIds; }
   private retargetExplosion() { this.viewer?.retargetExplosion(this.state.explosionAmount, this.explosionIds()); }
@@ -90,20 +95,21 @@ export class StudySession {
 
   browseStructure = (id: string) => {
     if (!this.viewer?.select(id)) return false;
-    this.update({ readingId: id, targetId: undefined, focusedIds: [], ...this.record({ kind: "structure", id, focused: false }) });
+    this.update({ readingId: id, readerExpanded: this.canRead(id) && this.state.readerExpanded,
+      targetId: undefined, focusedIds: [], ...this.record({ kind: "structure", id, focused: false }) });
     this.retargetExplosion();
     return true;
   };
 
   browseTarget = (id: string) => {
     if (!this.catalog.targets.has(id) || !this.viewer?.select("")) return false;
-    this.update({ readingId: "", targetId: id, focusedIds: [], ...this.record({ kind: "target", id, focused: false }) });
+    this.update({ readingId: "", readerExpanded: false, targetId: id, focusedIds: [], ...this.record({ kind: "target", id, focused: false }) });
     this.retargetExplosion();
     return true;
   };
 
   pick = (id: string) => {
-    this.update({ readingId: id, targetId: undefined, focusedIds: [],
+    this.update({ readingId: id, readerExpanded: this.canRead(id) && this.state.readerExpanded, targetId: undefined, focusedIds: [],
       ...(id ? this.record({ kind: "structure", id, focused: false }) : {}) });
     this.retargetExplosion();
   };
@@ -125,7 +131,7 @@ export class StudySession {
     if (!ids.length || !this.viewer?.focus(ids, folder, reveal)) return false;
     const readingId = !folder && ids.length === 1 ? ids[0]! : "";
     this.update({ visibleIds: folder || readingId ? new Set(ids) : new Set([...this.state.visibleIds, ...ids]),
-      readerExpanded: false, hovered: "", readingId, targetId, focusedIds: ids,
+      readerExpanded: false, readingId, targetId, focusedIds: ids,
       ...(targetId ? this.record({ kind: "target", id: targetId, focused: true })
         : readingId ? this.record({ kind: "structure", id: readingId, focused: true }) : {}) });
     this.retargetExplosion();
@@ -133,16 +139,24 @@ export class StudySession {
   };
 
   revealStructure = (id: string) => { this.update({ reveal: { id } }); };
-  toggleReader = () => { this.update({ readerExpanded: !this.state.readerExpanded }); };
+  toggleReader = () => { if (this.canRead() || this.state.targetId) this.update({ readerExpanded: !this.state.readerExpanded }); };
   closeReader = () => { this.update({ readerExpanded: false }); };
 
   changeExplosion = (value: number) => {
-    if (this.viewer?.setExplosion(value, this.explosionIds())) this.update({ explosionAmount: value, hovered: "" });
+    if (this.state.movingId || this.state.separatedIds.size) return;
+    if (this.viewer?.setExplosion(value, this.explosionIds())) this.update({ explosionAmount: value });
   };
+
+  setMoving = (id: string) => {
+    if (id && (id !== this.state.selected || this.state.explosionAmount || !this.state.visibleIds.has(id))) return false;
+    return this.viewer?.setMoving(id) ?? false;
+  };
+
+  restoreStructure = (id: string) => this.viewer?.restoreStructure(id) ?? false;
 
   overview = () => {
     if (!this.viewer?.overview()) return false;
-    this.update({ readerExpanded: false, readingId: "", targetId: undefined, focusedIds: [], hovered: "",
+    this.update({ readerExpanded: false, readingId: "", targetId: undefined, focusedIds: [],
       visibleIds: new Set(this.state.meshes.map(part => part.source_id)), explosionAmount: 0, ...this.record({ kind: "overview" }) });
     return true;
   };

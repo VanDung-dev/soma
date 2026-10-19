@@ -1,9 +1,10 @@
 import { useEffect, useId, useRef } from "react";
 import { useLanguage } from "./i18n";
 
-export function ExplodeControls({ value, disabled, onChange }: {
+export function ExplodeControls({ value, disabled, locked, onChange }: {
   value: number;
   disabled: boolean;
+  locked: boolean;
   onChange: (value: number) => void;
 }) {
   const id = useId();
@@ -18,7 +19,8 @@ export function ExplodeControls({ value, disabled, onChange }: {
   }, []);
   return <fieldset className="explode-control" disabled={disabled}>
     <legend className="sr-only">{t("explode.legend")}</legend>
-    <div className="explode-label"><label htmlFor={id}>{t("explode.level")}</label><output htmlFor={id}>{value}%</output></div>
+    <div className="explode-label"><span><label htmlFor={id}>{t("explode.level")}</label>
+      {locked && <small>{t("explode.locked")}</small>}</span><output htmlFor={id}>{value}%</output></div>
     <input id={id} type="range" min="0" max="100" step="1" value={value} list={`${id}-stages`}
       aria-valuetext={`${value}%`}
       // Native range thumbs own their mouse capture, including Safari's shadow thumb.

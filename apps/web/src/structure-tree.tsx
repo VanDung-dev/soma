@@ -119,7 +119,9 @@ function Folder({ target, childrenById, structures, props, revealPath, revealRow
           <button className="tree-name" disabled={props.disabled} aria-current={props.selected === id ? "true" : undefined}
             aria-keyshortcuts="Shift+Enter" title={t("tree.focusHint", { name: title })}
             onKeyDown={event => { if (event.key === "Enter" && event.shiftKey) { event.preventDefault(); props.onFocus([id]); } }}
-            onClick={() => props.onSelect(id)} onFocus={() => props.onSelect(id)}>{title}
+            onClick={() => props.onSelect(id)} onFocus={event => {
+              if (event.currentTarget.closest<HTMLElement>(".study-shell")?.dataset.focusSource === "keyboard") props.onSelect(id);
+            }}>{title}
             {otherName !== title && <small lang={otherLanguage}>{otherName}</small>}</button>
         </li>;
       })}
