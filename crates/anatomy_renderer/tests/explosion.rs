@@ -1,4 +1,4 @@
-use anatomy_renderer::{Bounds, Camera, Explosion, Primitive, Reconstruction, Scene};
+use anatomy_renderer::{Bounds, Camera, Explosion, Primitive, Reconstruction, Scene, Separation};
 use glam::Vec3;
 
 fn scene() -> Scene {
@@ -28,6 +28,45 @@ fn scene() -> Scene {
 
 fn groups() -> Vec<Vec<String>> {
     vec![vec!["a".into()], vec!["b".into(), "c".into()]]
+}
+
+#[test]
+fn manual_separation_preserves_structure_identity_camera_and_original_geometry() {
+    let scene = scene();
+    let mut camera = Camera::new(scene.bounds);
+    camera.resize(1400, 900);
+    camera.rotate(0.7, -0.2).unwrap();
+    camera.pan(0.12, -0.08).unwrap();
+    let matrix = camera.matrix();
+    let original = scene.bounds_for(&["a".into()]).unwrap().unwrap();
+    let before = matrix.project_point3(original.center());
+    let mut separated = Separation::default();
+    separated.drag(&scene, &camera, "a", 0.08, -0.04).unwrap();
+    let offset = separated.offset("a");
+    let after = matrix.project_point3(original.center() + offset);
+    assert!((after.x - before.x - 0.16).abs() < 1e-4);
+    assert!((after.y - before.y - 0.08).abs() < 1e-4);
+    assert_eq!(camera.matrix(), matrix);
+    assert_eq!(scene.parts[0].bounds.min, Vec3::new(-1.0, 0.0, -0.2));
+    assert_eq!(
+        separated.offset(&scene.parts[0].source_id),
+        separated.offset(&scene.parts[1].source_id)
+    );
+    assert_eq!(separated.offset("b"), Vec3::ZERO);
+    assert!(separated.set(&scene, "missing", [0.0; 3]).is_err());
+    assert!(separated.set(&scene, "a", [f32::NAN, 0.0, 0.0]).is_err());
+    assert!(
+        separated
+            .drag(&scene, &camera, "a", f32::INFINITY, 0.0)
+            .is_err()
+    );
+    assert_eq!(separated.offset("a"), offset);
+    separated.set(&scene, "b", [0.1, 0.0, 0.0]).unwrap();
+    separated.clear("a");
+    assert!(!separated.moved("a"));
+    assert!(separated.moved("b"));
+    separated.clear("");
+    assert!(separated.is_empty());
 }
 
 #[test]
