@@ -49,8 +49,10 @@ export class StudySession {
   updateViewer = (patch: Partial<ViewerState>) => {
     const movingId = patch.movingId ?? this.state.movingId;
     const separatedIds = patch.separatedIds ?? this.state.separatedIds;
+    const readerWasAvailable = this.canRead() || !!this.state.targetId;
+    const readerRemainsAvailable = !!this.state.targetId || movingId === this.state.readingId || separatedIds.has(this.state.readingId);
     this.update({ ...patch, ...(patch.meshes ? { visibleIds: new Set(patch.meshes.map(part => part.source_id)) } : {}),
-      ...(!this.state.targetId && (!this.state.readingId || movingId !== this.state.readingId && !separatedIds.has(this.state.readingId)) ? { readerExpanded: false } : {}) });
+      ...(readerWasAvailable && !readerRemainsAvailable ? { readerExpanded: false } : {}) });
   };
 
   private canRead(id = this.state.readingId) { return !!id && (id === this.state.movingId || this.state.separatedIds.has(id)); }
@@ -139,7 +141,7 @@ export class StudySession {
   };
 
   revealStructure = (id: string) => { this.update({ reveal: { id } }); };
-  toggleReader = () => { if (this.canRead() || this.state.targetId) this.update({ readerExpanded: !this.state.readerExpanded }); };
+  toggleReader = () => { this.update({ readerExpanded: !this.state.readerExpanded }); };
   closeReader = () => { this.update({ readerExpanded: false }); };
 
   changeExplosion = (value: number) => {

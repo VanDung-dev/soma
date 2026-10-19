@@ -14,26 +14,29 @@ export function validateMetadata(value: unknown, expectedIds: string[]): Structu
   return structures;
 }
 
-export async function loadModels(roots: StudyTarget[], signal: AbortSignal, onProgress: (loaded: number) => void) {
+export async function* loadModels(roots: StudyTarget[], signal: AbortSignal, onProgress: (loaded: number) => void) {
   signal.throwIfAborted();
-  const downloads = roots.map(async root => {
-    const model = root.model!;
-    const [response, metadataResponse] = await Promise.all([
-      fetch(`${import.meta.env.BASE_URL}${model.path}`, { signal }),
-      fetch(`${import.meta.env.BASE_URL}${model.path.replace(/\.glb$/, ".json")}`, { signal }),
-    ]);
-    if (!response.ok || !metadataResponse.ok) throw new Error(`HTTP ${response.status}/${metadataResponse.status}`);
-    const structures = validateMetadata(await metadataResponse.json(), model.structure_ids);
-    return { bytes: new Uint8Array(await response.arrayBuffer()), structures };
-  }).map(promise => promise.catch(cause => ({ cause })));
   const worker = new Worker(new URL("./model-worker.ts", import.meta.url), { type: "module" });
+  const downloadAbort = new AbortController();
+  const download = async (root: StudyTarget): Promise<{ bytes: Uint8Array; structures: Structure[] } | { cause: unknown }> => {
+    try {
+      const model = root.model!;
+      const [response, metadataResponse] = await Promise.all([
+        fetch(`${import.meta.env.BASE_URL}${model.path}`, { signal: downloadAbort.signal }),
+        fetch(`${import.meta.env.BASE_URL}${model.path.replace(/\.glb$/, ".json")}`, { signal: downloadAbort.signal }),
+      ]);
+      if (!response.ok || !metadataResponse.ok) throw new Error(`HTTP ${response.status}/${metadataResponse.status}`);
+      const structures = validateMetadata(await metadataResponse.json(), model.structure_ids);
+      return { bytes: new Uint8Array(await response.arrayBuffer()), structures };
+    } catch (cause) { return { cause }; }
+  };
   let cancelPreparation: (() => void) | undefined;
-  const cancel = () => cancelPreparation?.();
+  const cancel = () => { downloadAbort.abort(signal.reason); cancelPreparation?.(); };
   signal.addEventListener("abort", cancel);
-  const packages: { prepared: PreparedGeometry; structures: Structure[] }[] = [];
   try {
-    for (const download of downloads) {
-      const pkg = await download;
+    const downloads = roots.slice(0, 2).map(download);
+    for (let index = 0; index < roots.length; index++) {
+      const pkg = await downloads.shift()!;
       signal.throwIfAborted();
       if ("cause" in pkg) throw pkg.cause;
       const prepared = await new Promise<PreparedGeometry>((resolve, reject) => {
@@ -45,11 +48,13 @@ export async function loadModels(roots: StudyTarget[], signal: AbortSignal, onPr
       });
       cancelPreparation = undefined;
       signal.throwIfAborted();
-      packages.push({ prepared, structures: pkg.structures });
-      onProgress(packages.length);
+      onProgress(index + 1);
+      signal.throwIfAborted();
+      yield { prepared, structures: pkg.structures };
+      if (index + 2 < roots.length) downloads.push(download(roots[index + 2]!));
     }
-    return packages;
   } finally {
+    downloadAbort.abort();
     worker.terminate();
     signal.removeEventListener("abort", cancel);
   }

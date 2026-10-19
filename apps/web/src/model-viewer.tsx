@@ -112,7 +112,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const selectedPart = meshes.find(part => part.source_id === readingId);
   const canReadReference = !!selectedPart && (movingId === readingId || separatedIds.has(readingId));
   const referenceName = canReadReference ? selectedPart.source_name : target?.source_name;
-  const canExpandReader = !!referenceName && (canReadReference || !!target);
   const otherLanguage = language === "vi" ? "en" : "vi";
   const heading = selectedPart ? structureName(selectedPart, language) : target ? targetName(target, language) : t("information.defaultTitle");
   const otherHeading = selectedPart ? structureName(selectedPart, otherLanguage) : target ? targetName(target, otherLanguage) : "";
@@ -190,10 +189,10 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
             <h2>{heading}</h2>
             {otherHeading && otherHeading !== heading && <p className="international-name" lang={otherLanguage}>{otherHeading}</p>}
           </div>
-          {canExpandReader && <button className="reader-expand" aria-expanded={readerExpanded} aria-controls="information-content"
+          <button className="reader-expand" aria-expanded={readerExpanded} aria-controls="information-content"
             onClick={session.toggleReader}>
             {t(readerExpanded ? "information.collapse" : "information.expand")}
-          </button>}
+          </button>
         </header>
         <div className="information-content" id="information-content">
           <div className="information-details">

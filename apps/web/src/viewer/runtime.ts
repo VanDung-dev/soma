@@ -66,24 +66,28 @@ export class ViewerRuntime implements StudyViewer {
     try {
       const wasm = await getWasm();
       if (this.disposed) return;
-      const packages = await loadModels(roots, this.abort.signal, loadedSystems => {
+      const packages = loadModels(roots, this.abort.signal, loadedSystems => {
         this.options.onState({ loadedSystems, status: `Đang chuẩn bị cơ thể · ${loadedSystems}/${roots.length} hệ đã nạp` });
       });
-      if (this.disposed) return;
       // Fit every system before the first frame so reconstruction cannot change the scale.
-      const now = performance.now(), animate = !this.motion.matches;
-      for (const pkg of packages) {
-        if (this.viewer) this.viewer.appendPrepared(pkg.prepared, now, animate);
+      const started = performance.now(), structures: Structure[] = [];
+      for await (const pkg of packages) {
+        if (this.disposed) return;
+        if (this.viewer) this.viewer.appendPrepared(pkg.prepared, started, true);
         else {
           this.viewer = wasm.AnatomyViewer.fromPrepared(this.canvas, pkg.prepared);
-          this.viewer.begin_reconstruction(now, animate);
+          this.viewer.begin_reconstruction(started, true);
         }
+        structures.push(...pkg.structures);
       }
+      if (this.disposed) return;
+      const animate = !this.motion.matches;
+      this.viewer!.start_reconstruction(performance.now(), animate);
       this.resize();
       this.setGraphics(this.graphics);
       this.viewer!.configure_explosion(JSON.stringify(roots.map(root => root.model!.structure_ids)));
       if (this.failed) throw new Error("Model rendering failed");
-      this.meshes = [...new Map(packages.flatMap(pkg => pkg.structures).map(part => [part.source_id, part])).values()]
+      this.meshes = [...new Map(structures.map(part => [part.source_id, part])).values()]
         .sort((a, b) => structureName(a).localeCompare(structureName(b), "vi") || a.source_object.localeCompare(b.source_object));
       this.loading = false; this.animating = animate;
       this.options.onState({ meshes: this.meshes, building: animate, status: "Đang hoàn thiện cơ thể…" });
@@ -114,7 +118,7 @@ export class ViewerRuntime implements StudyViewer {
   };
 
   private scheduleRender = () => {
-    if (!this.viewer || this.renderFrame || this.failed || this.disposed) return;
+    if (this.loading || !this.viewer || this.renderFrame || this.failed || this.disposed) return;
     this.renderFrame = requestAnimationFrame(() => {
       this.renderFrame = 0;
       if (this.failed || this.disposed) return;
@@ -198,7 +202,7 @@ export class ViewerRuntime implements StudyViewer {
   private animationTime() { return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? undefined : performance.now(); }
 
   private motionChanged = () => {
-    if (this.motion.matches && this.viewer) {
+    if (!this.loading && this.motion.matches && this.viewer) {
       this.viewer.finish_reconstruction(); this.animating = false; this.scheduleRender();
       this.viewer.finish_explosion(); this.viewer.finish_camera_transition(); this.cameraAnimating = false;
       if (this.restoration) {
