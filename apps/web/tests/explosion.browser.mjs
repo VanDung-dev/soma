@@ -1,4 +1,4 @@
-import { getWasm } from '../src/core.ts';
+import { getWasm } from '../src/anatomy/core.ts';
 
 // Run in Vite: (await import('/tests/explosion.browser.mjs')).checkExplosion()
 export async function checkExplosion() {

@@ -8,9 +8,9 @@ import { createServer } from 'vite';
 test('structure search matches names, Latin and laterality, and reveals the selected tree path', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
-    const { createStructureSearch, StructureSearch } = await server.ssrLoadModule('/src/structure-search.tsx');
+    const { createStructureSearch, StructureSearch } = await server.ssrLoadModule('/src/anatomy/structure-search.tsx');
     const searchStructures = (parts, query) => createStructureSearch(parts)(query);
-    const { StructureTree } = await server.ssrLoadModule('/src/structure-tree.tsx');
+    const { StructureTree } = await server.ssrLoadModule('/src/anatomy/structure-tree.tsx');
     const part = (id, name, latin, laterality = '') => ({ source_id: id, source_name: name,
       source_object: name, latin, laterality, collections: [] });
     const parts = [part('head', 'Head of femur', 'Caput femoris'),

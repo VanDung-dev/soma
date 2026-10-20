@@ -1,4 +1,4 @@
-import { getWasm } from '../src/core.ts';
+import { getWasm } from '../src/anatomy/core.ts';
 
 // Run in Vite: (await import('/tests/controls.browser.mjs')).checkControls()
 export async function checkControls() {
@@ -349,7 +349,7 @@ export async function checkHudCentering() {
         await settleCamera();
         assert(calls > before, 'Reopening reading for a separated structure must center it');
       }
-      const desktop = matchMedia('(min-width: 901px)').matches;
+      const desktop = matchMedia('(min-width: 1141px)').matches;
       if (!desktop) {
         document.querySelector('.explode-control').scrollIntoView({ block: 'center' });
         await frames();

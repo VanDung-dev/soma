@@ -1,4 +1,4 @@
-import { getCatalog, getWasm } from '../src/core.ts';
+import { getCatalog, getWasm } from '../src/anatomy/core.ts';
 
 // Run after loading in Vite: (await import('/tests/focus.browser.mjs')).checkFocusTree()
 export async function checkFocusTree() {
@@ -121,7 +121,7 @@ export async function checkFocusTree() {
     assert(lastViewer.visible_count() === 1 && partRow.querySelector('input').checked, 'Hidden structure must be enabled');
     assert(lastViewer.selected_id() === partId, 'Focused structure must remain selected');
     const area = canvas.getBoundingClientRect(), ratio = canvas.width / area.width;
-    const desktop = innerWidth > 900;
+    const desktop = innerWidth > 1140;
     const left = desktop ? document.querySelector('.catalog-panel').getBoundingClientRect().right + 12 : area.left + 12;
     const right = desktop ? document.querySelector('.information-panel').getBoundingClientRect().left - 12 : area.right - 12;
     assert(imageBounds.left >= (left - area.left) * ratio - 2 && imageBounds.right <= (right - area.left) * ratio + 2,

@@ -11,7 +11,7 @@ test('model loading streams in order, bounds prefetch and cleans up cancellation
   }));
   let workerFailure = false;
   try {
-    const { loadModels } = await server.ssrLoadModule('/src/viewer/loader.ts');
+    const { loadModels } = await server.ssrLoadModule('/src/anatomy/viewer/loader.ts');
     globalThis.fetch = async (url, { signal }) => {
       requests.push(url); signals.push(signal);
       const id = url.match(/\/(\d+)\.(glb|json)$/)[1];

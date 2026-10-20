@@ -7,7 +7,7 @@ test('manual separation drags only its structure and rotates only from empty bac
   const previousWindow = globalThis.window;
   let unbind;
   try {
-    const { bindViewerInput } = await server.ssrLoadModule('/src/viewer/input.ts');
+    const { bindViewerInput } = await server.ssrLoadModule('/src/anatomy/viewer/input.ts');
     globalThis.window = Object.assign(new EventTarget(), { setTimeout, clearTimeout });
     const bounds = { left: 0, top: 0, right: 300, bottom: 300, width: 300, height: 300 };
     const canvas = Object.assign(new EventTarget(), { width: 300, height: 300, clientWidth: 300, clientHeight: 300,
@@ -23,7 +23,7 @@ test('manual separation drags only its structure and rotates only from empty bac
     };
     unbind = bindViewerInput(canvas, { enabled: () => true, frame: () => bounds,
       operate: action => { action(viewer); return true; }, redraw() {}, hover() {}, pick: id => picked.push(id), moving: () => moving || [...separated][0] || '',
-      movable: id => id === moving || separated.has(id), moved: id => committed.push(id), restore: id => restored.push(id) });
+      movable: id => id === moving || separated.has(id), moved: id => committed.push(id), restore: () => restored.push(true) });
     const pointer = (type, x, button = 0, buttons = type === 'pointerup' ? 0 : 1) => {
       const event = Object.assign(new Event(type), { clientX: x, clientY: 100, pointerId: 1, pointerType: 'mouse', button, buttons, shiftKey: false });
       canvas.dispatchEvent(event);
@@ -53,7 +53,7 @@ test('manual separation drags only its structure and rotates only from empty bac
     assert.equal(committed.at(-1), 'a', 'Commit the structure being dragged rather than the newest separation');
     pointer('pointerdown', 30); pointer('pointermove', 50);
     const restore = Object.assign(new Event('keydown', { cancelable: true }), { key: 't', ctrlKey: false, metaKey: false, altKey: false, shiftKey: false });
-    canvas.dispatchEvent(restore); assert(restore.defaultPrevented); assert.deepEqual(restored, ['a']);
+    canvas.dispatchEvent(restore); assert(restore.defaultPrevented); assert.deepEqual(restored, [true]);
     const count = moves.length;
     pointer('pointermove', 70); pointer('pointerup', 70);
     assert.equal(moves.length, count, 'T must finish the drag before restoring so later movement cannot reapply it');

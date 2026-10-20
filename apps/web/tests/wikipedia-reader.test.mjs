@@ -9,7 +9,7 @@ test('Wikipedia reader opens mapped articles and leaves unmapped structures expl
   const references = JSON.parse(await readFile(new URL('../../../content/wikipedia-references.json', import.meta.url)));
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
-    const { WikipediaReader, wikipediaReference } = await server.ssrLoadModule('/src/wikipedia-reader.tsx');
+    const { WikipediaReader, wikipediaReference } = await server.ssrLoadModule('/src/anatomy/wikipedia-reader.tsx');
     for (const [name, article] of Object.entries(references.articles)) {
       assert.equal(wikipediaReference(name).url, article.url);
       const url = new URL(article.url);

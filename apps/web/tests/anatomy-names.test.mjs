@@ -8,7 +8,7 @@ const parseJsonl = text => text.split('\n').filter(Boolean).map(line => JSON.par
 test('bilingual names preserve source identity and have safe, explicit fallbacks', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
-    const { anatomyNames, structureName, targetName } = await server.ssrLoadModule('/src/anatomy-names.ts');
+    const { anatomyNames, structureName, targetName } = await server.ssrLoadModule('/src/anatomy/anatomy-names.ts');
     const part = { source_id: 'za:femur', source_name: 'Femur', source_object: 'Femur.l',
       latin: 'Os femoris', laterality: 'left', collections: [] };
     const original = structuredClone(part);

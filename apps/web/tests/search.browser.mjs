@@ -1,4 +1,4 @@
-import { getWasm } from '../src/core.ts';
+import { getWasm } from '../src/anatomy/core.ts';
 
 export async function checkStructureSearch() {
   const { AnatomyViewer } = await getWasm();

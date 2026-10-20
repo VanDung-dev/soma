@@ -6,7 +6,7 @@ test('graphics preferences validate saved values and tolerate unavailable storag
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   const previousWindow = globalThis.window;
   try {
-    const { readGraphicsSettings, defaultGraphics } = await server.ssrLoadModule('/src/viewer/graphics.ts');
+    const { readGraphicsSettings, defaultGraphics } = await server.ssrLoadModule('/src/anatomy/viewer/graphics.ts');
     for (const value of [null, 'invalid', '{}', '{"quality":"ultra","frameRate":-1,"grid":"false"}']) {
       globalThis.window = { localStorage: { getItem: () => value } };
       assert.deepEqual(readGraphicsSettings(), defaultGraphics);
@@ -37,7 +37,7 @@ test('frame limits coalesce redraws, finish animations, and stop when idle or di
   const original = { requestAnimationFrame: globalThis.requestAnimationFrame, cancelAnimationFrame: globalThis.cancelAnimationFrame,
     performance: globalThis.performance, document: globalThis.document, window: globalThis.window, ResizeObserver: globalThis.ResizeObserver };
   try {
-    const { ViewerRuntime } = await server.ssrLoadModule('/src/viewer/runtime.ts');
+    const { ViewerRuntime } = await server.ssrLoadModule('/src/anatomy/viewer/runtime.ts');
     let now = 0, nextId = 0, draws = 0, remaining = 0, timerId = 0;
     const pending = new Map(), timers = new Map(), reports = [];
     globalThis.requestAnimationFrame = callback => { pending.set(++nextId, callback); return nextId; };

@@ -1,4 +1,4 @@
-import { getWasm } from '../src/core.ts';
+import { getWasm } from '../src/anatomy/core.ts';
 
 export async function checkCameraStability() {
   const assert = (ok, message) => { if (!ok) throw Error(message); };

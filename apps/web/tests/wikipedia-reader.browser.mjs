@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
-import { WikipediaReader } from '../src/wikipedia-reader.tsx';
+import { WikipediaReader } from '../src/anatomy/wikipedia-reader.tsx';
 
 // Run in Vite: (await import('/tests/wikipedia-reader.browser.mjs')).checkWikipediaReader()
 export async function checkWikipediaReader() {
