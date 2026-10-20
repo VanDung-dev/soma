@@ -52,7 +52,7 @@ export async function checkControls() {
     assert(guide.innerText.includes('Shift + kéo') && guide.innerText.includes('Cuộn chuột'), 'Document mouse gestures');
     guide.querySelector('button').click(); await frames(1);
     assert(!guide.matches(':popover-open'), 'Close button must hide the guide');
-    const shell = document.querySelector('.study-shell');
+    const shell = document.querySelector('.module-page');
     for (const control of [document.querySelector('.explode-control input'), document.querySelector('.folder-toggle'),
       document.querySelector('.visibility-checkbox input')]) {
       control.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }));

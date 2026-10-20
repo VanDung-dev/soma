@@ -1,3 +1,116 @@
+import { createElement } from 'react';
+import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
+
+export async function checkModuleNavigation() {
+  const { App } = await import('/src/app.tsx');
+  const { getWasm } = await import('/src/anatomy/core.ts');
+  const catalog = (await getWasm()).get_catalog();
+  const assert = (ok, message) => { if (!ok) throw Error(message); };
+  const originalTauri = Object.getOwnPropertyDescriptor(window, 'isTauri');
+  const originalInternals = Object.getOwnPropertyDescriptor(window, '__TAURI_INTERNALS__');
+  const originalTitle = document.title;
+  const originalUrl = location.href;
+  assert(['/', '/home', '/home/'].includes(location.pathname), 'Start the navigation probe on Home');
+  let catalogCalls = 0;
+  try {
+    Object.defineProperty(window, '__TAURI_INTERNALS__', { configurable: true, value: {
+      invoke: async command => {
+        assert(command === 'get_catalog', 'Only mock the native catalog command');
+        catalogCalls++;
+        return catalog;
+      },
+    } });
+    for (const desktop of [false, true]) {
+      Object.defineProperty(window, 'isTauri', { configurable: true, value: desktop });
+      const host = document.createElement('div');
+      document.body.append(host);
+      const root = createRoot(host);
+      const click = (target, patch = {}) => {
+        let intercepted;
+        host.addEventListener('click', event => {
+          intercepted = event.defaultPrevented;
+          event.preventDefault();
+        }, { once: true });
+        flushSync(() => {
+          if (patch.detail !== 0) target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+          target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0, detail: 1, ...patch }));
+        });
+        return intercepted;
+      };
+      try {
+        flushSync(() => root.render(createElement(App)));
+        const frame = host.querySelector('.module-page');
+        const header = host.querySelector('.module-header');
+        const content = host.querySelector('.module-content');
+        const check = page => {
+          assert(location.href === originalUrl, 'Keep the desktop WebView URL unchanged');
+          assert(host.querySelector('.module-page') === frame && host.querySelector('.module-header') === header && host.querySelector('.module-content') === content, 'Keep the same frame, header and content container');
+          assert(content.dataset.page === page, 'Render the selected module');
+          assert(host.querySelector('.module-nav [aria-current="page"]').pathname === '/' + page, 'Update the active navigation link');
+          assert(document.title === 'Human Atlas — ' + host.querySelector('.module-nav [aria-current="page"]').textContent, 'Update the window title');
+        };
+        for (const page of ['lessons', 'games', 'anatomy']) {
+          assert(click(host.querySelector(`.home-module-${page} strong`)) === desktop, 'Intercept Home cards only on desktop, including nested targets');
+          check(desktop ? page : 'home');
+          if (desktop) {
+            assert(frame.dataset.focusSource === 'pointer', 'Track pointer focus across the shared frame');
+            assert(document.activeElement === host.querySelector('.module-nav [aria-current="page"]'), 'Restore keyboard focus to the active module');
+            assert(getComputedStyle(document.activeElement).outlineStyle === 'none', 'Hide the focus outline after pointer navigation');
+            assert(click(host.querySelector('.module-brand')), 'Return to Home inside the same WebView');
+            check('home');
+          }
+        }
+        for (const page of ['lessons', 'games', 'home']) {
+          assert(click(host.querySelector(`.module-nav a[href="/${page}"]`)) === desktop, 'Intercept header links only on desktop');
+          check(desktop ? page : 'home');
+        }
+        const games = host.querySelector('.module-nav a[href="/games"]');
+        if (desktop) {
+          games.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+          assert(click(games, { detail: 0 }), 'Allow keyboard activation');
+          check('games');
+          const active = host.querySelector('.module-nav [aria-current="page"]');
+          assert(document.activeElement === active && frame.dataset.focusSource === 'keyboard', 'Keep keyboard focus available');
+          click(host.querySelector('.module-brand'));
+          check('home');
+          assert(getComputedStyle(document.activeElement).outlineStyle === 'none', 'Hide keyboard focus outlines again after a pointer click');
+        }
+        for (const patch of [{ metaKey: true }, { ctrlKey: true }, { shiftKey: true }, { altKey: true }, { button: 1 }]) {
+          assert(!click(games, patch), 'Preserve modified and secondary clicks');
+          check('home');
+        }
+        const link = document.createElement('a');
+        frame.append(link);
+        for (const href of ['/unknown', '/home/ATTRIBUTION.md', '#workspace', '/games?mode=test', '/games#section', 'https://example.com/games']) {
+          link.href = href;
+          assert(!click(link), 'Preserve non-module URLs');
+          check('home');
+        }
+        link.href = '/games';
+        link.target = '_blank';
+        assert(!click(link), 'Preserve new-window links');
+        link.removeAttribute('target');
+        link.download = 'games';
+        assert(!click(link), 'Preserve downloads');
+        link.removeAttribute('download');
+        link.addEventListener('click', event => event.preventDefault(), { once: true });
+        click(link);
+        check('home');
+      } finally {
+        flushSync(() => root.unmount());
+        host.remove();
+      }
+    }
+    assert(catalogCalls === 1, 'Mount Anatomy once through the native catalog path');
+    return { desktopInPlace: true, stableFrame: true, webLinksPreserved: true, keyboardFocus: true, linkExceptions: true };
+  } finally {
+    if (originalTauri) Object.defineProperty(window, 'isTauri', originalTauri); else delete window.isTauri;
+    if (originalInternals) Object.defineProperty(window, '__TAURI_INTERNALS__', originalInternals); else delete window.__TAURI_INTERNALS__;
+    document.title = originalTitle;
+  }
+}
+
 export async function checkModuleLayout() {
   const assert = (ok, message) => { if (!ok) throw Error(message); };
   const root = document.getElementById('root');

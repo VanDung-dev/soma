@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { MouseEventHandler, ReactNode } from "react";
 import { useEffect } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { useLanguage } from "../i18n";
@@ -7,7 +7,7 @@ import { useTheme } from "../theme";
 
 type ModulePage = "home" | "anatomy" | "lessons" | "games";
 
-export function ModuleLayout({ children, page }: { children: ReactNode; page: ModulePage }) {
+export function ModuleLayout({ children, page, onClick }: { children: ReactNode; page: ModulePage; onClick?: MouseEventHandler<HTMLDivElement> }) {
   const macOS = isTauri() && /Macintosh|Mac OS X/.test(navigator.userAgent);
   const { language, setLanguage, t } = useLanguage();
   const { theme, setTheme } = useTheme();
@@ -16,7 +16,13 @@ export function ModuleLayout({ children, page }: { children: ReactNode; page: Mo
   const title = t(`module.${page}`);
   useEffect(() => { document.title = `Human Atlas — ${title}`; }, [title]);
 
-  return <div className={`module-page${macOS ? " macos-window" : ""}`}>
+  return <div className={`module-page${macOS ? " macos-window" : ""}`} onClick={onClick}
+    onPointerDownCapture={event => { event.currentTarget.dataset.focusSource = "pointer"; }}
+    onKeyDownCapture={event => {
+      if (["Tab", "Enter", " ", "Home", "End", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
+        event.currentTarget.dataset.focusSource = "keyboard";
+      }
+    }}>
     <header className="module-header" data-tauri-drag-region={macOS ? "deep" : undefined}>
       <a className="module-brand" href="/home" aria-label={t("home.brand.label")}>Human Atlas</a>
       <nav className="module-nav" aria-label={t("app.navigation.label")}>
