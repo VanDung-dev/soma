@@ -47,6 +47,7 @@ test('the production server serves module URLs and keeps missing assets as error
   const server = createWebServer(directory);
   try {
     await writeFile(path.join(directory, 'index.html'), '<main>Human Atlas</main>');
+    await writeFile(path.join(directory, 'site.webmanifest'), JSON.stringify({ name: 'Human Atlas' }));
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     const base = `http://127.0.0.1:${server.address().port}`;
     for (const route of ['/', '/home', '/home/', '/anatomy', '/lessons', '/games', '/anatomy/']) {
@@ -55,6 +56,9 @@ test('the production server serves module URLs and keeps missing assets as error
       assert.equal(await response.text(), '<main>Human Atlas</main>');
     }
     assert.equal((await fetch(base + '/games', { method: 'HEAD' })).status, 200);
+    const manifest = await fetch(base + '/site.webmanifest');
+    assert.equal(manifest.headers.get('content-type'), 'application/manifest+json');
+    assert.deepEqual(await manifest.json(), { name: 'Human Atlas' });
     assert.equal((await fetch(base + '/assets/missing.js')).status, 404);
     assert.equal((await fetch(base + '/missing')).status, 404);
   } finally {
