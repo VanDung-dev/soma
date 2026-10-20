@@ -3,5 +3,5 @@
   "identifier": "main",
   "description": "Local study window; no filesystem, shell or network plugins.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "core:window:allow-start-dragging"]
 }
