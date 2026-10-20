@@ -39,7 +39,10 @@ and the single .model-space with a shared theme background. Pages fill that spac
 they do not add another frame or calculate their own viewport height.
 Anatomy styles live in anatomy/style.css. On compact screens, its catalog and
 information panels open individually over the viewer. Only panel content scrolls.
-The desktop host starts at /home.
+The desktop host starts at /home. Internal module links then switch React pages
+inside the shared layout without changing the URL or reloading the WebView.
+The web app keeps normal URL navigation. Leaving a module unmounts its content;
+returning to Anatomy creates a new viewer and study session.
 On macOS, the native window controls overlay the shared header. The header reserves
 space for them and its noninteractive area drags the window; browser layouts keep
 their normal header spacing.
@@ -162,3 +165,7 @@ Focus checks assume a fresh page with every system initially visible. Camera,
 explosion, search, reader and startup probes live beside these tests. Keep their
 behavior checks when moving ownership; static markup assertions alone do not
 establish interaction equivalence.
+
+On Home, `checkModuleNavigation()` from `tests/module-layout.browser.mjs` checks
+desktop navigation with mocked Tauri catalog IPC and verifies that web links keep
+their default behavior. This does not replace a native WebView smoke test.
