@@ -8,17 +8,17 @@ they do not copy the model screen's loading or interaction code.
 
 | Concern | Owner | Interface |
 | --- | --- | --- |
-| Catalog and structure types | `apps/web/src/catalog/types.ts` | `Catalog`, `StudyTarget`, `Model`, `Structure` |
-| Membership and hierarchy lookup | `apps/web/src/catalog/index.ts` | `structureIds`, `indexCatalog` |
+| Catalog and structure types | `apps/web/src/anatomy/catalog/types.ts` | `Catalog`, `StudyTarget`, `Model`, `Structure` |
+| Membership and hierarchy lookup | `apps/web/src/anatomy/catalog/index.ts` | `structureIds`, `indexCatalog` |
 | Catalog validation and embedded data | `crates/anatomy_core` | `Catalog::from_json`, `catalog_json` |
-| Study interactions and UI snapshots | `apps/web/src/study/session.ts` | `StudySession` |
-| Canvas lifecycle and renderer commands | `apps/web/src/viewer/runtime.ts` | `ViewerRuntime` |
-| Download, metadata validation and preparation worker | `apps/web/src/viewer/loader.ts` | `loadModels`, `validateMetadata` |
-| Pointer input and wheel coordinates | `apps/web/src/viewer/input.ts` | `bindViewerInput` (internal to the runtime) |
+| Study interactions and UI snapshots | `apps/web/src/anatomy/study/session.ts` | `StudySession` |
+| Canvas lifecycle and renderer commands | `apps/web/src/anatomy/viewer/runtime.ts` | `ViewerRuntime` |
+| Download, metadata validation and preparation worker | `apps/web/src/anatomy/viewer/loader.ts` | `loadModels`, `validateMetadata` |
+| Pointer input and wheel coordinates | `apps/web/src/anatomy/viewer/input.ts` | `bindViewerInput` (internal to the runtime) |
 | App context menu and text clipboard | `apps/web/src/context-menu.tsx`, `clipboard.ts` | `ContextMenu`, `textContext` |
-| Study screen geometry | `apps/web/src/viewer/layout.ts` | `measureViewport` |
-| Screen composition and focus restoration | `apps/web/src/model-viewer.tsx` | `ModelViewer` |
-| Reference reading | `apps/web/src/wikipedia-reader.tsx` | `WikipediaReader` |
+| Study screen geometry | `apps/web/src/anatomy/viewer/layout.ts` | `measureViewport` |
+| Screen composition and focus restoration | `apps/web/src/anatomy/model-viewer.tsx` | `ModelViewer` |
+| Reference reading | `apps/web/src/anatomy/wikipedia-reader.tsx` | `WikipediaReader` |
 | Browser bindings, GPU resources and draw passes | `crates/anatomy_wasm` | `AnatomyViewer` |
 | Geometry, camera, scene, explosion and visibility animation | `crates/anatomy_renderer` | Portable Rust types |
 | Model regeneration | `apps/web/scripts/import-models.mjs` and Python exporters | Validated GLB/JSON packages and catalog |
@@ -26,6 +26,23 @@ they do not copy the model screen's loading or interaction code.
 `core.ts` bootstraps WASM and chooses the browser or Tauri catalog endpoint.
 It does not own domain types or study state. The Tauri shell reuses the web
 interface and supplies the native `get_catalog` command.
+
+## Page modules
+
+Each page owns its directory and URL: Home at /home, Anatomy at /anatomy,
+Lessons at /lessons, and Games at /games. The root URL also opens Home.
+Home provides a short overview with links to the other three pages.
+Games and Lessons currently provide empty page components.
+
+The shared pages/module-layout.tsx owns the header, viewport height, outer frame
+and the single .model-space with a shared theme background. Pages fill that space;
+they do not add another frame or calculate their own viewport height.
+Anatomy styles live in anatomy/style.css. On compact screens, its catalog and
+information panels open individually over the viewer. Only panel content scrolls.
+The desktop host starts at /home.
+On macOS, the native window controls overlay the shared header. The header reserves
+space for them and its noninteractive area drags the window; browser layouts keep
+their normal header spacing.
 
 ## State and command flow
 

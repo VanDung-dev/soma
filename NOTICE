@@ -6,6 +6,7 @@ the Apache License, Version 2.0. See LICENSE.
 
 Anatomy models and source-derived catalog data retain their
 source licenses. See apps/web/public/models/z-anatomy/ATTRIBUTION.md.
+Source-derived app icons retain those terms. See apps/web/public/icons/ATTRIBUTION.md.
 Dependencies retain their own licenses.
 
 Material Line Icons (line-md)

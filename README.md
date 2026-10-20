@@ -25,7 +25,8 @@ Start the web app:
 npm run dev
 ```
 
-Open <http://localhost:5173/>.
+Open <http://localhost:5173/home> for the app overview; the root URL opens the same page.
+The other pages are /anatomy, /lessons and /games. Lessons and Games have the shared frame ready for their own content.
 
 Start the desktop app instead:
 
@@ -49,7 +50,7 @@ The output is in `apps/web/dist/`. To run the build locally with its Wikipedia p
 npm run serve
 ```
 
-Open <http://127.0.0.1:4173/>.
+Open <http://127.0.0.1:4173/home>.
 
 Build the desktop app:
 
