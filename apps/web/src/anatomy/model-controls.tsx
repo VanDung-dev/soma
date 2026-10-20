@@ -1,10 +1,10 @@
 import { useEffect, useEffectEvent } from "react";
-import type { MessageKey } from "./i18n";
-import { useLanguage } from "./i18n";
+import type { MessageKey } from "../i18n";
+import { useLanguage } from "../i18n";
 import type { CameraCommand } from "./viewer/contracts";
-import { LineIcon } from "./icons";
-import { appShortcuts, shortcutLabel } from "./shortcuts";
-import type { AppShortcut } from "./shortcuts";
+import { LineIcon } from "../icons";
+import { appShortcuts, shortcutLabel } from "../shortcuts";
+import type { AppShortcut } from "../shortcuts";
 
 const groups: { label: MessageKey; controls: { key: string; shortcut: string; label: MessageKey; action: (step: number) => CameraCommand }[] }[] = [
   { label: "controls.group.camera", controls: [

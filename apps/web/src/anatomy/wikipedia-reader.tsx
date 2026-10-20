@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import references from "../../../content/wikipedia-references.json";
+import references from "../../../../content/wikipedia-references.json";
 import { anatomyNames } from "./anatomy-names";
-import { useLanguage } from "./i18n";
+import { useLanguage } from "../i18n";
 
 const articles: Record<string, { url: string; status: string }> = references.articles;
 

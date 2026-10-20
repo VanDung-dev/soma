@@ -1,4 +1,4 @@
-import terminology from "../../../content/anatomy-terminology.json";
+import terminology from "../../../../content/anatomy-terminology.json";
 import type { Structure } from "./catalog/types";
 import type { StudyTarget } from "./catalog/types";
 

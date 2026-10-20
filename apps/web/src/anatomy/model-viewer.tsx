@@ -7,26 +7,30 @@ import { MenuBar } from "./menu-bar";
 import { ExplodeControls } from "./explode-controls";
 import { WikipediaReader } from "./wikipedia-reader";
 import { anatomyNames, structureName, targetName } from "./anatomy-names";
-import { useLanguage } from "./i18n";
+import { useLanguage } from "../i18n";
 import { StudySession } from "./study/session";
 import { ViewerRuntime } from "./viewer/runtime";
 import { measureViewport } from "./viewer/layout";
 import { graphicsStorageKey, readGraphicsSettings } from "./viewer/graphics";
-import { ContextMenu } from "./context-menu";
-import type { AppContext, ContextAction } from "./context-menu";
-import { shortcutAction } from "./shortcuts";
+import { ContextMenu } from "../context-menu";
+import type { AppContext, ContextAction } from "../context-menu";
+import { shortcutAction } from "../shortcuts";
 
 export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const { language, t } = useLanguage();
   const [graphics, setGraphics] = useState(readGraphicsSettings);
   const [fps, setFps] = useState(0);
+  const [panel, setPanel] = useState<"catalog" | "information" | null>(null);
   const helpId = useId();
   const settingsId = useId();
   const findId = useId();
+  const catalogId = useId();
+  const informationId = useId();
   const host = useRef<HTMLDivElement>(null);
   const focusFrame = useRef<HTMLDivElement>(null);
   const catalogPanel = useRef<HTMLElement>(null);
   const informationPanel = useRef<HTMLElement>(null);
+  const panelToggles = useRef<HTMLDivElement>(null);
   const hud = useRef<HTMLDivElement>(null);
   const runtime = useRef<ViewerRuntime | null>(null);
   const session = useMemo(() => new StudySession(catalog), [catalog]);
@@ -35,7 +39,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const roots = session.catalog.roots;
   const target = targetId ? session.catalog.targets.get(targetId) : undefined;
   const focusViewport = () => measureViewport({ host: host.current!, frame: focusFrame.current!,
-    catalog: catalogPanel.current!, information: informationPanel.current!, hud: hud.current! });
+    catalog: catalogPanel.current!, information: informationPanel.current!, controls: panelToggles.current!, hud: hud.current! });
 
   useEffect(() => {
     const viewer = new ViewerRuntime(host.current!, { viewport: focusViewport,
@@ -49,9 +53,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     runtime.current?.setGraphics(graphics);
     try { window.localStorage.setItem(graphicsStorageKey, JSON.stringify(graphics)); } catch {}
   }, [graphics, session]);
-  useEffect(() => {
-    host.current?.querySelector("canvas")?.setAttribute("aria-label", t("viewer.canvas.label"));
-  }, [t]);
   useEffect(() => {
     const open = (id: string, toggle = true) => {
       const panel = document.getElementById(id);
@@ -99,15 +100,14 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       if (!building && !error) runtime.current?.centerReader(readerExpanded);
     };
     const observer = new ResizeObserver(centerControls);
-    for (const element of [host.current!, catalogPanel.current!, informationPanel.current!]) observer.observe(element);
+    for (const element of [host.current!, catalogPanel.current!, informationPanel.current!, panelToggles.current!]) observer.observe(element);
     centerControls();
     return () => observer.disconnect();
   }, [session, building, error, readerExpanded ? selected : "", readerExpanded]);
 
   const focusStructures = (ids: string[], focusTarget?: string) => {
     if (!session.focus(ids, focusTarget)) return;
-    if (window.matchMedia("(max-width: 900px)").matches) host.current?.scrollIntoView({ block: "start",
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    setPanel(null);
   };
   const selectedPart = meshes.find(part => part.source_id === readingId);
   const canReadReference = !!selectedPart && (movingId === readingId || separatedIds.has(readingId));
@@ -148,7 +148,11 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       <MenuBar disabled={building || error} canGoBack={canGoBack} canGoForward={canGoForward}
         onBack={session.back} onForward={session.forward} helpId={helpId} settingsId={settingsId} graphics={graphics} onGraphicsChange={setGraphics} />
       <ModelControls disabled={building || error} onControl={session.control} helpId={helpId} />
-      <aside ref={catalogPanel} className="catalog-panel" aria-label={t("catalog.navigation.label")}>
+      <div ref={panelToggles} className="anatomy-panel-toggles">
+        <button aria-expanded={panel === "catalog"} aria-controls={catalogId} onClick={() => setPanel(panel === "catalog" ? null : "catalog")}>{t("catalog.heading")}</button>
+        <button aria-expanded={panel === "information"} aria-controls={informationId} onClick={() => setPanel(panel === "information" ? null : "information")}>{t("information.panel.label")}</button>
+      </div>
+      <aside id={catalogId} ref={catalogPanel} className="catalog-panel" data-open={panel === "catalog"} aria-label={t("catalog.navigation.label")}>
         <div className="catalog-heading"><h2>{t("catalog.heading")}</h2><span>{t("catalog.systemCount", { count: catalog.groups.length })}</span></div>
         <div className="tree-actions">
           <button disabled={building || error} onClick={() => session.changeVisibility(meshes.map(p => p.source_id), true)}>{t("catalog.showAll")}</button>
@@ -166,7 +170,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         </div>
       </aside>
       <main id="workspace" tabIndex={-1}>
-        <section className="model-space" aria-label={t("viewer.section.label")}>
+        <section className="anatomy-space" aria-label={t("viewer.section.label")}>
           <div className="model-canvas" ref={host} aria-busy={building && !error} />
           <div className="model-focus-frame" ref={focusFrame}>
             {graphics.showFps && <span className="model-fps" aria-label={t("graphics.fps.current", { count: fps })}>{fps} FPS</span>}
@@ -182,7 +186,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
           </div>
         </section>
       </main>
-      <aside ref={informationPanel} className={`information-panel${readerExpanded ? " reader-expanded" : ""}`} aria-label={t("information.panel.label")}>
+      <aside id={informationId} ref={informationPanel} className={`information-panel${readerExpanded ? " reader-expanded" : ""}`} data-open={panel === "information"} aria-label={t("information.panel.label")}>
         <header className="information-heading" data-structure-id={readingId || undefined}>
           <div>
             <p className="eyebrow">{t("information.eyebrow")}</p>

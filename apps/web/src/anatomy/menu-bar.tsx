@@ -1,10 +1,7 @@
-import { useLanguage } from "./i18n";
-import { LineIcon } from "./icons";
-import { useTheme } from "./theme";
+import { useLanguage } from "../i18n";
+import { LineIcon } from "../icons";
 import type { GraphicsSettings } from "./viewer/graphics";
-import { shortcutLabel } from "./shortcuts";
-
-const themeOptions = ["auto", "light", "dark"] as const;
+import { shortcutLabel } from "../shortcuts";
 
 export function MenuBar({ disabled, canGoBack, canGoForward, onBack, onForward, helpId, settingsId, graphics, onGraphicsChange }: {
   disabled: boolean;
@@ -17,8 +14,7 @@ export function MenuBar({ disabled, canGoBack, canGoForward, onBack, onForward, 
   graphics: GraphicsSettings;
   onGraphicsChange: (settings: GraphicsSettings) => void;
 }) {
-  const { language, setLanguage, t } = useLanguage();
-  const { theme, setTheme } = useTheme();
+  const { t } = useLanguage();
   return <header className="app-menu-bar" aria-label={t("app.navigation.label")}>
     <div className="app-menu-history">
       <button className="controls-info" disabled={disabled || !canGoBack} onClick={onBack}
@@ -47,35 +43,6 @@ export function MenuBar({ disabled, canGoBack, canGoForward, onBack, onForward, 
         </button>
       </div>
       <div className="settings-content">
-        <div className="settings-row">
-          <span>{t("language.selector.label")}</span>
-          <div className="settings-language-toggle" data-language={language}>
-            <span className="settings-language-option" aria-hidden="true">VI</span>
-            <span className="settings-language-option" aria-hidden="true">EN</span>
-            <span className="settings-language-thumb" aria-hidden="true" />
-            <input className="settings-language-slider" type="range" min="0" max="1" step="1"
-              aria-label={t("language.selector.label")} aria-valuetext={t(`language.option.${language}`)}
-              value={language === "vi" ? 0 : 1}
-              onChange={event => setLanguage(event.currentTarget.value === "0" ? "vi" : "en")} />
-          </div>
-        </div>
-        <div className="settings-row">
-          <span>{t("appearance.selector.label")}</span>
-          <div className="settings-theme-control" data-theme={theme}>
-            <span className="settings-theme-icon" aria-hidden="true"><LineIcon name="star-alt" size={18} /></span>
-            <span className="settings-theme-icon" aria-hidden="true"><LineIcon name="sunny" size={18} /></span>
-            <span className="settings-theme-icon" aria-hidden="true"><LineIcon name="moon-alt" size={18} /></span>
-            <span className="settings-theme-thumb" aria-hidden="true" />
-            <input className="settings-theme-slider" type="range" min="0" max="2" step="1"
-              aria-label={t("appearance.selector.label")}
-              aria-valuetext={t(theme === "auto" ? "appearance.mode.auto" : theme === "light" ? "appearance.mode.light" : "appearance.mode.dark")}
-              value={themeOptions.indexOf(theme)}
-              onChange={event => {
-                const nextTheme = themeOptions[Number(event.currentTarget.value)];
-                if (nextTheme) setTheme(nextTheme);
-              }} />
-          </div>
-        </div>
         <div className="settings-row">
           <label htmlFor={`${settingsId}-shadow`}>{t("graphics.shadow.label")}</label>
           <select id={`${settingsId}-shadow`} className="settings-select" value={graphics.shadowQuality}

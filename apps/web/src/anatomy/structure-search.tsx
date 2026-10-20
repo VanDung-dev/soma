@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { Structure } from "./catalog/types";
 import { anatomyNames, structureName } from "./anatomy-names";
-import { useLanguage } from "./i18n";
+import { useLanguage } from "../i18n";
 
 function Magnifier() {
   return <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">

@@ -38,7 +38,6 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState<Language>(getInitialLanguage);
   useEffect(() => {
     document.documentElement.lang = language;
-    document.title = translateMessage("app.title", language);
     window.localStorage.setItem(languageStorageKey, language);
   }, [language]);
   const value = useMemo<LanguageContextValue>(() => ({

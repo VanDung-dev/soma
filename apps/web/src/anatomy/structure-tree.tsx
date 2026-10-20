@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Catalog, StudyTarget, Structure } from "./catalog/types";
 import { indexCatalog, structureIds } from "./catalog";
 import { structureName, targetName } from "./anatomy-names";
-import { useLanguage } from "./i18n";
-import { LineIcon } from "./icons";
+import { useLanguage } from "../i18n";
+import { LineIcon } from "../icons";
 
 const systemOrder = [
   "group:skeletal-system", "group:muscular-insertions", "group:joints",

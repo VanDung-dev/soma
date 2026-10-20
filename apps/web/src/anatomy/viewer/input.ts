@@ -1,5 +1,5 @@
-import type { AnatomyViewer } from "../wasm/anatomy_wasm";
-import { shortcutAction } from "../shortcuts";
+import type { AnatomyViewer } from "../../wasm/anatomy_wasm";
+import { shortcutAction } from "../../shortcuts";
 
 export function bindViewerInput(canvas: HTMLCanvasElement, options: {
   enabled: () => boolean;

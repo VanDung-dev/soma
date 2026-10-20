@@ -52,8 +52,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       };
       if (appliedTheme.current === null || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { update(); return; }
       transitionTimeout = window.setTimeout(() => {
-        const thumb = document.querySelector<HTMLElement>(".settings-theme-thumb");
-        const rect = thumb?.getBoundingClientRect();
+        const toggle = document.querySelector<HTMLElement>(".theme-toggle");
+        const rect = toggle?.getBoundingClientRect();
         const x = rect?.width ? rect.left + rect.width / 2 : window.innerWidth / 2;
         const y = rect?.height ? rect.top + rect.height / 2 : window.innerHeight / 2;
         root.style.setProperty("--theme-reveal-x", `${x}px`);

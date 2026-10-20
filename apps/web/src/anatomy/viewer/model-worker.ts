@@ -1,4 +1,4 @@
-import init, { prepare_packages } from "../wasm/anatomy_wasm";
+import init, { prepare_packages } from "../../wasm/anatomy_wasm";
 
 self.onmessage = async ({ data }) => {
   try {

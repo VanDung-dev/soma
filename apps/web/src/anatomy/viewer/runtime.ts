@@ -1,7 +1,7 @@
 import type { Structure, StudyTarget } from "../catalog/types";
 import { structureName } from "../anatomy-names";
 import { getWasm } from "../core";
-import type { AnatomyViewer } from "../wasm/anatomy_wasm";
+import type { AnatomyViewer } from "../../wasm/anatomy_wasm";
 import type { CameraCommand, StudyViewer, ViewerState, Viewport } from "./contracts";
 import { bindViewerInput } from "./input";
 import { loadModels } from "./loader";
@@ -44,7 +44,6 @@ export class ViewerRuntime implements StudyViewer {
   }) {
     this.canvas.setAttribute("role", "img");
     this.canvas.tabIndex = 0;
-    this.canvas.setAttribute("aria-label", "Mô hình 3D cơ thể người. W A S D để di chuyển camera lên, trái, xuống, phải; phím mũi tên để xoay mô hình. E để phóng to, Q để thu nhỏ theo tâm màn hình, R để đặt lại. Kéo để xoay, Shift và kéo để dịch mô hình, cuộn để phóng to theo vị trí chuột, trỏ vào để xem thông tin.");
     host.appendChild(this.canvas);
     this.unbindInput = bindViewerInput(this.canvas, {
       enabled: () => !this.loading && !this.animating && !this.restoration && !this.failed,

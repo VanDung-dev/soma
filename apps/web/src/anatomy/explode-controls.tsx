@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef } from "react";
-import { useLanguage } from "./i18n";
+import { useLanguage } from "../i18n";
 
 export function ExplodeControls({ value, disabled, locked, onChange }: {
   value: number;
