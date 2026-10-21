@@ -96,11 +96,33 @@ test('frame limits coalesce redraws, finish animations, and stop when idle or di
     runtime.setGraphics({ ...runtime.graphics, showFps: false });
     assert.equal(timers.size, 0, 'Disabling the meter must stop its timer');
     tick(now + 100);
+    let resized = 0, reframed = 0;
+    canvas.width = 800; canvas.height = 600;
+    host.getBoundingClientRect = () => ({ width: 900, height: 650 });
+    runtime.options.viewport = () => [0, 0, 1, 1];
+    runtime.viewer.resize = (width, height) => { canvas.width = width; canvas.height = height; resized++; };
+    runtime.viewer.reframe = () => { reframed++; };
+    runtime.lastRenderTime = now;
+    runtime.resize(); runtime.resize();
+    assert.equal(resized, 0, 'ResizeObserver must preserve the current canvas until a draw is due');
+    assert.equal(pending.size, 1, 'Coalesce repeated resize notifications');
+    const drawsBeforeResize = draws;
+    tick(now + 1);
+    assert.equal(resized, 0, 'A throttled frame must not clear the canvas');
+    tick(now + 40);
+    assert.equal(resized, 1);
+    assert.equal(reframed, 1);
+    assert.equal(draws, drawsBeforeResize + 1, 'Resize and redraw must finish in the same frame');
+    assert.deepEqual([canvas.width, canvas.height], [900, 650]);
+    runtime.resize(); tick(now + 40);
+    assert.equal(resized, 1, 'Unchanged pixel dimensions must not reallocate the canvas');
     runtime.setGraphics({ ...runtime.graphics, showFps: true });
     runtime.dispose();
     assert.equal(timers.size, 0, 'Disposal must stop the FPS meter');
     const before = draws; tick(now + 1000);
     assert.equal(draws, before);
+    runtime.resize(); tick(now + 1000);
+    assert.equal(resized, 1, 'Disposed runtimes must not resize GPU resources');
     runtime.scheduleRender(); assert.equal(pending.size, 0);
   } finally {
     for (const [key, value] of Object.entries(original)) {

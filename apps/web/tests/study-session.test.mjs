@@ -206,5 +206,8 @@ test('model metadata validation preserves identities and rejects malformed or mi
       assert.throws(() => validateMetadata(invalid, ids), /Metadata không hợp lệ/);
     }
     assert.throws(() => validateMetadata(metadata, ids.slice(1)), /Metadata không khớp catalog/);
+    assert.throws(() => validateMetadata(metadata, [...ids.slice(1), 'missing']), /Metadata không khớp catalog/);
+    assert.throws(() => validateMetadata(metadata, [ids[1], ...ids.slice(1)]), /Metadata không khớp catalog/);
+    assert.deepEqual(ids, metadata.structures.map(part => part.source_id), 'Validation must preserve catalog order');
   } finally { await server.close(); }
 });

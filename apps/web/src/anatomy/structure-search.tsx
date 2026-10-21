@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { Structure } from "./catalog/types";
 import { anatomyNames, structureName } from "./anatomy-names";
 import { useLanguage } from "../i18n";
@@ -34,7 +34,7 @@ export function createStructureSearch(structures: Structure[]) {
   };
 }
 
-export function StructureSearch({ structures, disabled, onSelect, triggerId }: {
+export const StructureSearch = memo(function StructureSearch({ structures, disabled, onSelect, triggerId }: {
   structures: Structure[]; disabled: boolean; onSelect: (id: string) => void;
   triggerId?: string;
 }) {
@@ -49,10 +49,10 @@ export function StructureSearch({ structures, disabled, onSelect, triggerId }: {
   const find = useMemo(() => createStructureSearch(structures), [structures]);
   const alphabetical = useMemo(() => {
     const collator = new Intl.Collator(language, { sensitivity: "base", numeric: true, ignorePunctuation: true });
-    return [...structures].sort((a, b) => {
-      const first = structureName(a, language), second = structureName(b, language);
-      return Number(/\p{L}/u.test(second)) - Number(/\p{L}/u.test(first)) || collator.compare(first, second);
-    });
+    return structures.map(part => {
+      const name = structureName(part, language);
+      return { part, name, hasLetters: Number(/\p{L}/u.test(name)) };
+    }).sort((a, b) => b.hasLetters - a.hasLetters || collator.compare(a.name, b.name)).map(entry => entry.part);
   }, [structures, language]);
   const results = useMemo(() => query.trim() ? find(query) : alphabetical, [find, query, alphabetical]);
   const shown = results.slice(0, limit);
@@ -114,17 +114,20 @@ export function StructureSearch({ structures, disabled, onSelect, triggerId }: {
               setLimit(value => Math.min(value + 20, results.length));
             }
           }}>
-          {shown.map((part, index) => <li key={part.source_id} role="presentation">
-            <button id={id + "-result-" + index} type="button" role="option" tabIndex={-1} aria-selected={index === activeIndex}
-              disabled={disabled} data-structure-id={part.source_id} onMouseDown={event => event.preventDefault()}
-              onClick={() => choose(part)}>
-              <span>{structureName(part, language)}</span>
-              {structureName(part, otherLanguage) !== structureName(part, language) && <small lang={otherLanguage}>{structureName(part, otherLanguage)}</small>}
-              {part.latin && <small lang="la">{part.latin}</small>}
-            </button>
-          </li>)}
+          {shown.map((part, index) => {
+            const title = structureName(part, language), otherName = structureName(part, otherLanguage);
+            return <li key={part.source_id} role="presentation">
+              <button id={id + "-result-" + index} type="button" role="option" tabIndex={-1} aria-selected={index === activeIndex}
+                disabled={disabled} data-structure-id={part.source_id} onMouseDown={event => event.preventDefault()}
+                onClick={() => choose(part)}>
+                <span>{title}</span>
+                {otherName !== title && <small lang={otherLanguage}>{otherName}</small>}
+                {part.latin && <small lang="la">{part.latin}</small>}
+              </button>
+            </li>;
+          })}
         </ul>
       </form>
     </section>
   </>;
-}
+});

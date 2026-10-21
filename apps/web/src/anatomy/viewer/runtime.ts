@@ -25,6 +25,7 @@ export class ViewerRuntime implements StudyViewer {
   private reassembling = false;
   private cameraAnimating = false;
   private renderFrame = 0;
+  private resizePending = false;
   private lastRenderTime = -Infinity;
   private graphics: GraphicsSettings = defaultGraphics;
   private fpsFrames = 0;
@@ -88,7 +89,7 @@ export class ViewerRuntime implements StudyViewer {
       if (this.disposed) return;
       const animate = !this.motion.matches;
       this.viewer!.start_reconstruction(performance.now(), animate);
-      this.resize();
+      this.resizeCanvas();
       this.viewer!.inspect("reset");
       this.setGraphics(this.graphics);
       this.viewer!.configure_explosion(JSON.stringify(roots.map(root => root.model!.structure_ids)));
@@ -134,6 +135,7 @@ export class ViewerRuntime implements StudyViewer {
       if (now - this.lastRenderTime + 0.5 < interval) { this.scheduleRender(); return; }
       this.lastRenderTime = now;
       try {
+        if (this.resizePending) this.resizeCanvas();
         this.cameraAnimating = this.viewer!.advance_camera(now);
         const revealing = !this.animating && this.viewer!.advance_reconstruction(now);
         if (this.animating) {
@@ -169,16 +171,20 @@ export class ViewerRuntime implements StudyViewer {
   };
 
   private resize = () => {
+    this.resizePending = true;
+    this.scheduleRender();
+  };
+
+  private resizeCanvas() {
+    this.resizePending = false;
     const { width, height } = this.host.getBoundingClientRect();
     if (width > 0 && height > 0) {
       const ratio = Math.min(window.devicePixelRatio, 2) * renderScales[this.graphics.modelQuality];
-      this.operate(viewer => {
-        const renderWidth = Math.max(1, Math.round(width * ratio)), renderHeight = Math.max(1, Math.round(height * ratio));
-        if (this.canvas.width !== renderWidth || this.canvas.height !== renderHeight) viewer.resize(renderWidth, renderHeight);
-        viewer.reframe(...this.options.viewport());
-      });
+      const renderWidth = Math.max(1, Math.round(width * ratio)), renderHeight = Math.max(1, Math.round(height * ratio));
+      if (this.canvas.width !== renderWidth || this.canvas.height !== renderHeight) this.viewer!.resize(renderWidth, renderHeight);
+      this.viewer!.reframe(...this.options.viewport());
     }
-  };
+  }
 
   setGraphics(settings: GraphicsSettings) {
     if (settings.showFps !== this.graphics.showFps) {
@@ -207,7 +213,7 @@ export class ViewerRuntime implements StudyViewer {
     this.options.onFps?.(0);
   }
 
-  private animationTime() { return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? undefined : performance.now(); }
+  private animationTime() { return this.motion.matches ? undefined : performance.now(); }
 
   private motionChanged = () => {
     if (!this.loading && this.motion.matches && this.viewer) {
@@ -327,7 +333,7 @@ export class ViewerRuntime implements StudyViewer {
       }
       this.reassembling = value === 0 && this.exploding;
       if (this.exploding) viewer.set_explode(value / 100, performance.now(),
-        !window.matchMedia("(prefers-reduced-motion: reduce)").matches, !ids.length, JSON.stringify(ids));
+        !this.motion.matches, !ids.length, JSON.stringify(ids));
     });
   }
 
@@ -335,8 +341,7 @@ export class ViewerRuntime implements StudyViewer {
     if (this.exploding) this.setExplosion(value, ids);
   }
 
-  centerReader(expanded: boolean) {
-    const viewport = this.options.viewport();
+  centerReader(expanded: boolean, viewport: Viewport) {
     this.operate(viewer => {
       if (this.exploding) viewer.reframe(...viewport);
       const now = this.animationTime();

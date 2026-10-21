@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { Catalog } from "./catalog/types";
 import { StructureTree } from "./structure-tree";
 import { StructureSearch } from "./structure-search";
@@ -45,7 +45,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     const viewer = new ViewerRuntime(host.current!, { viewport: focusViewport,
       onState: session.updateViewer, onPick: session.pick, onFps: setFps, onHold: setHold, onSnap: setSnapTarget });
     runtime.current = viewer; session.connect(viewer);
-    viewer.setGraphics(graphics);
     void viewer.start(roots);
     return () => { session.disconnect(viewer); viewer.dispose(); if (runtime.current === viewer) runtime.current = null; };
   }, [session]);
@@ -94,8 +93,8 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   }, [session, helpId, settingsId, findId]);
   useEffect(() => {
     const centerControls = () => {
-      focusViewport();
-      if (!building && !error) runtime.current?.centerReader(readerExpanded);
+      const viewport = focusViewport();
+      if (!building && !error) runtime.current?.centerReader(readerExpanded, viewport);
     };
     const observer = new ResizeObserver(centerControls);
     for (const element of [host.current!, catalogPanel.current!, informationPanel.current!, panelToggles.current!]) observer.observe(element);
@@ -103,12 +102,18 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     return () => observer.disconnect();
   }, [session, building, error, readerExpanded ? selected : "", readerExpanded]);
 
-  const focusStructures = (ids: string[], focusTarget?: string) => {
+  const focusStructures = useCallback((ids: string[], focusTarget?: string) => {
     if (!session.focus(ids, focusTarget)) return;
     setPanel(null);
-  };
-  const selectedPart = meshes.find(part => part.source_id === readingId);
-  const snapPart = meshes.find(part => part.source_id === snapTarget);
+  }, [session]);
+  const chooseStructure = useCallback((id: string) => {
+    focusStructures([id]);
+    session.revealStructure(id);
+    host.current?.querySelector("canvas")?.focus({ preventScroll: true });
+  }, [session, focusStructures]);
+  const structures = useMemo(() => new Map(meshes.map(part => [part.source_id, part])), [meshes]);
+  const selectedPart = structures.get(readingId);
+  const snapPart = structures.get(snapTarget);
   const canReadReference = !!selectedPart && (movingId === readingId || separatedIds.has(readingId));
   const referenceName = canReadReference ? selectedPart.source_name : target?.source_name;
   const otherLanguage = language === "vi" ? "en" : "vi";
@@ -135,11 +140,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         <div className="tree-actions">
           <button disabled={building || error} onClick={() => session.changeVisibility(meshes.map(p => p.source_id), true)}>{t("catalog.showAll")}</button>
           <button disabled={building || error} onClick={() => session.changeVisibility(meshes.map(p => p.source_id), false)}>{t("catalog.hideAll")}</button>
-          <StructureSearch triggerId={findId} structures={meshes} disabled={building || error} onSelect={id => {
-            focusStructures([id]);
-            session.revealStructure(id);
-            host.current?.querySelector("canvas")?.focus({ preventScroll: true });
-          }} />
+          <StructureSearch triggerId={findId} structures={meshes} disabled={building || error} onSelect={chooseStructure} />
         </div>
         <div className="catalog-tree">
           <StructureTree catalog={catalog} structures={meshes} visibleIds={visibleIds} selected={selected} targetId={targetId} reveal={reveal} disabled={building || error}

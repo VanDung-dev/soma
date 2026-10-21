@@ -6,9 +6,10 @@ export function validateMetadata(value: unknown, expectedIds: string[]): Structu
   if (!Array.isArray(structures) || !structures.length
     || !structures.every(s => s && [s.source_id, s.source_name, s.source_object, s.latin].every(v => typeof v === "string")
       && s.source_id && s.source_name && ["", "left", "right"].includes(s.laterality)
-      && Array.isArray(s.collections) && s.collections.every(c => typeof c === "string"))
-    || new Set(structures.map(s => s.source_id)).size !== structures.length) throw new Error("Metadata không hợp lệ");
-  if (JSON.stringify(structures.map(s => s.source_id).sort()) !== JSON.stringify(expectedIds.slice().sort())) {
+      && Array.isArray(s.collections) && s.collections.every(c => typeof c === "string"))) throw new Error("Metadata không hợp lệ");
+  const ids = new Set(structures.map(s => s.source_id));
+  if (ids.size !== structures.length) throw new Error("Metadata không hợp lệ");
+  if (ids.size !== expectedIds.length || new Set(expectedIds).size !== expectedIds.length || !expectedIds.every(id => ids.has(id))) {
     throw new Error("Metadata không khớp catalog");
   }
   return structures;

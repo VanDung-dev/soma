@@ -142,7 +142,6 @@ export class StudySession {
 
   revealStructure = (id: string) => { this.update({ reveal: { id } }); };
   toggleReader = () => { this.update({ readerExpanded: !this.state.readerExpanded }); };
-  closeReader = () => { this.update({ readerExpanded: false }); };
 
   changeExplosion = (value: number) => {
     if (this.state.movingId || this.state.separatedIds.size) return;

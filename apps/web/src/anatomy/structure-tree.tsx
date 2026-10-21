@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Catalog, StudyTarget, Structure } from "./catalog/types";
 import { indexCatalog, structureIds } from "./catalog";
 import { structureName, targetName } from "./anatomy-names";
@@ -28,7 +28,8 @@ interface TreeProps {
 function VisibilityCheckbox({ ids, visibleIds, label, disabled, onVisibility }: Pick<TreeProps, "visibleIds" | "disabled" | "onVisibility"> & { ids: string[]; label: string }) {
   const { t } = useLanguage();
   const ref = useRef<HTMLInputElement>(null);
-  const count = ids.filter(id => visibleIds.has(id)).length;
+  let count = 0;
+  for (const id of ids) if (visibleIds.has(id)) count++;
   const mixed = count > 0 && count < ids.length;
   const checked = ids.length > 0 && count === ids.length;
   useEffect(() => { if (ref.current) ref.current.indeterminate = mixed; }, [mixed]);
@@ -40,11 +41,11 @@ function VisibilityCheckbox({ ids, visibleIds, label, disabled, onVisibility }: 
   </label>;
 }
 
-export function StructureTree(props: TreeProps) {
+export const StructureTree = memo(function StructureTree(props: TreeProps) {
   const { t } = useLanguage();
-  const children = useMemo(() => {
-    const result = indexCatalog(props.catalog).children;
-    result.get(undefined)?.sort((a, b) => systemOrder.indexOf(a.group_id) - systemOrder.indexOf(b.group_id));
+  const { targets, children } = useMemo(() => {
+    const result = indexCatalog(props.catalog);
+    result.children.get(undefined)?.sort((a, b) => systemOrder.indexOf(a.group_id) - systemOrder.indexOf(b.group_id));
     return result;
   }, [props.catalog]);
   const structures = useMemo(() => new Map(props.structures.map(part => [part.source_id, part])), [props.structures]);
@@ -57,17 +58,17 @@ export function StructureTree(props: TreeProps) {
     while (target) {
       path.add(target.id);
       const parent = target.parent_id;
-      target = props.catalog.targets.find(target => target.id === parent);
+      target = parent === undefined ? undefined : targets.get(parent);
     }
     return path;
-  }, [props.catalog, props.reveal, children]);
+  }, [props.catalog, props.reveal, targets, children]);
   const revealRow = useCallback((element: HTMLLIElement | null) => {
     if (element && window.matchMedia("(min-width: 901px)").matches) element.scrollIntoView({ block: "nearest" });
   }, [props.reveal]);
   return <nav aria-label={t("tree.navigation.label")}><ul className="structure-tree">
     {(children.get(undefined) ?? []).map(target => <Folder key={target.id} target={target} childrenById={children} structures={structures} props={props} revealPath={revealPath} revealRow={revealRow} />)}
   </ul></nav>;
-}
+});
 
 function Folder({ target, childrenById, structures, props, revealPath, revealRow }: {
   target: StudyTarget; childrenById: Map<string | undefined, StudyTarget[]>; structures: Map<string, Structure>; props: TreeProps;
@@ -79,8 +80,10 @@ function Folder({ target, childrenById, structures, props, revealPath, revealRow
   const children = childrenById.get(target.id) ?? [];
   // System toggles follow Blender display collections; subfolders retain anatomical cross-references.
   const ids = structureIds(target);
-  const nestedIds = new Set(children.flatMap(child => child.structure_ids));
-  const directIds = ids.filter(id => !nestedIds.has(id));
+  const directIds = useMemo(() => {
+    const nestedIds = new Set((childrenById.get(target.id) ?? []).flatMap(child => child.structure_ids));
+    return structureIds(target).filter(id => !nestedIds.has(id));
+  }, [target, childrenById]);
   const otherLanguage = language === "vi" ? "en" : "vi";
   const title = targetName(target, language);
   const otherName = targetName(target, otherLanguage);
