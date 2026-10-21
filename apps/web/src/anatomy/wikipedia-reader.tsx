@@ -35,9 +35,10 @@ export function WikipediaReader({ name, expanded = false }: { name: string; expa
   const homePage = useRef<string | undefined>(undefined);
   useEffect(() => {
     const receive = (event: MessageEvent) => {
-      if (event.source !== frame.current?.contentWindow || !["wikipedia:ready", "wikipedia:location"].includes(event.data?.type)) return;
+      if (event.source !== frame.current?.contentWindow || !["wikipedia:ready", "wikipedia:location", "wikipedia:loading"].includes(event.data?.type)) return;
       const url = readingUrl(event.data.url);
       if (!url) return;
+      if (event.data.type === "wikipedia:loading") { setLoading(true); return; }
       if (event.data.type === "wikipedia:ready") { homePage.current ??= url.split("#")[0]; setLoading(false); }
       setReadingUrl(url);
     };
@@ -61,11 +62,20 @@ export function WikipediaReader({ name, expanded = false }: { name: string; expa
   const search = `https://en.wikipedia.org/w/index.php?title=Special:Search&fulltext=1&search=${encodeURIComponent(name.replace(/^[1-9]:\s*/, ""))}`;
   const proxy = import.meta.env.VITE_WIKIPEDIA_PROXY_URL || "/wikipedia";
   return <section className="wikipedia-reader" aria-label={t("wikipedia.section.label", { name: label })}>
-    {article ? <iframe key={reload} className="wikipedia-article" ref={frame}
+    {article ? <div className="wikipedia-frame">
+      <iframe key={reload} className="wikipedia-article" ref={frame}
       src={`${proxy}?url=${encodeURIComponent(article.url)}${new URL(article.url).hash}`}
       title={t("wikipedia.frame.title", { name: label })} aria-busy={loading}
       sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer"
       onLoad={() => setLoading(false)} />
+      {loading && <div className="wikipedia-skeleton" role="status">
+        <span className="sr-only">{t("wikipedia.loading")}</span>
+        <div className="wikipedia-skeleton-content" aria-hidden="true">
+          <span className="skeleton-title" /><span /><span /><span className="skeleton-short" />
+          <span className="skeleton-block" /><span /><span className="skeleton-short" />
+        </div>
+      </div>}
+    </div>
       : <p>{t("wikipedia.notLinked")} <a href={search} target="_blank" rel="noreferrer">{t("wikipedia.search", { name })}</a></p>}
     <div className="reader-actions">
       {article && <>

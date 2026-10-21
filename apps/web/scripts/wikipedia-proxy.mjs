@@ -51,6 +51,7 @@ function frameBridge(source) {
     }
   }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['href'] });
   addEventListener('hashchange', () => report('location'));
+  addEventListener('beforeunload', () => report('loading'));
   addEventListener('pointerdown', () => parent.postMessage({ type: 'wikipedia:pointerdown' }, '*'));
   addEventListener('keydown', event => {
     if (event.defaultPrevented || event.repeat || event.isComposing || event.altKey || event.shiftKey) return;

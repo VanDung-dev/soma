@@ -10,6 +10,7 @@ tauri-build.workspace = true
 [dependencies]
 anatomy_core.workspace = true
 tauri.workspace = true
+tauri-plugin-opener = "2"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

@@ -29,6 +29,8 @@ test('Wikipedia reader opens mapped articles and leaves unmapped structures expl
     assert(html.includes('sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"'));
     assert(!html.includes('allow-same-origin') && !html.includes('reader-navigation'));
     assert(html.includes('aria-busy="true"'));
+    assert(html.includes('class="wikipedia-skeleton" role="status"'));
+    assert(html.includes('Đang tải Wikipedia…'));
     const disclaimer = 'Wikipedia chỉ phục vụ tham khảo và học tập; thông tin có thể sai hoặc chưa cập nhật, không thay thế tài liệu chuyên môn hoặc tư vấn y tế.';
     assert(html.includes(disclaimer));
     assert(!html.includes('<h3>Wikipedia</h3>'));
@@ -39,6 +41,7 @@ test('Wikipedia reader opens mapped articles and leaves unmapped structures expl
     assert(html.indexOf('class="wikipedia-article"') < html.indexOf('class="reader-actions"'));
     const missing = renderToStaticMarkup(createElement(WikipediaReader, { name: 'Unmapped <part> & name' }));
     assert(!missing.includes('<iframe'));
+    assert(!missing.includes('wikipedia-skeleton'));
     assert(missing.includes('Chưa gắn bài Wikipedia'));
     assert(missing.includes('Unmapped%20%3Cpart%3E%20%26%20name'));
     assert(missing.includes(disclaimer));

@@ -119,6 +119,7 @@
     "document.close": {"vi": "Đóng tài liệu", "en": "Close document"},
     "wikipedia.section.label": {"vi": "Wikipedia: {name}", "en": "Wikipedia: {name}"},
     "wikipedia.frame.title": {"vi": "Bài Wikipedia về {name}", "en": "Wikipedia article about {name}"},
+    "wikipedia.loading": {"vi": "Đang tải Wikipedia…", "en": "Loading Wikipedia…"},
     "wikipedia.notLinked": {"vi": "Chưa gắn bài Wikipedia cho cấu trúc này.", "en": "No Wikipedia article is linked to this structure."},
     "wikipedia.search": {"vi": "Tìm “{name}” trên Wikipedia ↗", "en": "Search Wikipedia for “{name}” ↗"},
     "wikipedia.returnToArticle": {"vi": "Nội dung của giải phẫu", "en": "Return to the article"},

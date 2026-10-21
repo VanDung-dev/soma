@@ -129,7 +129,16 @@
 
 .wikipedia-reader { display: flex; flex-direction: column; flex: 1 0 auto; gap: 8px; font-size: 13px; line-height: 1.7; }
 .wikipedia-reader > p { margin: 0; }
+.wikipedia-frame { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .wikipedia-article { display: block; flex: 1; width: 100%; height: 0; min-height: 360px; border: 1px solid var(--line); border-radius: var(--detail-radius); background: var(--surface); }
+.wikipedia-skeleton { position: absolute; inset: 1px; overflow: hidden; padding: 16px; border-radius: calc(var(--detail-radius) - 1px); background: var(--surface); }
+.wikipedia-skeleton-content { display: grid; gap: 12px; }
+.wikipedia-skeleton-content > span { display: block; height: 12px; border-radius: var(--detail-radius); background: var(--line); }
+.wikipedia-skeleton-content > .skeleton-title { width: 64%; height: 24px; margin-bottom: 8px; }
+.wikipedia-skeleton-content > .skeleton-short { width: 78%; }
+.wikipedia-skeleton-content > .skeleton-block { height: 112px; margin: 8px 0; }
+.wikipedia-skeleton::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(var(--highlight-rgb), .3), transparent); transform: translateX(-100%); animation: wikipedia-shimmer 1.5s linear infinite; }
+@keyframes wikipedia-shimmer { to { transform: translateX(100%); } }
 .reader-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .reader-actions button, .reader-actions a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 10px; border: 1px solid var(--line-strong); border-radius: var(--inner-radius); background: var(--surface); font-size: 12px; line-height: 1.5; text-decoration: none; }
 .reader-expand { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: var(--control-radius); background: var(--surface); font-size: 12px; line-height: 1.5; text-decoration: none; }
@@ -148,6 +157,7 @@
 @media (prefers-reduced-motion: reduce) {
   .information-panel { transition: none; }
   .reader-expanded .wikipedia-reader { animation: none; }
+  .wikipedia-skeleton::after { animation: none; display: none; }
 }
 
 .anatomy-panel-toggles { display: none; }

@@ -1,7 +1,14 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "Local study window; no filesystem, shell or network plugins.",
+  "description": "Local study window with Wikipedia links opened in the default browser.",
   "windows": ["main"],
-  "permissions": ["core:default", "core:window:allow-start-dragging"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [{ "url": "https://*.wikipedia.org/*" }]
+    }
+  ]
 }
