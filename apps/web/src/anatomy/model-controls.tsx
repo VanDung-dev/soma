@@ -2,7 +2,7 @@ import { useEffect, useEffectEvent } from "react";
 import type { MessageKey } from "../i18n";
 import { useLanguage } from "../i18n";
 import type { CameraCommand } from "./viewer/contracts";
-import { LineIcon } from "../icons";
+import { PopoverPanel } from "../popover-panel";
 import { appShortcuts, shortcutLabel } from "../shortcuts";
 import type { AppShortcut } from "../shortcuts";
 
@@ -56,7 +56,7 @@ export function ModelControls({ disabled, onControl, helpId }: {
     const keyDown = (event: KeyboardEvent) => {
       if (disabled || event.defaultPrevented || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target;
-      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [role='textbox'], [role='menu'], .app-menu-bar, .controls-guide, .catalog-panel, .information-panel"))) return;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [role='textbox'], [role='menu'], .app-menu-bar, .app-popover, .catalog-panel, .information-panel"))) return;
       const key = event.key.toLowerCase();
       if (!controls.some(control => control.key === key)) return;
       event.preventDefault();
@@ -81,13 +81,7 @@ export function ModelControls({ disabled, onControl, helpId }: {
       document.removeEventListener("visibilitychange", visibilityChanged);
     };
   }, [disabled]);
-  return <div className="controls-guide" id={helpId} popover="auto" role="region" aria-label={t("controls.guide.title")}>
-      <div className="guide-heading"><h2>{t("controls.guide.title")}</h2>
-        <button className="controls-info" aria-label={t("controls.guide.close")} popoverTarget={helpId} popoverTargetAction="hide">
-          <LineIcon name="close-small" size={14} />
-        </button>
-      </div>
-      <div className="guide-content">
+  return <PopoverPanel id={helpId} className="controls-guide" contentClassName="guide-content" title={t("controls.guide.title")} closeLabel={t("controls.guide.close")}>
         <div className="guide-columns">
           <section aria-label={t("controls.keyboard.label")}><h3>{t("controls.keyboard.label")}</h3>
             {groups.map(group => <div className="guide-key-group" key={group.label}>
@@ -112,6 +106,5 @@ export function ModelControls({ disabled, onControl, helpId }: {
             <div><dt>{t("controls.mouse.pointOrClick")}</dt><dd>{t("controls.mouse.showInfo")}</dd></div>
           </dl></section>
         </div>
-      </div>
-  </div>;
+  </PopoverPanel>;
 }

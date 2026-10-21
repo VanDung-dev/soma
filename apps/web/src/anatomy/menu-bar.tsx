@@ -2,6 +2,7 @@ import { useLanguage } from "../i18n";
 import { LineIcon } from "../icons";
 import type { GraphicsSettings } from "./viewer/graphics";
 import { shortcutLabel } from "../shortcuts";
+import { PopoverPanel } from "../popover-panel";
 
 export function MenuBar({ disabled, canGoBack, canGoForward, onBack, onForward, helpId, settingsId, graphics, onGraphicsChange }: {
   disabled: boolean;
@@ -35,14 +36,7 @@ export function MenuBar({ disabled, canGoBack, canGoForward, onBack, onForward, 
         <LineIcon name="cog" size={14} />
       </button>
     </div>
-    <section id={settingsId} className="settings-popover" popover="auto" aria-labelledby={`${settingsId}-title`}>
-      <div className="guide-heading">
-        <h2 id={`${settingsId}-title`}>{t("app.settings")}</h2>
-        <button className="controls-info" aria-label={t("app.settings.close")} popoverTarget={settingsId} popoverTargetAction="hide">
-          <LineIcon name="close-small" size={14} />
-        </button>
-      </div>
-      <div className="settings-content">
+    <PopoverPanel id={settingsId} className="settings-popover" contentClassName="settings-content" title={t("app.settings")} closeLabel={t("app.settings.close")}>
         <div className="settings-row">
           <label htmlFor={`${settingsId}-shadow`}>{t("graphics.shadow.label")}</label>
           <select id={`${settingsId}-shadow`} className="settings-select" value={graphics.shadowQuality}
@@ -98,7 +92,6 @@ export function MenuBar({ disabled, canGoBack, canGoForward, onBack, onForward, 
           <input id={`${settingsId}-grid`} className="settings-checkbox" type="checkbox" checked={graphics.grid}
             onChange={event => onGraphicsChange({ ...graphics, grid: event.currentTarget.checked })} />
         </div>
-      </div>
-    </section>
+    </PopoverPanel>
   </header>;
 }

@@ -43,6 +43,41 @@ export async function checkModuleNavigation() {
         const frame = host.querySelector('.module-page');
         const header = host.querySelector('.module-header');
         const content = host.querySelector('.module-content');
+        const credit = host.querySelector('.home-credit a');
+        const creditHref = credit.getAttribute('href');
+        const readDocument = path => new Promise((resolve, reject) => {
+          const observer = new MutationObserver(check);
+          const timeout = setTimeout(() => { observer.disconnect(); reject(Error(`Source document timed out: ${path}; ${host.querySelector('.source-document')?.outerHTML}`)); }, 5000);
+          function check() {
+            const result = host.querySelector('.source-document pre, .source-document [role="alert"]');
+            if (result) { clearTimeout(timeout); observer.disconnect(); resolve(result); }
+          }
+          observer.observe(host, { childList: true, subtree: true, attributes: true, characterData: true });
+          check();
+        });
+        for (const path of ['/home/ATTRIBUTION.md', '/models/z-anatomy/ATTRIBUTION.md', '/missing/ATTRIBUTION.md']) {
+          credit.href = path;
+          credit.focus();
+          assert(click(credit) === desktop, 'Open bundled source documents inside desktop and retain browser links');
+          if (desktop) {
+            const result = await readDocument(path);
+            const panel = host.querySelector('.source-document');
+            assert(panel.matches(':popover-open') && panel.popover === 'auto', 'Read source documents in the shared dismissible popover');
+            if (path.startsWith('/missing/')) assert(result.getAttribute('role') === 'alert', 'Show document loading failures');
+            else assert(result.textContent === await (await fetch(path)).text(), 'Preserve the complete source and license text');
+            const key = new KeyboardEvent('keydown', { key: 'r', bubbles: true, cancelable: true });
+            result.dispatchEvent(key);
+            assert(!key.defaultPrevented, 'Document keys must not invoke viewer shortcuts');
+            await new Promise(resolve => {
+              panel.addEventListener('toggle', event => { if (event.newState === 'closed') resolve(); });
+              panel.querySelector('button').click();
+            });
+            flushSync(() => {});
+            assert(!host.querySelector('.source-document') && document.activeElement === credit, 'Close documents and restore link focus');
+            assert(host.querySelector('.module-page') === frame && location.href === originalUrl, 'Keep the current page mounted while reading sources');
+          } else assert(!host.querySelector('.source-document'), 'Keep native browser tab behavior');
+        }
+        credit.setAttribute('href', creditHref);
         const check = page => {
           assert(location.href === originalUrl, 'Keep the desktop WebView URL unchanged');
           assert(host.querySelector('.module-page') === frame && host.querySelector('.module-header') === header && host.querySelector('.module-content') === content, 'Keep the same frame, header and content container');
@@ -82,7 +117,7 @@ export async function checkModuleNavigation() {
         }
         const link = document.createElement('a');
         frame.append(link);
-        for (const href of ['/unknown', '/home/ATTRIBUTION.md', '#workspace', '/games?mode=test', '/games#section', 'https://example.com/games']) {
+        for (const href of ['/unknown', '#workspace', '/games?mode=test', '/games#section', 'https://example.com/games']) {
           link.href = href;
           assert(!click(link), 'Preserve non-module URLs');
           check('home');
@@ -103,7 +138,8 @@ export async function checkModuleNavigation() {
       }
     }
     assert(catalogCalls === 1, 'Mount Anatomy once through the native catalog path');
-    return { desktopInPlace: true, stableFrame: true, webLinksPreserved: true, keyboardFocus: true, linkExceptions: true };
+    return { desktopInPlace: true, stableFrame: true, webLinksPreserved: true, keyboardFocus: true, linkExceptions: true,
+      sourceDocuments: true, sourceTextPreserved: true, sourceErrors: true, sourceFocusRestored: true };
   } finally {
     if (originalTauri) Object.defineProperty(window, 'isTauri', originalTauri); else delete window.isTauri;
     if (originalInternals) Object.defineProperty(window, '__TAURI_INTERNALS__', originalInternals); else delete window.__TAURI_INTERNALS__;

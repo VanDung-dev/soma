@@ -29,20 +29,19 @@ test('Wikipedia reader opens mapped articles and leaves unmapped structures expl
     assert(html.includes('sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"'));
     assert(!html.includes('allow-same-origin') && !html.includes('reader-navigation'));
     assert(html.includes('aria-busy="true"'));
-    assert(html.includes('chưa được đối chiếu độc lập'));
-    assert(html.includes('chỉ phục vụ tham khảo'));
+    const disclaimer = 'Wikipedia chỉ phục vụ tham khảo và học tập; thông tin có thể sai hoặc chưa cập nhật, không thay thế tài liệu chuyên môn hoặc tư vấn y tế.';
+    assert(html.includes(disclaimer));
     assert(!html.includes('<h3>Wikipedia</h3>'));
     assert(!html.includes('reader-info'));
-    assert.match(html, /class="reference-mapping-description">.*<div class="reader-notes">/);
+    assert(html.includes(`<div class="reference-mapping-description"><p class="reference-notice">${disclaimer}</p></div>`));
     assert(html.includes('<details class="reference-mapping"><summary>Lưu ý về tài liệu tham khảo</summary>'));
     assert(html.includes('target="_blank" rel="noreferrer"'));
     assert(html.indexOf('class="wikipedia-article"') < html.indexOf('class="reader-actions"'));
-    assert(html.indexOf('class="reference-notice"') > html.indexOf('class="reader-note"'));
     const missing = renderToStaticMarkup(createElement(WikipediaReader, { name: 'Unmapped <part> & name' }));
     assert(!missing.includes('<iframe'));
     assert(missing.includes('Chưa gắn bài Wikipedia'));
     assert(missing.includes('Unmapped%20%3Cpart%3E%20%26%20name'));
-    assert(missing.includes('class="reader-notes"') && missing.includes('chỉ phục vụ tham khảo'));
+    assert(missing.includes(disclaimer));
     assert.equal(wikipediaReference('Unmapped <part> & name'), undefined);
     assert.equal(wikipediaReference('constructor'), undefined);
   } finally {

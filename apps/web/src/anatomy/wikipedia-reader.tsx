@@ -78,11 +78,7 @@ export function WikipediaReader({ name, expanded = false }: { name: string; expa
       }}>
         <summary>{t("wikipedia.notes.summary")}</summary>
         <div className="reference-mapping-description">
-          {article && <p>{t("wikipedia.notes.mapping")}</p>}
-          <div className="reader-notes">
-            {article && <p className="reader-note">{t("wikipedia.notes.network")}</p>}
-            <p className="reference-notice">{t("wikipedia.notes.disclaimer")}</p>
-          </div>
+          <p className="reference-notice">{t("wikipedia.notes.disclaimer")}</p>
         </div>
       </details>
   </section>;

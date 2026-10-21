@@ -207,15 +207,9 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
             </> : !target && <p className="information-overview">{t("information.overview")}</p>}
           </div>
           {referenceName && <WikipediaReader key={referenceName} name={referenceName} expanded={readerExpanded} />}
-          <details className="model-credit" onToggle={event => {
-            if (event.currentTarget.open) event.currentTarget.scrollIntoView({ block: "nearest" });
-          }}>
-            <summary>{t("credit.summary")}</summary>
-            <div className="model-credit-description">
-              <p>{t("credit.description")}</p>
-              <a href={`${import.meta.env.BASE_URL}models/z-anatomy/ATTRIBUTION.md`} target="_blank" rel="noreferrer">{t("credit.link")}</a>
-            </div>
-          </details>
+          <div className="model-credit">
+            <a href={`${import.meta.env.BASE_URL}models/z-anatomy/ATTRIBUTION.md`} target="_blank" rel="noreferrer" aria-label={t("credit.link")}>{t("credit.summary")}</a>
+          </div>
         </div>
       </aside>
     </>
