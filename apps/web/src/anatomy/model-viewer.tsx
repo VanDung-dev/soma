@@ -19,6 +19,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const [graphics, setGraphics] = useState(readGraphicsSettings);
   const [fps, setFps] = useState(0);
   const [hold, setHold] = useState<{ x: number; y: number } | null>(null);
+  const [snapTarget, setSnapTarget] = useState("");
   const [panel, setPanel] = useState<"catalog" | "information" | null>(null);
   const helpId = useId();
   const settingsId = useId();
@@ -42,7 +43,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
 
   useEffect(() => {
     const viewer = new ViewerRuntime(host.current!, { viewport: focusViewport,
-      onState: session.updateViewer, onPick: session.pick, onFps: setFps, onHold: setHold });
+      onState: session.updateViewer, onPick: session.pick, onFps: setFps, onHold: setHold, onSnap: setSnapTarget });
     runtime.current = viewer; session.connect(viewer);
     viewer.setGraphics(graphics);
     void viewer.start(roots);
@@ -107,6 +108,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     setPanel(null);
   };
   const selectedPart = meshes.find(part => part.source_id === readingId);
+  const snapPart = meshes.find(part => part.source_id === snapTarget);
   const canReadReference = !!selectedPart && (movingId === readingId || separatedIds.has(readingId));
   const referenceName = canReadReference ? selectedPart.source_name : target?.source_name;
   const otherLanguage = language === "vi" ? "en" : "vi";
@@ -155,6 +157,9 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
           <div className="model-focus-frame" ref={focusFrame}>
             {graphics.showFps && <span className="model-fps" aria-label={t("graphics.fps.current", { count: fps })}>{fps} FPS</span>}
             <div ref={hud} className="model-hud">
+              {snapPart && <div className="model-status model-snap-hint" role="status">
+                {t("viewer.snapHint", { name: structureName(snapPart, language) })}
+              </div>}
               {(movingId || separatedIds.size > 0) && <div className="model-status separation-status" role="status">
                 <span>{t("context.dragHint")}</span>
               </div>}

@@ -98,7 +98,6 @@ export function ModelControls({ disabled, onControl, helpId }: {
             </div>
           </section>
           <section aria-label={t("controls.mouse.label")}><h3>{t("controls.mouse.label")}</h3><dl className="guide-mouse">
-            <div><dt>{t("context.rightClick")}</dt><dd>{t("context.nativeHint")}</dd></div>
             <div><dt>{t("controls.mouse.dragLeft")}</dt><dd>{t("controls.mouse.rotate")}</dd></div>
             <div><dt>{t("controls.mouse.holdLeft")}</dt><dd>{t("context.detach")}</dd></div>
             <div><dt>{t("controls.mouse.wheel")}</dt><dd>{t("controls.mouse.zoomAtCursor")}</dd></div>

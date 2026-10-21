@@ -131,7 +131,7 @@ export async function checkCameraStability() {
       const menu = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2,
         clientX: point.x, clientY: point.y });
       canvas.dispatchEvent(menu); await wait();
-      assert(!menu.defaultPrevented && !document.querySelector('.context-menu'), 'Right-click must retain the native menu');
+      assert(menu.defaultPrevented && !document.querySelector('.context-menu'), 'Right-click on the canvas must not open a menu');
       canvas.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'mouse', pointerId: 999,
         button: 0, buttons: 1, clientX: point.x, clientY: point.y, bubbles: true }));
       await wait();

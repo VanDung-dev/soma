@@ -80,7 +80,8 @@ grid can be disabled independently.
 
 ### Moving structures
 
-Right-click uses the browser or WebView's native menu, including in Wikipedia.
+Right-drag on the 3D canvas pans the view; the canvas blocks browser context menus.
+Elsewhere, including Wikipedia, right-click uses the browser or WebView's native menu.
 Copy and paste use the native text controls and keyboard shortcuts.
 
 Hold the left mouse button on a structure for one second, then drag it to inspect it.
@@ -89,6 +90,12 @@ during the remaining half second. Drag immediately to rotate the model instead.
 During separation, dragging other structures leaves the body still. Drag the background
 to rotate, or drag with the right button to pan. Separated structures remain draggable.
 Press **T** to restore separated structures without resetting the camera.
+Bring a separated piece near its original alignment with a neighboring visible
+piece. The neighbor is outlined and a release hint appears; release to connect.
+Connected pieces move as a group. Hold one for a second to detach it again.
+Connecting to the assembled body returns the pieces to their source positions.
+This trial uses source bounds and relative positions, not authored anatomical
+connector data, so suggestions are approximate.
 Return automatic explosion to 0% before moving individual structures; reassemble
 manual positions before using automatic explosion again.
 The information reader is available only for structures in movement mode or with a

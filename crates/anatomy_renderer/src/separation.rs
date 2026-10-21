@@ -1,10 +1,11 @@
 use crate::{Camera, Scene};
 use glam::Vec3;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Default)]
 pub struct Separation {
     offsets: HashMap<String, Vec3>,
+    groups: Vec<Vec<String>>,
 }
 
 impl Separation {
@@ -23,9 +24,106 @@ impl Separation {
     pub fn clear(&mut self, id: &str) {
         if id.is_empty() {
             self.offsets.clear();
+            self.groups.clear();
         } else {
-            self.offsets.remove(id);
+            for member in self.members(id) {
+                self.offsets.remove(&member);
+            }
+            self.groups
+                .retain(|group| !group.iter().any(|member| member == id));
         }
+    }
+
+    pub fn members(&self, id: &str) -> Vec<String> {
+        self.groups
+            .iter()
+            .find(|group| group.iter().any(|member| member == id))
+            .cloned()
+            .unwrap_or_else(|| vec![id.into()])
+    }
+
+    pub fn separated_ids(&self) -> Vec<String> {
+        let mut ids: Vec<_> = self.offsets.keys().cloned().collect();
+        ids.sort();
+        ids
+    }
+
+    pub fn detach(&mut self, id: &str) {
+        for group in &mut self.groups {
+            group.retain(|member| member != id);
+        }
+        self.groups.retain(|group| group.len() > 1);
+    }
+
+    pub fn candidate(&self, scene: &Scene, id: &str, tolerance: f32) -> Option<String> {
+        if !tolerance.is_finite() || tolerance <= 0.0 {
+            return None;
+        }
+        let members: HashSet<_> = self.members(id).into_iter().collect();
+        let moving: Vec<_> = scene
+            .parts
+            .iter()
+            .filter(|part| part.active && part.visible && members.contains(&part.source_id))
+            .collect();
+        if !moving.iter().any(|part| part.source_id == id) {
+            return None;
+        }
+        let neighbor_gap = scene.bounds.radius() * 0.005;
+        let offset = self.offset(id);
+        let mut best: Option<(f32, &str)> = None;
+        for target in scene
+            .parts
+            .iter()
+            .filter(|part| part.active && part.visible && !members.contains(&part.source_id))
+        {
+            let distance = offset.distance_squared(self.offset(&target.source_id));
+            if distance > tolerance * tolerance {
+                continue;
+            }
+            let gap = moving
+                .iter()
+                .map(|part| {
+                    (part.bounds.min - target.bounds.max)
+                        .max(target.bounds.min - part.bounds.max)
+                        .max(Vec3::ZERO)
+                        .length_squared()
+                })
+                .fold(f32::INFINITY, f32::min);
+            if gap > neighbor_gap * neighbor_gap {
+                continue;
+            }
+            let score = distance + gap;
+            if best.is_none_or(|(previous, previous_id)| {
+                score < previous || (score == previous && target.source_id.as_str() < previous_id)
+            }) {
+                best = Some((score, &target.source_id));
+            }
+        }
+        best.map(|(_, target)| target.into())
+    }
+
+    pub fn snap(
+        &mut self,
+        scene: &Scene,
+        id: &str,
+        target: &str,
+        tolerance: f32,
+    ) -> Result<(), String> {
+        if self.candidate(scene, id, tolerance).as_deref() != Some(target) {
+            return Err("Structures are not close enough to connect".into());
+        }
+        let offset = self.offset(target);
+        self.set(scene, id, offset.to_array())?;
+        let mut members = self.members(id);
+        members.extend(self.members(target));
+        self.groups
+            .retain(|group| !group.iter().any(|member| members.contains(member)));
+        if offset != Vec3::ZERO {
+            members.sort();
+            members.dedup();
+            self.groups.push(members);
+        }
+        Ok(())
     }
 
     pub fn set(&mut self, scene: &Scene, id: &str, offset: [f32; 3]) -> Result<(), String> {
@@ -34,10 +132,12 @@ impl Separation {
             return Err("Invalid separated structure or position".into());
         }
         let offset = offset.clamp_length_max(scene.bounds.radius() * 3.0);
-        if offset.length_squared() == 0.0 {
-            self.offsets.remove(id);
-        } else {
-            self.offsets.insert(id.into(), offset);
+        for member in self.members(id) {
+            if offset.length_squared() == 0.0 {
+                self.offsets.remove(&member);
+            } else {
+                self.offsets.insert(member, offset);
+            }
         }
         Ok(())
     }

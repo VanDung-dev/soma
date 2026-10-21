@@ -12,8 +12,8 @@ test('left hold detaches after one second and cancels on interrupted gestures', 
     globalThis.window = Object.assign(new EventTarget(), { setTimeout, clearTimeout });
     const canvas = Object.assign(new EventTarget(), { width: 300, height: 300, clientWidth: 300, clientHeight: 300,
       dataset: {}, focus() {}, setPointerCapture() {}, getBoundingClientRect: () => ({ left: 0, top: 0, width: 300, height: 300 }) });
-    let selected = 'a', moving = '', enabled = true, detachable = true, rotations = 0;
-    const detached = [], moves = [], picked = [], progress = [], committed = [], restored = [];
+    let selected = 'a', moving = '', enabled = true, detachable = true, joined = false, rotations = 0;
+    const detached = [], moves = [], picked = [], progress = [], committed = [], restored = [], snaps = [];
     const viewer = {
       selected_id: () => selected, select: id => { selected = id; },
       pick: x => { selected = x < 200 ? 'b' : ''; return selected; },
@@ -23,9 +23,10 @@ test('left hold detaches after one second and cancels on interrupted gestures', 
     };
     unbind = bindViewerInput(canvas, { enabled: () => enabled,
       operate: action => { action(viewer); return true; }, redraw() {}, pick: id => picked.push(id),
-      moving: () => moving, detachable: () => detachable,
-      detach: id => { detached.push(id); moving = selected = id; return true; },
+      moving: () => moving, detachable: () => detachable, joined: () => joined,
+      detach: id => { detached.push(id); moving = selected = id; joined = false; return true; },
       onHold: point => progress.push(point), moved: id => committed.push(id),
+      snap: (id, commit) => snaps.push([id, commit]),
     });
     const pointer = (type, values = {}) => canvas.dispatchEvent(Object.assign(new Event(type), {
       clientX: 130, clientY: 100, pointerId: 1, pointerType: 'mouse', button: 0,
@@ -43,9 +44,12 @@ test('left hold detaches after one second and cancels on interrupted gestures', 
     pointer('pointermove', { clientX: 163 }); pointer('pointerup', { clientX: 163 });
     assert.deepEqual(moves, [['b', 0.1, 0]], 'Continue dragging without a second press or a jump');
     assert.deepEqual(committed, ['b']); assert.deepEqual(picked, ['b'], 'A held release must not select again');
+    assert.deepEqual(snaps, [['b', false], ['b', true]], 'Preview while dragging and connect only on release');
+    pointer('pointerdown'); pointer('pointermove', { clientX: 131 }); pointer('pointerup', { clientX: 131 });
+    assert.deepEqual(snaps.at(-1), ['', false], 'Clear previews after a click with pointer jitter');
     moving = '';
     pointer('pointerdown'); t.mock.timers.tick(400); pointer('pointerup'); t.mock.timers.tick(1000);
-    assert.deepEqual(picked, ['b', 'b'], 'A short click keeps ordinary selection');
+    assert.deepEqual(picked, ['b', 'b', 'b'], 'A short click keeps ordinary selection');
     assert.equal(detached.length, 1);
     pointer('pointerdown'); pointer('pointermove', { clientX: 150 }); t.mock.timers.tick(1000); pointer('pointerup');
     assert.equal(rotations, 1, 'Dragging before the threshold must rotate');
@@ -79,9 +83,17 @@ test('left hold detaches after one second and cancels on interrupted gestures', 
     detachable = true;
     pointer('pointerdown'); t.mock.timers.tick(1000); pointer('pointermove', { clientX: 160 }); pointer('lostpointercapture');
     assert.deepEqual(restored.at(-1), ['b', new Float32Array([1, 2, 3])], 'Capture loss restores the pre-drag offset');
+    assert.deepEqual(snaps.at(-1), ['', false], 'Cancelled drags must never connect');
+    joined = true;
+    pointer('pointerdown'); t.mock.timers.tick(500); pointer('pointermove', { clientX: 160 }); pointer('pointerup', { clientX: 160 });
+    assert.equal(detached.length, 2, 'Dragging immediately preserves the joined group');
+    assert(joined);
+    pointer('pointerdown'); t.mock.timers.tick(1000);
+    assert.equal(detached.length, 3, 'A full hold detaches one joined piece'); assert(!joined);
+    pointer('pointerup');
     moving = '';
     pointer('pointerdown'); unbind(); t.mock.timers.tick(1000);
-    assert.equal(detached.length, 2, 'Disposal must cancel the pending hold'); assert.equal(progress.at(-1), null);
+    assert.equal(detached.length, 3, 'Disposal must cancel the pending hold'); assert.equal(progress.at(-1), null);
   } finally {
     unbind?.(); t.mock.timers.reset();
     if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow;
@@ -131,11 +143,19 @@ test('manual separation drags only its structure and rotates only from empty bac
     assert.deepEqual(picked, ['b', 'a']);
     pointer('pointerdown', 130, 2, 2); pointer('pointermove', 150, 2, 2); pointer('pointerup', 150, 2);
     assert.equal(pans, 1, 'Right dragging must retain camera pan');
+    for (const shiftKey of [false, true]) {
+      const menu = Object.assign(new Event('contextmenu', { cancelable: true }), { button: 2, shiftKey });
+      canvas.dispatchEvent(menu);
+      assert(menu.defaultPrevented, 'The canvas owns right-button input instead of opening a browser menu');
+    }
     moving = '';
     pointer('pointerdown', 130); pointer('pointermove', 150); pointer('pointerup', 150);
     assert.equal(rotations, 2, 'Normal navigation remains available outside separation mode');
-    moving = 'b'; separated.add('a');
-    pointer('pointerdown', 30); pointer('pointermove', 50); pointer('pointerup', 50);
+    moving = selected = 'b'; separated.add('a');
+    pointer('pointerdown', 30); pointer('pointermove', 50);
+    assert.equal(selected, 'a', 'Highlight the separated structure currently being dragged');
+    assert.equal(picked.at(-1), 'a', 'Update anatomy information before the drag ends');
+    pointer('pointerup', 50);
     assert.equal(moves.at(-1)[0], 'a', 'Previously separated structures remain draggable without Move again');
     assert.equal(committed.at(-1), 'a', 'Commit the structure being dragged rather than the newest separation');
     pointer('pointerdown', 30); pointer('pointermove', 50);

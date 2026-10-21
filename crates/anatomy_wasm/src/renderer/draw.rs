@@ -57,13 +57,80 @@ impl AnatomyViewer {
     fn draw_outline(&self) {
         let gl = &self.gpu.gl;
         let u = &self.uniforms;
+        let projection = self.camera.matrix();
+        let screen_bounds = |index: usize| {
+            let bounds = self.scene.parts[index]
+                .bounds
+                .translated(self.part_offset(index).into());
+            let mut rect = [
+                f32::INFINITY,
+                f32::INFINITY,
+                f32::NEG_INFINITY,
+                f32::NEG_INFINITY,
+            ];
+            for x in [bounds.min.x, bounds.max.x] {
+                for y in [bounds.min.y, bounds.max.y] {
+                    for z in [bounds.min.z, bounds.max.z] {
+                        let point = projection.x_axis * x
+                            + projection.y_axis * y
+                            + projection.z_axis * z
+                            + projection.w_axis;
+                        if point.w <= 1e-6 {
+                            return [
+                                f32::NEG_INFINITY,
+                                f32::NEG_INFINITY,
+                                f32::INFINITY,
+                                f32::INFINITY,
+                            ];
+                        }
+                        rect[0] = rect[0].min(point.x / point.w);
+                        rect[1] = rect[1].min(point.y / point.w);
+                        rect[2] = rect[2].max(point.x / point.w);
+                        rect[3] = rect[3].max(point.y / point.w);
+                    }
+                }
+            }
+            rect
+        };
+        let mut region = [
+            f32::INFINITY,
+            f32::INFINITY,
+            f32::NEG_INFINITY,
+            f32::NEG_INFINITY,
+        ];
+        for (i, part) in self.scene.parts.iter().enumerate() {
+            if part.visible
+                && self.reconstruction.opacity(i) > 0.0
+                && (part.source_id == self.scene.selected
+                    || part.source_id == self.connection_target)
+            {
+                let rect = screen_bounds(i);
+                region = [
+                    region[0].min(rect[0]),
+                    region[1].min(rect[1]),
+                    region[2].max(rect[2]),
+                    region[3].max(rect[3]),
+                ];
+            }
+        }
+        if region[0] > region[2] {
+            return;
+        }
+        let margin = 2.0 / self.canvas.width().min(self.canvas.height()).max(1) as f32;
+        region = [
+            region[0] - margin,
+            region[1] - margin,
+            region[2] + margin,
+            region[3] + margin,
+        ];
         gl.bind_framebuffer(Gl::FRAMEBUFFER, self.gpu.outline_framebuffer.as_ref());
         gl.bind_texture(Gl::TEXTURE_2D, None);
-        gl.disable(Gl::DEPTH_TEST);
-        gl.disable(Gl::CULL_FACE);
         gl.disable(Gl::BLEND);
         gl.clear_color(0.0, 0.0, 0.0, 0.0);
-        gl.clear(Gl::COLOR_BUFFER_BIT);
+        gl.enable(Gl::DEPTH_TEST);
+        gl.depth_func(Gl::LEQUAL);
+        gl.depth_mask(true);
+        gl.clear(Gl::COLOR_BUFFER_BIT | Gl::DEPTH_BUFFER_BIT);
         gl.use_program(self.gpu.program.as_ref());
         gl.uniform3f(Some(&u.part_offset), 0.0, 0.0, 0.0);
         gl.uniform_matrix4fv_with_f32_array(
@@ -74,19 +141,51 @@ impl AnatomyViewer {
         gl.uniform1i(Some(&u.shadow_pass), 0);
         gl.uniform1i(Some(&u.picking), 1);
         gl.uniform3f(Some(&u.pick_color), 1.0, 1.0, 1.0);
-        for (i, part) in self.scene.parts.iter().enumerate() {
-            if !part.visible || part.source_id != self.scene.selected {
-                continue;
+        let opaque_layout = self.exploding && self.explosion.amount() == 1.0;
+        for mask in [false, true] {
+            gl.depth_mask(!mask);
+            gl.color_mask(mask, mask, mask, mask);
+            for (i, part) in self.scene.parts.iter().enumerate() {
+                let outlined = part.source_id == self.scene.selected
+                    || part.source_id == self.connection_target;
+                if self.reconstruction.opacity(i) <= 0.0
+                    || if mask {
+                        !part.visible || !outlined
+                    } else {
+                        (!part.visible && !self.reconstruction.fading_out(i))
+                            || (part.blend && !opaque_layout)
+                    }
+                {
+                    continue;
+                }
+                if !mask {
+                    let rect = screen_bounds(i);
+                    if rect[2] < region[0]
+                        || rect[0] > region[2]
+                        || rect[3] < region[1]
+                        || rect[1] > region[3]
+                    {
+                        continue;
+                    }
+                }
+                if part.double_sided {
+                    gl.disable(Gl::CULL_FACE);
+                } else {
+                    gl.enable(Gl::CULL_FACE);
+                    gl.cull_face(Gl::BACK);
+                }
+                gl.uniform4fv_with_f32_array(Some(&u.color), &part.color);
+                gl.uniform1f(Some(&u.cutoff), part.alpha_cutoff);
+                gl.uniform1f(Some(&u.reveal), self.reconstruction.opacity(i));
+                gl.uniform3fv_with_f32_array(Some(&u.part_offset), &self.part_offset(i));
+                let (vao, count, offset) = self.draws[i];
+                gl.bind_vertex_array(Some(&self.gpu.vaos[vao]));
+                gl.draw_elements_with_i32(Gl::TRIANGLES, count, Gl::UNSIGNED_INT, offset);
             }
-            gl.uniform4fv_with_f32_array(Some(&u.color), &part.color);
-            gl.uniform1f(Some(&u.cutoff), part.alpha_cutoff);
-            gl.uniform1f(Some(&u.reveal), self.reconstruction.opacity(i));
-            gl.uniform3fv_with_f32_array(Some(&u.part_offset), &self.part_offset(i));
-            let (vao, count, offset) = self.draws[i];
-            gl.bind_vertex_array(Some(&self.gpu.vaos[vao]));
-            gl.draw_elements_with_i32(Gl::TRIANGLES, count, Gl::UNSIGNED_INT, offset);
         }
         gl.bind_framebuffer(Gl::FRAMEBUFFER, None);
+        gl.disable(Gl::DEPTH_TEST);
+        gl.disable(Gl::CULL_FACE);
         gl.use_program(self.gpu.outline_program.as_ref());
         gl.bind_texture(Gl::TEXTURE_2D, self.gpu.outline_texture.as_ref());
         gl.uniform1i(Some(&self.outline_uniforms.mask), 0);
@@ -270,7 +369,9 @@ impl AnatomyViewer {
             gl.uniform1f(Some(&u.cutoff), p.alpha_cutoff);
             gl.uniform1i(
                 Some(&u.selected),
-                i32::from(p.source_id == self.scene.selected),
+                i32::from(
+                    p.source_id == self.scene.selected || p.source_id == self.connection_target,
+                ),
             );
             let index = i + 1;
             gl.uniform3f(

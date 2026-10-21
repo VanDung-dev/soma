@@ -10,11 +10,11 @@ export async function checkNativeContextMenu() {
   const source = document.activeElement;
   const value = field.value;
   const search = field.closest('[popover]');
-  const open = target => {
+  const open = (target, blocked = false) => {
     for (const options of [{ button: 2 }, { button: 2, shiftKey: true }, { button: -1 }]) {
       const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, ...options });
       target.dispatchEvent(event);
-      assert(!event.defaultPrevented, 'Leave mouse and keyboard context menus to the host');
+      assert(event.defaultPrevented === blocked, 'Reserve the canvas for camera controls and keep native menus elsewhere');
       assert(!document.querySelector('.context-menu, .context-notice'), 'Do not mount a custom menu or clipboard notice');
     }
   };
@@ -23,7 +23,7 @@ export async function checkNativeContextMenu() {
     const range = document.createRange(); range.selectNodeContents(heading); selection.addRange(range);
     open(heading); await frames();
     assert(selection.toString() === heading.textContent, 'Right-click preserves selected page text');
-    open(canvas); await frames();
+    open(canvas, true); await frames();
     if (!search.matches(':popover-open')) { trigger.click(); await frames(); }
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(field, 'Atlas 123');
     field.dispatchEvent(new Event('input', { bubbles: true }));
@@ -32,7 +32,7 @@ export async function checkNativeContextMenu() {
     assert(field.value === 'Atlas 123' && field.selectionStart === 6 && field.selectionEnd === 9,
       'Native clipboard controls retain the editable text and selection');
     assert(document.activeElement === field && search.matches(':popover-open'), 'Right-click preserves input focus and the search popover');
-    return { nativeMouseMenu: true, nativeKeyboardMenu: true, textSelectionPreserved: true, inputSelectionPreserved: true };
+    return { canvasMenuBlocked: true, nativeMenusOutsideCanvas: true, textSelectionPreserved: true, inputSelectionPreserved: true };
   } finally {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(field, value);
     field.dispatchEvent(new Event('input', { bubbles: true }));

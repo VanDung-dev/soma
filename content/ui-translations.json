@@ -129,9 +129,8 @@
     "wikipedia.notes.disclaimer": {"vi": "Wikipedia chỉ phục vụ tham khảo và học tập; thông tin có thể sai hoặc chưa cập nhật, không thay thế tài liệu chuyên môn hoặc tư vấn y tế.", "en": "Wikipedia is for reference and learning only. Its information may be inaccurate or outdated and does not replace professional sources or medical advice."},
     "context.detach": {"vi": "Tách để quan sát", "en": "Move to inspect"},
     "context.restore": {"vi": "Đưa về vị trí gốc", "en": "Restore position"},
-    "context.dragHint": {"vi": "Kéo cấu trúc để di chuyển · T để khôi phục", "en": "Drag structure to move · T to restore"},
-    "context.rightClick": {"vi": "Chuột phải", "en": "Right click"},
-    "context.nativeHint": {"vi": "Mở menu trình duyệt", "en": "Open browser menu"},
+    "context.dragHint": {"vi": "Kéo để di chuyển · Giữ để tách lại · T để khôi phục", "en": "Drag to move · Hold to detach again · T to restore"},
+    "viewer.snapHint": {"vi": "Thả chuột để ghép với {name}", "en": "Release to connect with {name}"},
     "shortcuts.app": {"vi": "Thao tác ứng dụng", "en": "App actions"}
   }
 }

@@ -233,7 +233,7 @@ export async function checkPointerBounds() {
       assert(menu.defaultPrevented, 'Avoid opening the native menu after a camera pan');
       const nativeMenu = new MouseEvent('contextmenu', { ...point, button: 2, shiftKey: true, bubbles: true, cancelable: true });
       canvas.dispatchEvent(nativeMenu);
-      assert(!nativeMenu.defaultPrevented, 'Keep Shift-right-click available for the native menu');
+      assert(nativeMenu.defaultPrevented, 'Shift-right-click must also keep the canvas free of browser menus');
       calls.length = 0;
       assert(wheel(point) && calls.includes('zoom_at'), 'Zoom anywhere on the canvas');
       pointer('pointerdown', point, { buttons: 1 }); pointer('pointerup', point);
@@ -255,7 +255,7 @@ export async function checkPointerBounds() {
     pointer('pointermove', inside); pointer('pointerleave', outside[0]);
     await new Promise(resolve => setTimeout(resolve, 120));
     assert(!calls.includes('pick'), 'Leaving the canvas must cancel pending hover picking');
-    return { fullCanvasInteraction: true, dragAcrossFrame: true, canvasLeaveCancelsHover: true, nativeContextMenu: true };
+    return { fullCanvasInteraction: true, dragAcrossFrame: true, canvasLeaveCancelsHover: true, canvasContextMenuSuppressed: true };
   } finally {
     pointer('pointercancel', inside); pointer('pointerleave', outside[0]);
     canvas.setPointerCapture = capture; canvas.releasePointerCapture = release; canvas.hasPointerCapture = has;

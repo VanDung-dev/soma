@@ -33,6 +33,7 @@ export class ViewerRuntime implements StudyViewer {
   private meshes: Structure[] = [];
   private movingId = "";
   private separatedIds = new Set<string>();
+  private snapTarget = "";
   private restoration: { started: number; offsets: Map<string, Float32Array>; all: boolean } | undefined;
 
   constructor(private host: HTMLElement, private options: {
@@ -41,6 +42,7 @@ export class ViewerRuntime implements StudyViewer {
     onPick: (id: string) => void;
     onFps?: (fps: number) => void;
     onHold?: (point: { x: number; y: number } | null) => void;
+    onSnap?: (id: string) => void;
   }) {
     this.canvas.setAttribute("role", "img");
     this.canvas.tabIndex = 0;
@@ -51,9 +53,11 @@ export class ViewerRuntime implements StudyViewer {
       pick: options.onPick,
       moving: () => this.movingId || this.separatedIds.values().next().value || "",
       movable: id => id === this.movingId || this.separatedIds.has(id),
+      joined: id => (this.viewer?.structure_group(id).length ?? 0) > 1,
       detachable: () => !this.exploding || this.reassembling,
-      detach: id => this.setMoving(id), onHold: options.onHold,
-      moved: id => this.publishSeparation(id),
+      detach: id => this.setMoving(id) && this.operate(viewer => viewer.detach_structure(id)), onHold: options.onHold,
+      snap: (id, commit) => this.snapStructure(id, commit),
+      moved: () => this.publishSeparation(),
       restore: () => { this.restoreStructure(""); },
     });
     this.observer = new ResizeObserver(this.resize);
@@ -101,6 +105,7 @@ export class ViewerRuntime implements StudyViewer {
 
   private fail(cause: unknown, status: string) {
     this.failed = true; this.animating = false; this.abort.abort();
+    this.snapTarget = ""; this.options.onSnap?.("");
     this.stopFpsMeter();
     console.error(cause);
     this.options.onState({ error: true, status });
@@ -227,12 +232,22 @@ export class ViewerRuntime implements StudyViewer {
 
   select(id: string) { return this.operate(viewer => viewer.select(id)); }
 
-  private publishSeparation(id = this.movingId) {
-    if (this.viewer && id) {
-      if (this.viewer.structure_offset(id).some(value => value !== 0)) this.separatedIds.add(id);
-      else this.separatedIds.delete(id);
-    }
+  private publishSeparation() {
+    if (this.viewer) this.separatedIds = new Set(this.viewer.separated_ids());
     this.options.onState({ movingId: this.movingId, separatedIds: new Set(this.separatedIds) });
+  }
+
+  private snapStructure(id: string, commit: boolean) {
+    if (!id && !this.snapTarget) return;
+    let target = "", anchored = false;
+    this.operate(viewer => {
+      const members = commit ? viewer.structure_group(id) : [];
+      target = commit ? viewer.connect_structure(id) : viewer.preview_connection(id);
+      anchored = !!target && commit && members.includes(this.movingId) && !viewer.structure_offset(id).some(value => value !== 0);
+    });
+    if (anchored) this.setMoving("");
+    if (commit) target = "";
+    if (target !== this.snapTarget) { this.snapTarget = target; this.options.onSnap?.(target); }
   }
 
   setMoving(id: string) {
@@ -250,9 +265,10 @@ export class ViewerRuntime implements StudyViewer {
   }
 
   restoreStructure(id: string) {
+    this.snapStructure("", false);
     const all = !id || this.restoration?.all === true;
     const ids = new Set(this.restoration?.offsets.keys());
-    if (id) ids.add(id);
+    if (id) for (const member of this.viewer?.structure_group(id) ?? [id]) ids.add(member);
     else {
       for (const separatedId of this.separatedIds) ids.add(separatedId);
       if (this.movingId) ids.add(this.movingId);
@@ -280,11 +296,13 @@ export class ViewerRuntime implements StudyViewer {
   }
 
   changeVisibility(ids: string[], shown: boolean) {
+    this.snapStructure("", false);
     if (!shown && ids.includes(this.movingId)) this.setMoving("");
     return this.operate(viewer => viewer.change_visibility(JSON.stringify(ids), shown, this.animationTime()));
   }
 
   focus(ids: string[], folder: boolean, reveal: boolean) {
+    this.snapStructure("", false);
     if (this.movingId) this.setMoving("");
     return this.operate(viewer => {
       if (folder) {
@@ -329,6 +347,7 @@ export class ViewerRuntime implements StudyViewer {
   }
 
   overview() {
+    this.snapStructure("", false);
     const success = this.operate(viewer => {
       viewer.clear_center(); viewer.select("");
       viewer.restore_structure("");

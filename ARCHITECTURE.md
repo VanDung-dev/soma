@@ -85,13 +85,21 @@ Detached structures remain draggable while
 other structures cannot move. Manual separation and automatic
 explosion are mutually exclusive. Picking, outlines, shadows and displayed bounds
 use the same composed offsets.
+`Separation` owns connected groups and snap candidates. Candidates require nearby
+source primitive bounds, visible active pieces and matching 3D offsets, with a
+camera-scaled tolerance capped by structure and body size. These are geometric
+suggestions, not validated anatomical connectors. The runtime publishes a transient
+hint through `onSnap`; WASM outlines its target without changing the selection.
+Release revalidates the preview before joining. Group drags and rollback apply the
+same offset to every member; holding a member detaches it without moving its peers.
+Joining the body clears the group's manual offsets and restores normal navigation.
 While moving a structure, left drags on other anatomy do not rotate the scene;
 background drags retain camera navigation. Reference reading is limited to the
 structure in movement mode or structures with committed separation offsets.
 
-Context menus and text clipboard operations use the browser or WebView's native
-behavior, including inside the sandboxed Wikipedia frame. Right-drag camera pans
-suppress the trailing native menu.
+The 3D canvas reserves right-button input for camera pans and blocks context menus.
+Elsewhere, context menus and text clipboard operations use the browser or WebView's
+native behavior, including inside the sandboxed Wikipedia frame.
 
 `ModelViewer` owns device graphics preferences, independently of study history.
 `ViewerRuntime.setGraphics` applies model display resolution and frame limits;
@@ -158,6 +166,7 @@ Browser probes run against Vite after `.model-canvas[aria-busy="false"]`:
 (await import('/tests/focus.browser.mjs')).checkFocusTree()
 (await import('/tests/controls.browser.mjs')).checkControls()
 (await import('/tests/context-menu.browser.mjs')).checkNativeContextMenu()
+(await import('/tests/assembly.browser.mjs')).checkAssembly()
 ```
 
 Focus checks assume a fresh page with every system initially visible. Camera,

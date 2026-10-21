@@ -102,3 +102,57 @@ export async function checkSelectionHover() {
     return { hoverPreservesSelection: true };
   } finally { proto.pick = originalPick; }
 }
+
+export async function checkOutlineOcclusion() {
+  const { AnatomyViewer } = await getWasm();
+  const canvas = document.createElement('canvas');
+  canvas.style.cssText = 'width:256px;height:256px;position:fixed;left:-1000px';
+  document.body.append(canvas);
+  const gl = canvas.getContext('webgl2');
+  const assert = (ok, message) => { if (!ok) throw Error(message); };
+  const geometry = [['back', -0.25, 0.25, -0.25, 0.25, 0],
+    ['moving', 0.25, 0.5, -0.25, 0.25, 0], ['cover', -0.9, 0.9, -0.9, 0.9, 0.3]];
+  const vertices = [], indices = [];
+  const parts = geometry.map(([id, left, right, bottom, top, z], i) => {
+    for (const [x, y] of [[left, bottom], [right, bottom], [right, top], [left, top]]) vertices.push(x, y, z, 0, 0, 1);
+    indices.push(...[0, 1, 2, 0, 2, 3].map(index => index + i * 4));
+    return { source_id: id, bounds: { min: [left, bottom, z], max: [right, top, z] },
+      color: [0.4, 0.2, 0.1, 1], roughness: 0.6, metallic: 0, specular: 0.04, subsurface: 0,
+      double_sided: true, blend: false, alpha_cutoff: 0, active: true, visible: true };
+  });
+  const packed = { scene: { bounds: { min: [-0.9, -0.9, 0], max: [0.9, 0.9, 0.3] }, selected: '', parts },
+    draws: parts.map((_, i) => [6, i * 24]), vertex_count: 12, index_count: 18 };
+  let viewer;
+  const outlinePixels = () => {
+    viewer.render();
+    const rgba = new Uint8Array(canvas.width * canvas.height * 4);
+    gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, rgba);
+    assert(gl.getError() === gl.NO_ERROR, 'Occluded outlines must not produce WebGL errors');
+    let blue = 0;
+    for (let i = 0; i < rgba.length; i += 4) if (rgba[i + 2] > rgba[i] + 25 && rgba[i + 2] > rgba[i + 1] + 8) blue++;
+    return blue;
+  };
+  try {
+    viewer = AnatomyViewer.fromPrepared(canvas, [new Float32Array(vertices), new Uint32Array(indices), JSON.stringify(packed)]);
+    viewer.set_graphics(0, 1, false, 256, 256);
+    for (const size of [256, 512]) {
+      viewer.resize(size, size); viewer.restore_structure(''); viewer.set_visibility('["back","moving","cover"]');
+      viewer.select('moving');
+      assert(viewer.preview_connection('moving') === 'back', 'Use a covered source neighbor as the snap target');
+      assert(outlinePixels() === 0, 'Opaque foreground anatomy must hide both selected and snap-target outlines');
+      viewer.change_visibility('["cover"]', false);
+      const visible = outlinePixels();
+      assert(visible > 20, 'Visible selected and target silhouettes must still be outlined');
+      viewer.change_visibility('["cover"]', true);
+      viewer.restore_structure('cover', new Float32Array([-0.6, 0, 0]));
+      viewer.preview_connection('moving');
+      const partial = outlinePixels();
+      assert(partial > 0 && partial < visible, 'Only the exposed part of a partially covered silhouette is outlined');
+      viewer.restore_structure('cover'); viewer.preview_connection('moving'); viewer.resize(512, 512);
+      assert(outlinePixels() === 0, 'Occlusion must survive render-target resize');
+    }
+    return { selectedOcclusion: true, snapTargetOcclusion: true, partialOcclusion: true, resize: true };
+  } finally {
+    viewer?.free(); canvas.remove();
+  }
+}
