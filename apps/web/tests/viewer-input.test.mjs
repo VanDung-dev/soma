@@ -2,6 +2,93 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 
+test('left hold detaches after one second and cancels on interrupted gestures', async t => {
+  const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
+  const previousWindow = globalThis.window;
+  let unbind;
+  try {
+    const { bindViewerInput } = await server.ssrLoadModule('/src/anatomy/viewer/input.ts');
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    globalThis.window = Object.assign(new EventTarget(), { setTimeout, clearTimeout });
+    const canvas = Object.assign(new EventTarget(), { width: 300, height: 300, clientWidth: 300, clientHeight: 300,
+      dataset: {}, focus() {}, setPointerCapture() {}, getBoundingClientRect: () => ({ left: 0, top: 0, width: 300, height: 300 }) });
+    let selected = 'a', moving = '', enabled = true, detachable = true, rotations = 0;
+    const detached = [], moves = [], picked = [], progress = [], committed = [], restored = [];
+    const viewer = {
+      selected_id: () => selected, select: id => { selected = id; },
+      pick: x => { selected = x < 200 ? 'b' : ''; return selected; },
+      structure_offset: () => new Float32Array([1, 2, 3]),
+      move_structure: (...args) => moves.push(args), restore_structure: (...args) => restored.push(args),
+      rotate: () => rotations++, pan() {}, zoom_at() {},
+    };
+    unbind = bindViewerInput(canvas, { enabled: () => enabled,
+      operate: action => { action(viewer); return true; }, redraw() {}, pick: id => picked.push(id),
+      moving: () => moving, detachable: () => detachable,
+      detach: id => { detached.push(id); moving = selected = id; return true; },
+      onHold: point => progress.push(point), moved: id => committed.push(id),
+    });
+    const pointer = (type, values = {}) => canvas.dispatchEvent(Object.assign(new Event(type), {
+      clientX: 130, clientY: 100, pointerId: 1, pointerType: 'mouse', button: 0,
+      buttons: type === 'pointerup' ? 0 : 1, shiftKey: false, ...values,
+    }));
+    pointer('pointerdown');
+    assert.equal(selected, 'a', 'Starting the hold must preserve selection');
+    assert.deepEqual(progress.at(-1), { x: 130, y: 100 });
+    t.mock.timers.tick(999); assert.equal(detached.length, 0);
+    pointer('pointermove', { clientX: 133 });
+    assert.equal(rotations, 0, 'Small pointer jitter must not rotate the model');
+    t.mock.timers.tick(1);
+    assert.deepEqual(detached, ['b']); assert.deepEqual(picked, ['b']); assert.equal(progress.at(-1), null);
+    assert.equal(canvas.dataset.dragging, 'true');
+    pointer('pointermove', { clientX: 163 }); pointer('pointerup', { clientX: 163 });
+    assert.deepEqual(moves, [['b', 0.1, 0]], 'Continue dragging without a second press or a jump');
+    assert.deepEqual(committed, ['b']); assert.deepEqual(picked, ['b'], 'A held release must not select again');
+    moving = '';
+    pointer('pointerdown'); t.mock.timers.tick(400); pointer('pointerup'); t.mock.timers.tick(1000);
+    assert.deepEqual(picked, ['b', 'b'], 'A short click keeps ordinary selection');
+    assert.equal(detached.length, 1);
+    pointer('pointerdown'); pointer('pointermove', { clientX: 150 }); t.mock.timers.tick(1000); pointer('pointerup');
+    assert.equal(rotations, 1, 'Dragging before the threshold must rotate');
+    assert.equal(detached.length, 1); assert.equal(progress.at(-1), null);
+    const interruptions = [
+      () => pointer('pointercancel'), () => pointer('lostpointercapture'), () => pointer('pointerleave'),
+      () => window.dispatchEvent(new Event('blur')), () => window.dispatchEvent(new Event('resize')),
+      () => canvas.dispatchEvent(Object.assign(new Event('keydown'), { key: 'Escape' })),
+      () => canvas.dispatchEvent(Object.assign(new Event('wheel'), { clientX: 130, clientY: 100, deltaY: 1, deltaMode: 0 })),
+      () => canvas.dispatchEvent(new Event('contextmenu')),
+      () => { pointer('pointerdown', { pointerId: 2 }); pointer('pointerup', { pointerId: 2 }); },
+    ];
+    for (const interrupt of interruptions) {
+      pointer('pointerdown'); t.mock.timers.tick(500); interrupt(); t.mock.timers.tick(1000);
+      assert.equal(detached.length, 1, 'Interrupted holds must not detach later');
+      assert.equal(progress.at(-1), null); pointer('pointercancel');
+    }
+    for (const values of [{ clientX: 230 }, { button: 2, buttons: 2 }, { shiftKey: true }, { pointerType: 'touch' }]) {
+      const count = progress.length;
+      pointer('pointerdown', values); t.mock.timers.tick(1000); pointer('pointerup', values);
+      assert.equal(progress.length, count, 'Only an unmodified left mouse hold on anatomy shows progress');
+    }
+    for (const change of [() => { enabled = false; }, () => { detachable = false; }]) {
+      pointer('pointerdown'); t.mock.timers.tick(500); change(); t.mock.timers.tick(500); pointer('pointercancel');
+      assert.equal(detached.length, 1, 'Recheck availability before detaching'); enabled = detachable = true;
+    }
+    detachable = false;
+    const count = progress.length;
+    pointer('pointerdown'); t.mock.timers.tick(1000); pointer('pointerup');
+    assert.equal(progress.length, count, 'Automatic explosion must not offer manual separation');
+    detachable = true;
+    pointer('pointerdown'); t.mock.timers.tick(1000); pointer('pointermove', { clientX: 160 }); pointer('lostpointercapture');
+    assert.deepEqual(restored.at(-1), ['b', new Float32Array([1, 2, 3])], 'Capture loss restores the pre-drag offset');
+    moving = '';
+    pointer('pointerdown'); unbind(); t.mock.timers.tick(1000);
+    assert.equal(detached.length, 2, 'Disposal must cancel the pending hold'); assert.equal(progress.at(-1), null);
+  } finally {
+    unbind?.(); t.mock.timers.reset();
+    if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow;
+    await server.close();
+  }
+});
+
 test('manual separation drags only its structure and rotates only from empty background', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   const previousWindow = globalThis.window;

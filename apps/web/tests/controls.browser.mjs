@@ -230,7 +230,7 @@ export async function checkPointerBounds() {
       assert(calls.includes('pan'), 'Pan anywhere on the canvas');
       const menu = new MouseEvent('contextmenu', { ...point, button: 2, bubbles: true, cancelable: true });
       canvas.dispatchEvent(menu);
-      assert(menu.defaultPrevented, 'Suppress the model context menu after right dragging');
+      assert(menu.defaultPrevented, 'Avoid opening the native menu after a camera pan');
       const nativeMenu = new MouseEvent('contextmenu', { ...point, button: 2, shiftKey: true, bubbles: true, cancelable: true });
       canvas.dispatchEvent(nativeMenu);
       assert(!nativeMenu.defaultPrevented, 'Keep Shift-right-click available for the native menu');
@@ -314,13 +314,29 @@ export async function checkHudCentering() {
     assert(calls === before, 'Normal information view must not recenter when the selection changes');
     assert(document.querySelector('.reader-expand') && !document.querySelector('.reader-expand').disabled,
       'Keep reading controls visible and enabled for ordinary structures');
+    let movingPart;
     const enableReading = async part => {
       part.click(); await frames();
-      part.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: -1 })); await frames();
-      [...document.querySelectorAll('.context-menu button')].find(button => button.querySelector('span')?.textContent === 'Tách để quan sát').click(); await frames();
+      const canvas = document.querySelector('.model-canvas canvas');
+      const id = part.closest('[data-structure-id]').dataset.structureId;
+      const pick = proto.pick, capture = canvas.setPointerCapture;
+      const bounds = canvas.getBoundingClientRect();
+      const point = { pointerId: 999, pointerType: 'mouse', button: 0,
+        clientX: bounds.left + bounds.width / 2, clientY: bounds.top + bounds.height / 2, bubbles: true };
+      try {
+        proto.pick = function() { this.select(id); return id; };
+        canvas.setPointerCapture = () => {};
+        canvas.dispatchEvent(new PointerEvent('pointerdown', { ...point, buttons: 1 }));
+        await new Promise(resolve => setTimeout(resolve, 1100));
+        canvas.dispatchEvent(new PointerEvent('pointerup', point)); await frames();
+        assert(canvas.dataset.moving === 'true', 'Holding a structure enables reading');
+        movingPart = part;
+      } finally {
+        canvas.dispatchEvent(new PointerEvent('pointercancel', point));
+        proto.pick = pick; canvas.setPointerCapture = capture;
+      }
     };
     await enableReading(parts[1]);
-    let index = 0;
     for (const expanded of [true, false, true, false]) {
       before = calls;
       if (expanded) beforeExpand = viewMatrix;
@@ -335,7 +351,7 @@ export async function checkHudCentering() {
       if (!expanded) assert(beforeExpand && viewMatrix === beforeExpand,
         'Closing the expanded information panel must redraw the exact camera from before opening');
       before = calls;
-      const next = parts[index++ % 2];
+      const next = parts.find(part => part !== movingPart);
       next.click(); await frames();
       await settleCamera();
       assert(calls === before && !panel.classList.contains('reader-expanded') && !document.querySelector('.reader-expand').disabled,

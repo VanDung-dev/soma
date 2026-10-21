@@ -10,13 +10,11 @@ export const appShortcuts = {
 } satisfies Record<string, { key: string; label: MessageKey; command: boolean }>;
 
 export type AppShortcut = keyof typeof appShortcuts;
-export type Shortcut = AppShortcut | "copy" | "paste";
 
 export function isMacPlatform(platform = typeof navigator === "undefined" ? "" : navigator.platform) { return /Mac|iPhone|iPad/i.test(platform); }
 
-export function shortcutLabel(action: Shortcut, mac = isMacPlatform()) {
-  const key = action === "copy" ? "C" : action === "paste" ? "V" : appShortcuts[action].key;
-  const command = action === "copy" || action === "paste" || appShortcuts[action].command;
+export function shortcutLabel(action: AppShortcut, mac = isMacPlatform()) {
+  const { key, command } = appShortcuts[action];
   return `${command ? mac ? "⌘" : "Ctrl+" : ""}${key === "Escape" ? "Esc" : key.toUpperCase()}`;
 }
 

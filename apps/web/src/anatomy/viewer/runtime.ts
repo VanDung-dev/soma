@@ -40,6 +40,7 @@ export class ViewerRuntime implements StudyViewer {
     onState: (patch: Partial<ViewerState>) => void;
     onPick: (id: string) => void;
     onFps?: (fps: number) => void;
+    onHold?: (point: { x: number; y: number } | null) => void;
   }) {
     this.canvas.setAttribute("role", "img");
     this.canvas.tabIndex = 0;
@@ -50,6 +51,8 @@ export class ViewerRuntime implements StudyViewer {
       pick: options.onPick,
       moving: () => this.movingId || this.separatedIds.values().next().value || "",
       movable: id => id === this.movingId || this.separatedIds.has(id),
+      detachable: () => !this.exploding || this.reassembling,
+      detach: id => this.setMoving(id), onHold: options.onHold,
       moved: id => this.publishSeparation(id),
       restore: () => { this.restoreStructure(""); },
     });
@@ -223,19 +226,6 @@ export class ViewerRuntime implements StudyViewer {
   };
 
   select(id: string) { return this.operate(viewer => viewer.select(id)); }
-
-  hitTest(x: number, y: number) {
-    if (this.loading || this.animating || this.failed) return "";
-    const bounds = this.canvas.getBoundingClientRect();
-    let id = "";
-    this.operate(viewer => {
-      const before = viewer.selected_id();
-      id = viewer.pick(Math.floor((x - bounds.left) / bounds.width * this.canvas.width),
-        this.canvas.height - 1 - Math.floor((y - bounds.top) / bounds.height * this.canvas.height));
-      viewer.select(before);
-    }, false);
-    return id;
-  }
 
   private publishSeparation(id = this.movingId) {
     if (this.viewer && id) {

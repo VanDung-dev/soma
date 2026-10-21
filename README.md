@@ -78,18 +78,17 @@ grid can be disabled independently.
 
 ## Common problems
 
-### Context menu and moving structures
+### Moving structures
 
-Right-click anywhere in the app for Copy/Paste. Select a structure with a left click
-before right-clicking it for model actions; keyboard selection also enables these actions.
-Shift + right-click opens the browser's menu. Paste is available in editable text
-fields and may require browser clipboard permission; if denied, use Ctrl+V (Mac: ⌘V).
+Right-click uses the browser or WebView's native menu, including in Wikipedia.
+Copy and paste use the native text controls and keyboard shortcuts.
 
-Choose **Move to inspect** on the selected structure, then drag it with the left mouse button.
+Hold the left mouse button on a structure for one second, then drag it to inspect it.
+The ring stays hidden for the first half second, then fills around the pointer
+during the remaining half second. Drag immediately to rotate the model instead.
 During separation, dragging other structures leaves the body still. Drag the background
 to rotate, or drag with the right button to pan. Separated structures remain draggable.
-Select one and press **T**, or choose **Restore position**, to restore its original
-position without resetting the camera.
+Press **T** to restore separated structures without resetting the camera.
 Return automatic explosion to 0% before moving individual structures; reassemble
 manual positions before using automatic explosion again.
 The information reader is available only for structures in movement mode or with a

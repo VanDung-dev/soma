@@ -42,6 +42,10 @@
 .anatomy-space { position: absolute; inset: 0; overflow: hidden; }
 .model-canvas { position: absolute; inset: 0; touch-action: none; overflow: hidden; }
 .model-canvas canvas { display: block; width: 100%; height: 100%; }
+.model-hold-progress { position: fixed; z-index: 7; width: 40px; height: 40px; transform: translate(-50%, -50%) rotate(-90deg); pointer-events: none; fill: none; stroke: var(--panel-bg); stroke-width: 4; filter: drop-shadow(0 1px 3px rgba(var(--shadow-rgb),.5)); visibility: hidden; animation: model-hold-show 0s .5s forwards; }
+.model-hold-fill { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: model-hold-fill .5s .5s linear forwards; }
+@keyframes model-hold-show { to { visibility: visible; } }
+@keyframes model-hold-fill { to { stroke-dashoffset: 0; } }
 .model-focus-frame { position: absolute; z-index: 1; border-radius: var(--panel-radius); pointer-events: none; }
 .model-hud { position: absolute; z-index: 2; bottom: 0; left: 50%; transform: translateX(-50%); width: min(780px, 100%); display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
 .model-status { margin: 0; max-width: 100%; overflow-wrap: anywhere; font-size: 11px; color: var(--status); padding: 10px; border-radius: var(--inner-radius); background: rgba(var(--panel-rgb),.86); }

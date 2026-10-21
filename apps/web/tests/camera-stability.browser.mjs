@@ -128,8 +128,33 @@ export async function checkCameraStability() {
         results.push({ separation: amount, hoverKeepsZoom: true, selectionDoesNotReframe: true, readerRequiresManualSeparation: true });
         continue;
       }
-      canvas.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: -1 })); await wait();
-      [...document.querySelectorAll('.context-menu button')].find(button => button.querySelector('span')?.textContent === 'Tách để quan sát').click(); await wait();
+      const menu = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2,
+        clientX: point.x, clientY: point.y });
+      canvas.dispatchEvent(menu); await wait();
+      assert(!menu.defaultPrevented && !document.querySelector('.context-menu'), 'Right-click must retain the native menu');
+      canvas.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'mouse', pointerId: 999,
+        button: 0, buttons: 1, clientX: point.x, clientY: point.y, bubbles: true }));
+      await wait();
+      const progress = document.querySelector('.model-hold-progress');
+      assert(progress && getComputedStyle(progress).visibility === 'hidden' && canvas.dataset.moving !== 'true',
+        'Keep hold progress hidden during the first half second');
+      const progressBounds = progress.getBoundingClientRect();
+      assert(Math.abs(progressBounds.left + progressBounds.width / 2 - point.x) < 1
+        && Math.abs(progressBounds.top + progressBounds.height / 2 - point.y) < 1, 'Center progress around the cursor');
+      await new Promise(resolve => setTimeout(resolve, 450));
+      assert(getComputedStyle(progress).visibility === 'visible' && canvas.dataset.moving !== 'true',
+        'Show hold progress during the remaining half second');
+      const fill = getComputedStyle(progress.querySelector('.model-hold-fill'));
+      assert(parseFloat(fill.strokeDashoffset) > 0 && parseFloat(fill.strokeDashoffset) < 100, 'Animate hold progress');
+      await new Promise(resolve => setTimeout(resolve, 450));
+      assert(!document.querySelector('.model-hold-progress') && canvas.dataset.dragging === 'true', 'Holding enables dragging in the same gesture');
+      assert(same(snapshot(), zoomed), 'Holding must preserve camera position');
+      const moving = viewer.selected_id();
+      canvas.dispatchEvent(new PointerEvent('pointermove', { pointerType: 'mouse', pointerId: 999,
+        button: 0, buttons: 1, clientX: point.x + 35, clientY: point.y, bubbles: true }));
+      canvas.dispatchEvent(new PointerEvent('pointerup', { pointerType: 'mouse', pointerId: 999,
+        button: 0, clientX: point.x + 35, clientY: point.y, bubbles: true })); await wait();
+      assert(viewer.structure_offset(moving).some(value => value !== 0), 'Drag the held structure without a second press');
       document.querySelector('.reader-expand').click(); await wait();
       await Promise.all(document.querySelector('.information-panel').getAnimations().map(animation => animation.finished));
       await wait();
@@ -151,7 +176,8 @@ export async function checkCameraStability() {
       viewer.finish_camera_transition();
       canvas.focus(); canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 't', bubbles: true, cancelable: true })); await wait();
       assert(gl.getError() === gl.NO_ERROR && !document.querySelector('.model-error'), 'Keep the renderer healthy');
-      results.push({ separation: amount, hoverKeepsZoom: true, selectionDoesNotReframe: true, expandedReaderKeepsManualZoom: true });
+      results.push({ separation: amount, holdProgressAtCursor: true, holdDragsStructure: true,
+        hoverKeepsZoom: true, selectionDoesNotReframe: true, expandedReaderKeepsManualZoom: true });
     }
     return { states: results };
   } finally {

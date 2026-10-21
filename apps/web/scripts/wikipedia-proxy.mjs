@@ -52,7 +52,6 @@ function frameBridge(source) {
   }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['href'] });
   addEventListener('hashchange', () => report('location'));
   addEventListener('beforeunload', () => report('loading'));
-  addEventListener('pointerdown', () => parent.postMessage({ type: 'wikipedia:pointerdown' }, '*'));
   addEventListener('keydown', event => {
     if (event.defaultPrevented || event.repeat || event.isComposing || event.altKey || event.shiftKey) return;
     const key = event.key.toLowerCase();
@@ -63,12 +62,6 @@ function frameBridge(source) {
     event.preventDefault();
     parent.postMessage({ type: 'wikipedia:shortcut', key: event.key, code: event.code,
       metaKey: event.metaKey, ctrlKey: event.ctrlKey }, '*');
-  });
-  addEventListener('contextmenu', event => {
-    if (event.shiftKey && event.button === 2) return;
-    event.preventDefault();
-    parent.postMessage({ type: 'wikipedia:contextmenu', x: event.clientX, y: event.clientY,
-      text: getSelection()?.toString().slice(0, 1_000_000) ?? '' }, '*');
   });
   addEventListener('message', event => {
     if (event.source !== parent || event.data?.type !== 'wikipedia:reset') return;

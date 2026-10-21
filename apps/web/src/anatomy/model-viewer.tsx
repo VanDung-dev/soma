@@ -12,14 +12,13 @@ import { StudySession } from "./study/session";
 import { ViewerRuntime } from "./viewer/runtime";
 import { measureViewport } from "./viewer/layout";
 import { graphicsStorageKey, readGraphicsSettings } from "./viewer/graphics";
-import { ContextMenu } from "../context-menu";
-import type { AppContext, ContextAction } from "../context-menu";
 import { shortcutAction } from "../shortcuts";
 
 export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const { language, t } = useLanguage();
   const [graphics, setGraphics] = useState(readGraphicsSettings);
   const [fps, setFps] = useState(0);
+  const [hold, setHold] = useState<{ x: number; y: number } | null>(null);
   const [panel, setPanel] = useState<"catalog" | "information" | null>(null);
   const helpId = useId();
   const settingsId = useId();
@@ -43,7 +42,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
 
   useEffect(() => {
     const viewer = new ViewerRuntime(host.current!, { viewport: focusViewport,
-      onState: session.updateViewer, onPick: session.pick, onFps: setFps });
+      onState: session.updateViewer, onPick: session.pick, onFps: setFps, onHold: setHold });
     runtime.current = viewer; session.connect(viewer);
     viewer.setGraphics(graphics);
     void viewer.start(roots);
@@ -59,7 +58,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       if (!panel) return;
       const trigger = document.querySelector<HTMLButtonElement>(`button[popovertarget="${id}"]`);
       if (toggle && panel.matches(":popover-open")) { panel.hidePopover(); trigger?.focus({ preventScroll: true }); return; }
-      document.querySelector<HTMLElement>(".context-menu:popover-open")?.hidePopover();
       panel.showPopover();
       panel.querySelector<HTMLElement>("input[type='search'], button:not(:disabled), input:not(:disabled), select:not(:disabled)")?.focus({ preventScroll: true });
     };
@@ -78,7 +76,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
           const id = document.getElementById(findId)?.getAttribute("popovertarget");
           if (id) open(id, false);
         } else if (action === "restore") {
-          document.querySelector<HTMLElement>(".context-menu:popover-open")?.hidePopover();
           if (state.movingId || state.separatedIds.size) session.restoreStructure("");
         }
       }
@@ -124,27 +121,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         : status === "Đang hoàn thiện cơ thể…" ? t("viewer.status.finishing") : status;
   return (
     <>
-      <ContextMenu resolve={(element, x, y, keyboard): AppContext => {
-        const canvas = element.closest("canvas");
-        const id = canvas ? keyboard ? selected : runtime.current?.hitTest(x, y) ?? ""
-          : element.closest<HTMLElement>("[data-structure-id]")?.dataset.structureId ?? "";
-        const part = meshes.find(part => part.source_id === id);
-        const actions: ContextAction[] = [];
-        if (part && id === selected && !building && !error) {
-          const detached = movingId === id || separatedIds.has(id);
-          if (!detached) actions.push({ id: "move", label: "context.detach", disabled: !!explosionAmount || !visibleIds.has(id),
-            hint: explosionAmount ? "context.explosionFirst" : undefined, run: () => { session.setMoving(id); } });
-          actions.push({ id: "visibility", label: visibleIds.has(id) ? "context.hide" : "context.show", run: () => { session.changeVisibility([id], !visibleIds.has(id)); } });
-          if (detached) actions.push({ id: "restore", label: "context.restore", shortcut: "restore", run: () => { session.restoreStructure(id); } });
-        }
-        const folderId = element.closest<HTMLElement>("[data-target-id]")?.dataset.targetId;
-        const folder = folderId ? session.catalog.targets.get(folderId) : undefined;
-        const secondaryName = canvas && part && structureName(part, otherLanguage) !== structureName(part, language)
-          ? structureName(part, otherLanguage) : undefined;
-        return { name: part ? structureName(part, language) : folder ? targetName(folder, language) : undefined,
-          secondaryName, showClipboard: !(canvas && part),
-          actions };
-      }} />
       <MenuBar disabled={building || error} canGoBack={canGoBack} canGoForward={canGoForward}
         onBack={session.back} onForward={session.forward} helpId={helpId} settingsId={settingsId} graphics={graphics} onGraphicsChange={setGraphics} />
       <ModelControls disabled={building || error} onControl={session.control} helpId={helpId} />
@@ -172,6 +148,10 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       <main id="workspace" tabIndex={-1}>
         <section className="anatomy-space" aria-label={t("viewer.section.label")}>
           <div className="model-canvas" ref={host} aria-busy={building && !error} />
+          {hold && <svg className="model-hold-progress" style={{ left: hold.x, top: hold.y }} viewBox="0 0 40 40" aria-hidden="true">
+            <circle cx="20" cy="20" r="16" />
+            <circle className="model-hold-fill" cx="20" cy="20" r="16" pathLength="100" />
+          </svg>}
           <div className="model-focus-frame" ref={focusFrame}>
             {graphics.showFps && <span className="model-fps" aria-label={t("graphics.fps.current", { count: fps })}>{fps} FPS</span>}
             <div ref={hud} className="model-hud">

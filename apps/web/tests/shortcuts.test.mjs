@@ -9,7 +9,6 @@ test('app shortcuts match platform modifiers and preserve editing, composition a
     const event = patch => ({ key: '', code: '', target: null, ctrlKey: false, metaKey: false, altKey: false,
       shiftKey: false, repeat: false, isComposing: false, defaultPrevented: false, ...patch });
     assert(isMacPlatform('MacIntel')); assert(!isMacPlatform('Win32')); assert(!isMacPlatform('Linux x86_64'));
-    assert.equal(shortcutLabel('copy', true), '⌘C'); assert.equal(shortcutLabel('paste', false), 'Ctrl+V');
     assert.equal(shortcutLabel('back', true), '⌘['); assert.equal(shortcutLabel('forward', false), 'Ctrl+]');
     assert.equal(shortcutLabel('restore', true), 'T'); assert.equal(shortcutLabel('settings', false), 'Esc');
     for (const mac of [false, true]) {

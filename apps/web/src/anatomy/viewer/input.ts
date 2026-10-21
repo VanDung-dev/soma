@@ -8,6 +8,9 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
   pick: (id: string) => void;
   moving?: () => string;
   movable?: (id: string) => boolean;
+  detachable?: () => boolean;
+  detach?: (id: string) => boolean;
+  onHold?: (point: { x: number; y: number } | null) => void;
   moved?: (id: string) => void;
   restore?: () => void;
 }) {
@@ -17,7 +20,14 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
   let rightDragged = false;
   let blockedPointer: number | undefined;
   let drag: { pointerId: number; id: string; offset: Float32Array } | undefined;
+  let hold: { pointerId: number; timer: number } | undefined;
+  const cancelHold = () => {
+    if (!hold) return;
+    window.clearTimeout(hold.timer); hold = undefined;
+    options.onHold?.(null);
+  };
   const pointerDown = (event: PointerEvent) => {
+    cancelHold();
     if (!options.enabled() || (event.button === 2 && event.shiftKey)) return;
     canvas.focus({ preventScroll: true });
     if (event.button === 2) rightDragged = false;
@@ -28,7 +38,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     else dragged = true;
     pointers.set(event.pointerId, point);
     const id = options.moving?.();
-    if (event.button === 0 && !event.shiftKey && id && pointers.size === 1) {
+    if (event.button === 0 && !event.shiftKey && pointers.size === 1) {
       const bounds = canvas.getBoundingClientRect();
       options.operate(viewer => {
         const before = viewer.selected_id();
@@ -38,7 +48,23 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
         if (hit && (options.movable?.(hit) ?? hit === id)) {
           drag = { pointerId: event.pointerId, id: hit, offset: viewer.structure_offset(hit) };
           canvas.dataset.dragging = "true";
-        } else if (hit) blockedPointer = event.pointerId;
+        } else if (hit) {
+          if (id) blockedPointer = event.pointerId;
+          if (event.pointerType === "mouse" && options.detachable?.() && options.detach) {
+            hold = { pointerId: event.pointerId, timer: window.setTimeout(() => {
+              cancelHold();
+              if (!options.enabled() || !options.detachable?.() || !options.detach?.(hit)) return;
+              options.pick(hit);
+              options.operate(current => {
+                drag = { pointerId: event.pointerId, id: hit, offset: current.structure_offset(hit) };
+                canvas.dataset.dragging = "true";
+                canvas.dataset.draggable = "true";
+              }, false);
+              dragged = true; blockedPointer = undefined;
+            }, 1000) };
+            options.onHold?.(point);
+          }
+        }
       }, false);
     } else if (drag) cancelDrag();
   };
@@ -76,6 +102,10 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     const other = [...pointers.entries()].find(([id]) => id !== event.pointerId)?.[1];
     const dx = point.x - previous.x, dy = point.y - previous.y;
     if (Math.hypot(point.x - down.x, point.y - down.y) > 5) dragged = true;
+    if (hold?.pointerId === event.pointerId) {
+      if (dragged || event.buttons !== 1 || event.shiftKey || !options.enabled() || !options.detachable?.()) cancelHold();
+      else { options.onHold?.(point); pointers.set(event.pointerId, point); return; }
+    }
     if (dragged && (event.buttons & 2)) rightDragged = true;
     if (drag?.pointerId === event.pointerId) {
       if (options.enabled()) options.operate(viewer => viewer.move_structure(drag!.id, dx / canvas.clientWidth, dy / canvas.clientHeight));
@@ -93,6 +123,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     pointers.set(event.pointerId, point);
   };
   const pointerUp = (event: PointerEvent) => {
+    cancelHold();
     if (drag?.pointerId === event.pointerId) {
       const id = drag.id;
       drag = undefined; canvas.dataset.dragging = "false";
@@ -114,12 +145,14 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     }
   };
   const pointerCancel = (event: PointerEvent) => {
+    cancelHold();
     if (drag?.pointerId === event.pointerId) cancelDrag();
     if (blockedPointer === event.pointerId) blockedPointer = undefined;
     pointers.delete(event.pointerId); dragged = true;
   };
-  const pointerLeave = () => { clearTimeout(hoverTimer); hoverTimer = 0; hoverEvent = undefined; canvas.dataset.draggable = "false"; };
+  const pointerLeave = () => { cancelHold(); clearTimeout(hoverTimer); hoverTimer = 0; hoverEvent = undefined; canvas.dataset.draggable = "false"; };
   const wheel = (event: WheelEvent) => {
+    cancelHold();
     event.preventDefault();
     if (drag) return;
     if (!options.enabled()) return;
@@ -132,9 +165,11 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     ));
   };
   const contextMenu = (event: MouseEvent) => {
+    cancelHold();
     if (!event.shiftKey && event.button === 2 && rightDragged) event.preventDefault();
   };
   const keyDown = (event: KeyboardEvent) => {
+    cancelHold();
     const action = shortcutAction(event);
     if (drag && action) {
       const current = drag; drag = undefined; canvas.dataset.dragging = "false"; pointers.clear();
@@ -146,7 +181,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
       event.preventDefault(); return;
     }
   };
-  const blur = () => { cancelDrag(); blockedPointer = undefined; pointers.clear(); };
+  const blur = () => { cancelHold(); cancelDrag(); blockedPointer = undefined; pointers.clear(); };
   canvas.addEventListener("keydown", keyDown); window.addEventListener("blur", blur);
   window.addEventListener("resize", blur);
   canvas.addEventListener("pointerdown", pointerDown); canvas.addEventListener("pointermove", pointerMove);
@@ -154,6 +189,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
   canvas.addEventListener("lostpointercapture", pointerCancel); canvas.addEventListener("pointerleave", pointerLeave);
   canvas.addEventListener("wheel", wheel, { passive: false }); canvas.addEventListener("contextmenu", contextMenu);
   return () => {
+    cancelHold();
     clearTimeout(hoverTimer);
     canvas.removeEventListener("keydown", keyDown); window.removeEventListener("blur", blur);
     window.removeEventListener("resize", blur);
