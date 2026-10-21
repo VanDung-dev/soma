@@ -26,6 +26,27 @@ they do not copy the model screen's loading or interaction code.
 It does not own domain types or study state. The Tauri shell reuses the web
 interface and supplies the native `get_catalog` command.
 
+## Backend ownership
+
+`apps/backend/` is the single FastAPI application root. Follow its
+[backend setup and folder contract](README.md#backend-development) when implementing APIs,
+authentication, lesson persistence, Games results or dashboard queries.
+The app entry point is `app/main.py`; `app/api/router.py` composes domain routers
+under `/api/v1`. Business code lives in `app/modules/<domain>/`, database setup
+in `app/database.py`, migrations in `migrations/` and backend tests in `tests/`.
+
+SQLite at `apps/backend/data/development.sqlite3` is for development/tests.
+Tests supply temporary database paths; importing the application does not create
+or modify a database. Python dependencies are declared in the repository root
+requirements files.
+The initial scaffold provides only a database health check and domain packages;
+authentication, lesson contracts and frontend integration remain unimplemented.
+
+Lessons reference existing catalog structure IDs and reuse the frontend viewer.
+Backend content and progress persistence do not take over StudySession,
+ViewerRuntime or Rust rendering. Authoring interfaces share one lesson format;
+the backend owner must agree that format with the frontend before implementing it.
+
 ## Page modules
 
 Each page owns its directory and URL: Home at /home, Anatomy at /anatomy,

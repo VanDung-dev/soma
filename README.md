@@ -1,15 +1,8 @@
 # Human Atlas Rust
 
-Run commands from the repository root.
+## Web development
 
-## Requirements
-
-- Node.js 24.21+ and npm.
-- Rust 1.95+, Cargo, `wasm-pack`, and the `wasm32-unknown-unknown` target.
-- For the desktop app, install the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your operating system.
-- Python 3.13+ and Blender are needed only to regenerate models.
-
-Install dependencies and required Rust tools once:
+Install Node.js 24.22+, Rust 1.96+, Cargo, and the WebAssembly target/tool once:
 
 ```sh
 rustup target add wasm32-unknown-unknown
@@ -17,34 +10,105 @@ cargo install wasm-pack --locked
 npm install
 ```
 
-## Development
-
 Start the web app:
 
 ```sh
 npm run dev
 ```
 
-Open <http://localhost:5173/home> for the app overview; the root URL opens the same page.
-The other pages are /anatomy, /lessons and /games. Lessons and Games have the shared frame ready for their own content.
+Open <http://localhost:5173/home>. The root URL opens the same page. Other pages
+are `/anatomy`, `/lessons`, and `/games`. The development server builds WASM
+automatically. Run only one dev command at a time; web and desktop both use port
+5173.
 
-Start the desktop app instead:
+To work on Rust or GLSL while the dev server is already running, rebuild WASM
+and reload the page:
 
 ```sh
-npm run desktop:dev
+npm run wasm:build
 ```
 
-Run only one dev command at a time; both use port 5173.
+## Backend development
+
+The FastAPI application lives only in `apps/backend/`. Keep its routes,
+database, and business logic there. Do not create `backend/`, `server/`, `api/`,
+`apps/api/`, or `apps/server/` as another backend project.
+
+Use Python 3.13. Create the repository Python environment and install
+dependencies from the repository root:
+
+```sh
+python3.13 -m venv .venv
+.venv/bin/python -m pip install -r requirements-dev.txt
+```
+
+Start the backend:
+
+```sh
+python3 server.py
+```
+
+The launcher uses the repository `.venv`, starts at <http://127.0.0.1:8000>,
+and reloads when backend files change. Press Ctrl+C to stop it. On Windows,
+create the environment with `py -3.13 -m venv .venv`, then use `python server.py`
+and `.venv\Scripts\python.exe` for the install and test commands.
+
+| Backend responsibility | Location |
+| --- | --- |
+| Application startup and shutdown | `apps/backend/app/main.py` |
+| Router composition and `/api/v1` prefix | `apps/backend/app/api/router.py` |
+| SQLite connection and request dependency | `apps/backend/app/database.py` |
+| Authentication and permissions | `apps/backend/app/modules/auth/` |
+| Accounts and user management | `apps/backend/app/modules/users/` |
+| Lesson templates, content, and progress | `apps/backend/app/modules/lessons/` |
+| Games content and results | `apps/backend/app/modules/games/` |
+| Dashboard APIs | `apps/backend/app/modules/dashboard/` |
+| Database migrations | `apps/backend/migrations/` |
+| Backend tests and fixtures | `apps/backend/tests/` |
+| Development database (Git-ignored) | `apps/backend/data/development.sqlite3` |
+
+For each implemented domain, add a `router.py` for HTTP routes, `schemas.py`
+for API data, `service.py` for business logic, and `models.py` for stored data
+as needed. Register domain routers through `app/api/router.py`; keep one FastAPI
+app. Database writes must commit transactions explicitly. The SQLite database
+is created at startup, its path is independent of the working directory, and
+each request gets and closes its own connection with foreign keys enabled.
+ORM and migration tooling have not been selected yet.
+
+Admin, user, and dashboard screens belong in `apps/web/src/`. Their APIs belong
+to the relevant backend domains and must enforce permissions on the server.
+Lessons reference structure IDs from the existing catalog; 3D models and
+rendering stay in the frontend/Rust viewer. Use one lesson format for all
+authors. The scaffold currently provides only the app, SQLite health check, and
+domain package locations; authentication, lesson schemas, Games, dashboard,
+production deployment, and production database remain to be implemented.
+
+Check the backend:
+
+```sh
+.venv/bin/python -m unittest discover -s apps/backend/tests -t apps/backend -p 'test_*.py'
+```
+
+Tests use temporary databases, never the development database. The layout test
+checks the canonical backend location, domain packages, and Python imports of
+FastAPI outside `apps/backend/`. Health check: <http://127.0.0.1:8000/api/v1/health>.
+OpenAPI UI: <http://127.0.0.1:8000/docs>; schema:
+<http://127.0.0.1:8000/openapi.json>.
+
+The web and desktop apps are not connected to this backend yet. Before
+integration, agree on the API contract and configure its base URL, CORS, and
+Tauri CSP for the actual origin.
 
 ## Build
 
-Build the web app:
+Build the web app for static hosting:
 
 ```sh
 npm run build
 ```
 
-The output is in `apps/web/dist/`. To run the build locally with its Wikipedia proxy:
+The output is in `apps/web/dist/`. To serve the local build with its Wikipedia
+proxy, run:
 
 ```sh
 npm run serve
@@ -52,13 +116,39 @@ npm run serve
 
 Open <http://127.0.0.1:4173/home>.
 
-Build the desktop app:
+For the desktop app, first install the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/),
+then run:
 
 ```sh
+npm run desktop:dev
 npm run desktop:build
 ```
 
-The executable is written to `target/release/`. This command does not create an installer or sign the app.
+Run one command at a time. The build writes an executable to `target/release/`;
+it does not create an installer or sign the app.
+
+## Optional: regenerate models
+
+Model files are included, so normal development and builds do not need this
+step. Regeneration requires Python 3.13 and Blender:
+
+```sh
+npm run models:import --workspace apps/web
+npm run build
+```
+
+The importer uses `.venv` Python when available. Blender runs the model export
+with its bundled Python.
+
+## Checks
+
+```sh
+npm test
+cargo test --workspace --locked
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo fmt --all --check
+python3 -m unittest discover -s apps/web/tests -p 'test_*.py'
+```
 
 ## Graphics settings
 
@@ -105,23 +195,11 @@ separated position. Restoring a structure removes its extra reading controls.
 search. **Ctrl+[ / Ctrl+]** (Mac: **⌘[ / ⌘]**) navigates study history. Shortcuts do
 not interrupt text entry; Escape dismisses an open menu or search before opening Settings.
 
-### Rust or GLSL changes do not appear
-
-Rebuild WASM, then reload the page:
-
-```sh
-npm run wasm:build
-```
-
-Vite does not rebuild Rust or GLSL after the dev server starts.
-
-### Port 5173 is already in use
-
-Stop the other dev server. The web and desktop dev commands use the same port and cannot run together.
-
 ### The Wikipedia panel is blank in a deployed or packaged app
 
-The app needs the Wikipedia proxy. `npm run serve` includes it. For static hosting or a packaged desktop app, set `VITE_WIKIPEDIA_PROXY_URL` at build time to the URL of a deployed proxy, for example:
+The app needs the Wikipedia proxy. `npm run serve` includes it. For static hosting
+or a packaged desktop app, set `VITE_WIKIPEDIA_PROXY_URL` at build time to the URL
+of a deployed proxy, for example:
 
 ```sh
 VITE_WIKIPEDIA_PROXY_URL=https://your-server.example/wikipedia npm run build
@@ -131,7 +209,7 @@ The packaged desktop app does not start the proxy server.
 
 ### `wasm-pack` or the WASM target is missing
 
-Run the Rust setup commands from [Requirements](#requirements):
+Run the Rust setup commands in [Web development](#web-development):
 
 ```sh
 rustup target add wasm32-unknown-unknown
@@ -140,31 +218,11 @@ cargo install wasm-pack --locked
 
 ### Desktop build fails on a missing system dependency
 
-Install the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your operating system, then rerun the build.
-
-## Regenerate models
-
-Model files are already included, so this is not needed for normal development or builds. To regenerate them, install Python 3.13+ and Blender, then run:
-
-```sh
-npm run models:import --workspace apps/web
-npm run build
-```
-
-The importer uses `.venv` Python when available. Blender performs the model export using its bundled Python. See the model importer scripts under `apps/web/scripts/` if regeneration fails.
-
-## Checks
-
-```sh
-npm test
-cargo test --workspace --locked
-cargo clippy --workspace --all-targets --locked -- -D warnings
-cargo fmt --all --check
-python3 -m unittest discover -s apps/web/tests -p 'test_*.py'
-```
+Install the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your
+operating system, then rerun the build.
 
 ## Project notes
 
-- Read [Architecture and module ownership](ARCHITECTURE.md) before changing module boundaries or shared viewer state.
-- The Vietnamese terminology glossary is a draft awaiting medical review. Existing Wikipedia URL mappings are not independently verified; treat both as reference data, not clinical validation.
+- Read [Architecture and module ownership](ARCHITECTURE.md) before changing module boundaries, state ownership, or viewer reuse.
+- The Vietnamese terminology glossary is a draft awaiting medical review. Existing Wikipedia URL mappings are not independently verified; neither should be treated as clinical validation.
 - The original source code and build scripts use [Apache-2.0](LICENSE). See [NOTICE](NOTICE) and [model attribution](apps/web/public/models/z-anatomy/ATTRIBUTION.md) for source-derived assets.
