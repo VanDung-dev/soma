@@ -1,5 +1,54 @@
 import { getWasm } from '../src/anatomy/core.ts';
 
+export async function checkViewerResize() {
+  const assert = (ok, message) => { if (!ok) throw Error(message); };
+  const { AnatomyViewer } = await getWasm(), proto = AnatomyViewer.prototype;
+  const host = document.querySelector('.model-canvas'), canvas = host.querySelector('canvas');
+  assert(host.getAttribute('aria-busy') === 'false', 'Wait for model loading to finish');
+  const gl = canvas.getContext('webgl2');
+  const original = { resize: proto.resize, matrix: gl.uniformMatrix4fv, style: host.style.cssText,
+    fromPrepared: AnatomyViewer.fromPrepared, append: proto.appendPrepared, start: proto.start_reconstruction };
+  let viewer, matrix, loads = 0;
+  proto.resize = function(...args) { viewer = this; return original.resize.apply(this, args); };
+  gl.uniformMatrix4fv = function(...args) {
+    const result = original.matrix.apply(this, args), program = this.getParameter(this.CURRENT_PROGRAM);
+    const location = program && this.getUniformLocation(program, 'view_projection');
+    if (location) matrix = [...this.getUniform(program, location)];
+    return result;
+  };
+  AnatomyViewer.fromPrepared = function(...args) { loads++; return original.fromPrepared.apply(this, args); };
+  proto.appendPrepared = function(...args) { loads++; return original.append.apply(this, args); };
+  proto.start_reconstruction = function(...args) { loads++; return original.start.apply(this, args); };
+  const settle = () => new Promise(resolve => setTimeout(resolve, 300));
+  const resources = () => performance.getEntriesByType('resource').filter(e => /\.glb(?:\?|$)/.test(e.name)).length;
+  try {
+    const count = resources();
+    host.style.width = `${host.clientWidth - 1}px`;
+    await settle();
+    assert(viewer, 'ResizeObserver must update the existing renderer');
+    viewer.finish_camera_transition();
+    viewer.rotate(0.4, -0.2); viewer.pan(0.08, -0.04); viewer.zoom(0.7);
+    viewer.render(); const before = matrix.slice(), selected = viewer.selected_id(), visible = viewer.visible_count();
+    const width = host.clientWidth, height = host.clientHeight;
+    for (const [w, h] of [[width - 100, height - 60], [width + 50, height + 20], [width, height]]) {
+      host.style.width = `${w}px`; host.style.height = `${h}px`;
+      await settle();
+      assert(host.querySelector('canvas') === canvas && host.getAttribute('aria-busy') === 'false', 'Resize must keep the loaded canvas');
+      assert(viewer.selected_id() === selected && viewer.visible_count() === visible, 'Resize must preserve study state');
+    }
+    viewer.render();
+    assert(before.every((value, i) => Math.abs(value - matrix[i]) < 1e-5), 'Resize must preserve rotation, pan and zoom');
+    assert(loads === 0 && resources() === count, 'Resize must not reload or reconstruct geometry');
+    assert(gl.getError() === gl.NO_ERROR && !document.querySelector('.model-error'), 'Keep the renderer healthy after resize');
+    return { sameCanvas: true, cameraPreserved: true, studyStatePreserved: true, noModelReload: true };
+  } finally {
+    host.style.cssText = original.style;
+    await settle();
+    proto.resize = original.resize; gl.uniformMatrix4fv = original.matrix;
+    AnatomyViewer.fromPrepared = original.fromPrepared; proto.appendPrepared = original.append; proto.start_reconstruction = original.start;
+  }
+}
+
 export async function checkCameraStability() {
   const assert = (ok, message) => { if (!ok) throw Error(message); };
   assert(document.querySelector('.model-canvas[aria-busy="false"]'), 'Wait for model loading to finish');

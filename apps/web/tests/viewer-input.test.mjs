@@ -21,7 +21,7 @@ test('manual separation drags only its structure and rotates only from empty bac
       move_structure: (...args) => moves.push(args), restore_structure() {},
       rotate: () => rotations++, pan: () => pans++,
     };
-    unbind = bindViewerInput(canvas, { enabled: () => true, frame: () => bounds,
+    unbind = bindViewerInput(canvas, { enabled: () => true,
       operate: action => { action(viewer); return true; }, redraw() {}, hover() {}, pick: id => picked.push(id), moving: () => moving || [...separated][0] || '',
       movable: id => id === moving || separated.has(id), moved: id => committed.push(id), restore: () => restored.push(true) });
     const pointer = (type, x, button = 0, buttons = type === 'pointerup' ? 0 : 1) => {

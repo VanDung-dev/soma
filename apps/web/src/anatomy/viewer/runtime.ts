@@ -37,7 +37,6 @@ export class ViewerRuntime implements StudyViewer {
 
   constructor(private host: HTMLElement, private options: {
     viewport: () => Viewport;
-    frame: () => DOMRect;
     onState: (patch: Partial<ViewerState>) => void;
     onPick: (id: string) => void;
     onFps?: (fps: number) => void;
@@ -47,7 +46,7 @@ export class ViewerRuntime implements StudyViewer {
     host.appendChild(this.canvas);
     this.unbindInput = bindViewerInput(this.canvas, {
       enabled: () => !this.loading && !this.animating && !this.restoration && !this.failed,
-      frame: options.frame, operate: this.operate, redraw: this.scheduleRender,
+      operate: this.operate, redraw: this.scheduleRender,
       pick: options.onPick,
       moving: () => this.movingId || this.separatedIds.values().next().value || "",
       movable: id => id === this.movingId || this.separatedIds.has(id),
@@ -83,6 +82,7 @@ export class ViewerRuntime implements StudyViewer {
       const animate = !this.motion.matches;
       this.viewer!.start_reconstruction(performance.now(), animate);
       this.resize();
+      this.viewer!.inspect("reset");
       this.setGraphics(this.graphics);
       this.viewer!.configure_explosion(JSON.stringify(roots.map(root => root.model!.structure_ids)));
       if (this.failed) throw new Error("Model rendering failed");
@@ -165,7 +165,8 @@ export class ViewerRuntime implements StudyViewer {
     if (width > 0 && height > 0) {
       const ratio = Math.min(window.devicePixelRatio, 2) * renderScales[this.graphics.modelQuality];
       this.operate(viewer => {
-        viewer.resize(Math.max(1, Math.round(width * ratio)), Math.max(1, Math.round(height * ratio)));
+        const renderWidth = Math.max(1, Math.round(width * ratio)), renderHeight = Math.max(1, Math.round(height * ratio));
+        if (this.canvas.width !== renderWidth || this.canvas.height !== renderHeight) viewer.resize(renderWidth, renderHeight);
         viewer.reframe(...this.options.viewport());
       });
     }

@@ -207,10 +207,6 @@ export async function checkPointerBounds() {
     const event = new WheelEvent('wheel', { ...point, deltaY: -100, bubbles: true, cancelable: true });
     canvas.dispatchEvent(event); return event.defaultPrevented;
   };
-  const context = point => {
-    const event = new MouseEvent('contextmenu', { ...point, bubbles: true, cancelable: true });
-    canvas.dispatchEvent(event); return event.defaultPrevented;
-  };
   const calls = [], originals = {}, captures = new Set();
   const capture = canvas.setPointerCapture, release = canvas.releasePointerCapture, has = canvas.hasPointerCapture;
   canvas.setPointerCapture = id => captures.add(id);
@@ -221,43 +217,45 @@ export async function checkPointerBounds() {
     proto[method] = function(...args) { calls.push(method); return method === 'pick' ? '' : originals[method].apply(this,args); };
   }
   try {
-    for (const point of outside) {
+    for (const point of [inside, ...outside]) {
       calls.length = 0;
       pointer('pointerdown', point, { buttons: 1 });
-      pointer('pointermove', inside, { buttons: 1 });
-      pointer('pointerup', inside);
+      pointer('pointermove', { ...point, clientX: point.clientX + 10 }, { buttons: 1 });
+      pointer('pointerup', point);
+      assert(calls.includes('rotate'), 'Rotate anywhere on the canvas, including outside the focus frame');
+      calls.length = 0;
+      pointer('pointerdown', point, { button: 2, buttons: 2 });
+      pointer('pointermove', { ...point, clientY: point.clientY + 10 }, { buttons: 2 });
+      pointer('pointerup', point, { button: 2 });
+      assert(calls.includes('pan'), 'Pan anywhere on the canvas');
+      const menu = new MouseEvent('contextmenu', { ...point, button: 2, bubbles: true, cancelable: true });
+      canvas.dispatchEvent(menu);
+      assert(menu.defaultPrevented, 'Suppress the model context menu after right dragging');
+      const nativeMenu = new MouseEvent('contextmenu', { ...point, button: 2, shiftKey: true, bubbles: true, cancelable: true });
+      canvas.dispatchEvent(nativeMenu);
+      assert(!nativeMenu.defaultPrevented, 'Keep Shift-right-click available for the native menu');
+      calls.length = 0;
+      assert(wheel(point) && calls.includes('zoom_at'), 'Zoom anywhere on the canvas');
+      pointer('pointerdown', point, { buttons: 1 }); pointer('pointerup', point);
+      assert(calls.includes('pick'), 'Select outside the focus frame too');
+      calls.length = 0;
       pointer('pointermove', point);
-      assert(!wheel(point) && !context(point) && !captures.size, 'Outside the frame must retain scrolling, context menu and pointer ownership');
       await new Promise(resolve => setTimeout(resolve, 120));
-      assert(!calls.length, 'Starting outside must not rotate, pan, zoom, select or hover');
+      assert(calls.includes('pick'), 'Hover outside the focus frame too');
     }
-    assert(wheel(inside) && calls.includes('zoom_at') && context(inside), 'Keep cursor zoom and 3D context gestures inside');
     calls.length = 0;
     pointer('pointerdown', inside, { buttons: 1 });
-    pointer('pointermove', { ...inside, clientX: inside.clientX + 10 }, { buttons: 1 });
-    assert(calls.includes('rotate'), 'Drag inside must still rotate');
     pointer('pointermove', outside[1], { buttons: 1 });
-    assert(!captures.size, 'Release pointer capture when dragging outside');
-    const stopped = calls.length;
+    assert(captures.size && calls.includes('rotate'), 'Keep dragging across the focus frame boundary');
+    const count = calls.length;
     pointer('pointermove', { ...inside, clientX: inside.clientX + 20 }, { buttons: 1 });
     pointer('pointerup', inside);
-    assert(calls.length === stopped, 'Returning while held must not resume or select after a cancelled drag');
-    pointer('pointerdown', inside, { button: 2, buttons: 2 });
-    pointer('pointermove', { ...inside, clientY: inside.clientY + 10 }, { buttons: 2 });
-    pointer('pointerup', inside, { button: 2 });
-    assert(calls.includes('pan'), 'Right-drag inside must still pan');
+    assert(calls.length > count, 'Crossing back must continue the same gesture');
     calls.length = 0;
-    pointer('pointerdown', inside, { buttons: 1 }); pointer('pointerup', inside);
-    assert(calls.includes('pick'), 'Click inside must still select');
-    calls.length = 0;
-    pointer('pointermove', inside); pointer('pointermove', outside[0]);
+    pointer('pointermove', inside); pointer('pointerleave', outside[0]);
     await new Promise(resolve => setTimeout(resolve, 120));
-    assert(!calls.includes('pick'), 'Leaving must cancel the pending hover pick');
-    pointer('pointermove', inside);
-    await new Promise(resolve => setTimeout(resolve, 120));
-    assert(calls.includes('pick'), 'Hover inside must still identify anatomy');
-    return { outsideBlocked: true, dragCancelledOnExit: true, hoverCancelledOnExit: true,
-      insideRotation: true, insidePan: true, insideZoom: true, insideSelection: true, outsideScrolling: true, outsideContextMenu: true };
+    assert(!calls.includes('pick'), 'Leaving the canvas must cancel pending hover picking');
+    return { fullCanvasInteraction: true, dragAcrossFrame: true, canvasLeaveCancelsHover: true, nativeContextMenu: true };
   } finally {
     pointer('pointercancel', inside); pointer('pointerleave', outside[0]);
     canvas.setPointerCapture = capture; canvas.releasePointerCapture = release; canvas.hasPointerCapture = has;

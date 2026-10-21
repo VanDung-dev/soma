@@ -43,7 +43,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
 
   useEffect(() => {
     const viewer = new ViewerRuntime(host.current!, { viewport: focusViewport,
-      frame: () => focusFrame.current!.getBoundingClientRect(), onState: session.updateViewer, onPick: session.pick, onFps: setFps });
+      onState: session.updateViewer, onPick: session.pick, onFps: setFps });
     runtime.current = viewer; session.connect(viewer);
     viewer.setGraphics(graphics);
     void viewer.start(roots);

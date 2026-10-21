@@ -51,7 +51,7 @@ test('frame limits coalesce redraws, finish animations, and stop when idle or di
       matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
       setInterval: callback => { timers.set(++timerId, callback); return timerId; }, clearInterval: id => timers.delete(id) };
     globalThis.ResizeObserver = class { observe() {} disconnect() {} };
-    runtime = new ViewerRuntime(host, { frame() {}, viewport() {}, onState() {}, onPick() {}, onFps: fps => reports.push(fps) });
+    runtime = new ViewerRuntime(host, { viewport() {}, onState() {}, onPick() {}, onFps: fps => reports.push(fps) });
     runtime.viewer = {
       advance_camera: () => false, advance_reconstruction: () => false,
       render: () => draws++, render_reconstruction: () => { draws++; return --remaining > 0; },

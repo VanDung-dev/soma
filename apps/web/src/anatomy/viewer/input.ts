@@ -3,7 +3,6 @@ import { shortcutAction } from "../../shortcuts";
 
 export function bindViewerInput(canvas: HTMLCanvasElement, options: {
   enabled: () => boolean;
-  frame: () => DOMRect;
   operate: (action: (viewer: AnatomyViewer) => void, redraw?: boolean) => boolean;
   redraw: () => void;
   pick: (id: string) => void;
@@ -18,13 +17,8 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
   let rightDragged = false;
   let blockedPointer: number | undefined;
   let drag: { pointerId: number; id: string; offset: Float32Array } | undefined;
-  const withinFocusFrame = (event: MouseEvent) => {
-    const bounds = options.frame();
-    return event.clientX >= bounds.left && event.clientX < bounds.right
-      && event.clientY >= bounds.top && event.clientY < bounds.bottom;
-  };
   const pointerDown = (event: PointerEvent) => {
-    if (!options.enabled() || !withinFocusFrame(event) || (event.button === 2 && event.shiftKey)) return;
+    if (!options.enabled() || (event.button === 2 && event.shiftKey)) return;
     canvas.focus({ preventScroll: true });
     if (event.button === 2) rightDragged = false;
     clearTimeout(hoverTimer); hoverTimer = 0; hoverEvent = undefined;
@@ -49,7 +43,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     } else if (drag) cancelDrag();
   };
   const pick = (event: PointerEvent, read = false) => {
-    if (!options.enabled() || !withinFocusFrame(event)) return;
+    if (!options.enabled()) return;
     const bounds = canvas.getBoundingClientRect();
     const x = Math.floor((event.clientX - bounds.left) / bounds.width * canvas.width);
     const y = canvas.height - 1 - Math.floor((event.clientY - bounds.top) / bounds.height * canvas.height);
@@ -66,13 +60,6 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
   let hoverTimer = 0;
   let hoverEvent: PointerEvent | undefined;
   const pointerMove = (event: PointerEvent) => {
-    if (!withinFocusFrame(event)) {
-      if (drag?.pointerId === event.pointerId) return;
-      pointerCancel(event);
-      if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
-      pointerLeave();
-      return;
-    }
     const previous = pointers.get(event.pointerId);
     if (!previous) {
       if (event.pointerType === "mouse" && !event.buttons) {
@@ -133,7 +120,6 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
   };
   const pointerLeave = () => { clearTimeout(hoverTimer); hoverTimer = 0; hoverEvent = undefined; canvas.dataset.draggable = "false"; };
   const wheel = (event: WheelEvent) => {
-    if (!withinFocusFrame(event)) return;
     event.preventDefault();
     if (drag) return;
     if (!options.enabled()) return;
@@ -146,7 +132,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     ));
   };
   const contextMenu = (event: MouseEvent) => {
-    if (!event.shiftKey && event.button === 2 && withinFocusFrame(event) && rightDragged) event.preventDefault();
+    if (!event.shiftKey && event.button === 2 && rightDragged) event.preventDefault();
   };
   const keyDown = (event: KeyboardEvent) => {
     const action = shortcutAction(event);
