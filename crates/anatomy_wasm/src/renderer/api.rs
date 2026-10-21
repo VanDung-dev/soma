@@ -146,11 +146,7 @@ impl AnatomyViewer {
     pub fn resize(&mut self, width: u32, height: u32) -> Result<(), JsValue> {
         self.resize_render_targets(width, height, self.shadow_quality)?;
         self.cancel_camera_transition();
-        if self.exploding {
-            self.camera.aspect = width as f32 / height as f32;
-        } else {
-            self.camera.resize(width, height);
-        }
+        self.camera.aspect = width as f32 / height as f32;
         self.relayout_explosion()?;
         self.center_camera()?;
         Ok(())

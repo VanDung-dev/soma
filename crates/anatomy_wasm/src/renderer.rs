@@ -143,6 +143,7 @@ impl AnatomyViewer {
             canvas,
         };
         viewer.resize(viewer.canvas.width().max(1), viewer.canvas.height().max(1))?;
+        viewer.camera.reset();
         Ok(viewer)
     }
 }

@@ -298,6 +298,26 @@ fn child_focus_uses_the_startup_canvas_center() {
 }
 
 #[test]
+fn reframing_preserves_manual_camera_pose() {
+    let bounds = Bounds {
+        min: Vec3::splat(-1.0),
+        max: Vec3::splat(1.0),
+    };
+    let mut camera = Camera::new(bounds);
+    camera.focus(bounds, [0.24, 0.13, 0.45, 0.76]).unwrap();
+    camera.rotate(0.4, -0.2).unwrap();
+    camera.pan(0.08, -0.04).unwrap();
+    camera.zoom(0.7).unwrap();
+    let before = camera.matrix();
+    for frame in [[0.03, 0.2, 0.94, 0.65], [0.24, 0.13, 0.45, 0.76]] {
+        camera.reframe(frame).unwrap();
+        assert_eq!(camera.matrix(), before);
+    }
+    assert!(camera.reframe([0.0, 0.0, 0.0, 1.0]).is_err());
+    assert_eq!(camera.matrix(), before);
+}
+
+#[test]
 fn full_viewport_focus_restores_startup_position_and_scale() {
     let body = Bounds {
         min: Vec3::new(-0.4, 0.0, -0.3),

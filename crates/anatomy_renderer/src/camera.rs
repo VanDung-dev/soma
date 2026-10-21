@@ -53,6 +53,11 @@ impl Camera {
         self.constrain_eye();
     }
     pub fn focus(&mut self, bounds: Bounds, frame: [f32; 4]) -> Result<(), String> {
+        self.reframe(frame)?;
+        self.fit(bounds);
+        Ok(())
+    }
+    pub fn reframe(&mut self, frame: [f32; 4]) -> Result<(), String> {
         let [left, top, width, height] = frame;
         if frame.iter().any(|v| !v.is_finite())
             || left < 0.0
@@ -66,7 +71,6 @@ impl Camera {
         }
         // Full-viewport framing uses the same centered composition as startup.
         self.frame = (frame != [0.0, 0.0, 1.0, 1.0]).then_some(frame);
-        self.fit(bounds);
         Ok(())
     }
     pub fn layout(bounds: Bounds, aspect: f32, frame: [f32; 4]) -> Result<Self, String> {
@@ -180,12 +184,6 @@ impl Camera {
                 .clamp(center.y - frame[3] - min.y, center.y + frame[3] - max.y)
         };
         self.center_on(pivot, x, y)
-    }
-    pub fn reframe(&mut self, frame: [f32; 4]) -> Result<(), String> {
-        if self.frame.is_some() {
-            self.focus(self.view, frame)?;
-        }
-        Ok(())
     }
     pub fn resize(&mut self, width: u32, height: u32) {
         self.aspect = width.max(1) as f32 / height.max(1) as f32;
