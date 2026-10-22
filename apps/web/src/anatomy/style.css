@@ -33,7 +33,7 @@
 .latin-name { color: var(--accent); font-style: italic; }
 .international-name { color: var(--muted); font-size: 13px; margin: 4px 0 0; overflow-wrap: anywhere; }
 .collection-names { color: var(--muted); overflow-wrap: anywhere; }
-.reference-notice { padding-top: 10px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; line-height: 1.6; }
+.reference-notice { color: var(--muted); font-size: 11px; line-height: 1.6; }
 .wikipedia-reader a, .model-credit a { color: var(--accent); text-underline-offset: 3px; }
 .model-credit a { display: block; width: fit-content; min-height: 28px; padding: 4px; }
 .model-credit { flex-shrink: 0; border-top: 1px solid var(--line); margin-top: auto; padding-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; }

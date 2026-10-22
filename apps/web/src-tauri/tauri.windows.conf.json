@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "app": {
+    "windows": [{
+      "label": "main",
+      "url": "home",
+      "title": "Human Atlas — Tự học giải phẫu",
+      "width": 1280,
+      "height": 800,
+      "minWidth": 1280,
+      "minHeight": 800,
+      "resizable": true,
+      "decorations": false,
+      "shadow": true
+    }]
+  }
+}
