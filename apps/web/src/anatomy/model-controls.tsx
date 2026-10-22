@@ -30,10 +30,11 @@ const groups: { label: MessageKey; controls: { key: string; shortcut: string; la
 const controls = groups.flatMap(group => group.controls);
 const arrows: Record<string, string> = { ArrowUp: "↑", ArrowLeft: "←", ArrowDown: "↓", ArrowRight: "→" };
 
-export function ModelControls({ disabled, onControl, helpId }: {
+export function ModelControls({ disabled, onControl, helpId, onReplayGuide }: {
   disabled: boolean;
   onControl: (commands: CameraCommand[]) => boolean;
   helpId: string;
+  onReplayGuide: () => void;
 }) {
   const { t } = useLanguage();
   const run = useEffectEvent((keys: Set<string>, step: number) => onControl(controls.filter(control => keys.has(control.key)).map(control => control.action(step))));
@@ -81,7 +82,8 @@ export function ModelControls({ disabled, onControl, helpId }: {
       document.removeEventListener("visibilitychange", visibilityChanged);
     };
   }, [disabled]);
-  return <PopoverPanel id={helpId} className="controls-guide" contentClassName="guide-content" title={t("controls.guide.title")} closeLabel={t("controls.guide.close")}>
+  return <PopoverPanel id={helpId} className="controls-guide" contentClassName="guide-content" title={t("controls.guide.title")} closeLabel={t("controls.guide.close")}
+      footer={<button className="onboarding-replay" disabled={disabled} onClick={onReplayGuide}>{t("onboarding.replay")}</button>}>
         <div className="guide-columns">
           <section aria-label={t("controls.keyboard.label")}><h3>{t("controls.keyboard.label")}</h3>
             {groups.map(group => <div className="guide-key-group" key={group.label}>
@@ -102,7 +104,7 @@ export function ModelControls({ disabled, onControl, helpId }: {
             <div><dt>{t("controls.mouse.holdLeft")}</dt><dd>{t("context.detach")}</dd></div>
             <div><dt>{t("controls.mouse.wheel")}</dt><dd>{t("controls.mouse.zoomAtCursor")}</dd></div>
             <div><dt>{t("controls.mouse.panGesture")}</dt><dd>{t("controls.mouse.pan")}</dd></div>
-            <div><dt>{t("controls.mouse.pointOrClick")}</dt><dd>{t("controls.mouse.showInfo")}</dd></div>
+            <div><dt>{t("controls.mouse.click")}</dt><dd>{t("controls.mouse.showInfo")}</dd></div>
           </dl></section>
         </div>
   </PopoverPanel>;

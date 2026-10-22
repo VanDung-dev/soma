@@ -3,6 +3,7 @@ import type { Catalog } from "./catalog/types";
 import { StructureTree } from "./structure-tree";
 import { StructureSearch } from "./structure-search";
 import { ModelControls } from "./model-controls";
+import { AnatomyOnboarding } from "./onboarding";
 import { MenuBar } from "./menu-bar";
 import { ExplodeControls } from "./explode-controls";
 import { WikipediaReader } from "./wikipedia-reader";
@@ -21,6 +22,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const [hold, setHold] = useState<{ x: number; y: number } | null>(null);
   const [snapTarget, setSnapTarget] = useState("");
   const [panel, setPanel] = useState<"catalog" | "information" | null>(null);
+  const [onboardingRun, setOnboardingRun] = useState(0);
   const helpId = useId();
   const settingsId = useId();
   const findId = useId();
@@ -130,7 +132,8 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     <>
       <MenuBar disabled={building || error} canGoBack={canGoBack} canGoForward={canGoForward}
         onBack={session.back} onForward={session.forward} helpId={helpId} settingsId={settingsId} graphics={graphics} onGraphicsChange={setGraphics} />
-      <ModelControls disabled={building || error} onControl={session.control} helpId={helpId} />
+      <ModelControls disabled={building || error} onControl={session.control} helpId={helpId}
+        onReplayGuide={() => { document.getElementById(helpId)?.hidePopover(); setOnboardingRun(run => run + 1); }} />
       <div ref={panelToggles} className="anatomy-panel-toggles">
         <button aria-expanded={panel === "catalog"} aria-controls={catalogId} onClick={() => setPanel(panel === "catalog" ? null : "catalog")}>{t("catalog.heading")}</button>
         <button aria-expanded={panel === "information"} aria-controls={informationId} onClick={() => setPanel(panel === "information" ? null : "information")}>{t("information.panel.label")}</button>
@@ -198,6 +201,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
           </div>
         </div>
       </aside>
+      {!building && !error && <AnatomyOnboarding key={onboardingRun} replay={onboardingRun > 0} onPanelChange={setPanel} />}
     </>
   );
 }

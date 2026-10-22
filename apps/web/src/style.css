@@ -26,7 +26,7 @@
   * { scrollbar-color: auto; }
   ::-webkit-scrollbar-thumb { background-color: CanvasText; }
 }
-html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--page-bg); }
 canvas[data-draggable="true"] { cursor: grab; }
 canvas[data-dragging="true"] { cursor: grabbing; }
 .separation-status { display: flex; align-items: center; gap: 10px; }

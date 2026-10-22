@@ -168,6 +168,17 @@ grid can be disabled independently.
 
 ## Common problems
 
+### First visit to Anatomy
+
+After the model is ready, Anatomy opens a five-step introductory guide. Practice
+in the highlighted area while the rest of the page is blurred. The guide follows
+each target; keycaps show the main actions and More details expands the explanation.
+Use Next to continue. Finish, Skip, and Escape save the
+decision on this device. Leaving the page before closing the guide keeps it pending.
+Open Help (G) and choose Replay the introductory guide to see it again.
+Touch devices get instructions for their supported gestures; holding for one second
+to separate a structure currently requires a mouse.
+
 ### Moving structures
 
 Right-drag on the 3D canvas pans the view; the canvas blocks browser context menus.

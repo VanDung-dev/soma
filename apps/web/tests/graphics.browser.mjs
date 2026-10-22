@@ -15,6 +15,17 @@ export async function checkGraphics() {
     'Label display sharpness explicitly');
   const grid = popover.querySelector('input[id$="-grid"]');
   const showFps = popover.querySelector('input[id$="-show-fps"]');
+  for (const control of [grid, showFps]) {
+    const icon = control.nextElementSibling;
+    const border = getComputedStyle(icon.querySelector('path:first-child')).stroke;
+    const mark = getComputedStyle(icon.querySelector('path:nth-child(2)')).stroke;
+    const dark = document.documentElement.dataset.theme === 'dark';
+    const expectedBorder = dark ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)';
+    const expectedMark = dark ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)';
+    assert(getComputedStyle(control).appearance === 'none' && icon.matches('.visibility-checkbox-icon')
+      && border === expectedBorder && mark === expectedMark,
+      'Render settings checkboxes with the shared custom checkbox style');
+  }
   const canvas = document.querySelector('.model-canvas canvas'), gl = canvas.getContext('webgl2');
   const original = { quality: quality.value, shadow: shadow.value, lighting: lighting.value, fps: fps.value,
     grid: grid.checked, showFps: showFps.checked, open: popover.matches(':popover-open'),

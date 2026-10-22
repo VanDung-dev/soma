@@ -84,13 +84,19 @@ export function MenuBar({ disabled, canGoBack, canGoForward, onBack, onForward, 
         </div>
         <div className="settings-row">
           <label htmlFor={`${settingsId}-show-fps`}>{t("graphics.fps.label")}</label>
-          <input id={`${settingsId}-show-fps`} className="settings-checkbox" type="checkbox" checked={graphics.showFps}
-            onChange={event => onGraphicsChange({ ...graphics, showFps: event.currentTarget.checked })} />
+          <span className="visibility-checkbox settings-checkbox-control">
+            <input id={`${settingsId}-show-fps`} className="settings-checkbox" type="checkbox" checked={graphics.showFps}
+              onChange={event => onGraphicsChange({ ...graphics, showFps: event.currentTarget.checked })} />
+            <span className="visibility-checkbox-icon" aria-hidden="true"><LineIcon name={graphics.showFps ? "square-to-confirm-square-twotone-transition" : "confirm-square-twotone-to-square-transition"} size={24} /></span>
+          </span>
         </div>
         <div className="settings-row">
           <label htmlFor={`${settingsId}-grid`}>{t("graphics.grid.label")}</label>
-          <input id={`${settingsId}-grid`} className="settings-checkbox" type="checkbox" checked={graphics.grid}
-            onChange={event => onGraphicsChange({ ...graphics, grid: event.currentTarget.checked })} />
+          <span className="visibility-checkbox settings-checkbox-control">
+            <input id={`${settingsId}-grid`} className="settings-checkbox" type="checkbox" checked={graphics.grid}
+              onChange={event => onGraphicsChange({ ...graphics, grid: event.currentTarget.checked })} />
+            <span className="visibility-checkbox-icon" aria-hidden="true"><LineIcon name={graphics.grid ? "square-to-confirm-square-twotone-transition" : "confirm-square-twotone-to-square-transition"} size={24} /></span>
+          </span>
         </div>
     </PopoverPanel>
   </header>;
