@@ -142,7 +142,7 @@
 .visibility-checkbox-icon { --checkbox-border: #000; --checkbox-mark: #000; --checkbox-fill: color-mix(in srgb, var(--accent) 50%, white); position: relative; display: block; width: 24px; height: 24px; }
 :root[data-theme="dark"] .visibility-checkbox-icon { --checkbox-border: #fff; --checkbox-mark: #fff; --checkbox-fill: color-mix(in srgb, var(--accent) 80%, black); }
 .visibility-checkbox-icon svg, .folder-toggle svg { display: block; width: 100%; height: 100%; }
-.visibility-checkbox-icon path:first-child { stroke: var(--checkbox-border); }
+.visibility-checkbox-icon path:first-child { stroke: var(--checkbox-border); stroke-width: 1.36; }
 .visibility-checkbox-icon path:nth-child(2) { stroke: var(--checkbox-mark); }
 .visibility-checkbox input:checked + .visibility-checkbox-icon { color: var(--checkbox-fill); }
 .visibility-checkbox input:checked + .visibility-checkbox-icon path:first-child { fill: currentColor; fill-opacity: 1 !important; }
