@@ -310,16 +310,21 @@ export class ViewerRuntime implements StudyViewer {
   focus(ids: string[], folder: boolean, reveal: boolean) {
     this.snapStructure("", false);
     if (this.movingId) this.setMoving("");
+    const motionTime = this.animationTime();
     return this.operate(viewer => {
       if (folder) {
-        const now = this.animationTime(), focused = new Set(ids);
+        const now = motionTime, focused = new Set(ids);
         if (reveal) {
           viewer.change_visibility(JSON.stringify(ids), false);
           viewer.change_visibility(JSON.stringify(ids), true, now);
         }
         viewer.change_visibility(JSON.stringify(this.meshes.filter(part => !focused.has(part.source_id)).map(part => part.source_id)), false, now);
       } else if (ids.length === 1) viewer.set_visibility(JSON.stringify(ids));
-      viewer.focus(JSON.stringify(ids), ...this.options.viewport());
+      if (motionTime === undefined) viewer.focus(JSON.stringify(ids), ...this.options.viewport());
+      else {
+        viewer.focus_animated(JSON.stringify(ids), ...this.options.viewport(), motionTime);
+        this.cameraAnimating = true;
+      }
       viewer.select(!folder && ids.length === 1 ? ids[0]! : "");
     });
   }

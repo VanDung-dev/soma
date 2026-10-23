@@ -365,28 +365,25 @@ impl AnatomyViewer {
         height: f32,
     ) -> Result<(), JsValue> {
         let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
-        self.scene.bounds_for(&ids).map_err(js_error)?;
-        Camera::layout(
-            self.scene.bounds,
-            self.camera.aspect,
-            [left, top, width, height],
-        )
-        .map_err(js_error)?;
-        self.scene.change_visibility(&ids, true).map_err(js_error)?;
-        self.reconstruction
-            .set_visibility(&self.scene.parts, None)
-            .map_err(js_error)?;
-        self.cancel_camera_transition();
-        self.explosion_camera = None;
-        self.relayout_explosion()?;
-        self.explosion.finish();
-        if let Some(bounds) = self.display_bounds(&ids)? {
-            self.camera
-                .focus(bounds, [left, top, width, height])
-                .map_err(js_error)?;
-            self.shadow_cached.set(false);
+        self.focus_ids(&ids, [left, top, width, height])
+    }
+
+    pub fn focus_animated(
+        &mut self,
+        ids_json: &str,
+        left: f32,
+        top: f32,
+        width: f32,
+        height: f32,
+        now: f64,
+    ) -> Result<(), JsValue> {
+        if !now.is_finite() || now < 0.0 {
+            return Err(js_error("Invalid focus timestamp"));
         }
-        self.center_camera()?;
+        let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
+        let before = self.camera.clone();
+        self.focus_ids(&ids, [left, top, width, height])?;
+        self.transition_camera(before, Some(now));
         Ok(())
     }
 
@@ -743,6 +740,24 @@ impl AnatomyViewer {
         if self.view_center.is_none() {
             self.uncentered_camera = None;
         }
+    }
+    fn focus_ids(&mut self, ids: &[String], frame: [f32; 4]) -> Result<(), JsValue> {
+        self.scene.bounds_for(ids).map_err(js_error)?;
+        Camera::layout(self.scene.bounds, self.camera.aspect, frame).map_err(js_error)?;
+        self.scene.change_visibility(ids, true).map_err(js_error)?;
+        self.reconstruction
+            .set_visibility(&self.scene.parts, None)
+            .map_err(js_error)?;
+        self.cancel_camera_transition();
+        self.explosion_camera = None;
+        self.relayout_explosion()?;
+        self.explosion.finish();
+        if let Some(bounds) = self.display_bounds(ids)? {
+            self.camera.focus(bounds, frame).map_err(js_error)?;
+            self.shadow_cached.set(false);
+        }
+        self.center_camera()?;
+        Ok(())
     }
     fn center_camera(&mut self) -> Result<(), JsValue> {
         if let Some([x, y]) = self.view_center {
