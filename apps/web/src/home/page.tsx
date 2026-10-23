@@ -18,7 +18,7 @@ export function HomePage() {
         <p>{t("home.description")}</p>
       </header>
       <nav className="home-modules" aria-label={t("home.modules.label")}>
-        {modules.map((module, index) => <a key={module.id} className={`home-module home-module-${module.id}`} href={`/${module.id}`}>
+        {modules.map((module, index) => module.id === "anatomy" ? <a key={module.id} className={`home-module home-module-${module.id}`} href={`/${module.id}`}>
           <div className="home-module-art" aria-hidden="true">
             <span className="home-module-number">0{index + 1}</span>
             <img src={`/home/${module.id}.png`} alt="" width={640} height={640} decoding="async" />
@@ -28,7 +28,17 @@ export function HomePage() {
             <span>{t(module.description)}</span>
           </div>
           <span className="home-module-arrow"><LineIcon name="arrow-small-right" size={18} /></span>
-        </a>)}
+        </a> : <div key={module.id} className={`home-module home-module-${module.id}`} aria-disabled="true">
+          <div className="home-module-art" aria-hidden="true">
+            <span className="home-module-number">0{index + 1}</span>
+            <img src={`/home/${module.id}.png`} alt="" width={640} height={640} decoding="async" />
+          </div>
+          <div className="home-module-copy">
+            <strong>{t(module.title)}</strong>
+            <span>{t(module.description)}</span>
+          </div>
+          <span className="home-module-lock">{t("module.locked")}</span>
+        </div>)}
       </nav>
       <p className="home-credit"><a href="/home/ATTRIBUTION.md" target="_blank" rel="noreferrer">{t("home.imageCredit")}</a></p>
     </div>

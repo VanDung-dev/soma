@@ -24,16 +24,19 @@ test('Home and module routes share one workspace and navigation returns to Home'
       const markup = render('/' + name);
       assert.equal((markup.match(/class="model-space"/g) ?? []).length, 1);
       assert(markup.includes(`data-page="${name}"`));
-      assert(markup.includes(`href="/${name}" aria-current="page"`));
+      if (name === 'home' || name === 'anatomy') assert(markup.includes(`href="/${name}" aria-current="page"`));
+      else assert(markup.includes(`aria-disabled="true" aria-current="page">${name === 'lessons' ? 'Lessons' : 'Games'}</span>`));
       assert(markup.includes('class="module-brand" href="/home"'));
       assert(!markup.includes('brand-mark'));
       const navigation = markup.match(/<nav class="module-nav"[\s\S]*?<\/nav>/)[0];
-      assert.deepEqual([...navigation.matchAll(/href="([^"]+)"/g)].map(match => match[1]), ['/home', '/anatomy', '/lessons', '/games']);
+      assert.deepEqual([...navigation.matchAll(/href="([^"]+)"/g)].map(match => match[1]), ['/home', '/anatomy']);
+      assert(navigation.includes('aria-disabled="true"') && navigation.includes('Lessons</span>'));
+      assert(navigation.includes('aria-disabled="true"') && navigation.includes('Games</span>'));
       assert.equal(render('/' + name + '/'), markup);
-      if (name === 'games' || name === 'lessons') assert(markup.includes('<div class="model-space"></div>'));
       if (name === 'home') {
         assert(markup.includes('Chọn một phần để bắt đầu.'));
         assert.equal((markup.match(/Chưa có nội dung\./g) ?? []).length, 2);
+        assert.deepEqual([...markup.matchAll(/class="home-module[^\"]*" href="([^"]+)"/g)].map(match => match[1]), ['/anatomy']);
       }
     }
   } finally {

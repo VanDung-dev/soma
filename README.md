@@ -17,7 +17,8 @@ npm run dev
 ```
 
 Open <http://localhost:5173/home>. The root URL opens the same page. Other pages
-are `/anatomy`, `/lessons`, and `/games`. The development server builds WASM
+are `/anatomy`, `/lessons`, and `/games`; Lessons and Games are temporarily locked
+in the interface. The development server builds WASM
 automatically. Run only one dev command at a time; web and desktop both use port
 5173.
 

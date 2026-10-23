@@ -15,6 +15,7 @@
     "module.anatomy": {"vi": "3D Anatomy", "en": "3D Anatomy"},
     "module.games": {"vi": "Games", "en": "Games"},
     "module.lessons": {"vi": "Lessons", "en": "Lessons"},
+    "module.locked": {"vi": "Tạm khóa", "en": "Temporarily locked"},
     "app.title": {"vi": "Không gian giải phẫu", "en": "Anatomy Atlas"},
     "app.navigation.label": {"vi": "Thanh điều hướng", "en": "Navigation"},
     "app.overview": {"vi": "Về góc nhìn tổng thể", "en": "Return to overview"},

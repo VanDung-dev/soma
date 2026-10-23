@@ -51,8 +51,8 @@ the backend owner must agree that format with the frontend before implementing i
 
 Each page owns its directory and URL: Home at /home, Anatomy at /anatomy,
 Lessons at /lessons, and Games at /games. The root URL also opens Home.
-Home provides a short overview with links to the other three pages.
-Games and Lessons currently provide empty page components.
+Home links to all three modules. Lessons and Games are temporarily locked in the
+interface; their direct routes remain available.
 
 The shared pages/module-layout.tsx owns the header, viewport height, outer frame
 and the single .model-space with a shared theme background. Pages fill that space;

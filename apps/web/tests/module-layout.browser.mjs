@@ -85,7 +85,7 @@ export async function checkModuleNavigation() {
           assert(host.querySelector('.module-nav [aria-current="page"]').pathname === '/' + page, 'Update the active navigation link');
           assert(document.title === 'Human Atlas — ' + host.querySelector('.module-nav [aria-current="page"]').textContent, 'Update the window title');
         };
-        for (const page of ['lessons', 'games', 'anatomy']) {
+        for (const page of ['anatomy']) {
           assert(click(host.querySelector(`.home-module-${page} strong`)) === desktop, 'Intercept Home cards only on desktop, including nested targets');
           check(desktop ? page : 'home');
           if (desktop) {
@@ -96,15 +96,15 @@ export async function checkModuleNavigation() {
             check('home');
           }
         }
-        for (const page of ['lessons', 'games', 'home']) {
+        for (const page of ['home', 'anatomy']) {
           assert(click(host.querySelector(`.module-nav a[href="/${page}"]`)) === desktop, 'Intercept header links only on desktop');
           check(desktop ? page : 'home');
         }
-        const games = host.querySelector('.module-nav a[href="/games"]');
+        const anatomy = host.querySelector('.module-nav a[href="/anatomy"]');
         if (desktop) {
-          games.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-          assert(click(games, { detail: 0 }), 'Allow keyboard activation');
-          check('games');
+          anatomy.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+          assert(click(anatomy, { detail: 0 }), 'Allow keyboard activation');
+          check('anatomy');
           const active = host.querySelector('.module-nav [aria-current="page"]');
           assert(document.activeElement === active && frame.dataset.focusSource === 'keyboard', 'Keep keyboard focus available');
           click(host.querySelector('.module-brand'));
@@ -112,7 +112,7 @@ export async function checkModuleNavigation() {
           assert(getComputedStyle(document.activeElement).outlineStyle === 'none', 'Hide keyboard focus outlines again after a pointer click');
         }
         for (const patch of [{ metaKey: true }, { ctrlKey: true }, { shiftKey: true }, { altKey: true }, { button: 1 }]) {
-          assert(!click(games, patch), 'Preserve modified and secondary clicks');
+          assert(!click(anatomy, patch), 'Preserve modified and secondary clicks');
           check('home');
         }
         const link = document.createElement('a');
@@ -162,8 +162,9 @@ export async function checkModuleLayout() {
   const space = content.querySelector(':scope > .model-space');
   assert(root.querySelectorAll('.model-space').length === 1, 'The shared layout must own the only workspace');
   assert(content.dataset.page === name, 'Render the module at its own URL');
-  assert(root.querySelector('.module-nav [aria-current="page"]').getAttribute('href') === '/' + name, 'Mark the current module in navigation');
-  assert(JSON.stringify([...root.querySelectorAll('.module-nav a')].map(link => link.textContent)) === JSON.stringify(['Home', '3D Anatomy', 'Lessons', 'Games']), 'Keep the requested navigation order');
+  const currentNavigation = root.querySelector('.module-nav [aria-current="page"]');
+  assert(name === 'lessons' || name === 'games' ? currentNavigation.getAttribute('aria-disabled') === 'true' : currentNavigation.getAttribute('href') === '/' + name, 'Mark the current module in navigation');
+  assert(JSON.stringify([...root.querySelectorAll('.module-nav a, .module-nav-disabled')].map(link => link.textContent)) === JSON.stringify(['Home', '3D Anatomy', 'Lessons', 'Games']), 'Show all modules while disabling unavailable ones');
   assert(root.querySelector('.module-brand').getAttribute('href') === '/home' && !root.querySelector('.brand-mark'), 'The brand must link to Home without a mark');
   const outer = content.getBoundingClientRect(), inner = space.getBoundingClientRect();
   const inset = parseFloat(getComputedStyle(space).left);
@@ -204,9 +205,9 @@ export async function checkModuleLayout() {
       assert(bounds.left >= inner.left && bounds.top >= inner.top && bounds.right <= inner.right && bounds.bottom <= inner.bottom, 'Keep open panels inside the workspace');
     }
   } else if (name === 'home') {
-    assert(JSON.stringify([...space.querySelectorAll('.home-modules a')].map(link => link.getAttribute('href'))) === JSON.stringify(['/anatomy', '/lessons', '/games']), 'Show all app sections on Home');
+    assert(JSON.stringify([...space.querySelectorAll('.home-modules a')].map(link => link.getAttribute('href'))) === JSON.stringify(['/anatomy']), 'Show only available modules on Home');
     const images = [...space.querySelectorAll('.home-modules img')];
-    assert(images.length === 3, 'Give each module its own model preview');
+    assert(images.length === 3, 'Keep every module preview visible');
     await Promise.all(images.map(image => image.decode()));
     assert(images.every(image => image.naturalWidth > 0 && image.naturalHeight > 0), 'Load every model preview successfully');
     assert(!space.querySelector('canvas'), 'Use static previews without starting a 3D viewer on Home');
