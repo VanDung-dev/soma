@@ -1,6 +1,8 @@
 import type { MouseEventHandler, ReactNode } from "react";
 import { useEffect } from "react";
 import { isTauri } from "@tauri-apps/api/core";
+import { LogicalPosition } from "@tauri-apps/api/dpi";
+import { Menu } from "@tauri-apps/api/menu";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useLanguage } from "../i18n";
 import { LineIcon } from "../icons";
@@ -10,6 +12,7 @@ type ModulePage = "home" | "anatomy" | "lessons" | "games";
 
 export function ModuleLayout({ children, page, onClick }: { children: ReactNode; page: ModulePage; onClick?: MouseEventHandler<HTMLDivElement> }) {
   const tauri = isTauri();
+  const suppressContextMenu = tauri && import.meta.env.DEV;
   const macOS = tauri && /Macintosh|Mac OS X/.test(navigator.userAgent);
   const windows = tauri && /Windows/.test(navigator.userAgent);
   const { language, setLanguage, t } = useLanguage();
@@ -18,6 +21,43 @@ export function ModuleLayout({ children, page, onClick }: { children: ReactNode;
   const themeIcon = theme === "auto" ? "star-alt" : theme === "light" ? "sunny" : "moon-alt";
   const title = t(`module.${page}`);
   useEffect(() => { document.title = `Human Atlas — ${title}`; }, [title]);
+  useEffect(() => {
+    if (!suppressContextMenu) return;
+    let disposed = false;
+    let menu: Menu | undefined;
+    let menuPromise: Promise<Menu> | undefined;
+    const popup = async (x: number, y: number) => {
+      menuPromise ??= Menu.new({ items: [
+        { item: "Cut" }, { item: "Copy" }, { item: "Paste" }, { item: "SelectAll" },
+      ] }).then(created => {
+        if (disposed) void created.close(); else menu = created;
+        return created;
+      });
+      const contextMenu = await menuPromise;
+      if (!disposed) await contextMenu.popup(new LogicalPosition(x, y));
+    };
+    const contextMenu = (event: MouseEvent) => {
+      if (event.target instanceof Element && event.target.closest(".model-canvas")) return;
+      event.preventDefault();
+      void popup(event.clientX, event.clientY);
+    };
+    const frameContextMenu = (event: MessageEvent) => {
+      const data = event.data;
+      const frame = [...document.querySelectorAll<HTMLIFrameElement>("iframe.wikipedia-article")]
+        .find(candidate => candidate.contentWindow === event.source);
+      if (!frame || data?.type !== "wikipedia:contextmenu-open" || !Number.isFinite(data.x) || !Number.isFinite(data.y)) return;
+      const bounds = frame.getBoundingClientRect();
+      void popup(bounds.left + data.x, bounds.top + data.y);
+    };
+    document.addEventListener("contextmenu", contextMenu);
+    window.addEventListener("message", frameContextMenu);
+    return () => {
+      disposed = true;
+      document.removeEventListener("contextmenu", contextMenu);
+      window.removeEventListener("message", frameContextMenu);
+      if (menu) void menu.close();
+    };
+  }, [suppressContextMenu]);
 
   return <div className={`module-page${macOS ? " macos-window" : ""}${windows ? " windows-window" : ""}`} onClick={onClick}
     onPointerDownCapture={event => { event.currentTarget.dataset.focusSource = "pointer"; }}
