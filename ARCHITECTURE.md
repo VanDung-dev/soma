@@ -15,6 +15,8 @@ they do not copy the model screen's loading or interaction code.
 | Canvas lifecycle and renderer commands | `apps/web/src/anatomy/viewer/runtime.ts` | `ViewerRuntime` |
 | Download, metadata validation and preparation worker | `apps/web/src/anatomy/viewer/loader.ts` | `loadModels`, `validateMetadata` |
 | Pointer input and wheel coordinates | `apps/web/src/anatomy/viewer/input.ts` | `bindViewerInput` (internal to the runtime) |
+| Opt-in camera lifecycle and landmark inference | `apps/web/src/anatomy/viewer/hand-camera.ts`, `hand-worker.ts` | `startHandCamera` |
+| Hand gesture state and camera deltas | `crates/anatomy_renderer/src/hand_input.rs` | `HandInput`, exposed by WASM `HandGestureController` |
 | Study screen geometry | `apps/web/src/anatomy/viewer/layout.ts` | `measureViewport` |
 | Screen composition and focus restoration | `apps/web/src/anatomy/model-viewer.tsx` | `ModelViewer` |
 | Reference reading | `apps/web/src/anatomy/wikipedia-reader.tsx` | `WikipediaReader` |
@@ -94,6 +96,40 @@ The runtime owns its canvas, WASM instance, worker lifecycle, animation scheduli
 input bindings and observers. Rust owns rendered geometry, camera coordinates and
 animation progress. Scene visibility is the renderer's projection of study commands;
 UI code must not mutate it separately.
+
+Experimental hand controls use a separate opt-in worker for MediaPipe inference
+and a persistent Rust/WASM `HandGestureController`. Each hand crosses the boundary
+as 65 floats: handedness (0 left, 1 right), handedness score, then 21 normalized
+landmarks in x/y/z order. Timestamp and camera aspect ratio accompany each frame.
+Rust validates this input, mirrors the horizontal coordinates to match the preview,
+owns filtering and pinch state, and returns camera commands. TypeScript forwards
+commands through `StudySession.control`; inference never mutates the viewer.
+Left-hand capture emits camera pan, right-hand capture emits rotation, and two-hand
+capture emits only zoom from hand separation. Handedness comes from MediaPipe's
+classification, independent of detection order or the hand's screen position.
+`measureHandRegion` maps the focus frame and visible UI obstacles into mirrored
+camera-image coordinates, accounting for letterboxing even with the video hidden.
+The worker sends that region to Rust with each frame. Rust admits fresh pinches
+inside its first rectangle and outside the remaining obstacle rectangles, captures
+the participating hands, and keeps capture outside the start area. A fresh second
+pinch may join with a new baseline; release or loss of any captured hand ends the
+session. Reset, tracking gaps and jumps require release before a new capture.
+Per-hand states (`outside`, `ready`, `release`, `active`) drive the start outline,
+status labels and pressed-button feedback; physical pinch alone does not imply
+active control.
+Rust also returns mirrored, smoothed cursor positions and all 21 hand landmarks,
+per-hand pinch state and zoom direction. `HandInteractionOverlay` projects the
+landmarks as translucent palms and articulated fingers above the model, with
+mouse-button indicators and a two-hand zoom guide. The overlay follows the video
+image bounds and aspect ratio of the hidden inference video. It is a
+noninteractive screen overlay without scene-depth testing or collision. Hand
+controls keep the camera background off by default. The optional scene toggle
+uses `ViewerRuntime.setCameraBackground` without changing persisted preferences.
+The camera adapter clears visual feedback after 250 ms without fresh
+tracking and hides it while manual input has priority.
+Only one camera frame is in flight. Manual input, hidden/unfocused pages, popovers
+and unavailable/separated anatomy pause gestures and reset their baseline.
+Stopping or unmounting releases camera tracks, pending frames and the worker.
 
 Manual separation uses `Separation` in the renderer, keyed by stable structure IDs,
 so all material primitives move together without changing source geometry.

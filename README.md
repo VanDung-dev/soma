@@ -151,6 +151,72 @@ cargo fmt --all --check
 python3 -m unittest discover -s apps/web/tests -p 'test_*.py'
 ```
 
+## Experimental hand camera controls
+
+Open `/anatomy`, wait for the model, then choose **Start camera** in the
+viewer and allow camera access. Pinch thumb and index finger on the right hand and
+move to rotate the view. Pinch the left hand to move the model across the screen
+using camera pan. Pinch both hands and spread them to zoom in, or bring them
+together to zoom out; two hands do not pan or rotate. Release to stop.
+Mouse and keyboard input temporarily take priority;
+controls pause while structures are separated. Choose **Stop camera** to stop.
+
+Start each pinch inside the outlined viewer area, away from the camera card,
+catalog, information panel and bottom controls. A pinch started outside remains
+inactive until released and pinched again inside. Once captured, control continues
+outside the outline until release or tracking interruption. A second hand joins
+with a fresh pinch inside; releasing or losing either hand ends a two-hand session.
+After manual input or tracking interruption, release before pinching again.
+
+The camera video starts hidden and is used only for hand tracking. The compact
+camera card shows a start/stop button, a scene-background toggle that starts off,
+and any camera error. Turning it on shows the camera beneath the model; turning
+it off keeps tracking active and restores the current graphics preference.
+
+Translucent virtual hands appear over the model, including before a pinch. Their
+palms and five articulated fingers follow 21 mirrored landmarks smoothed in Rust.
+They stay aligned with the hidden camera image and account for letterboxing.
+Hands retain the same contrast while idle and controlling. Labels distinguish
+Ready, Outside area, Release to start and active mouse-button equivalents.
+Hand silhouettes, wire outlines, joints and badges follow the shared theme palette
+with contrasting edges. Their colors stay consistent across gesture states.
+Action badges follow the palm center; a separate 22px dot marks the thumb–index
+interaction point.
+These are projected hand silhouettes, always drawn in front of the model; they do
+not provide depth-based contact, collision, or behind-model occlusion.
+
+A mouse icon shows the held left button for right-hand rotation or right button
+for left-hand panning. Two-hand zoom shows spread arrows instead. A line
+connects two pinched hands; its center shows **Zoom in** or **Zoom out** while
+zooming. Releasing a pinch returns its cursor to Ready. Lost or stale tracking,
+manual input and camera shutdown clear the markers.
+
+Camera access requires HTTPS or localhost and a compatible browser. Start with
+current desktop Chrome/Edge. Native Tauri WebView camera access and Safari need
+separate device checks. Camera access is opt-in on every visit; leaving the viewer
+stops camera tracks and the worker. Video is processed locally, without uploads.
+
+MediaPipe runs in a worker and passes landmarks to Rust/WASM. Rust owns pinch
+hysteresis, smoothing, gesture state and camera deltas. The browser adapter passes
+commands through the existing study session and viewer. The pinned model is in
+`apps/web/public/hand-input/`; its source and checksum are in `ATTRIBUTION.md`
+beside it. MediaPipe runtime assets are bundled from npm during the web build.
+
+With Vite running, the browser console probe below checks the real Rust/WASM
+gesture binding and MediaPipe worker inference on a blank image without opening
+the camera:
+
+```js
+(await import('/tests/hand-input.browser.mjs')).checkHandInput()
+```
+
+After the anatomy viewer loads and with hand controls off, `checkHandCameraBridge()`
+from the same module checks Rust commands reaching the live viewer and camera
+cleanup using a synthetic canvas stream, without requesting a physical camera.
+Pass `"right"` to check right-hand rotation; the default checks left-hand panning.
+`previewVirtualHands()` renders an open-hand fixture through Rust/WASM and returns
+a cleanup function; pass `"rotate"`, `"pan"` or `"zoom"` to preview the corresponding active hands.
+
 ## Graphics settings
 
 Settings applies independent graphics controls immediately and saves them on the
