@@ -10,6 +10,42 @@
 .settings-select { min-width: 0; max-width: 55%; flex-shrink: 0; height: var(--settings-control-size); padding: 0 8px; border: 1px solid var(--line); border-radius: var(--detail-radius); background: var(--control-hover); color: var(--text); font: inherit; }
 .settings-checkbox-control { margin: 8px; }
 .model-fps { position: absolute; top: 12px; right: 12px; padding: 6px 10px; border-radius: var(--control-radius); background: var(--panel-bg); color: var(--text); font: 12px/1.4 var(--font-ui); font-variant-numeric: tabular-nums; pointer-events: none; }
+.hand-camera { position: absolute; z-index: 2; top: 12px; left: 12px; width: min(156px, calc(100% - 24px)); padding: var(--panel-padding); border-radius: var(--panel-radius); background: var(--panel-bg); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); pointer-events: auto; font-size: 12px; }
+.hand-camera-toggle, .hand-camera-scene-toggle { width: 100%; height: 34px; min-height: 34px; padding: 5px; border: 1px solid var(--line); border-radius: var(--inner-radius); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+.hand-camera-toggle[aria-pressed="true"] { color: var(--accent); }
+.hand-camera-scene-toggle[aria-pressed="true"] { color: var(--accent); }
+.hand-camera-scene-toggle { margin-top: 8px; }
+.hand-camera-scene { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); pointer-events: none; }
+.hand-camera-scene[hidden] { display: none; }
+.hand-camera-scene-overlay { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; container-type: size; pointer-events: none; }
+.hand-camera-image-area { position: relative; }
+.hand-camera p { margin: 8px 0 0; line-height: 1.5; overflow-wrap: anywhere; }
+.hand-camera-error { color: var(--text); }
+.hand-interaction-overlay { position: absolute; z-index: 1; inset: 0; pointer-events: none; color: var(--text); }
+.hand-virtual-layer { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; filter: drop-shadow(0 1px 3px rgba(var(--shadow-rgb), .3)); }
+.hand-start-region { position: absolute; inset: 0; width: 100%; height: 100%; color: var(--accent); }
+.hand-start-region > rect { fill: currentColor; fill-opacity: .035; stroke: currentColor; stroke-opacity: .45; stroke-width: 1.5px; stroke-dasharray: 6 6; vector-effect: non-scaling-stroke; }
+.hand-interaction-overlay[data-mode="rotate"] .hand-start-region > rect, .hand-interaction-overlay[data-mode="pan"] .hand-start-region > rect, .hand-interaction-overlay[data-mode="zoom"] .hand-start-region > rect { stroke-dasharray: none; stroke-opacity: .8; }
+.hand-virtual-surface { fill: color-mix(in srgb, var(--accent) 20%, var(--panel-bg)); stroke: color-mix(in srgb, var(--accent) 20%, var(--panel-bg)); stroke-linecap: round; stroke-linejoin: round; opacity: .24; }
+.hand-virtual-wire { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 1px var(--panel-bg)) drop-shadow(0 1px 1px var(--panel-bg)); }
+.hand-virtual-wire polygon, .hand-virtual-wire polyline { stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.hand-virtual-joints { fill: var(--accent); stroke: var(--panel-bg); stroke-width: 1.5px; }
+.hand-virtual-joints circle { vector-effect: non-scaling-stroke; }
+.hand-interaction-link { position: absolute; inset: 0; overflow: visible; }
+.hand-interaction-link line { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 6; filter: drop-shadow(0 1px 1px var(--panel-bg)); }
+.hand-pinch-point { position: absolute; z-index: 1; width: 22px; height: 22px; transform: translate(-50%, -50%); border: 3px dashed var(--panel-bg); border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--accent), 0 2px 8px rgba(var(--shadow-rgb), .5); }
+.hand-pinch-point[data-state="active"] { border-style: solid; }
+.hand-cursor { position: absolute; display: flex; align-items: center; gap: 8px; padding: 7px 10px; transform: translate(-50%, -50%); border-radius: var(--inner-radius); background: var(--panel-bg); color: var(--text); box-shadow: 0 0 0 1px var(--line-strong), 0 2px 12px rgba(var(--shadow-rgb), .3); }
+.hand-cursor-ring { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border: 2px dashed var(--accent); border-radius: 50%; color: var(--accent); }
+.hand-cursor-ring svg { width: 16px; height: 22px; }
+.hand-cursor[data-state="active"] .hand-cursor-ring { border-style: solid; }
+.hand-mouse-pressed { fill: currentColor; }
+.hand-cursor-label { text-align: left; white-space: nowrap; font-size: 12px; line-height: 1.4; }
+.hand-cursor-label small { display: block; color: var(--muted); font-size: 11px; }
+.hand-interaction-overlay[data-mode="zoom"] .hand-cursor { flex-direction: column; gap: 4px; }
+.hand-interaction-overlay[data-mode="zoom"] .hand-cursor-label { text-align: center; }
+.hand-zoom-indicator { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: var(--inner-radius); background: var(--panel-bg); color: var(--accent); box-shadow: inset 0 0 0 1px var(--line); white-space: nowrap; font-size: 12px; }
+.hand-zoom-symbol { font-size: 22px; line-height: 1; }
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-new(root) { animation: none; }
 }
@@ -40,8 +76,8 @@
 .reference-mapping-description { margin-top: 8px; }
 #workspace { position: absolute; inset: 0; min-width: 0; min-height: 0; }
 .anatomy-space { position: absolute; inset: 0; overflow: hidden; }
-.model-canvas { position: absolute; inset: 0; touch-action: none; overflow: hidden; }
-.model-canvas canvas { display: block; width: 100%; height: 100%; }
+.model-canvas { position: absolute; inset: 0; isolation: isolate; touch-action: none; overflow: hidden; }
+.model-canvas canvas { position: relative; z-index: 1; display: block; width: 100%; height: 100%; }
 .model-hold-progress { position: fixed; z-index: 7; width: 40px; height: 40px; transform: translate(-50%, -50%) rotate(-90deg); pointer-events: none; fill: none; stroke: var(--panel-bg); stroke-width: 4; filter: drop-shadow(0 1px 3px rgba(var(--shadow-rgb),.5)); visibility: hidden; animation: model-hold-show 0s .5s forwards; }
 .model-hold-fill { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: model-hold-fill .5s .5s linear forwards; }
 @keyframes model-hold-show { to { visibility: visible; } }

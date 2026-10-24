@@ -6,6 +6,7 @@ import { ModelControls } from "./model-controls";
 import { AnatomyOnboarding } from "./onboarding";
 import { MenuBar } from "./menu-bar";
 import { ExplodeControls } from "./explode-controls";
+import { HandCameraControls } from "./hand-camera-controls";
 import { WikipediaReader } from "./wikipedia-reader";
 import { anatomyNames, structureName, targetName } from "./anatomy-names";
 import { useLanguage } from "../i18n";
@@ -159,6 +160,9 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
             <circle className="model-hold-fill" cx="20" cy="20" r="16" pathLength="100" />
           </svg>}
           <div className="model-focus-frame" ref={focusFrame}>
+            <HandCameraControls disabled={building || error || !!movingId || !!separatedIds.size} onControl={session.control}
+              sceneHost={host} interactionFrame={focusFrame} obstacles={[hud, catalogPanel, informationPanel, panelToggles]}
+              onBackground={active => runtime.current?.setCameraBackground(active)} />
             {graphics.showFps && <span className="model-fps" aria-label={t("graphics.fps.current", { count: fps })}>{fps} FPS</span>}
             <div ref={hud} className="model-hud">
               {snapPart && <div className="model-status model-snap-hint" role="status">

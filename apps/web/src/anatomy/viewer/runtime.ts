@@ -28,6 +28,7 @@ export class ViewerRuntime implements StudyViewer {
   private resizePending = false;
   private lastRenderTime = -Infinity;
   private graphics: GraphicsSettings = defaultGraphics;
+  private cameraBackground = false;
   private fpsFrames = 0;
   private fpsStarted = 0;
   private fpsTimer = 0;
@@ -186,6 +187,12 @@ export class ViewerRuntime implements StudyViewer {
     }
   }
 
+  setCameraBackground(active: boolean) {
+    if (this.cameraBackground === active) return;
+    this.cameraBackground = active;
+    this.setGraphics(this.graphics);
+  }
+
   setGraphics(settings: GraphicsSettings) {
     if (settings.showFps !== this.graphics.showFps) {
       this.stopFpsMeter();
@@ -204,7 +211,7 @@ export class ViewerRuntime implements StudyViewer {
     const { width, height } = this.host.getBoundingClientRect();
     const shadowLevel = settings.shadowQuality === "off" ? 0 : settings.shadowQuality === "low" ? 1 : 2;
     const ratio = Math.min(window.devicePixelRatio, 2) * renderScales[settings.modelQuality];
-    return this.operate(viewer => viewer.set_graphics(shadowLevel, qualityLevels[settings.lightingQuality], settings.grid,
+    return this.operate(viewer => viewer.set_graphics(shadowLevel, qualityLevels[settings.lightingQuality], settings.grid && !this.cameraBackground,
       Math.max(1, Math.round(width * ratio)), Math.max(1, Math.round(height * ratio))));
   }
 
