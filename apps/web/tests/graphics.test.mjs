@@ -39,7 +39,7 @@ test('frame limits coalesce redraws, finish animations, and stop when idle or di
   try {
     const { ViewerRuntime } = await server.ssrLoadModule('/src/anatomy/viewer/runtime.ts');
     let now = 0, nextId = 0, draws = 0, remaining = 0, timerId = 0;
-    const pending = new Map(), timers = new Map(), reports = [];
+    const pending = new Map(), timers = new Map(), reports = [], grids = [];
     globalThis.requestAnimationFrame = callback => { pending.set(++nextId, callback); return nextId; };
     globalThis.cancelAnimationFrame = id => pending.delete(id);
     globalThis.performance = { now: () => now };
@@ -55,11 +55,22 @@ test('frame limits coalesce redraws, finish animations, and stop when idle or di
     runtime.viewer = {
       advance_camera: () => false, advance_reconstruction: () => false,
       render: () => draws++, render_reconstruction: () => { draws++; return --remaining > 0; },
-      set_graphics() {}, selected_id: () => '', free() {},
+      set_graphics: (_shadow, _lighting, grid) => grids.push(grid), selected_id: () => '', free() {},
     };
     runtime.scheduleRender();
     assert.equal(pending.size, 0, 'Partially uploaded anatomy must not render during loading');
     runtime.loading = false;
+    const preferences = { ...runtime.graphics, grid: true };
+    runtime.setCameraBackground(true);
+    runtime.setGraphics(preferences);
+    assert.equal(grids.at(-1), false, 'Camera compositing must keep the enclosure transparent across settings changes');
+    assert.equal(preferences.grid, true, 'Camera mode must not overwrite the saved grid preference');
+    runtime.setCameraBackground(false);
+    assert.equal(grids.at(-1), true, 'Stopping the camera must restore the current grid preference');
+    runtime.setCameraBackground(true);
+    runtime.setGraphics({ ...preferences, grid: false });
+    runtime.setCameraBackground(false);
+    assert.equal(grids.at(-1), false, 'Restoration must respect settings changed while camera mode was active');
     const tick = time => {
       now = time;
       const callbacks = [...pending.values()]; pending.clear();
