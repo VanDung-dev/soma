@@ -24,6 +24,11 @@ they do not copy the model screen's loading or interaction code.
 | Geometry, camera, scene, explosion and visibility animation | `crates/anatomy_renderer` | Portable Rust types |
 | Model regeneration | `apps/web/scripts/import-models.mjs` and Python exporters | Validated GLB/JSON packages and catalog |
 
+Within `crates/anatomy_wasm/src/renderer`, `api.rs` owns constructors and prepared
+package ingestion. `camera.rs`, `graphics.rs`, `scene.rs` and `separation.rs` group
+the corresponding WASM methods; `explosion.rs` retains explosion behavior.
+Hand gesture tests live in `crates/anatomy_renderer/tests/hand_input.rs`.
+
 `core.ts` bootstraps WASM and chooses the browser or Tauri catalog endpoint.
 It does not own domain types or study state. The Tauri shell reuses the web
 interface and supplies the native `get_catalog` command.
@@ -86,7 +91,9 @@ flowchart LR
 `StudySession` owns logical visibility, the current folder, focused structures,
 the article being read, reader expansion and the explosion control value.
 React subscribes with `useSyncExternalStore`. Treat snapshots and their collections
-as read-only. Expanded tree branches and the search query remain local UI state.
+as read-only. `canReadStructure` shares the reference-reading rule with the UI.
+Viewer snapshots carry status codes; the UI translates them into messages.
+Expanded tree branches and the search query remain local UI state.
 The session also owns Back/Forward history for selected and focused anatomy
 destinations. Hover, visibility controls and manual camera movement do not add
 history entries. Returning to a focused destination reapplies its focus command;
@@ -138,6 +145,11 @@ owns pointer drag transactions. A one-second left hold on a structure starts man
 separation and dragging in the same gesture; the UI shows cursor progress through
 `onHold`. Movement before the hold completes keeps camera navigation.
 Capture loss cancels the current drag; T restores manual positions.
+`Separation` owns restoration offsets, the 420 ms easing and pending group targets.
+The runtime submits one restoration command, advances it once per frame through
+WASM, and publishes completion to the session. TypeScript retains only target IDs
+for UI synchronization. Reduced motion finishes the Rust transition immediately;
+direct position changes and overview cancel pending restoration.
 Detached structures remain draggable while
 other structures cannot move. Manual separation and automatic
 explosion are mutually exclusive. Picking, outlines, shadows and displayed bounds
