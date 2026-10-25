@@ -2,13 +2,11 @@ import type { Structure, StudyTarget } from "../catalog/types";
 import { structureName } from "../anatomy-names";
 import { getWasm } from "../core";
 import type { AnatomyViewer } from "../../wasm/anatomy_wasm";
-import type { CameraCommand, StudyViewer, ViewerState, Viewport } from "./contracts";
+import type { CameraCommand, StudyViewer, ViewerState, ViewerStatus, Viewport } from "./contracts";
 import { bindViewerInput } from "./input";
 import { loadModels } from "./loader";
 import { defaultGraphics, qualityLevels, renderScales } from "./graphics";
 import type { GraphicsSettings } from "./graphics";
-
-const RESTORE_DURATION = 420;
 
 export class ViewerRuntime implements StudyViewer {
   private viewer: AnatomyViewer | undefined;
@@ -36,7 +34,7 @@ export class ViewerRuntime implements StudyViewer {
   private movingId = "";
   private separatedIds = new Set<string>();
   private snapTarget = "";
-  private restoration: { started: number; offsets: Map<string, Float32Array>; all: boolean } | undefined;
+  private restoration: { ids: Set<string>; all: boolean } | undefined;
 
   constructor(private host: HTMLElement, private options: {
     viewport: () => Viewport;
@@ -69,12 +67,12 @@ export class ViewerRuntime implements StudyViewer {
   }
 
   async start(roots: StudyTarget[]) {
-    this.options.onState({ building: true, loadedSystems: 0, meshes: [], selected: "", error: false, status: "Đang nạp mô hình…" });
+    this.options.onState({ building: true, loadedSystems: 0, meshes: [], selected: "", error: false, status: "loading" });
     try {
       const wasm = await getWasm();
       if (this.disposed) return;
       const packages = loadModels(roots, this.abort.signal, loadedSystems => {
-        this.options.onState({ loadedSystems, status: `Đang chuẩn bị cơ thể · ${loadedSystems}/${roots.length} hệ đã nạp` });
+        this.options.onState({ loadedSystems, status: "preparing" });
       });
       // Fit every system before the first frame so reconstruction cannot change the scale.
       const started = performance.now(), structures: Structure[] = [];
@@ -98,14 +96,14 @@ export class ViewerRuntime implements StudyViewer {
       this.meshes = [...new Map(structures.map(part => [part.source_id, part])).values()]
         .sort((a, b) => structureName(a).localeCompare(structureName(b), "vi") || a.source_object.localeCompare(b.source_object));
       this.loading = false; this.animating = animate;
-      this.options.onState({ meshes: this.meshes, building: animate, status: "Đang hoàn thiện cơ thể…" });
+      this.options.onState({ meshes: this.meshes, building: animate, status: "finishing" });
       this.scheduleRender();
     } catch (cause) {
-      if (!this.disposed) this.fail(cause, "Không nạp được mô hình. Hãy tải lại trang để thử lại.");
+      if (!this.disposed) this.fail(cause, "loadError");
     }
   }
 
-  private fail(cause: unknown, status: string) {
+  private fail(cause: unknown, status: ViewerStatus) {
     this.failed = true; this.animating = false; this.abort.abort();
     this.snapTarget = ""; this.options.onSnap?.("");
     this.stopFpsMeter();
@@ -121,7 +119,7 @@ export class ViewerRuntime implements StudyViewer {
       if (redraw) this.scheduleRender();
       return true;
     } catch (cause) {
-      this.fail(cause, "Không thể xử lý mô hình. Hãy tải lại trang để thử lại.");
+      this.fail(cause, "processError");
       return false;
     }
   };
@@ -144,20 +142,9 @@ export class ViewerRuntime implements StudyViewer {
           if (this.animating) this.scheduleRender();
           else if (!this.loading) this.options.onState({ building: false });
         } else if (this.restoration) {
-          const progress = Math.min(1, (now - this.restoration.started) / RESTORE_DURATION);
-          const remaining = (1 - progress) ** 3;
-          if (progress < 1) {
-            for (const [id, offset] of this.restoration.offsets) {
-              this.viewer!.restore_structure(id, offset.map(value => value * remaining));
-            }
-            this.viewer!.render();
-            this.scheduleRender();
-          } else {
-            if (this.restoration.all) this.viewer!.restore_structure("");
-            else for (const id of this.restoration.offsets.keys()) this.viewer!.restore_structure(id);
-            this.finishRestoration();
-            this.viewer!.render();
-          }
+          if (this.viewer!.advance_restoration(now)) this.scheduleRender();
+          else this.finishRestoration();
+          this.viewer!.render();
         } else if (this.exploding) {
           if (this.viewer!.render_explosion(now)) this.scheduleRender();
           else if (this.reassembling) {
@@ -167,7 +154,7 @@ export class ViewerRuntime implements StudyViewer {
         } else this.viewer!.render();
         if (this.graphics.showFps) this.fpsFrames++;
         if (this.cameraAnimating || revealing) this.scheduleRender();
-      } catch (cause) { this.fail(cause, "Không thể hiển thị mô hình. Hãy tải lại trang để thử lại."); }
+      } catch (cause) { this.fail(cause, "renderError"); }
     });
   };
 
@@ -180,11 +167,15 @@ export class ViewerRuntime implements StudyViewer {
     this.resizePending = false;
     const { width, height } = this.host.getBoundingClientRect();
     if (width > 0 && height > 0) {
-      const ratio = Math.min(window.devicePixelRatio, 2) * renderScales[this.graphics.modelQuality];
-      const renderWidth = Math.max(1, Math.round(width * ratio)), renderHeight = Math.max(1, Math.round(height * ratio));
+      const [renderWidth, renderHeight] = this.renderSize(width, height);
       if (this.canvas.width !== renderWidth || this.canvas.height !== renderHeight) this.viewer!.resize(renderWidth, renderHeight);
       this.viewer!.reframe(...this.options.viewport());
     }
+  }
+
+  private renderSize(width: number, height: number): [number, number] {
+    const ratio = Math.min(window.devicePixelRatio, 2) * renderScales[this.graphics.modelQuality];
+    return [Math.max(1, Math.round(width * ratio)), Math.max(1, Math.round(height * ratio))];
   }
 
   setCameraBackground(active: boolean) {
@@ -210,9 +201,8 @@ export class ViewerRuntime implements StudyViewer {
     if (!this.viewer) return !this.disposed && !this.failed;
     const { width, height } = this.host.getBoundingClientRect();
     const shadowLevel = settings.shadowQuality === "off" ? 0 : settings.shadowQuality === "low" ? 1 : 2;
-    const ratio = Math.min(window.devicePixelRatio, 2) * renderScales[settings.modelQuality];
     return this.operate(viewer => viewer.set_graphics(shadowLevel, qualityLevels[settings.lightingQuality], settings.grid && !this.cameraBackground,
-      Math.max(1, Math.round(width * ratio)), Math.max(1, Math.round(height * ratio))));
+      ...this.renderSize(width, height)));
   }
 
   private stopFpsMeter() {
@@ -227,11 +217,7 @@ export class ViewerRuntime implements StudyViewer {
       this.viewer.finish_reconstruction(); this.animating = false; this.scheduleRender();
       this.viewer.finish_explosion(); this.viewer.finish_camera_transition(); this.cameraAnimating = false;
       if (this.restoration) {
-        const { offsets, all } = this.restoration;
-        this.operate(viewer => {
-          if (all) viewer.restore_structure("");
-          else for (const id of offsets.keys()) viewer.restore_structure(id);
-        });
+        this.operate(viewer => viewer.finish_restoration());
         this.finishRestoration();
       }
       if (!this.loading) this.options.onState({ building: false });
@@ -240,7 +226,7 @@ export class ViewerRuntime implements StudyViewer {
 
   private contextLost = (event: Event) => {
     event.preventDefault();
-    this.fail(new Error("WebGL context lost"), "Kết nối hiển thị 3D bị mất. Hãy tải lại trang.");
+    this.fail(new Error("WebGL context lost"), "contextLost");
   };
 
   select(id: string) { return this.operate(viewer => viewer.select(id)); }
@@ -280,31 +266,18 @@ export class ViewerRuntime implements StudyViewer {
   restoreStructure(id: string) {
     this.snapStructure("", false);
     const all = !id || this.restoration?.all === true;
-    const ids = new Set(this.restoration?.offsets.keys());
-    if (id) for (const member of this.viewer?.structure_group(id) ?? [id]) ids.add(member);
-    else {
-      for (const separatedId of this.separatedIds) ids.add(separatedId);
-      if (this.movingId) ids.add(this.movingId);
-    }
-    const offsets = new Map([...ids].map(target => [target, this.viewer?.structure_offset(target) ?? new Float32Array(3)]));
-    if (this.motion.matches || ![...offsets.values()].some(offset => offset.some(value => value !== 0))) {
-      if (!this.operate(viewer => viewer.restore_structure(all ? "" : id))) return false;
-      this.restoration = { started: 0, offsets, all };
-      this.finishRestoration();
-      return true;
-    }
-    this.restoration = { started: performance.now(), offsets, all };
-    this.scheduleRender();
-    return true;
+    return this.operate(viewer => {
+      const ids = viewer.begin_restoration(id, performance.now(), !this.motion.matches);
+      this.restoration = { ids: new Set(ids), all };
+      if (!viewer.restoration_active()) this.finishRestoration();
+    });
   }
 
   private finishRestoration() {
     const restoration = this.restoration;
     if (!restoration) return;
     this.restoration = undefined;
-    if (restoration.all) this.separatedIds.clear();
-    else for (const id of restoration.offsets.keys()) this.separatedIds.delete(id);
-    if (restoration.all || restoration.offsets.has(this.movingId)) this.setMoving("");
+    if (restoration.all || restoration.ids.has(this.movingId)) this.setMoving("");
     else this.publishSeparation();
   }
 
@@ -374,6 +347,7 @@ export class ViewerRuntime implements StudyViewer {
       viewer.set_visibility(JSON.stringify(this.meshes.map(part => part.source_id))); viewer.inspect("reset");
     });
     if (success) { this.exploding = false; this.reassembling = false; this.cameraAnimating = false;
+      this.restoration = undefined;
       this.movingId = ""; this.separatedIds.clear(); this.canvas.dataset.moving = "false"; this.publishSeparation(); }
     return success;
   }

@@ -53,7 +53,7 @@ export const StructureTree = memo(function StructureTree(props: TreeProps) {
     const path = new Set<string>();
     const id = props.reveal?.id;
     if (!id) return path;
-    let target = props.catalog.targets.find(target => (target.model?.structure_ids ?? target.structure_ids).includes(id)
+    let target = props.catalog.targets.find(target => structureIds(target).includes(id)
       && !(children.get(target.id) ?? []).some(child => child.structure_ids.includes(id)));
     while (target) {
       path.add(target.id);

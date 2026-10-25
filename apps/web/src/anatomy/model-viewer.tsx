@@ -10,11 +10,18 @@ import { HandCameraControls } from "./hand-camera-controls";
 import { WikipediaReader } from "./wikipedia-reader";
 import { anatomyNames, structureName, targetName } from "./anatomy-names";
 import { useLanguage } from "../i18n";
-import { StudySession } from "./study/session";
+import type { MessageKey } from "../i18n";
+import { canReadStructure, StudySession } from "./study/session";
+import type { ViewerStatus } from "./viewer/contracts";
 import { ViewerRuntime } from "./viewer/runtime";
 import { measureViewport } from "./viewer/layout";
 import { graphicsStorageKey, readGraphicsSettings } from "./viewer/graphics";
 import { shortcutAction } from "../shortcuts";
+
+const statusMessages = {
+  loading: "viewer.status.loading", preparing: "viewer.status.preparing", finishing: "viewer.status.finishing",
+  loadError: "viewer.error.load", processError: "viewer.error.process", renderError: "viewer.error.render", contextLost: "viewer.error.contextLost",
+} satisfies Record<ViewerStatus, MessageKey>;
 
 export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const { language, t } = useLanguage();
@@ -37,8 +44,9 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const hud = useRef<HTMLDivElement>(null);
   const runtime = useRef<ViewerRuntime | null>(null);
   const session = useMemo(() => new StudySession(catalog), [catalog]);
+  const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const { meshes, building, error, status, loadedSystems, selected, readingId, targetId,
-    visibleIds, readerExpanded, explosionAmount, movingId, separatedIds, reveal, canGoBack, canGoForward } = useSyncExternalStore(session.subscribe, session.getSnapshot);
+    visibleIds, readerExpanded, explosionAmount, movingId, separatedIds, reveal, canGoBack, canGoForward } = state;
   const roots = session.catalog.roots;
   const target = targetId ? session.catalog.targets.get(targetId) : undefined;
   const focusViewport = () => measureViewport({ host: host.current!, frame: focusFrame.current!,
@@ -117,18 +125,12 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const structures = useMemo(() => new Map(meshes.map(part => [part.source_id, part])), [meshes]);
   const selectedPart = structures.get(readingId);
   const snapPart = structures.get(snapTarget);
-  const canReadReference = !!selectedPart && (movingId === readingId || separatedIds.has(readingId));
+  const canReadReference = !!selectedPart && canReadStructure(state, readingId);
   const referenceName = canReadReference ? selectedPart.source_name : target?.source_name;
   const otherLanguage = language === "vi" ? "en" : "vi";
   const heading = selectedPart ? structureName(selectedPart, language) : target ? targetName(target, language) : t("information.defaultTitle");
   const otherHeading = selectedPart ? structureName(selectedPart, otherLanguage) : target ? targetName(target, otherLanguage) : "";
-  const localizedStatus = error
-    ? status.includes("Kết nối hiển thị") ? t("viewer.error.contextLost")
-      : status.includes("xử lý mô hình") ? t("viewer.error.process")
-        : status.includes("hiển thị mô hình") ? t("viewer.error.render") : t("viewer.error.load")
-    : status.startsWith("Đang chuẩn bị cơ thể") ? t("viewer.status.preparing", { loaded: loadedSystems, total: roots.length })
-      : status === "Đang nạp mô hình…" ? t("viewer.status.loading")
-        : status === "Đang hoàn thiện cơ thể…" ? t("viewer.status.finishing") : status;
+  const localizedStatus = t(statusMessages[status], { loaded: loadedSystems, total: roots.length });
   return (
     <>
       <MenuBar disabled={building || error} canGoBack={canGoBack} canGoForward={canGoForward}

@@ -16,6 +16,10 @@ export interface StudyState extends ViewerState {
 
 type NavigationEntry = { kind: "overview" } | { kind: "structure" | "target"; id: string; focused: boolean };
 
+export function canReadStructure(state: Pick<ViewerState, "movingId" | "separatedIds">, id: string) {
+  return !!id && (id === state.movingId || state.separatedIds.has(id));
+}
+
 export class StudySession {
   readonly catalog;
   private viewer: StudyViewer | undefined;
@@ -24,7 +28,7 @@ export class StudySession {
   private historyIndex = 0;
   private navigating = false;
   private state: StudyState = {
-    building: true, loadedSystems: 0, status: "Đang nạp mô hình…", error: false, meshes: [],
+    building: true, loadedSystems: 0, status: "loading", error: false, meshes: [],
     selected: "", movingId: "", separatedIds: new Set(), focusedIds: [], readingId: "", visibleIds: new Set(), readerExpanded: false, explosionAmount: 0,
     canGoBack: false, canGoForward: false,
   };
@@ -49,13 +53,11 @@ export class StudySession {
   updateViewer = (patch: Partial<ViewerState>) => {
     const movingId = patch.movingId ?? this.state.movingId;
     const separatedIds = patch.separatedIds ?? this.state.separatedIds;
-    const readerWasAvailable = this.canRead() || !!this.state.targetId;
-    const readerRemainsAvailable = !!this.state.targetId || movingId === this.state.readingId || separatedIds.has(this.state.readingId);
+    const readerWasAvailable = canReadStructure(this.state, this.state.readingId) || !!this.state.targetId;
+    const readerRemainsAvailable = !!this.state.targetId || canReadStructure({ movingId, separatedIds }, this.state.readingId);
     this.update({ ...patch, ...(patch.meshes ? { visibleIds: new Set(patch.meshes.map(part => part.source_id)) } : {}),
       ...(readerWasAvailable && !readerRemainsAvailable ? { readerExpanded: false } : {}) });
   };
-
-  private canRead(id = this.state.readingId) { return !!id && (id === this.state.movingId || this.state.separatedIds.has(id)); }
 
   private explosionIds() { return this.state.readingId ? [this.state.readingId] : this.state.focusedIds; }
   private retargetExplosion() { this.viewer?.retargetExplosion(this.state.explosionAmount, this.explosionIds()); }
@@ -97,7 +99,7 @@ export class StudySession {
 
   browseStructure = (id: string) => {
     if (!this.viewer?.select(id)) return false;
-    this.update({ readingId: id, readerExpanded: this.canRead(id) && this.state.readerExpanded,
+    this.update({ readingId: id, readerExpanded: canReadStructure(this.state, id) && this.state.readerExpanded,
       targetId: undefined, focusedIds: [], ...this.record({ kind: "structure", id, focused: false }) });
     this.retargetExplosion();
     return true;
@@ -111,7 +113,7 @@ export class StudySession {
   };
 
   pick = (id: string) => {
-    this.update({ readingId: id, readerExpanded: this.canRead(id) && this.state.readerExpanded, targetId: undefined, focusedIds: [],
+    this.update({ readingId: id, readerExpanded: canReadStructure(this.state, id) && this.state.readerExpanded, targetId: undefined, focusedIds: [],
       ...(id ? this.record({ kind: "structure", id, focused: false }) : {}) });
     this.retargetExplosion();
   };
