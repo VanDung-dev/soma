@@ -1,8 +1,12 @@
 mod api;
+mod camera;
 mod draw;
 mod explosion;
+mod graphics;
 mod io;
 mod resources;
+mod scene;
+mod separation;
 mod shaders;
 mod uniforms;
 mod util;
