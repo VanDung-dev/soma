@@ -151,71 +151,78 @@ cargo fmt --all --check
 python3 -m unittest discover -s apps/web/tests -p 'test_*.py'
 ```
 
+The browser suite uses an existing Playwright installation and Chromium browser,
+with the same environment variables as the benchmark runner. For example:
+
+```sh
+BENCHMARK_PLAYWRIGHT_MODULE=/path/to/node_modules/playwright \
+BENCHMARK_BROWSER=/path/to/chromium npm run test:browser
+```
+
+It owns an isolated local Vite server, temporary cache and browser profiles. It
+checks preference controls, blocked storage, tree loading and keyboard/reveal
+behavior, camera controls and the MediaPipe/WASM worker with synthetic input.
+It does not request a physical webcam or regenerate anatomy models.
+
 ## Experimental hand camera controls
 
-Open `/anatomy`, wait for the model, then choose **Start camera** in the
-viewer and allow camera access. Pinch thumb and index finger on the right hand and
-move to rotate the view. Pinch the left hand to move the model across the screen
-using camera pan. Pinch both hands and spread them to zoom in, or bring them
-together to zoom out; two hands do not pan or rotate. Release to stop.
-Mouse and keyboard input temporarily take priority;
-controls pause while structures are separated. Choose **Stop camera** to stop.
+Open `/anatomy`, wait for the model, then turn on **Camera mode** in the top menu
+and allow camera access. The video stays hidden and is processed locally, without
+uploads. Turning camera mode off or leaving Anatomy stops the stream and worker.
 
-Start each pinch inside the outlined viewer area, away from the camera card,
-catalog, information panel and bottom controls. A pinch started outside remains
-inactive until released and pinched again inside. Once captured, control continues
-outside the outline until release or tracking interruption. A second hand joins
-with a fresh pinch inside; releasing or losing either hand ends a two-hand session.
-After manual input or tracking interruption, release before pinching again.
+Settings includes a **Hand control camera** selector. If only **Device default**
+is shown, choose **Allow camera access** beside it. This requests video permission,
+refreshes available inputs (including iPhone Continuity Camera when exposed by
+the browser or WebView), and immediately stops the temporary stream without
+starting hand controls. Permission errors leave a retry button in the same row.
+Changing the selection stops the old stream and
+worker, then restarts tracking with the selected camera. Device changes refresh
+the list; a removed selection returns to the device default. The selection lasts
+for this viewer visit.
 
-The camera video starts hidden and is used only for hand tracking. The compact
-camera card shows a start/stop button, a scene-background toggle that starts off,
-and any camera error. Turning it on shows the camera beneath the model; turning
-it off keeps tracking active and restores the current graphics preference.
+Pinch thumb and index finger on the right hand to rotate. Pinch the left hand to
+pan. Pinch both hands and spread them to zoom in, or bring them together to zoom
+out. Two-hand input only zooms. Release to stop.
 
-Translucent virtual hands appear over the model, including before a pinch. Their
-palms and five articulated fingers follow 21 mirrored landmarks smoothed in Rust.
-They stay aligned with the hidden camera image and account for letterboxing.
-Hands retain the same contrast while idle and controlling. Labels distinguish
-Ready, Outside area, Release to start and active mouse-button equivalents.
-Hand silhouettes, wire outlines, joints and badges follow the shared theme palette
-with contrasting edges. Their colors stay consistent across gesture states.
-Action badges follow the palm center; a separate 22px dot marks the thumb–index
-interaction point.
-These are projected hand silhouettes, always drawn in front of the model; they do
-not provide depth-based contact, collision, or behind-model occlusion.
+Start a pinch inside the viewer area, outside the catalog, information panel and
+bottom controls. Captured input continues outside that area until release or
+tracking interruption. A second hand joins with a fresh pinch inside. Release
+after manual input or interrupted tracking before starting again.
 
-A mouse icon shows the held left button for right-hand rotation or right button
-for left-hand panning. Two-hand zoom shows spread arrows instead. A line
-connects two pinched hands; its center shows **Zoom in** or **Zoom out** while
-zooming. Releasing a pinch returns its cursor to Ready. Lost or stale tracking,
-manual input and camera shutdown clear the markers.
+Mouse, keyboard and open panels pause camera commands. Separated anatomy also
+blocks camera movement. Fresh virtual hands remain visible in these states.
+Hand input controls only the model; it does not click interface panels or open
+a hand menu. Hidden or unfocused pages pause inference and clear the hands.
 
-Camera access requires HTTPS or localhost and a compatible browser. Start with
-current desktop Chrome/Edge. Native Tauri WebView camera access and Safari need
-separate device checks. Camera access is opt-in on every visit; leaving the viewer
-stops camera tracks and the worker. Video is processed locally, without uploads.
+The translucent hands follow 21 mirrored landmarks smoothed in Rust. Their scale
+and positions match the letterboxed camera image. Icon-only badges follow the
+palm and show the assigned mouse button: right hand is left mouse, left hand is
+right mouse. The highlight becomes solid while the mapped button is held.
+A separate 18px dot marks the thumb–index interaction point; its center is white
+when idle and uses the theme accent while active. The interaction area and badges
+have no outlines. A solid line joins two active hands, with **+** or **−** for zoom.
+Hands are projected in front of the model; they do not provide depth contact or
+collision.
 
-MediaPipe runs in a worker and passes landmarks to Rust/WASM. Rust owns pinch
-hysteresis, smoothing, gesture state and camera deltas. The browser adapter passes
-commands through the existing study session and viewer. The pinned model is in
-`apps/web/public/hand-input/`; its source and checksum are in `ATTRIBUTION.md`
-beside it. MediaPipe runtime assets are bundled from npm during the web build.
+Camera access requires HTTPS or localhost and a compatible browser. Desktop
+Chrome/Edge is the initial target. Native Tauri WebView, Safari and real-device
+camera behavior need separate checks. MediaPipe runs in a worker and passes
+landmarks to Rust/WASM; Rust owns pinch state, filtering and camera deltas.
+The pinned tracking model and attribution are in `apps/web/public/hand-input/`.
 
-With Vite running, the browser console probe below checks the real Rust/WASM
-gesture binding and MediaPipe worker inference on a blank image without opening
-the camera:
+With Vite running, these browser probes use synthetic input without opening a
+physical camera:
 
 ```js
 (await import('/tests/hand-input.browser.mjs')).checkHandInput()
+(await import('/tests/camera-devices.browser.mjs')).checkCameraDevices()
 ```
 
-After the anatomy viewer loads and with hand controls off, `checkHandCameraBridge()`
-from the same module checks Rust commands reaching the live viewer and camera
-cleanup using a synthetic canvas stream, without requesting a physical camera.
-Pass `"right"` to check right-hand rotation; the default checks left-hand panning.
-`previewVirtualHands()` renders an open-hand fixture through Rust/WASM and returns
-a cleanup function; pass `"rotate"`, `"pan"` or `"zoom"` to preview the corresponding active hands.
+After the model loads with hand controls off, `checkHandCameraBridge()` from the
+hand-input probe checks real Rust commands reaching the viewer and cleanup.
+Pass `"right"` for rotation; the default checks left-hand panning.
+`previewVirtualHands()` returns a cleanup function and accepts `"idle"`,
+`"rotate"`, `"pan"` or `"zoom"`.
 
 ## Graphics settings
 
@@ -237,7 +244,7 @@ grid can be disabled independently.
 
 ### First visit to Anatomy
 
-After the model is ready, Anatomy opens a five-step introductory guide. Practice
+After the model is ready, Anatomy opens a six-step introductory guide. Practice
 in the highlighted area while the rest of the page is blurred. The guide follows
 each target; keycaps show the main actions and More details expands the explanation.
 Use Next to continue. Finish, Skip, and Escape save the

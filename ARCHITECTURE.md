@@ -94,6 +94,9 @@ React subscribes with `useSyncExternalStore`. Treat snapshots and their collecti
 as read-only. `canReadStructure` shares the reference-reading rule with the UI.
 Viewer snapshots carry status codes; the UI translates them into messages.
 Expanded tree branches and the search query remain local UI state.
+Large folders initially mount 40 direct structure rows. Scrolling or keyboard
+focus near the end loads more rows. Search/history reveal loads through its
+target before scrolling it into view; closing a folder resets its initial limit.
 The session also owns Back/Forward history for selected and focused anatomy
 destinations. Hover, visibility controls and manual camera movement do not add
 history entries. Returning to a focused destination reapplies its focus command;
@@ -121,22 +124,43 @@ inside its first rectangle and outside the remaining obstacle rectangles, captur
 the participating hands, and keeps capture outside the start area. A fresh second
 pinch may join with a new baseline; release or loss of any captured hand ends the
 session. Reset, tracking gaps and jumps require release before a new capture.
-Per-hand states (`outside`, `ready`, `release`, `active`) drive the start outline,
-status labels and pressed-button feedback; physical pinch alone does not imply
+Per-hand states (`outside`, `ready`, `release`, `active`) drive the interaction
+dot and pressed-button feedback; physical pinch alone does not imply
 active control.
 Rust also returns mirrored, smoothed cursor positions and all 21 hand landmarks,
 per-hand pinch state and zoom direction. `HandInteractionOverlay` projects the
-landmarks as translucent palms and articulated fingers above the model, with
-mouse-button indicators and a two-hand zoom guide. The overlay follows the video
-image bounds and aspect ratio of the hidden inference video. It is a
-noninteractive screen overlay without scene-depth testing or collision. Hand
-controls keep the camera background off by default. The optional scene toggle
-uses `ViewerRuntime.setCameraBackground` without changing persisted preferences.
-The camera adapter clears visual feedback after 250 ms without fresh
-tracking and hides it while manual input has priority.
-Only one camera frame is in flight. Manual input, hidden/unfocused pages, popovers
-and unavailable/separated anatomy pause gestures and reset their baseline.
-Stopping or unmounting releases camera tracks, pending frames and the worker.
+hands and their rotate, pan, or zoom state over the model. The overlay follows
+the letterboxed camera image and does not interact with scene geometry.
+The camera adapter clears visual feedback after 250 ms without fresh tracking.
+Only one camera frame is in flight. Manual input, unrelated popovers and unavailable
+anatomy suspend actions and reset their baseline, while inference keeps hands
+visible and current. `set_suspended` suppresses camera actions in Rust without
+discarding validated landmarks. Hidden or unfocused pages pause inference and
+clear visual feedback. Stopping or unmounting releases camera tracks, pending
+frames and the worker.
+
+`ModelViewer` owns the camera mode shared by the menu-bar switch and
+`HandCameraControls`. The camera switch sits beside history navigation. Camera
+mode keeps the catalog and information panels available; `measureViewport`
+continues to fit the hand control area between the visible panels on desktop and
+below the compact panel toggles on smaller screens. Camera errors switch the mode
+off.
+`useCameraDevices` owns device enumeration and the selection shared by Settings
+and `HandCameraControls` through `ModelViewer`. It refreshes after camera access,
+device changes and window focus. Selecting a device restarts `startHandCamera`
+with an exact `deviceId`, releasing the previous stream and worker first.
+When device IDs or labels are hidden, Settings can request video-only permission
+through this hook. Its temporary stream is released after enumeration or unmount;
+the permission action does not enable hand tracking.
+`HandCameraControls` owns the camera lifecycle and hand overlay. Hands only
+control the model: a left-hand pinch pans, a right-hand pinch rotates, and
+pinching with both hands zooms by changing their separation. The smoothed hand
+cursor and active state remain visible while these
+gestures run. Hand controls do not activate panels or application actions.
+`measureHandImage` supplies the letterboxed image rectangle used for feedback and
+for mapping the allowed model region. `cancel_controls` resets gesture capture
+while preserving the landmark filter; full tracking resets remain available for
+invalid or stale input. Camera movement remains blocked during separation.
 
 Manual separation uses `Separation` in the renderer, keyed by stable structure IDs,
 so all material primitives move together without changing source geometry.
@@ -224,6 +248,10 @@ for a new mount; do not restart a disposed instance.
 ## Verification
 
 Run `npm run check`, `npm test` and `npm run build` from the repository root.
+`npm run test:browser` runs the focused Chromium suite with the existing
+Playwright/browser paths documented in README, using isolated profiles and
+synthetic camera input. It includes startup and preference changes with blocked
+browser storage.
 `study-session.test.mjs` covers session rules and failed command handling;
 `viewer-runtime.browser.mjs` exercises independent hosts, disposal and cancelled
 initialization/preparation with the real WASM renderer.
