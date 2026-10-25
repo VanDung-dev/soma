@@ -1,73 +1,101 @@
-import { useEffect, useEffectEvent, useId, useRef, useState } from "react";
-import type { RefObject } from "react";
+import { useEffect, useEffectEvent, useId, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useLanguage } from "../i18n";
-import type { CameraCommand } from "./viewer/contracts";
-import { startHandCamera } from "./viewer/hand-camera";
-import type { HandCameraError, HandFeedback } from "./viewer/hand-camera";
+import { LineIcon } from "../icons";
 import { HandInteractionOverlay } from "./hand-interaction-overlay";
-import { measureHandRegion } from "./viewer/layout";
+import { measureHandImage, measureHandRegion, type HandImageBounds } from "./viewer/layout";
+import { startHandCamera, type HandCameraError, type HandFeedback } from "./viewer/hand-camera";
+import type { CameraCommand } from "./viewer/contracts";
 
-export function HandCameraControls({ disabled, onControl, sceneHost, interactionFrame, obstacles, onBackground }: {
+export function HandCameraControls({ enabled, disabled, cameraDisabled = false, deviceId = "", onCameraStarted, onCameraActiveChange, onControl, sceneHost, interactionFrame,
+  obstacles, onEnabledChange }: {
+  enabled: boolean;
   disabled: boolean;
+  cameraDisabled?: boolean;
+  deviceId?: string;
+  onCameraStarted?: () => void;
+  onCameraActiveChange?: (active: boolean) => void;
   onControl: (commands: CameraCommand[]) => boolean;
   sceneHost: RefObject<HTMLDivElement | null>;
   interactionFrame: RefObject<HTMLDivElement | null>;
   obstacles: RefObject<HTMLElement | null>[];
-  onBackground: (active: boolean) => void;
+  onEnabledChange: (enabled: boolean) => void;
 }) {
   const { t } = useLanguage();
-  const [enabled, setEnabled] = useState(false);
-  const [scene, setScene] = useState(false);
   const [aspect, setAspect] = useState(4 / 3);
   const [feedback, setFeedback] = useState<HandFeedback | null>(null);
+  const [bounds, setBounds] = useState<HandImageBounds | null>(null);
   const [error, setError] = useState<HandCameraError | null>(null);
+  const errorTitleId = useId();
   const video = useRef<HTMLVideoElement>(null);
-  const panel = useRef<HTMLDivElement>(null);
-  const detailsId = useId();
-  const background = enabled && scene && feedback !== null;
-  const changeBackground = useEffectEvent(onBackground);
-  useEffect(() => {
-    changeBackground(background);
-    return () => changeBackground(false);
-  }, [background]);
+  const handsLayer = useRef<HTMLDivElement>(null);
+  const enabledChanged = useEffectEvent(onEnabledChange);
+  const cameraStarted = useEffectEvent(() => { onCameraStarted?.(); });
+  const cameraActiveChanged = useEffectEvent((active: boolean) => { onCameraActiveChange?.(active); });
   const allowed = useEffectEvent(() => !disabled);
+  const cameraAllowed = useEffectEvent(() => !cameraDisabled);
   const region = useEffectEvent(() => measureHandRegion(sceneHost.current!, video.current!, interactionFrame.current!,
-    [panel.current!, ...obstacles.flatMap(ref => ref.current ? [ref.current] : [])]));
+    obstacles.flatMap(ref => ref.current ? [ref.current] : [])));
   const control = useEffectEvent((next: HandFeedback) => {
     setFeedback(next);
-    if (next.commands.length) onControl(next.commands);
+    if (next.hands.length) handsLayer.current?.showPopover();
+    else handsLayer.current?.hidePopover();
+    if (!cameraDisabled && next.commands.length) onControl(next.commands);
   });
+
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !sceneHost.current) return;
+    const measure = () => setBounds(measureHandImage(sceneHost.current!, aspect));
+    const observer = new ResizeObserver(measure);
+    observer.observe(sceneHost.current);
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true);
+    measure();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
+    };
+  }, [enabled, sceneHost, aspect]);
+
+  useEffect(() => {
+    setFeedback(null);
+    handsLayer.current?.hidePopover();
+    if (!enabled) {
+      return;
+    }
+    setError(null);
     return startHandCamera(video.current!, {
-      allowed, region, onResult: control,
-      onError: cause => { setError(cause); setEnabled(false); },
+      deviceId, onStarted: cameraStarted, onActiveChange: cameraActiveChanged, allowed, cameraAllowed, region, onResult: control,
+      onError: cause => { setError(cause); enabledChanged(false); },
     });
-  }, [enabled]);
-  const overlay = enabled && !disabled && feedback && <HandInteractionOverlay feedback={feedback} aspect={aspect} />;
-  return <>
-    {sceneHost.current && createPortal(<>
-      <video ref={video} className="hand-camera-scene" hidden={!background} autoPlay muted playsInline
-        aria-label={t("handCamera.preview")} onResize={() => {
-          if (video.current?.videoHeight) setAspect(video.current.videoWidth / video.current.videoHeight);
-        }} />
-      {overlay && <div className="hand-camera-scene-overlay" aria-hidden="true">
-        <div className="hand-camera-image-area" style={{ width: `min(100cqw, ${aspect * 100}cqh)`, height: `min(100cqh, ${100 / aspect}cqw)` }}>
-          {overlay}
-        </div>
-      </div>}
-    </>, sceneHost.current)}
-    <div ref={panel} className="hand-camera" data-enabled={enabled}>
-      <button className="hand-camera-toggle" aria-pressed={enabled} aria-controls={detailsId}
-        disabled={!enabled && disabled} onClick={() => {
-          setError(null); setFeedback(null); setEnabled(value => !value);
-        }}>{t(enabled ? "handCamera.stop" : "handCamera.start")}</button>
-      <div id={detailsId} hidden={!enabled}>
-        <button className="hand-camera-scene-toggle" aria-pressed={scene}
-          onClick={() => setScene(value => !value)}>{t("handCamera.scene")}</button>
-      </div>
-      {error && <p className="hand-camera-error" role="alert">{t(`handCamera.error.${error}`)}</p>}
+  }, [enabled, deviceId]);
+
+  const overlay = enabled && feedback && bounds && <div className="hand-camera-scene-overlay"
+    style={{ left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height, right: "auto", bottom: "auto" }}>
+    <div className="hand-camera-image-area" style={{ width: "100%", height: "100%" }}>
+      <HandInteractionOverlay feedback={feedback} aspect={aspect} interactive={!disabled && !cameraDisabled} />
     </div>
+  </div>;
+  return <>
+    {sceneHost.current && createPortal(<video ref={video} className="hand-camera-scene" hidden autoPlay muted playsInline
+      aria-label={t("handCamera.preview")} onResize={() => {
+        if (video.current?.videoHeight) setAspect(video.current.videoWidth / video.current.videoHeight);
+      }} />, sceneHost.current)}
+    {sceneHost.current && createPortal(<div ref={handsLayer} className="hand-visual-overlay" popover="manual"
+      data-hand-visual="true" aria-hidden="true">{overlay}</div>, document.body)}
+    {error && <section className="hand-camera hand-camera-error" role="alert" aria-labelledby={errorTitleId}>
+      <span className="hand-camera-error-symbol"><LineIcon name="alert-circle" size={24} /></span>
+      <div className="hand-camera-error-message">
+        <h2 id={errorTitleId}>{t("handCamera.error.title")}</h2>
+        <p>{t(`handCamera.error.${error}`)}</p>
+      </div>
+      <button type="button" className="controls-info" aria-label={t("handCamera.error.close")} onClick={() => setError(null)}>
+        <LineIcon name="close-small" size={14} />
+      </button>
+      <button type="button" className="hand-camera-error-retry" disabled={disabled} onClick={() => { setError(null); onEnabledChange(true); }}>
+        {t("handCamera.error.retry")}
+      </button>
+    </section>}
   </>;
 }

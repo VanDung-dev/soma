@@ -15,7 +15,8 @@ interface LanguageContextValue {
 const languageStorageKey = "human-atlas-language";
 
 export function getInitialLanguage(): Language {
-  return typeof window !== "undefined" && window.localStorage.getItem(languageStorageKey) === "en" ? "en" : "vi";
+  try { return window.localStorage.getItem(languageStorageKey) === "en" ? "en" : "vi"; }
+  catch { return "vi"; }
 }
 
 export function translateMessage(key: MessageKey, language: Language, values: MessageValues = {}) {
@@ -38,7 +39,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState<Language>(getInitialLanguage);
   useEffect(() => {
     document.documentElement.lang = language;
-    window.localStorage.setItem(languageStorageKey, language);
+    try { window.localStorage.setItem(languageStorageKey, language); } catch {}
   }, [language]);
   const value = useMemo<LanguageContextValue>(() => ({
     language,

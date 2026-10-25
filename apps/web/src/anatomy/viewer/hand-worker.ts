@@ -9,7 +9,7 @@ let gestures: HandGestureController;
 self.onmessage = async ({ data }: MessageEvent<
   | { type: "init"; modelUrl: string }
   | { type: "reset" }
-  | { type: "frame"; image: ImageBitmap; timestamp: number; aspect: number; region: number[] }
+  | { type: "frame"; image: ImageBitmap; timestamp: number; aspect: number; region: number[]; cameraAllowed: boolean; suspended: boolean }
 >) => {
   try {
     if (data.type === "init") {
@@ -25,7 +25,7 @@ self.onmessage = async ({ data }: MessageEvent<
       });
       self.postMessage({ type: "ready" });
     } else if (data.type === "reset") {
-      gestures?.reset();
+      gestures?.cancel_controls();
     } else {
       try {
         const result = landmarker.detectForVideo(data.image, data.timestamp);
@@ -34,8 +34,10 @@ self.onmessage = async ({ data }: MessageEvent<
           return [side?.categoryName === "Left" ? 0 : side?.categoryName === "Right" ? 1 : -1,
             side?.score ?? 0, ...points.flatMap(point => [point.x, point.y, point.z])];
         });
-        const update = JSON.parse(gestures.update(new Float32Array(hands), data.timestamp, data.aspect, new Float32Array(data.region)));
-        self.postMessage({ type: "result", timestamp: data.timestamp, region: data.region, ...update });
+        gestures.set_suspended(data.suspended);
+        const update = JSON.parse(gestures.update_controls(new Float32Array(hands), data.timestamp, data.aspect, new Float32Array(data.region), data.cameraAllowed));
+        self.postMessage({ type: "result", timestamp: data.timestamp, region: data.region,
+          cameraAllowed: data.cameraAllowed, suspended: data.suspended, ...update });
       } finally {
         data.image.close();
       }

@@ -1,4 +1,5 @@
 import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Structure } from "./catalog/types";
 import { anatomyNames, structureName } from "./anatomy-names";
 import { useLanguage } from "../i18n";
@@ -69,10 +70,7 @@ export const StructureSearch = memo(function StructureSearch({ structures, disab
     popover.current?.hidePopover();
     trigger.current?.focus({ preventScroll: true });
   };
-  return <>
-    <button ref={trigger} id={triggerId} className="structure-search-field" type="button" disabled={disabled} popoverTarget={id}
-      aria-label={t("search.submit")} title={`${t("search.submit")} (F)`}><Magnifier /></button>
-    <section ref={popover} id={id} className="structure-search-popover" popover="auto" role="dialog" aria-label={t("search.label")}
+  const dialog = <section ref={popover} id={id} className="structure-search-popover" popover="auto" role="dialog" aria-label={t("search.label")}
       onToggle={event => {
         if (event.currentTarget.matches(":popover-open")) {
           input.current?.focus({ preventScroll: true });
@@ -128,6 +126,10 @@ export const StructureSearch = memo(function StructureSearch({ structures, disab
           })}
         </ul>
       </form>
-    </section>
+    </section>;
+  return <>
+    <button ref={trigger} id={triggerId} className="structure-search-field" type="button" disabled={disabled} popoverTarget={id}
+      aria-label={t("search.submit")} title={`${t("search.submit")} (F)`}><Magnifier /></button>
+    {typeof document === "undefined" ? dialog : createPortal(dialog, document.body)}
   </>;
 });

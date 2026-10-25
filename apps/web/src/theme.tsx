@@ -7,8 +7,10 @@ const themeStorageKey = "human-atlas-theme";
 type ThemeTransition = { finished: Promise<void>; skipTransition: () => void };
 
 export function getInitialTheme(): Theme {
-  const theme = window.localStorage.getItem(themeStorageKey);
-  return theme === "light" || theme === "dark" ? theme : "auto";
+  try {
+    const theme = window.localStorage.getItem(themeStorageKey);
+    return theme === "light" || theme === "dark" ? theme : "auto";
+  } catch { return "auto"; }
 }
 
 export function getEffectiveTheme(theme: Theme): "light" | "dark" {
@@ -25,7 +27,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const appliedTheme = useRef<"light" | "dark" | null>(null);
   const activeTransition = useRef<ThemeTransition | null>(null);
   const setTheme = useCallback((nextTheme: Theme) => {
-    window.localStorage.setItem(themeStorageKey, nextTheme);
+    try { window.localStorage.setItem(themeStorageKey, nextTheme); } catch {}
     setThemeState(nextTheme);
   }, []);
   useEffect(() => {
@@ -59,7 +61,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         root.style.setProperty("--theme-reveal-x", `${x}px`);
         root.style.setProperty("--theme-reveal-y", `${y}px`);
         root.style.setProperty("--theme-reveal-radius", `${Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y))}px`);
-        const startViewTransition = document.querySelector(":popover-open") ? undefined : (document as Document & {
+        const startViewTransition = document.querySelector(":popover-open:not([data-hand-visual])") ? undefined : (document as Document & {
           startViewTransition?: (callback: () => void) => ThemeTransition;
         }).startViewTransition;
         let transition: ThemeTransition | undefined;

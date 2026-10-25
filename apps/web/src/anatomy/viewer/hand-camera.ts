@@ -12,13 +12,18 @@ export const emptyHandFeedback: HandFeedback = { mode: "idle", hands: [], region
 export type HandCameraError = "unsupported" | "camera" | "model" | "processing";
 
 export function startHandCamera(video: HTMLVideoElement, options: {
+  deviceId?: string;
+  onStarted?: () => void;
+  onActiveChange?: (active: boolean) => void;
   allowed: () => boolean;
+  cameraAllowed?: () => boolean;
   region: () => number[];
   onResult: (feedback: HandFeedback) => void;
   onError: (error: HandCameraError) => void;
 }) {
   let disposed = false, busy = false, ready = false, frame = 0, timer = 0, feedbackTimer = 0, manualUntil = 0;
   let lastVideoTime = -1, lastCapture = -Infinity, paused = false;
+  let lastSuspended: boolean | undefined;
   let stream: MediaStream | undefined;
   let worker: Worker | undefined;
   const pointers = new Set<number>(), keys = new Set<string>();
@@ -34,6 +39,7 @@ export function startHandCamera(video: HTMLVideoElement, options: {
     cancelAnimationFrame(frame); window.clearTimeout(timer); window.clearTimeout(feedbackTimer);
     worker?.terminate();
     stream?.getTracks().forEach(track => { track.removeEventListener("ended", cameraEnded); track.stop(); });
+    if (stream) options.onActiveChange?.(false);
     video.pause(); video.srcObject = null;
     window.removeEventListener("pointerdown", pointerDown); window.removeEventListener("pointerup", pointerUp);
     window.removeEventListener("pointercancel", pointerUp); window.removeEventListener("keydown", keyDown);
@@ -45,9 +51,10 @@ export function startHandCamera(video: HTMLVideoElement, options: {
     cleanup(); options.onError(error);
   };
   const cameraEnded = () => fail("camera");
-  const blocked = () => document.hidden || !document.hasFocus() || !options.allowed()
+  const blocked = () => document.hidden || !document.hasFocus();
+  const suspended = () => !options.allowed()
     || pointers.size > 0 || keys.size > 0 || performance.now() < manualUntil
-    || !!document.querySelector(":popover-open");
+    || !!document.querySelector(":popover-open:not([data-hand-visual])");
   const tick = async (now: number) => {
     if (disposed) return;
     frame = requestAnimationFrame(tick);
@@ -59,6 +66,9 @@ export function startHandCamera(video: HTMLVideoElement, options: {
       return;
     }
     paused = false;
+    const nextSuspended = suspended();
+    if (lastSuspended !== undefined && lastSuspended !== nextSuspended) worker?.postMessage({ type: "reset" });
+    lastSuspended = nextSuspended;
     if (!ready || busy || now - lastCapture < 1000 / 30 || video.readyState < 2 || video.currentTime === lastVideoTime) return;
     busy = true; lastCapture = now; lastVideoTime = video.currentTime;
     try {
@@ -66,7 +76,8 @@ export function startHandCamera(video: HTMLVideoElement, options: {
       if (disposed) { image.close(); return; }
       if (blocked()) { image.close(); busy = false; return; }
       try {
-        worker!.postMessage({ type: "frame", image, timestamp: now, aspect: video.videoWidth / video.videoHeight, region: options.region() }, [image]);
+        worker!.postMessage({ type: "frame", image, timestamp: now, aspect: video.videoWidth / video.videoHeight, region: options.region(),
+          cameraAllowed: options.cameraAllowed?.() ?? true, suspended: suspended() }, [image]);
       } catch (cause) { image.close(); throw cause; }
       timer = window.setTimeout(() => fail("processing"), 10000);
     } catch { fail("processing"); }
@@ -81,15 +92,18 @@ export function startHandCamera(video: HTMLVideoElement, options: {
     }
     try {
       const acquired = await navigator.mediaDevices.getUserMedia({
-        audio: false, video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30, max: 30 } },
+        audio: false, video: { ...(options.deviceId ? { deviceId: { exact: options.deviceId } } : { facingMode: "user" }),
+          width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30, max: 30 } },
       });
       if (disposed) { acquired.getTracks().forEach(track => track.stop()); return; }
       stream = acquired;
       stream.getVideoTracks().forEach(track => track.addEventListener("ended", cameraEnded));
+      options.onActiveChange?.(true);
       video.srcObject = stream;
       await video.play();
     } catch { fail("camera"); return; }
     if (disposed) return;
+    options.onStarted?.();
     try {
       worker = new Worker(new URL("./hand-worker.ts", import.meta.url), { type: "module" });
       worker.onmessage = ({ data }) => {
@@ -104,7 +118,13 @@ export function startHandCamera(video: HTMLVideoElement, options: {
           if (performance.now() - data.timestamp > 200) {
             worker?.postMessage({ type: "reset" }); options.onResult(emptyHandFeedback);
           } else if (!blocked()) {
-            options.onResult(data);
+            const cameraAllowed = options.cameraAllowed?.() ?? true;
+            const isSuspended = suspended();
+            const changed = data.cameraAllowed !== undefined && data.cameraAllowed !== cameraAllowed
+              || data.suspended !== undefined && data.suspended !== isSuspended;
+            if (changed) worker?.postMessage({ type: "reset" });
+            options.onResult(changed || isSuspended ? { ...data, mode: "paused", commands: [], zoom: "none" }
+              : !cameraAllowed ? { ...data, mode: "idle", commands: [], zoom: "none" } : data);
             if (data.hands.length) feedbackTimer = window.setTimeout(() => {
               worker?.postMessage({ type: "reset" }); options.onResult(emptyHandFeedback);
             }, 250);
