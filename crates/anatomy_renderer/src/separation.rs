@@ -6,6 +6,14 @@ use std::collections::{HashMap, HashSet};
 pub struct Separation {
     offsets: HashMap<String, Vec3>,
     groups: Vec<Vec<String>>,
+    restoration: Option<Restoration>,
+}
+
+struct Restoration {
+    started: f64,
+    previous: f64,
+    offsets: HashMap<String, Vec3>,
+    all: bool,
 }
 
 impl Separation {
@@ -22,6 +30,7 @@ impl Separation {
     }
 
     pub fn clear(&mut self, id: &str) {
+        self.restoration = None;
         if id.is_empty() {
             self.offsets.clear();
             self.groups.clear();
@@ -49,6 +58,7 @@ impl Separation {
     }
 
     pub fn detach(&mut self, id: &str) {
+        self.restoration = None;
         for group in &mut self.groups {
             group.retain(|member| member != id);
         }
@@ -132,6 +142,7 @@ impl Separation {
             return Err("Invalid separated structure or position".into());
         }
         let offset = offset.clamp_length_max(scene.bounds.radius() * 3.0);
+        self.restoration = None;
         for member in self.members(id) {
             if offset.length_squared() == 0.0 {
                 self.offsets.remove(&member);
@@ -140,6 +151,102 @@ impl Separation {
             }
         }
         Ok(())
+    }
+
+    pub fn begin_restore(
+        &mut self,
+        scene: &Scene,
+        id: &str,
+        now: f64,
+        animate: bool,
+    ) -> Result<Vec<String>, String> {
+        self.check_restore_time(now)?;
+        if !id.is_empty()
+            && !scene
+                .parts
+                .iter()
+                .any(|part| part.active && part.source_id == id)
+        {
+            return Err("Unknown structure to restore".into());
+        }
+        let all = id.is_empty() || self.restoration.as_ref().is_some_and(|restore| restore.all);
+        let mut ids: HashSet<_> = self
+            .restoration
+            .iter()
+            .flat_map(|restore| restore.offsets.keys().cloned())
+            .collect();
+        if id.is_empty() {
+            ids.extend(self.offsets.keys().cloned());
+        } else {
+            ids.extend(self.members(id));
+        }
+        let mut ids: Vec<_> = ids.into_iter().collect();
+        ids.sort();
+        let offsets: HashMap<_, _> = ids.iter().map(|id| (id.clone(), self.offset(id))).collect();
+        let moving = offsets.values().any(|offset| *offset != Vec3::ZERO);
+        self.restoration = Some(Restoration {
+            started: now,
+            previous: now,
+            offsets,
+            all,
+        });
+        if !animate || !moving {
+            self.finish_restore();
+        }
+        Ok(ids)
+    }
+
+    pub fn restoring(&self) -> bool {
+        self.restoration.is_some()
+    }
+
+    fn check_restore_time(&self, now: f64) -> Result<(), String> {
+        if !now.is_finite()
+            || now < 0.0
+            || self
+                .restoration
+                .as_ref()
+                .is_some_and(|restore| now < restore.previous)
+        {
+            return Err("Invalid restoration timestamp".into());
+        }
+        Ok(())
+    }
+
+    pub fn advance_restore(&mut self, now: f64) -> Result<bool, String> {
+        self.check_restore_time(now)?;
+        let Some(restore) = self.restoration.as_mut() else {
+            return Ok(false);
+        };
+        restore.previous = now;
+        let progress = ((now - restore.started) / 420.0).min(1.0);
+        if progress >= 1.0 {
+            self.finish_restore();
+            return Ok(false);
+        }
+        let remaining = (1.0 - progress).powi(3) as f32;
+        for (id, offset) in &restore.offsets {
+            let offset = *offset * remaining;
+            if offset == Vec3::ZERO {
+                self.offsets.remove(id);
+            } else if let Some(current) = self.offsets.get_mut(id) {
+                *current = offset;
+            }
+        }
+        Ok(true)
+    }
+
+    pub fn finish_restore(&mut self) {
+        let Some(restore) = self.restoration.take() else {
+            return;
+        };
+        if restore.all {
+            self.clear("");
+        } else {
+            for id in restore.offsets.keys() {
+                self.clear(id);
+            }
+        }
     }
 
     pub fn drag(
