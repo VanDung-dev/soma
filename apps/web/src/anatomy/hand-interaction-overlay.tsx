@@ -76,7 +76,9 @@ export function HandInteractionOverlay({ feedback, aspect = 4 / 3 }: { feedback:
         <div className="hand-cursor" data-side={hand.side} data-button={button}
           data-state={hand.state}
           style={{ left: `${center[0] * 100}%`, top: `${center[1] * 100}%` }}>
-          <span className="hand-cursor-ring">{zooming ? <span className="hand-zoom-symbol">↔</span> : <MouseIndicator button={button} />}</span>
+          <span className="hand-cursor-ring">{zooming ? <svg className="hand-zoom-symbol" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg> : <MouseIndicator button={button} />}</span>
           <span className="hand-cursor-label">{t(`handCamera.hand.${hand.side}`)}
             <small>{t(zooming ? "handCamera.action.zoom" : button === "none" ? `handCamera.handState.${hand.state}` : `handCamera.button.${button}`)}</small>
           </span>

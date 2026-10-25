@@ -47,7 +47,8 @@ test('hand feedback identifies each hand, held mouse buttons and zoom direction'
       assert.equal((markup.match(/class="hand-virtual"/g) ?? []).length, 2);
       assert.equal((markup.match(/data-button="none"/g) ?? []).length, 2);
       assert(!markup.includes('hand-mouse-pressed'));
-      assert(markup.includes('↔') && markup.includes('Thu phóng'));
+      assert.equal((markup.match(/<svg class="hand-zoom-symbol" viewBox="0 0 24 24"/g) ?? []).length, 2);
+      assert(markup.includes('Thu phóng'));
       assert(markup.includes('Tay trái') && markup.includes('Tay phải') && markup.includes(text));
       assert(markup.includes('hand-interaction-link') && markup.includes('hand-zoom-indicator'));
     }
