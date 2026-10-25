@@ -159,11 +159,28 @@ test('manual separation drags only its structure and rotates only from empty bac
     assert.equal(moves.at(-1)[0], 'a', 'Previously separated structures remain draggable without Move again');
     assert.equal(committed.at(-1), 'a', 'Commit the structure being dragged rather than the newest separation');
     pointer('pointerdown', 30); pointer('pointermove', 50);
+    for (const key of ['w', 'a', 's', 'd', 'e', 'q', 'r', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']) {
+      const event = Object.assign(new Event('keydown', { cancelable: true }), { key });
+      canvas.dispatchEvent(event);
+      assert(event.defaultPrevented, `Block camera key ${key} while dragging anatomy`);
+    }
+    const unrelated = Object.assign(new Event('keydown', { cancelable: true }), { key: 'z' });
+    canvas.dispatchEvent(unrelated); assert(!unrelated.defaultPrevented);
     const restore = Object.assign(new Event('keydown', { cancelable: true }), { key: 't', ctrlKey: false, metaKey: false, altKey: false, shiftKey: false });
     canvas.dispatchEvent(restore); assert(restore.defaultPrevented); assert.deepEqual(restored, [true]);
     const count = moves.length;
     pointer('pointermove', 70); pointer('pointerup', 70);
     assert.equal(moves.length, count, 'T must finish the drag before restoring so later movement cannot reapply it');
+    canvas.width = 800; canvas.height = 400;
+    canvas.getBoundingClientRect = () => ({ left: 20, top: 40, width: 200, height: 100 });
+    const pixels = [];
+    viewer.pick = (x, y) => { pixels.push([x, y]); selected = 'a'; return selected; };
+    moving = ''; separated.clear(); selected = 'b';
+    pointer('pointerdown', 70);
+    assert.equal(selected, 'b', 'Hit testing must preserve selection until the click completes');
+    pointer('pointerup', 70);
+    assert.deepEqual(pixels, [[200, 159], [200, 159]], 'Hold and click must use the same scaled canvas coordinates and inverted Y');
+    assert.equal(selected, 'a');
   } finally {
     unbind?.();
     if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow;

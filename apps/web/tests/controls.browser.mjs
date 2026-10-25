@@ -54,7 +54,7 @@ export async function checkControls() {
     assert(!guide.matches(':popover-open'), 'Close button must hide the guide');
     const shell = document.querySelector('.module-page');
     for (const control of [document.querySelector('.explode-control input'), document.querySelector('.folder-toggle'),
-      document.querySelector('.visibility-checkbox input')]) {
+      document.querySelector('.catalog-panel .visibility-checkbox input')]) {
       control.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }));
       control.focus();
       control.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'mouse' }));
