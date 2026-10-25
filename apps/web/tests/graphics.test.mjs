@@ -60,17 +60,8 @@ test('frame limits coalesce redraws, finish animations, and stop when idle or di
     runtime.scheduleRender();
     assert.equal(pending.size, 0, 'Partially uploaded anatomy must not render during loading');
     runtime.loading = false;
-    const preferences = { ...runtime.graphics, grid: true };
-    runtime.setCameraBackground(true);
-    runtime.setGraphics(preferences);
-    assert.equal(grids.at(-1), false, 'Camera compositing must keep the enclosure transparent across settings changes');
-    assert.equal(preferences.grid, true, 'Camera mode must not overwrite the saved grid preference');
-    runtime.setCameraBackground(false);
-    assert.equal(grids.at(-1), true, 'Stopping the camera must restore the current grid preference');
-    runtime.setCameraBackground(true);
-    runtime.setGraphics({ ...preferences, grid: false });
-    runtime.setCameraBackground(false);
-    assert.equal(grids.at(-1), false, 'Restoration must respect settings changed while camera mode was active');
+    runtime.setGraphics({ ...runtime.graphics, grid: true });
+    assert.equal(grids.at(-1), true, 'Hand camera mode must leave the scene grid preference unchanged');
     const tick = time => {
       now = time;
       const callbacks = [...pending.values()]; pending.clear();

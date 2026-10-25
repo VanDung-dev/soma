@@ -18,3 +18,38 @@ test('hand start region follows the letterboxed image and excludes visible panel
     assert.deepEqual(measureHandRegion(host, { videoWidth: 0, videoHeight: 0 }, frame, []), [0, 0, 0, 0]);
   } finally { await server.close(); }
 });
+
+test('camera mode reclaims hidden panels and compact panel controls without collapsing the viewport', async () => {
+  const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
+  const originalWindow = globalThis.window;
+  try {
+    const { measureViewport } = await server.ssrLoadModule('/src/anatomy/viewer/layout.ts');
+    let desktop = true;
+    globalThis.window = { matchMedia: () => ({ matches: desktop }) };
+    const box = (left, top, width, height) => ({ hidden: false, getBoundingClientRect() {
+      return this.hidden ? { left: 0, top: 0, width: 0, height: 0, right: 0, bottom: 0 }
+        : { left, top, width, height, right: left + width, bottom: top + height };
+    } });
+    const elements = { host: box(100, 50, 1000, 800), frame: { style: {} }, menu: box(112, 62, 976, 48),
+      catalog: box(112, 122, 200, 712), information: box(888, 122, 200, 712), controls: box(112, 122, 976, 36), hud: box(450, 750, 300, 80) };
+    const normal = measureViewport(elements);
+    assert.equal(elements.frame.style.width, '552px');
+    elements.catalog.hidden = elements.information.hidden = elements.controls.hidden = true;
+    for (const compact of [false, true]) {
+      desktop = !compact;
+      const camera = measureViewport(elements);
+      assert.equal(elements.frame.style.left, '12px');
+      assert.equal(elements.frame.style.top, '72px');
+      assert.equal(elements.frame.style.width, '976px');
+      assert.equal(elements.frame.style.height, '712px');
+      assert(camera[2] > normal[2]);
+      assert(camera.every(value => value > 0 && value <= 1));
+    }
+    desktop = true;
+    elements.catalog.hidden = elements.information.hidden = elements.controls.hidden = false;
+    assert.deepEqual(measureViewport(elements), normal);
+  } finally {
+    if (originalWindow === undefined) delete globalThis.window; else globalThis.window = originalWindow;
+    await server.close();
+  }
+});

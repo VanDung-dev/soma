@@ -103,7 +103,7 @@ export async function checkHandInput() {
 
 export async function checkHandCameraBridge(side = 'left') {
   const button = document.querySelector('.hand-camera-toggle');
-  if (!button || button.disabled || button.getAttribute('aria-pressed') === 'true') {
+  if (!button || button.disabled || button.getAttribute('aria-checked') === 'true') {
     throw Error('Wait for the viewer and turn the hand camera off before running this probe');
   }
   const { AnatomyViewer, HandGestureController } = await getWasm();
@@ -113,7 +113,6 @@ export async function checkHandCameraBridge(side = 'left') {
   const originalPan = AnatomyViewer.prototype.pan;
   const mode = side === 'left' ? 'pan' : 'rotate';
   const sideOffset = side === 'left' ? 0.135 : -0.135;
-  const originalGraphics = AnatomyViewer.prototype.set_graphics;
   const originalFocus = document.hasFocus;
   const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 360;
   const context = canvas.getContext('2d');
@@ -134,9 +133,7 @@ export async function checkHandCameraBridge(side = 'left') {
       nextResult = update => { clearTimeout(pendingTimer); resolve(update); };
     });
   };
-  const grids = [];
   const savedGraphics = localStorage.getItem('human-atlas-graphics');
-  const savedGrid = JSON.parse(savedGraphics ?? '{}').grid ?? true;
   const motion = new Promise((resolve, reject) => {
     resolveMotion = resolve;
     timeout = setTimeout(() => reject(Error('Hand commands did not reach the live viewer')), 10000);
@@ -176,10 +173,6 @@ export async function checkHandCameraBridge(side = 'left') {
       if (mode === 'pan') { motions++; resolveMotion(args); } else unexpected++;
       return result;
     };
-    AnatomyViewer.prototype.set_graphics = function(...args) {
-      grids.push(args[2]);
-      return originalGraphics.apply(this, args);
-    };
     button.click();
     const movement = await motion;
     await new Promise(requestAnimationFrame);
@@ -192,14 +185,14 @@ export async function checkHandCameraBridge(side = 'left') {
       throw Error('Rust landmarks must render the complete virtual hand over the live model');
     }
     const video = document.querySelector('.hand-camera-scene');
-    if (!video.hidden || video.srcObject !== stream || cameraRequests !== 1 || grids.length) {
+    if (!video.hidden || video.srcObject !== stream || cameraRequests !== 1) {
       throw Error('Tracking must use a hidden camera without changing the viewer background');
     }
     if (document.querySelector('.hand-camera-status, .hand-camera-guide, .hand-camera-privacy')
-      || document.querySelector('.hand-camera-scene-toggle')?.getAttribute('aria-pressed') !== 'false') {
-      throw Error('The camera card must hide guidance and start with the scene background off');
+      || document.querySelector('.hand-action-menu, .hand-select-options')) {
+      throw Error('Hand camera input must stay focused on model interactions');
     }
-    if (button.textContent !== 'Tắt camera') throw Error('Active camera label must be concise');
+    if (button.getAttribute('role') !== 'switch' || !button.closest('.app-menu-history')) throw Error('Camera mode switch must sit beside history navigation');
     const image = document.querySelector('.hand-camera-image-area').getBoundingClientRect();
     const area = document.querySelector('.model-canvas').getBoundingClientRect();
     const width = Math.min(area.width, area.height * video.videoWidth / video.videoHeight);
@@ -216,8 +209,8 @@ export async function checkHandCameraBridge(side = 'left') {
     const beforeRejected = motions;
     let state = await setPose(outside, true);
     if (state.mode !== 'idle' || state.hands[0].state !== 'release') throw Error('A pinch outside the viewer must not start control');
-    if (!document.querySelector('.hand-cursor-label').textContent.includes('Nhả')
-      || document.querySelector('.hand-mouse-pressed')) throw Error('Rejected pinches must show release guidance without a pressed mouse button');
+    if (!document.querySelector('.hand-cursor[data-state="release"] .hand-mouse-mapped')
+      || document.querySelector('.hand-mouse-pressed')) throw Error('Rejected pinches must keep the mapped icon without a pressed mouse button');
     for (let step = 1; step <= steps; step++) {
       state = await setPose(outside + (0.5 - outside) * step / steps, true);
       if (state.mode !== 'idle' || motions !== beforeRejected) throw Error('Moving an already closed pinch into the viewer must not activate it');
@@ -242,35 +235,27 @@ export async function checkHandCameraBridge(side = 'left') {
       throw Error('Manual input must end capture and prevent a held pinch from automatically resuming');
     }
     await setPose(0.5, false); await setPose(0.5, true);
-    const sceneToggle = document.querySelector('.hand-camera-scene-toggle');
-    sceneToggle.click(); await new Promise(requestAnimationFrame);
-    if (video.hidden || grids.at(-1) !== false || cameraRequests !== 1) {
-      throw Error('The scene background toggle must activate without reopening the camera');
-    }
-    sceneToggle.click(); await new Promise(requestAnimationFrame);
-    if (!video.hidden || grids.at(-1) !== savedGrid || stream.getTracks()[0].readyState !== 'live'
-      || !document.querySelector('.hand-virtual')) {
-      throw Error('Turning the scene background off must retain hand tracking and restore the grid');
+    if (!video.hidden || stream.getTracks()[0].readyState !== 'live' || !document.querySelector('.hand-virtual')) {
+      throw Error('Hand tracking must remain active without a camera background toggle');
     }
     button.click();
     await new Promise(requestAnimationFrame);
     if (stream.getTracks().some(track => track.readyState !== 'ended')) throw Error('Camera tracks were not released');
     if (document.querySelector('.hand-interaction-overlay')) throw Error('Stopping the camera must remove the overlay');
-    if (!video.hidden || grids.at(-1) !== savedGrid
-      || localStorage.getItem('human-atlas-graphics') !== savedGraphics) throw Error('Camera shutdown must preserve graphics preferences');
-    if (button.textContent !== 'Bật camera') throw Error('Inactive camera label must be concise');
+    if (!video.hidden || localStorage.getItem('human-atlas-graphics') !== savedGraphics) throw Error('Camera shutdown must preserve graphics preferences');
+    if (button.getAttribute('aria-checked') !== 'false') throw Error('Camera mode must be off after stopping');
     if (unexpected) throw Error('A single hand must not trigger the other hand\'s camera action');
-    return { rustToViewer: 'passed', side, mode, movement, handOverlay: 'passed', startRegionAndCapture: 'passed', cameraBackground: 'off by default; toggle verified', cameraCleanup: 'passed' };
+    return { rustToViewer: 'passed', side, mode, movement, handOverlay: 'passed', startRegionAndCapture: 'passed', cameraCleanup: 'passed' };
   } finally {
     clearTimeout(timeout);
     clearTimeout(pendingTimer);
-    if (button.getAttribute('aria-pressed') === 'true') {
+    if (button.getAttribute('aria-checked') === 'true') {
       button.click(); await new Promise(requestAnimationFrame);
     }
     cancelAnimationFrame(animation); stream.getTracks().forEach(track => track.stop());
     window.Worker = originalWorker; navigator.mediaDevices.getUserMedia = originalCamera;
     document.hasFocus = originalFocus;
-    AnatomyViewer.prototype.rotate = originalRotate; AnatomyViewer.prototype.set_graphics = originalGraphics;
+    AnatomyViewer.prototype.rotate = originalRotate;
     AnatomyViewer.prototype.pan = originalPan;
     gestures.free();
   }
