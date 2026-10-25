@@ -57,6 +57,12 @@ pub struct HandInput {
 }
 
 impl HandInput {
+    pub fn cancel_controls(&mut self) {
+        self.captured = 0;
+        self.previous = None;
+        self.blocked = [true; 2];
+    }
+
     pub fn reset(&mut self) {
         *self = Self::default();
         self.blocked = [true; 2];
@@ -165,7 +171,7 @@ impl HandInput {
                     self.landmarks[side] = None;
                     self.pinching[side] = false;
                 }
-                self.pinching[side] = ratio < if self.pinching[side] { 0.55 } else { 0.35 };
+                self.pinching[side] = ratio < if self.pinching[side] { 0.35 } else { 0.20 };
                 inside[side] = eligible(position);
                 if !self.pinching[side] {
                     self.blocked[side] = false;

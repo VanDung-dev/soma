@@ -315,9 +315,36 @@ fn tracking_gaps_hand_changes_and_jumps_rebase_without_motion() {
 fn hysteresis_avoids_pinch_chatter() {
     let mut input = HandInput::default();
     assert_eq!(input.update(&hand(0.0, 0.4, 0.08), 0.0, 1.0).mode, "idle");
-    assert_eq!(input.update(&hand(0.0, 0.4, 0.05), 33.0, 1.0).mode, "pan");
-    assert_eq!(input.update(&hand(0.0, 0.4, 0.08), 66.0, 1.0).mode, "pan");
-    assert_eq!(input.update(&hand(0.0, 0.4, 0.12), 99.0, 1.0).mode, "idle");
+    assert_eq!(input.update(&hand(0.0, 0.4, 0.03), 33.0, 1.0).mode, "pan");
+    assert_eq!(input.update(&hand(0.0, 0.4, 0.055), 66.0, 1.0).mode, "pan");
+    assert_eq!(input.update(&hand(0.0, 0.4, 0.08), 99.0, 1.0).mode, "idle");
+}
+
+#[test]
+fn pinch_hysteresis_tracks_open_and_closed_fingers() {
+    for side in [0.0, 1.0] {
+        for aspect in [1.0, 4.0 / 3.0] {
+            let mut input = HandInput::default();
+            for (index, (ratio, pressed)) in [
+                (0.45, false),
+                (0.32, false),
+                (0.25, false),
+                (0.18, true),
+                (0.25, true),
+                (0.32, true),
+                (0.38, false),
+                (0.25, false),
+                (0.18, true),
+            ]
+            .into_iter()
+            .enumerate()
+            {
+                let time = index as f64 * 33.0;
+                let result = input.update(&hand(side, 0.4, ratio * 0.2 / aspect), time, aspect);
+                assert_eq!(result.hands[0].pinching, pressed);
+            }
+        }
+    }
 }
 
 #[test]
