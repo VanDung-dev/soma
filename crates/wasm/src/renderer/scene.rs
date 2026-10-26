@@ -6,7 +6,7 @@ use super::{AnatomyViewer, util::js_error};
 #[wasm_bindgen]
 impl AnatomyViewer {
     pub fn begin_reconstruction(&mut self, now: f64, animate: bool) -> Result<(), JsValue> {
-        let mut reconstruction = anatomy_renderer::Reconstruction::default();
+        let mut reconstruction = ::renderer::Reconstruction::default();
         reconstruction
             .append(&self.scene.parts, self.scene.bounds, now, animate)
             .map_err(js_error)?;

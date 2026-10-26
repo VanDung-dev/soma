@@ -1,4 +1,4 @@
-use anatomy_renderer::{PackedScene, Scene};
+use ::renderer::{PackedScene, Scene};
 use js_sys::{Float32Array, Uint32Array};
 use wasm_bindgen::prelude::*;
 

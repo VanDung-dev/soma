@@ -1,3 +1,3 @@
 # Exclude tests from GitHub language statistics
 apps/web/tests/** linguist-vendored
-crates/anatomy_renderer/tests/** linguist-vendored
+crates/renderer/tests/** linguist-vendored

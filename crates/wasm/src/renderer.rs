@@ -11,7 +11,7 @@ mod shaders;
 mod uniforms;
 mod util;
 
-use anatomy_renderer::{Camera, Explosion, PackedScene, Reconstruction, Scene, Separation};
+use ::renderer::{Camera, Explosion, PackedScene, Reconstruction, Scene, Separation};
 use js_sys::{Float32Array, Uint32Array};
 use std::cell::Cell;
 use wasm_bindgen::{JsCast, prelude::*};

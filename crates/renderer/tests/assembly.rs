@@ -1,5 +1,5 @@
-use anatomy_renderer::{Camera, Scene, Separation};
 use glam::Vec3;
+use renderer::{Camera, Scene, Separation};
 
 fn scene() -> Scene {
     let parts: Vec<_> = [

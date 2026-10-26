@@ -1,5 +1,5 @@
-use anatomy_renderer::{Bounds, Camera};
 use glam::Vec3;
+use renderer::{Bounds, Camera};
 
 #[test]
 fn explosion_tracking_contains_then_centers_the_moving_selection() {

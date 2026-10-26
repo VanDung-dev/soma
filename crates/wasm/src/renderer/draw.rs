@@ -263,7 +263,7 @@ impl AnatomyViewer {
             // Fit the frustum to the viewed region so zoomed-in texels stay dense.
             let (center, radius) = self.camera.shadow_volume();
             gl.uniform1f(Some(&u.shadow_offset), radius * 1e-3);
-            anatomy_renderer::Bounds::shadow_matrix_at(center, radius, light)
+            ::renderer::Bounds::shadow_matrix_at(center, radius, light)
         };
         gl.uniform_matrix4fv_with_f32_array(
             Some(&u.shadow_projection),

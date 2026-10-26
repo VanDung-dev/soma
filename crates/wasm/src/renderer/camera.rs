@@ -1,4 +1,4 @@
-use anatomy_renderer::Camera;
+use ::renderer::Camera;
 use wasm_bindgen::prelude::*;
 
 use super::{AnatomyViewer, util::js_error};
@@ -263,7 +263,7 @@ impl AnatomyViewer {
         Ok(())
     }
 
-    fn orbit_bounds(&self) -> Result<anatomy_renderer::Bounds, JsValue> {
+    fn orbit_bounds(&self) -> Result<::renderer::Bounds, JsValue> {
         let ids: std::collections::HashSet<_> = self
             .scene
             .parts

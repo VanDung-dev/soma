@@ -1,5 +1,5 @@
-use anatomy_wasm::HandGestureController;
 use serde_json::Value;
+use wasm::HandGestureController;
 
 fn hand(x: f32, pinching: bool) -> Vec<f32> {
     let mut points = [[x, 0.5, 0.0]; 21];

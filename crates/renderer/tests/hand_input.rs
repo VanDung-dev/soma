@@ -1,4 +1,4 @@
-use anatomy_renderer::{HandCameraCommand, HandInput};
+use renderer::{HandCameraCommand, HandInput};
 
 fn hand(side: f32, x: f32, gap: f32) -> Vec<f32> {
     let mut data = vec![side, 0.99];

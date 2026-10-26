@@ -33,37 +33,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anatomy_core"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "anatomy_renderer"
-version = "0.1.0"
-dependencies = [
- "glam",
- "gltf",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "anatomy_wasm"
-version = "0.1.0"
-dependencies = [
- "anatomy_core",
- "anatomy_renderer",
- "js-sys",
- "serde_json",
- "wasm-bindgen",
- "web-sys",
-]
-
-[[package]]
 name = "android_system_properties"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -530,6 +499,15 @@ checksum = "1a373e3602691c3cdea496d2f0ee5935151e6168fe87739483c463db1b2f2f87"
 dependencies = [
  "time",
  "version_check",
+]
+
+[[package]]
+name = "core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -1560,7 +1538,7 @@ checksum = "6dbf3de79e51f3d586ab4cb9d5c3e2c14aa28ed23d180cf89b4df0454a69cc87"
 name = "human-atlas-rs"
 version = "0.1.0"
 dependencies = [
- "anatomy_core",
+ "core",
  "tauri",
  "tauri-build",
  "tauri-plugin-opener",
@@ -2853,6 +2831,16 @@ name = "regex-syntax"
 version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
+
+[[package]]
+name = "renderer"
+version = "0.1.0"
+dependencies = [
+ "glam",
+ "gltf",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "reqwest"
@@ -4182,6 +4170,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b67efb37e106e55ce722a510d6b5f9c17f083e5fc79afc2badeb12cc313d9487"
 dependencies = [
  "wit-bindgen",
+]
+
+[[package]]
+name = "wasm"
+version = "0.1.0"
+dependencies = [
+ "core",
+ "js-sys",
+ "renderer",
+ "serde_json",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]

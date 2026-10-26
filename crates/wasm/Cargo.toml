@@ -1,5 +1,5 @@
 [package]
-name = "anatomy_wasm"
+name = "wasm"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,8 +8,8 @@ rust-version.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-anatomy_core.workspace = true
-anatomy_renderer.workspace = true
+catalog.workspace = true
+renderer.workspace = true
 serde_json.workspace = true
 wasm-bindgen.workspace = true
 

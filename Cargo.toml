@@ -1,6 +1,6 @@
 [workspace]
-members = ["crates/anatomy_core", "crates/anatomy_renderer", "crates/anatomy_wasm", "apps/web/src-tauri"]
-default-members = ["crates/anatomy_core"]
+members = ["crates/core", "crates/renderer", "crates/wasm", "apps/web/src-tauri"]
+default-members = ["crates/core"]
 resolver = "3"
 
 [workspace.package]
@@ -9,8 +9,8 @@ edition = "2024"
 rust-version = "1.96.0"
 
 [workspace.dependencies]
-anatomy_core = { path = "crates/anatomy_core" }
-anatomy_renderer = { path = "crates/anatomy_renderer" }
+catalog = { package = "core", path = "crates/core" }
+renderer = { path = "crates/renderer" }
 glam = "0.34"
 tauri = "2"
 tauri-build = "2"

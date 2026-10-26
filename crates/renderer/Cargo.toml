@@ -1,5 +1,5 @@
 [package]
-name = "anatomy_renderer"
+name = "renderer"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

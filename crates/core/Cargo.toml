@@ -1,8 +1,11 @@
 [package]
-name = "anatomy_core"
+name = "core"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+
+[lib]
+name = "catalog"
 
 [dependencies]
 serde.workspace = true

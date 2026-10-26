@@ -3,7 +3,7 @@
   "private": true,
   "workspaces": ["apps/web"],
   "scripts": {
-    "wasm:build": "wasm-pack build crates/anatomy_wasm --target web --out-dir ../../apps/web/src/wasm --release --no-opt",
+    "wasm:build": "wasm-pack build crates/wasm --target web --out-dir ../../apps/web/src/wasm --release --no-opt",
     "dev": "npm run dev --workspace apps/web",
     "build": "npm run build --workspace apps/web",
     "serve": "npm run serve --workspace apps/web",

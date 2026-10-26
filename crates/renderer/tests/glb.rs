@@ -1,4 +1,4 @@
-use anatomy_renderer::Scene;
+use renderer::Scene;
 use std::path::Path;
 
 #[test]

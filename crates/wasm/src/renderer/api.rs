@@ -1,4 +1,4 @@
-use anatomy_renderer::{Camera, Explosion};
+use ::renderer::{Camera, Explosion};
 use wasm_bindgen::prelude::*;
 use web_sys::HtmlCanvasElement;
 
@@ -15,7 +15,7 @@ impl AnatomyViewer {
         ids_json: &str,
     ) -> Result<AnatomyViewer, JsValue> {
         let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
-        let scene = anatomy_renderer::Scene::from_glb(bytes, &ids).map_err(js_error)?;
+        let scene = ::renderer::Scene::from_glb(bytes, &ids).map_err(js_error)?;
         Self::from_scene(canvas, scene)
     }
 

@@ -1,4 +1,4 @@
-use anatomy_renderer::{Bounds, Explosion};
+use ::renderer::{Bounds, Explosion};
 use std::collections::HashSet;
 use wasm_bindgen::prelude::*;
 

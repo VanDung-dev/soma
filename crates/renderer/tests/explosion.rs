@@ -1,5 +1,5 @@
-use anatomy_renderer::{Bounds, Camera, Explosion, Primitive, Reconstruction, Scene, Separation};
 use glam::Vec3;
+use renderer::{Bounds, Camera, Explosion, Primitive, Reconstruction, Scene, Separation};
 
 fn scene() -> Scene {
     let part = |id: &str, min: [f32; 3], max: [f32; 3]| -> Primitive {

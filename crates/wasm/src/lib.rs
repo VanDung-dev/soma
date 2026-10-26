@@ -6,7 +6,7 @@ mod renderer;
 #[wasm_bindgen]
 #[derive(Default)]
 pub struct HandGestureController {
-    input: anatomy_renderer::HandInput,
+    input: ::renderer::HandInput,
     camera_allowed: Option<bool>,
     suspended: bool,
 }
@@ -78,5 +78,5 @@ impl HandGestureController {
 
 #[wasm_bindgen]
 pub fn get_catalog() -> Result<String, JsValue> {
-    anatomy_core::catalog_json().map_err(|error| JsValue::from_str(&error.to_string()))
+    catalog::catalog_json().map_err(|error| JsValue::from_str(&error.to_string()))
 }

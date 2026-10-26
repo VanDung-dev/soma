@@ -1,4 +1,4 @@
-use anatomy_renderer::{PackedScene, Scene};
+use renderer::{PackedScene, Scene};
 use std::path::Path;
 
 #[test]

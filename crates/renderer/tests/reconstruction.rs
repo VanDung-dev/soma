@@ -1,4 +1,4 @@
-use anatomy_renderer::{Primitive, Reconstruction, Scene};
+use renderer::{Primitive, Reconstruction, Scene};
 use std::path::Path;
 
 #[test]
