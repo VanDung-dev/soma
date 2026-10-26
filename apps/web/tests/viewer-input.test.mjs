@@ -2,6 +2,53 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 
+test('touchpad pinch follows gesture scale at the cursor while wheel zoom keeps its sensitivity', async () => {
+  const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
+  const previousWindow = globalThis.window;
+  let unbind;
+  try {
+    const { bindViewerInput } = await server.ssrLoadModule('/src/anatomy/viewer/input.ts');
+    globalThis.window = new EventTarget();
+    const canvas = Object.assign(new EventTarget(), { clientHeight: 400,
+      getBoundingClientRect: () => ({ left: 100, top: 50, width: 800, height: 400 }) });
+    const calls = [];
+    let enabled = true;
+    unbind = bindViewerInput(canvas, { enabled: () => enabled,
+      operate: action => { action({ zoom_at: (...args) => calls.push(args) }); return true; }, redraw() {}, pick() {} });
+    const wheel = (deltaY, ctrlKey = false, deltaMode = 0) => {
+      const event = Object.assign(new Event('wheel', { cancelable: true }), {
+        clientX: 300, clientY: 350, deltaY, deltaMode, ctrlKey,
+      });
+      canvas.dispatchEvent(event);
+      assert(event.defaultPrevented, 'Zoom must not magnify the page');
+      return calls.at(-1);
+    };
+    for (const scale of [1.2, 1 / 1.2, 1.002]) {
+      const [x, y, factor] = wheel(-100 * Math.log(scale), true);
+      assert.equal(x, 0.25); assert.equal(y, 0.75);
+      assert(Math.abs(factor - 1 / scale) < 1e-12, 'Pinch must preserve the browser gesture scale');
+    }
+    for (const [deltaY, deltaMode, pixels] of [[-100, 0, -100], [6, 1, 96], [-0.1, 2, -40]]) {
+      assert.equal(wheel(deltaY, false, deltaMode)[2], Math.exp(pixels * 0.001));
+    }
+    for (const deltaY of [-10000, 10000]) {
+      assert.equal(wheel(deltaY, true)[2], Math.exp(Math.sign(deltaY)));
+    }
+    const count = calls.length;
+    enabled = false; wheel(-10, true);
+    assert.equal(calls.length, count, 'Disabled viewers must ignore pinch');
+    enabled = true; unbind();
+    const disposed = new Event('wheel', { cancelable: true });
+    canvas.dispatchEvent(disposed);
+    assert(!disposed.defaultPrevented);
+    assert.equal(calls.length, count, 'Disposed viewers must remove the wheel listener');
+  } finally {
+    unbind?.();
+    if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow;
+    await server.close();
+  }
+});
+
 test('left hold detaches after one second and cancels on interrupted gestures', async t => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   const previousWindow = globalThis.window;

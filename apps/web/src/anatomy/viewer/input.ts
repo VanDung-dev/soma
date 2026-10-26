@@ -171,7 +171,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     options.operate(renderer => renderer.zoom_at(
       (event.clientX - bounds.left) / bounds.width,
       (event.clientY - bounds.top) / bounds.height,
-      Math.exp(Math.max(-1, Math.min(1, pixels * 0.001))),
+      Math.exp(Math.max(-1, Math.min(1, pixels * (event.ctrlKey ? 0.01 : 0.001)))),
     ));
   };
   const contextMenu = (event: MouseEvent) => {

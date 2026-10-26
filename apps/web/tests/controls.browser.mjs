@@ -122,10 +122,11 @@ export async function checkControls() {
     viewer.inspect('reset'); viewer.pan(0.12, -0.08); viewer.rotate(0.2, -0.1);
     const area = canvas.getBoundingClientRect();
     const frame = document.querySelector('.model-focus-frame').getBoundingClientRect();
-    for (const [x, y, deltaY, deltaMode] of [[0.3, 0.35, -100, 0], [0.7, 0.65, 6, 1], [0.5, 0.4, -0.1, 2]]) {
+    for (const [x, y, deltaY, deltaMode, ctrlKey = false] of [[0.3, 0.35, -100, 0], [0.7, 0.65, 6, 1], [0.5, 0.4, -0.1, 2],
+      [0.4, 0.6, -100 * Math.log(1.2), 0, true], [0.6, 0.4, 100 * Math.log(1.2), 0, true]]) {
       const event = new WheelEvent('wheel', {
         clientX: frame.left + x * frame.width, clientY: frame.top + y * frame.height,
-        deltaY, deltaMode, bubbles: true, cancelable: true,
+        deltaY, deltaMode, ctrlKey, bubbles: true, cancelable: true,
       });
       const cursorX = (event.clientX - area.left) / area.width, cursorY = (event.clientY - area.top) / area.height;
       await anchorStays(cursorX, cursorY, () => canvas.dispatchEvent(event));
@@ -133,6 +134,8 @@ export async function checkControls() {
       assert(call && Math.abs(call.args[0] - cursorX) < 1e-6 && Math.abs(call.args[1] - cursorY) < 1e-6,
         'Wheel must pass canvas-relative cursor coordinates');
       assert((call.args[2] < 1) === (deltaY < 0), 'Preserve wheel zoom direction');
+      assert(event.defaultPrevented, 'Wheel and pinch must not magnify the page');
+      if (ctrlKey) assert(Math.abs(call.args[2] - Math.exp(deltaY / 100)) < 1e-6, 'Pinch must preserve gesture scale');
     }
     for (const key of ['e', 'q']) await anchorStays(0.5, 0.5, async () => {
       send('keydown', key); await frames(4); send('keyup', key);
