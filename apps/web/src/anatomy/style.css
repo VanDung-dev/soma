@@ -72,7 +72,7 @@
 .guide-mouse > div { margin-bottom: 18px; }
 .guide-mouse dt { font-weight: 600; }
 .guide-mouse dd { color: var(--muted); }
-.onboarding-replay { min-height: 44px; margin: 0; padding: 10px 14px; border: 1px solid var(--line-strong); border-radius: var(--control-radius); background: var(--panel-bg); color: var(--accent); font: inherit; font-size: 13px; }
+.onboarding-replay { min-height: 44px; margin: 0; padding: 10px 14px; border: 1px solid var(--line-strong); border-radius: var(--inner-radius); background: var(--panel-bg); color: var(--accent); font: inherit; font-size: 13px; }
 .onboarding-spotlight { position: fixed; inset: 0; width: 100vw; height: 100dvh; margin: 0; padding: 0; border: 0; background: transparent; overflow: hidden; pointer-events: none; }
 .onboarding-spotlight::backdrop { background: transparent; pointer-events: none; }
 .onboarding-dimmer { position: absolute; inset: 0; background: rgba(var(--shadow-rgb),.32); backdrop-filter: blur(3px); }
