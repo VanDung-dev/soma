@@ -3,8 +3,11 @@ import { LineIcon } from "../icons";
 import type { GraphicsSettings } from "./viewer/graphics";
 import { shortcutLabel } from "../shortcuts";
 import { PopoverPanel } from "../popover-panel";
+import type { RefObject } from "react";
 
-export function MenuBar({ disabled, canGoBack, canGoForward, onBack, onForward, helpId, settingsId, graphics, onGraphicsChange }: {
+export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForward, helpId, settingsId, graphics, onGraphicsChange, cameraEnabled, cameraActive, onCameraChange,
+  cameraDevices, cameraDeviceId, cameraDevicesError, onCameraDeviceChange, cameraAccessPending, onCameraAccessRequest }: {
+  ref: RefObject<HTMLElement | null>;
   disabled: boolean;
   canGoBack: boolean;
   canGoForward: boolean;
@@ -14,9 +17,18 @@ export function MenuBar({ disabled, canGoBack, canGoForward, onBack, onForward, 
   settingsId: string;
   graphics: GraphicsSettings;
   onGraphicsChange: (settings: GraphicsSettings) => void;
+  cameraEnabled: boolean;
+  cameraActive: boolean;
+  onCameraChange: (enabled: boolean) => void;
+  cameraDevices: readonly MediaDeviceInfo[];
+  cameraDeviceId: string;
+  cameraDevicesError: boolean;
+  onCameraDeviceChange: (deviceId: string) => void;
+  cameraAccessPending: boolean;
+  onCameraAccessRequest: () => void;
 }) {
   const { t } = useLanguage();
-  return <header className="app-menu-bar" aria-label={t("app.navigation.label")}>
+  return <header ref={ref} className="app-menu-bar" aria-label={t("app.navigation.label")}>
     <div className="app-menu-history">
       <button className="controls-info" disabled={disabled || !canGoBack} onClick={onBack}
         aria-label={t("app.back")} title={`${t("app.back")} (${shortcutLabel("back")})`}>
@@ -25,6 +37,13 @@ export function MenuBar({ disabled, canGoBack, canGoForward, onBack, onForward, 
       <button className="controls-info" disabled={disabled || !canGoForward} onClick={onForward}
         aria-label={t("app.forward")} title={`${t("app.forward")} (${shortcutLabel("forward")})`}>
         <LineIcon name="arrow-small-right" size={14} />
+      </button>
+      <button type="button" className="hand-camera-toggle" role="switch" aria-checked={cameraEnabled}
+        aria-label={t("handCamera.mode")} aria-description={cameraActive ? t("handCamera.active") : undefined}
+        title={cameraActive ? `${t("handCamera.mode")} · ${t("handCamera.active")}` : t("handCamera.mode")}
+        data-camera-active={cameraActive} disabled={(disabled || cameraAccessPending) && !cameraEnabled}
+        onClick={() => onCameraChange(!cameraEnabled)}>
+        <LineIcon name="camera" size={24} /><span className="camera-mode-switch" aria-hidden="true" />
       </button>
     </div>
     <h1 className="app-menu-title" title={t("app.title")}>{t("app.title")}</h1>
@@ -37,6 +56,23 @@ export function MenuBar({ disabled, canGoBack, canGoForward, onBack, onForward, 
       </button>
     </div>
     <PopoverPanel id={settingsId} className="settings-popover" contentClassName="settings-content" title={t("app.settings")} closeLabel={t("app.settings.close")}>
+        <div className="settings-row">
+          <label htmlFor={`${settingsId}-camera`}>{t("handCamera.device.label")}</label>
+          <div className="settings-camera-controls">
+          <select id={`${settingsId}-camera`} className="settings-select" value={cameraDeviceId}
+            disabled={cameraDevicesError || !cameraDevices.length}
+            onChange={event => onCameraDeviceChange(event.currentTarget.value)}>
+            <option value="">{t("handCamera.device.default")}</option>
+            {cameraDevices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>
+              {device.label || t("handCamera.device.unnamed", { number: index + 1 })}
+            </option>)}
+          </select>
+          {!cameraEnabled && (cameraAccessPending || cameraDevicesError || !cameraDevices.length || cameraDevices.some(device => !device.label))
+            && <button type="button" className="settings-select" data-camera-access disabled={cameraAccessPending} onClick={onCameraAccessRequest}>
+              {t(cameraAccessPending ? "handCamera.device.requesting" : cameraDevicesError ? "handCamera.device.retry" : "handCamera.device.allow")}
+            </button>}
+          </div>
+        </div>
         <div className="settings-row">
           <label htmlFor={`${settingsId}-shadow`}>{t("graphics.shadow.label")}</label>
           <select id={`${settingsId}-shadow`} className="settings-select" value={graphics.shadowQuality}

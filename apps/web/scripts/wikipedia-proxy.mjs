@@ -29,6 +29,7 @@ function frameBridge(source) {
   XMLHttpRequest.prototype.open = function (method, url, ...args) { return open.call(this, method, apiUrl(url), ...args); };
   const nativeFetch = window.fetch;
   window.fetch = (input, options) => nativeFetch(typeof input === 'string' || input instanceof URL ? apiUrl(input) : input, options);
+  let blockContextMenu = false;
   const rewrite = link => {
     let url;
     try { url = new URL(link.href); } catch { return; }
@@ -52,6 +53,11 @@ function frameBridge(source) {
   }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['href'] });
   addEventListener('hashchange', () => report('location'));
   addEventListener('beforeunload', () => report('loading'));
+  addEventListener('contextmenu', event => {
+    if (!blockContextMenu) return;
+    event.preventDefault();
+    parent.postMessage({ type: 'wikipedia:contextmenu-open', x: event.clientX, y: event.clientY }, '*');
+  });
   addEventListener('keydown', event => {
     if (event.defaultPrevented || event.repeat || event.isComposing || event.altKey || event.shiftKey) return;
     const key = event.key.toLowerCase();
@@ -64,7 +70,12 @@ function frameBridge(source) {
       metaKey: event.metaKey, ctrlKey: event.ctrlKey }, '*');
   });
   addEventListener('message', event => {
-    if (event.source !== parent || event.data?.type !== 'wikipedia:reset') return;
+    if (event.source !== parent) return;
+    if (event.data?.type === 'wikipedia:contextmenu' && typeof event.data.blocked === 'boolean') {
+      blockContextMenu = event.data.blocked;
+      return;
+    }
+    if (event.data?.type !== 'wikipedia:reset') return;
     const url = new URL(event.data.url);
     if (url.origin !== original.origin || url.pathname !== original.pathname) return;
     location.hash = url.hash;

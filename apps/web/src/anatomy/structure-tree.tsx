@@ -53,7 +53,7 @@ export const StructureTree = memo(function StructureTree(props: TreeProps) {
     const path = new Set<string>();
     const id = props.reveal?.id;
     if (!id) return path;
-    let target = props.catalog.targets.find(target => (target.model?.structure_ids ?? target.structure_ids).includes(id)
+    let target = props.catalog.targets.find(target => structureIds(target).includes(id)
       && !(children.get(target.id) ?? []).some(child => child.structure_ids.includes(id)));
     while (target) {
       path.add(target.id);
@@ -76,7 +76,6 @@ function Folder({ target, childrenById, structures, props, revealPath, revealRow
 }) {
   const { language, t } = useLanguage();
   const [open, setOpen] = useState(() => revealPath.has(target.id));
-  useEffect(() => { if (revealPath.has(target.id)) setOpen(true); }, [revealPath, target.id]);
   const children = childrenById.get(target.id) ?? [];
   // System toggles follow Blender display collections; subfolders retain anatomical cross-references.
   const ids = structureIds(target);
@@ -84,6 +83,23 @@ function Folder({ target, childrenById, structures, props, revealPath, revealRow
     const nestedIds = new Set((childrenById.get(target.id) ?? []).flatMap(child => child.structure_ids));
     return structureIds(target).filter(id => !nestedIds.has(id));
   }, [target, childrenById]);
+  const [limit, setLimit] = useState(() => Math.max(40,
+    props.reveal && revealPath.has(target.id) ? directIds.indexOf(props.reveal.id) + 1 : 0));
+  const more = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (!revealPath.has(target.id)) return;
+    setOpen(true);
+    const revealed = props.reveal ? directIds.indexOf(props.reveal.id) + 1 : 0;
+    setLimit(value => Math.max(value, revealed));
+  }, [revealPath, target.id, directIds, props.reveal]);
+  useEffect(() => {
+    if (!open || limit >= directIds.length || !more.current) return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) setLimit(value => Math.min(value + 40, directIds.length));
+    }, { root: more.current.closest(".catalog-tree"), rootMargin: "200px" });
+    observer.observe(more.current);
+    return () => observer.disconnect();
+  }, [open, limit, directIds]);
   const otherLanguage = language === "vi" ? "en" : "vi";
   const title = targetName(target, language);
   const otherName = targetName(target, otherLanguage);
@@ -93,14 +109,14 @@ function Folder({ target, childrenById, structures, props, revealPath, revealRow
   return <li data-target-id={target.id}>
     <div className={`tree-row folder-row${props.targetId === target.id ? " is-selected" : ""}`} onDoubleClick={focusFolder}>
       <button className="folder-toggle" aria-label={t(open ? "tree.close" : "tree.open", { name: title })} aria-expanded={open}
-        onClick={() => setOpen(!open)} onDoubleClick={event => event.stopPropagation()}>
+        onClick={() => { setOpen(!open); setLimit(40); }} onDoubleClick={event => event.stopPropagation()}>
         <LineIcon name={open ? "chevron-small-down" : "chevron-small-right"} size={24} />
       </button>
       {ids.length > 0
         ? <VisibilityCheckbox ids={ids} label={title} {...props} />
         : <span className="tree-no-model" aria-hidden="true">—</span>}
       <button className="tree-name" onClick={() => props.onTarget(target.id)} aria-current={props.targetId === target.id ? "true" : undefined}
-        aria-keyshortcuts={ids.length ? "Shift+Enter" : undefined} title={ids.length ? `Nhấp đúp hoặc Shift+Enter để phóng tới ${title}` : undefined}
+        aria-keyshortcuts={ids.length ? "Shift+Enter" : undefined} title={ids.length ? t("tree.focusHint", { name: title }) : undefined}
         onKeyDown={event => { if (event.key === "Enter" && event.shiftKey) { event.preventDefault(); focusFolder(); } }}>
         {title}{otherName !== title && <small lang={otherLanguage}>{otherName}</small>}
       </button>
@@ -110,7 +126,7 @@ function Folder({ target, childrenById, structures, props, revealPath, revealRow
     </div>
     {open && <ul>
       {children.map(child => <Folder key={child.id} target={child} childrenById={childrenById} structures={structures} props={props} revealPath={revealPath} revealRow={revealRow} />)}
-      {directIds.map(id => {
+      {directIds.slice(0, limit).map((id, index) => {
         const part = structures.get(id);
         if (!part) return null;
         const title = structureName(part, language);
@@ -123,11 +139,13 @@ function Folder({ target, childrenById, structures, props, revealPath, revealRow
             aria-keyshortcuts="Shift+Enter" title={t("tree.focusHint", { name: title })}
             onKeyDown={event => { if (event.key === "Enter" && event.shiftKey) { event.preventDefault(); props.onFocus([id]); } }}
             onClick={() => props.onSelect(id)} onFocus={event => {
-              if (event.currentTarget.closest<HTMLElement>(".study-shell")?.dataset.focusSource === "keyboard") props.onSelect(id);
+              if (index >= limit - 10) setLimit(value => Math.min(value + 40, directIds.length));
+              if (event.currentTarget.closest<HTMLElement>(".module-page")?.dataset.focusSource === "keyboard") props.onSelect(id);
             }}>{title}
             {otherName !== title && <small lang={otherLanguage}>{otherName}</small>}</button>
         </li>;
       })}
+      {limit < directIds.length && <li ref={more} className="tree-load-more" aria-hidden="true" />}
     </ul>}
   </li>;
 }

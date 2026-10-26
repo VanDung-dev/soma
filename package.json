@@ -9,6 +9,7 @@
     "serve": "npm run serve --workspace apps/web",
     "check": "npm run check --workspace apps/web",
     "test": "npm run test --workspace apps/web",
+    "test:browser": "npm run test:browser --workspace apps/web",
     "desktop:dev": "npm run desktop:dev --workspace apps/web",
     "desktop:build": "npm run desktop:build --workspace apps/web"
   },

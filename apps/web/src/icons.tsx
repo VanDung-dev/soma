@@ -10,8 +10,10 @@ import squareToConfirmSquareTwotoneTransition from "./icons/line-md/square-to-co
 import moonAlt from "./icons/line-md/moon-alt.svg?raw";
 import starAlt from "./icons/line-md/star-alt.svg?raw";
 import sunny from "./icons/line-md/sunny.svg?raw";
+import camera from "./icons/camera.svg?raw";
 
 const icons = {
+  camera,
   "alert-circle": alertCircle,
   "arrow-small-left": arrowSmallLeft,
   "arrow-small-right": arrowSmallRight,

@@ -3,6 +3,8 @@ import type { Structure } from "../catalog/types";
 export type Viewport = [number, number, number, number];
 export type PreparedGeometry = [Float32Array, Uint32Array, string];
 
+export type ViewerStatus = "loading" | "preparing" | "finishing" | "loadError" | "processError" | "renderError" | "contextLost";
+
 export type CameraCommand =
   | { kind: "pan" | "rotate"; x: number; y: number }
   | { kind: "zoom"; factor: number }
@@ -11,7 +13,7 @@ export type CameraCommand =
 export interface ViewerState {
   building: boolean;
   loadedSystems: number;
-  status: string;
+  status: ViewerStatus;
   error: boolean;
   meshes: Structure[];
   selected: string;

@@ -1,4 +1,72 @@
 import { getCatalog, getWasm } from '../src/anatomy/core.ts';
+import { StudySession } from '../src/anatomy/study/session.ts';
+import { ViewerRuntime } from '../src/anatomy/viewer/runtime.ts';
+
+export async function checkRestoration() {
+  const assert = (ok, message) => { if (!ok) throw Error(message); };
+  const catalog = await getCatalog();
+  const root = catalog.targets.find(target => target.model?.path.endsWith('body-regions.glb'));
+  const host = document.createElement('div');
+  host.style.cssText = 'position:fixed;left:-1000px;width:300px;height:400px';
+  document.body.append(host);
+  const session = new StudySession(catalog);
+  const motion = Object.assign(new EventTarget(), { matches: true });
+  const matchMedia = window.matchMedia;
+  let runtime;
+  try {
+    window.matchMedia = query => query === '(prefers-reduced-motion: reduce)' ? motion : matchMedia.call(window, query);
+    runtime = new ViewerRuntime(host, { viewport: () => [0, 0, 1, 1], onState: session.updateViewer, onPick: session.pick });
+  } finally { window.matchMedia = matchMedia; }
+  session.connect(runtime);
+  const frames = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  try {
+    await runtime.start([root]); await frames();
+    assert(!session.getSnapshot().error, 'The restoration fixture must load real WASM geometry');
+    const viewer = runtime.viewer, [a, b] = root.model.structure_ids;
+    const structureOffset = viewer.structure_offset;
+    const restoreStructure = viewer.restore_structure;
+    let offsetReads = 0, offsetWrites = 0;
+    viewer.structure_offset = function(...args) { offsetReads++; return structureOffset.apply(this, args); };
+    viewer.restore_structure = function(...args) { offsetWrites++; return restoreStructure.apply(this, args); };
+    const offset = id => [...structureOffset.call(viewer, id)];
+    const zero = id => offset(id).every(value => value === 0);
+    const restore = id => new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { unsubscribe(); reject(Error('Restoration completion timed out')); }, 3000);
+      const unsubscribe = session.subscribe(() => {
+        if (session.getSnapshot().error) { clearTimeout(timer); unsubscribe(); reject(Error('Restoration failed')); }
+        else if (!runtime.restoration) { clearTimeout(timer); unsubscribe(); resolve(); }
+      });
+      if (!runtime.restoreStructure(id)) { clearTimeout(timer); unsubscribe(); reject(Error('Restoration rejected')); }
+    });
+    motion.matches = false;
+    viewer.move_structure(a, 0.12, 0); viewer.move_structure(b, -0.08, 0.02);
+    runtime.setMoving(a);
+    const stationary = JSON.stringify(offset(b));
+    await restore(a);
+    assert(zero(a) && JSON.stringify(offset(b)) === stationary, 'A targeted restoration must leave other offsets untouched');
+    assert(session.getSnapshot().movingId === '' && session.getSnapshot().separatedIds.has(b), 'Publish completion only for restored structures');
+    assert(offsetReads === 0 && offsetWrites === 0, 'Animation frames must keep all numerical offsets inside Rust');
+    runtime.setMoving(b); runtime.restoreStructure(b);
+    await restore('');
+    assert(zero(a) && zero(b) && !session.getSnapshot().separatedIds.size, 'Repeated restore requests must merge and finish');
+    viewer.move_structure(a, 0.12, 0); runtime.setMoving(a);
+    motion.matches = true; runtime.restoreStructure('');
+    assert(zero(a) && !runtime.restoration && !session.getSnapshot().movingId, 'Reduced motion must restore immediately');
+    viewer.move_structure(a, 0.12, 0); runtime.setMoving(a);
+    motion.matches = false; runtime.restoreStructure('');
+    motion.matches = true; motion.dispatchEvent(new Event('change'));
+    assert(zero(a) && !runtime.restoration && !session.getSnapshot().movingId, 'Changing reduced motion must finish the active Rust transition');
+    viewer.move_structure(a, 0.12, 0); runtime.setMoving(a);
+    motion.matches = false; runtime.restoreStructure(''); runtime.overview();
+    await frames();
+    assert(zero(a) && !runtime.restoration && !session.getSnapshot().separatedIds.size, 'Overview must cancel restoration without replaying offsets');
+    assert(host.querySelector('canvas').getContext('webgl2').getError() === 0 && !session.getSnapshot().error,
+      'Keep WebGL and the runtime healthy after cancellation');
+    return { targeted: true, repeated: true, rustOwnsOffsets: true, reducedMotion: true, changedReducedMotion: true, overviewCancellation: true };
+  } finally {
+    session.disconnect(runtime); runtime.dispose(); host.remove();
+  }
+}
 
 export async function checkAssembly() {
   const assert = (ok, message) => { if (!ok) throw Error(message); };

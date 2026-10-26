@@ -70,7 +70,7 @@ test('the production server serves module URLs and keeps missing assets as error
   }
 });
 
-test('only macOS desktop windows reserve native controls and expose header dragging', async () => {
+test('desktop headers expose dragging and reserve platform window controls', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   const previousWindow = globalThis.window;
   const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
@@ -78,12 +78,15 @@ test('only macOS desktop windows reserve native controls and expose header dragg
   try {
     globalThis.window = { location: { pathname: '/home' }, localStorage: { getItem: () => null } };
     const { App } = await server.ssrLoadModule('/src/app.tsx');
-    for (const [desktop, userAgent, native] of [[false, 'Macintosh', false], [true, 'Windows NT', false], [true, 'Macintosh; Intel Mac OS X', true]]) {
+    for (const [desktop, userAgent, macOS, windows] of [[false, 'Macintosh', false, false], [true, 'Windows NT', false, true],
+      [true, 'Macintosh; Intel Mac OS X', true, false], [true, 'Linux', false, false]]) {
       Object.defineProperty(globalThis, 'isTauri', { value: desktop, configurable: true });
       Object.defineProperty(globalThis, 'navigator', { value: { userAgent }, configurable: true });
       const markup = renderToStaticMarkup(createElement(App));
-      assert.equal(markup.includes('macos-window'), native);
-      assert.equal(markup.includes('data-tauri-drag-region="deep"'), native);
+      assert.equal(markup.includes('macos-window'), macOS);
+      assert.equal(markup.includes('windows-window'), windows);
+      assert.equal(markup.includes('class="window-controls"'), windows);
+      assert.equal(markup.includes('data-tauri-drag-region="deep"'), macOS || windows);
       assert(markup.includes('class="module-brand" href="/home"'));
       assert(!/<(?:a|button)[^>]*data-tauri-drag-region/.test(markup));
     }

@@ -35,24 +35,30 @@ test('manual movement blocks automatic explosion and preserves study navigation'
 test('reader panel toggles at all times while reference reading remains limited to moving or separated structures', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
-    const { StudySession } = await server.ssrLoadModule('/src/anatomy/study/session.ts');
+    const { StudySession, canReadStructure } = await server.ssrLoadModule('/src/anatomy/study/session.ts');
     const catalog = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
     const session = new StudySession(catalog);
     const [a, b] = catalog.targets.find(target => target.model).model.structure_ids;
     session.connect({ select: () => true, retargetExplosion() {} });
+    assert.equal(canReadStructure(session.getSnapshot(), ''), false);
     session.pick(a); session.toggleReader();
+    assert.equal(canReadStructure(session.getSnapshot(), a), false);
     assert.equal(session.getSnapshot().readerExpanded, true, 'The information panel can expand without a reference article');
     session.toggleReader();
     session.updateViewer({ movingId: a }); session.toggleReader();
+    assert.equal(canReadStructure(session.getSnapshot(), a), true);
     assert.equal(session.getSnapshot().readerExpanded, true, 'Enabling separation permits reading before the first drag');
     session.pick(b);
+    assert.equal(canReadStructure(session.getSnapshot(), b), false);
     assert.equal(session.getSnapshot().readerExpanded, false, 'Selecting an ordinary structure closes the reader');
     session.toggleReader(); assert.equal(session.getSnapshot().readerExpanded, true, 'The panel remains expandable without a reference article');
     session.toggleReader();
     session.updateViewer({ movingId: '', separatedIds: new Set([a]) });
+    assert.equal(canReadStructure(session.getSnapshot(), a), true);
     session.browseStructure(a); session.toggleReader();
     assert.equal(session.getSnapshot().readerExpanded, true, 'A displaced structure remains readable after finishing movement');
     session.updateViewer({ separatedIds: new Set() });
+    assert.equal(canReadStructure(session.getSnapshot(), a), false);
     assert.equal(session.getSnapshot().readerExpanded, false, 'Restoring the last position closes the reader');
     session.toggleReader(); assert.equal(session.getSnapshot().readerExpanded, true, 'The panel can still expand when reading is unavailable');
   } finally { await server.close(); }

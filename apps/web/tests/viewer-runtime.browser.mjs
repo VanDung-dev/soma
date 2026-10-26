@@ -14,17 +14,19 @@ export async function checkViewerRuntime() {
     host.style.cssText = 'position:fixed;left:-1000px;width:300px;height:400px';
     document.body.append(host);
     const session = new StudySession(catalog);
+    const statuses = [];
     let ready, fail, updates = 0, updatesAtCancellation;
     const loaded = new Promise((resolve, reject) => { ready = resolve; fail = reject; });
     const runtime = new ViewerRuntime(host, { viewport: () => [0, 0, 1, 1],
       onPick: session.pick, onState: patch => {
         updates++; session.updateViewer(patch);
+        if (patch.status) statuses.push(patch.status);
         if (cancelAfterFirst && patch.loadedSystems === 1) { runtime.dispose(); updatesAtCancellation = updates; }
         if (patch.error) fail(Error(patch.status));
         else if (patch.building === false) ready();
       } });
     session.connect(runtime);
-    const fixture = { host, session, runtime, loaded, updates: () => updates, updatesAtCancellation: () => updatesAtCancellation };
+    const fixture = { host, session, runtime, loaded, statuses, updates: () => updates, updatesAtCancellation: () => updatesAtCancellation };
     fixtures.push(fixture); return fixture;
   };
   try {
@@ -38,6 +40,8 @@ export async function checkViewerRuntime() {
     const ids = root.model.structure_ids;
     assert(first.session.getSnapshot().visibleIds.size === ids.length && second.session.getSnapshot().visibleIds.size === ids.length,
       'Both runtimes must load their own geometry');
+    for (const fixture of [first, second]) assert(JSON.stringify(fixture.statuses) === JSON.stringify(['loading', 'preparing', 'finishing']),
+      'Viewer startup must publish status codes in source loading order');
     assert(first.session.changeVisibility(ids, false), 'The first runtime must accept visibility commands');
     assert(first.session.getSnapshot().visibleIds.size === 0 && second.session.getSnapshot().visibleIds.size === ids.length,
       'A command in one session must not affect the other');

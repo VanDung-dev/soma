@@ -1,33 +1,11 @@
 import { useEffect, useEffectEvent } from "react";
-import type { MessageKey } from "../i18n";
 import { useLanguage } from "../i18n";
 import type { CameraCommand } from "./viewer/contracts";
 import { PopoverPanel } from "../popover-panel";
+import { cameraControlGroups, cameraControls, isCameraKey } from "./camera-controls";
 import { appShortcuts, shortcutLabel } from "../shortcuts";
 import type { AppShortcut } from "../shortcuts";
 
-const groups: { label: MessageKey; controls: { key: string; shortcut: string; label: MessageKey; action: (step: number) => CameraCommand }[] }[] = [
-  { label: "controls.group.camera", controls: [
-    { key: "w", shortcut: "W", label: "controls.direction.up", action: (step: number): CameraCommand => ({ kind: "pan", x: 0, y: 0.06 * step }) },
-    { key: "a", shortcut: "A", label: "controls.direction.left", action: (step: number): CameraCommand => ({ kind: "pan", x: -0.06 * step, y: 0 }) },
-    { key: "s", shortcut: "S", label: "controls.direction.down", action: (step: number): CameraCommand => ({ kind: "pan", x: 0, y: -0.06 * step }) },
-    { key: "d", shortcut: "D", label: "controls.direction.right", action: (step: number): CameraCommand => ({ kind: "pan", x: 0.06 * step, y: 0 }) },
-  ] },
-  { label: "controls.group.rotate", controls: [
-    { key: "arrowup", shortcut: "ArrowUp", label: "controls.direction.up", action: (step: number): CameraCommand => ({ kind: "rotate", x: 0, y: Math.PI / 8 * step }) },
-    { key: "arrowleft", shortcut: "ArrowLeft", label: "controls.direction.left", action: (step: number): CameraCommand => ({ kind: "rotate", x: Math.PI / 8 * step, y: 0 }) },
-    { key: "arrowdown", shortcut: "ArrowDown", label: "controls.direction.down", action: (step: number): CameraCommand => ({ kind: "rotate", x: 0, y: -Math.PI / 8 * step }) },
-    { key: "arrowright", shortcut: "ArrowRight", label: "controls.direction.right", action: (step: number): CameraCommand => ({ kind: "rotate", x: -Math.PI / 8 * step, y: 0 }) },
-  ] },
-  { label: "controls.group.zoom", controls: [
-    { key: "e", shortcut: "E", label: "controls.zoom.in", action: (step: number): CameraCommand => ({ kind: "zoom", factor: 1.2 ** -step }) },
-    { key: "q", shortcut: "Q", label: "controls.zoom.out", action: (step: number): CameraCommand => ({ kind: "zoom", factor: 1.2 ** step }) },
-  ] },
-  { label: "controls.group.view", controls: [
-    { key: "r", shortcut: "R", label: "controls.reset", action: (): CameraCommand => ({ kind: "reset" }) },
-  ] },
-];
-const controls = groups.flatMap(group => group.controls);
 const arrows: Record<string, string> = { ArrowUp: "↑", ArrowLeft: "←", ArrowDown: "↓", ArrowRight: "→" };
 
 export function ModelControls({ disabled, onControl, helpId, onReplayGuide }: {
@@ -37,7 +15,7 @@ export function ModelControls({ disabled, onControl, helpId, onReplayGuide }: {
   onReplayGuide: () => void;
 }) {
   const { t } = useLanguage();
-  const run = useEffectEvent((keys: Set<string>, step: number) => onControl(controls.filter(control => keys.has(control.key)).map(control => control.action(step))));
+  const run = useEffectEvent((keys: Set<string>, step: number) => onControl(cameraControls.filter(control => keys.has(control.key)).map(control => control.action(step))));
   useEffect(() => {
     const pressed = new Set<string>();
     let frame = 0, previous = 0;
@@ -59,7 +37,7 @@ export function ModelControls({ disabled, onControl, helpId, onReplayGuide }: {
       const target = event.target;
       if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [role='textbox'], [role='menu'], .app-menu-bar, .app-popover, .catalog-panel, .information-panel"))) return;
       const key = event.key.toLowerCase();
-      if (!controls.some(control => control.key === key)) return;
+      if (!isCameraKey(key)) return;
       event.preventDefault();
       if (pressed.has(key) || event.repeat) return;
       pressed.add(key);
@@ -86,7 +64,7 @@ export function ModelControls({ disabled, onControl, helpId, onReplayGuide }: {
       footer={<button className="onboarding-replay" disabled={disabled} onClick={onReplayGuide}>{t("onboarding.replay")}</button>}>
         <div className="guide-columns">
           <section aria-label={t("controls.keyboard.label")}><h3>{t("controls.keyboard.label")}</h3>
-            {groups.map(group => <div className="guide-key-group" key={group.label}>
+            {cameraControlGroups.map(group => <div className="guide-key-group" key={group.label}>
               <h4>{t(group.label)}</h4>
               <dl>{group.controls.map(control => <div key={control.key}>
                 <dt><kbd>{arrows[control.shortcut] ?? control.shortcut}</kbd></dt><dd>{t(control.label)}</dd>

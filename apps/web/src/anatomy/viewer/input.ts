@@ -1,5 +1,6 @@
 import type { AnatomyViewer } from "../../wasm/anatomy_wasm";
 import { shortcutAction } from "../../shortcuts";
+import { isCameraKey } from "../camera-controls";
 
 export function bindViewerInput(canvas: HTMLCanvasElement, options: {
   enabled: () => boolean;
@@ -27,6 +28,11 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     window.clearTimeout(hold.timer); hold = undefined;
     options.onHold?.(null);
   };
+  const pickPosition = (event: PointerEvent): [number, number] => {
+    const bounds = canvas.getBoundingClientRect();
+    return [Math.floor((event.clientX - bounds.left) / bounds.width * canvas.width),
+      canvas.height - 1 - Math.floor((event.clientY - bounds.top) / bounds.height * canvas.height)];
+  };
   const pointerDown = (event: PointerEvent) => {
     cancelHold();
     if (!options.enabled()) return;
@@ -39,11 +45,10 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     pointers.set(event.pointerId, point);
     const id = options.moving?.();
     if (event.button === 0 && !event.shiftKey && pointers.size === 1) {
-      const bounds = canvas.getBoundingClientRect();
+      const position = pickPosition(event);
       options.operate(viewer => {
         const before = viewer.selected_id();
-        const hit = viewer.pick(Math.floor((event.clientX - bounds.left) / bounds.width * canvas.width),
-          canvas.height - 1 - Math.floor((event.clientY - bounds.top) / bounds.height * canvas.height));
+        const hit = viewer.pick(...position);
         viewer.select(before);
         const movable = !!hit && (options.movable?.(hit) ?? hit === id);
         if (movable) {
@@ -72,9 +77,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
   };
   const pick = (event: PointerEvent, read = false) => {
     if (!options.enabled()) return;
-    const bounds = canvas.getBoundingClientRect();
-    const x = Math.floor((event.clientX - bounds.left) / bounds.width * canvas.width);
-    const y = canvas.height - 1 - Math.floor((event.clientY - bounds.top) / bounds.height * canvas.height);
+    const [x, y] = pickPosition(event);
     if (x >= 0 && y >= 0 && x < canvas.width && y < canvas.height) options.operate(renderer => {
       const before = renderer.selected_id();
       const id = renderer.pick(x, y);
@@ -188,7 +191,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
       else options.moved?.(current.id);
       return;
     }
-    if (drag && ["w", "a", "s", "d", "e", "q", "r", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(event.key.toLowerCase())) {
+    if (drag && isCameraKey(event.key)) {
       event.preventDefault(); return;
     }
   };

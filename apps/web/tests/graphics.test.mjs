@@ -39,7 +39,7 @@ test('frame limits coalesce redraws, finish animations, and stop when idle or di
   try {
     const { ViewerRuntime } = await server.ssrLoadModule('/src/anatomy/viewer/runtime.ts');
     let now = 0, nextId = 0, draws = 0, remaining = 0, timerId = 0;
-    const pending = new Map(), timers = new Map(), reports = [];
+    const pending = new Map(), timers = new Map(), reports = [], grids = [], renderSizes = [];
     globalThis.requestAnimationFrame = callback => { pending.set(++nextId, callback); return nextId; };
     globalThis.cancelAnimationFrame = id => pending.delete(id);
     globalThis.performance = { now: () => now };
@@ -55,11 +55,13 @@ test('frame limits coalesce redraws, finish animations, and stop when idle or di
     runtime.viewer = {
       advance_camera: () => false, advance_reconstruction: () => false,
       render: () => draws++, render_reconstruction: () => { draws++; return --remaining > 0; },
-      set_graphics() {}, selected_id: () => '', free() {},
+      set_graphics: (_shadow, _lighting, grid, width, height) => { grids.push(grid); renderSizes.push([width, height]); }, selected_id: () => '', free() {},
     };
     runtime.scheduleRender();
     assert.equal(pending.size, 0, 'Partially uploaded anatomy must not render during loading');
     runtime.loading = false;
+    runtime.setGraphics({ ...runtime.graphics, grid: true });
+    assert.equal(grids.at(-1), true, 'Hand camera mode must leave the scene grid preference unchanged');
     const tick = time => {
       now = time;
       const callbacks = [...pending.values()]; pending.clear();
@@ -116,13 +118,22 @@ test('frame limits coalesce redraws, finish animations, and stop when idle or di
     assert.deepEqual([canvas.width, canvas.height], [900, 650]);
     runtime.resize(); tick(now + 40);
     assert.equal(resized, 1, 'Unchanged pixel dimensions must not reallocate the canvas');
+    for (const [dpr, modelQuality, expected] of [[3, 'high', [1800, 1300]], [3, 'low', [900, 650]],
+      [1.25, 'high', [1125, 813]], [1.25, 'low', [563, 406]]]) {
+      window.devicePixelRatio = dpr;
+      runtime.setGraphics({ ...runtime.graphics, modelQuality });
+      runtime.resize(); tick(now + 40);
+      assert.deepEqual(renderSizes.at(-1), expected, 'Graphics settings must respect quality, DPR cap and rounding');
+      assert.deepEqual([canvas.width, canvas.height], expected, 'Resize must use the same resolution as graphics settings');
+    }
+    const resizesBeforeDispose = resized;
     runtime.setGraphics({ ...runtime.graphics, showFps: true });
     runtime.dispose();
     assert.equal(timers.size, 0, 'Disposal must stop the FPS meter');
     const before = draws; tick(now + 1000);
     assert.equal(draws, before);
     runtime.resize(); tick(now + 1000);
-    assert.equal(resized, 1, 'Disposed runtimes must not resize GPU resources');
+    assert.equal(resized, resizesBeforeDispose, 'Disposed runtimes must not resize GPU resources');
     runtime.scheduleRender(); assert.equal(pending.size, 0);
   } finally {
     for (const [key, value] of Object.entries(original)) {

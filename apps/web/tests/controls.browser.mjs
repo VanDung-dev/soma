@@ -54,7 +54,7 @@ export async function checkControls() {
     assert(!guide.matches(':popover-open'), 'Close button must hide the guide');
     const shell = document.querySelector('.module-page');
     for (const control of [document.querySelector('.explode-control input'), document.querySelector('.folder-toggle'),
-      document.querySelector('.visibility-checkbox input')]) {
+      document.querySelector('.catalog-panel .visibility-checkbox input')]) {
       control.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }));
       control.focus();
       control.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'mouse' }));
@@ -140,12 +140,10 @@ export async function checkControls() {
     for (const key of ['e', 'q']) await anchorStays(0.5, 0.5, async () => {
       send('keydown', key); await frames(4); send('keyup', key);
     });
-    const media = window.matchMedia;
+    const matches = Object.getOwnPropertyDescriptor(MediaQueryList.prototype, 'matches');
     let reduced = false;
-    window.matchMedia = function(query) {
-      return media.call(this, query === '(prefers-reduced-motion: reduce)'
-        ? reduced ? '(min-width: 0px)' : '(max-width: 0px)' : query);
-    };
+    Object.defineProperty(MediaQueryList.prototype, 'matches', { configurable: true,
+      get() { return this.media === '(prefers-reduced-motion: reduce)' ? reduced : matches.get.call(this); } });
     const snapshot = () => { viewer.render(); return JSON.stringify(matrix); };
     const resetKey = () => { send('keydown', 'r'); send('keyup', 'r'); };
     try {
@@ -180,7 +178,7 @@ export async function checkControls() {
         try { viewer.inspect('reset',time); } catch { rejected = true; }
         assert(rejected && snapshot() === before, 'Reject invalid reset timestamps before changing the camera');
       }
-    } finally { window.matchMedia = media; }
+    } finally { Object.defineProperty(MediaQueryList.prototype, 'matches', matches); }
     assert(canvas.getContext('webgl2').getError() === 0, 'No WebGL errors after keyboard and wheel interactions');
     return { mappings: expected.length, guide: true, twoColumns: true, noKeyFeedback: true, hold: true, simultaneous: true, resetOnce: true, blur: true, typing: true, shortcuts: true, mouseWheel: true, pointerAnchor: true, keyboardCenter: true,
       smoothReset: true, repeatedReset: true, resetSettles: true, resetInterrupt: true, reducedMotionReset: true, explodedReset: true };

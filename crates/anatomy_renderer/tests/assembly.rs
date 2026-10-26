@@ -129,3 +129,106 @@ fn invalid_or_changed_targets_never_commit_or_modify_offsets() {
     separation.clear("");
     assert!(separation.separated_ids().is_empty());
 }
+
+#[test]
+fn restoration_interpolates_groups_and_finishes_at_exact_source_positions() {
+    let scene = scene();
+    let original = serde_json::to_value(&scene).unwrap();
+    let mut separation = Separation::default();
+    separation.set(&scene, "a", [0.8, 0.4, -0.2]).unwrap();
+    separation.set(&scene, "b", [0.8, 0.4, -0.2]).unwrap();
+    separation.snap(&scene, "a", "b", 0.04).unwrap();
+    separation.set(&scene, "remote", [0.5, 0.0, 0.0]).unwrap();
+    assert_eq!(
+        separation.begin_restore(&scene, "b", 100.0, true).unwrap(),
+        ["a", "b"]
+    );
+    assert!(separation.restoring());
+    assert!(separation.advance_restore(100.0).unwrap());
+    assert_eq!(separation.offset("a"), Vec3::new(0.8, 0.4, -0.2));
+    assert!(separation.advance_restore(310.0).unwrap());
+    assert_eq!(separation.offset("a"), Vec3::new(0.1, 0.05, -0.025));
+    assert_eq!(separation.offset("a"), separation.offset("b"));
+    assert_eq!(separation.members("a"), ["a", "b"]);
+    assert!(!separation.advance_restore(520.0).unwrap());
+    assert!(!separation.restoring());
+    assert_eq!(separation.offset("a"), Vec3::ZERO);
+    assert_eq!(separation.offset("b"), Vec3::ZERO);
+    assert_eq!(separation.members("a"), ["a"]);
+    assert_eq!(separation.separated_ids(), ["remote"]);
+    assert_eq!(serde_json::to_value(&scene).unwrap(), original);
+}
+
+#[test]
+fn restoration_restarts_from_displayed_offsets_and_merges_pending_targets() {
+    let scene = scene();
+    let mut separation = Separation::default();
+    separation.set(&scene, "a", [0.8, 0.0, 0.0]).unwrap();
+    separation.set(&scene, "b", [0.4, 0.0, 0.0]).unwrap();
+    separation.begin_restore(&scene, "a", 0.0, true).unwrap();
+    separation.advance_restore(210.0).unwrap();
+    let displayed = separation.offset("a");
+    assert_eq!(
+        separation.begin_restore(&scene, "b", 210.0, true).unwrap(),
+        ["a", "b"]
+    );
+    separation.advance_restore(210.0).unwrap();
+    assert_eq!(separation.offset("a"), displayed);
+    assert_eq!(separation.offset("b"), Vec3::new(0.4, 0.0, 0.0));
+    separation.set(&scene, "remote", [0.5, 0.0, 0.0]).unwrap();
+    assert!(!separation.restoring());
+    assert_eq!(
+        separation.begin_restore(&scene, "", 300.0, true).unwrap(),
+        ["a", "b", "remote"]
+    );
+    separation.begin_restore(&scene, "a", 310.0, true).unwrap();
+    separation.finish_restore();
+    assert!(separation.is_empty());
+    assert!(!separation.restoring());
+    assert!(!separation.advance_restore(1000.0).unwrap());
+}
+
+#[test]
+fn restoration_handles_reduced_motion_zero_offsets_and_interruption() {
+    let scene = scene();
+    let mut separation = Separation::default();
+    assert_eq!(
+        separation.begin_restore(&scene, "a", 0.0, true).unwrap(),
+        ["a"]
+    );
+    assert!(!separation.restoring());
+    separation.set(&scene, "a", [0.8, 0.0, 0.0]).unwrap();
+    separation.begin_restore(&scene, "a", 0.0, false).unwrap();
+    assert!(!separation.restoring());
+    assert!(separation.is_empty());
+    separation.set(&scene, "a", [0.8, 0.0, 0.0]).unwrap();
+    separation.begin_restore(&scene, "", 0.0, true).unwrap();
+    separation.advance_restore(100.0).unwrap();
+    separation.clear("");
+    assert!(!separation.advance_restore(210.0).unwrap());
+    assert!(separation.is_empty());
+}
+
+#[test]
+fn invalid_restoration_requests_preserve_positions_and_pending_animation() {
+    let scene = scene();
+    let mut separation = Separation::default();
+    separation.set(&scene, "a", [0.8, 0.0, 0.0]).unwrap();
+    separation.begin_restore(&scene, "a", 100.0, true).unwrap();
+    separation.advance_restore(150.0).unwrap();
+    let before = separation.offset("a");
+    for now in [f64::NAN, f64::INFINITY, -1.0, 149.0] {
+        assert!(separation.begin_restore(&scene, "b", now, true).is_err());
+        assert!(separation.advance_restore(now).is_err());
+        assert_eq!(separation.offset("a"), before);
+        assert!(separation.restoring());
+    }
+    assert!(
+        separation
+            .begin_restore(&scene, "missing", 150.0, true)
+            .is_err()
+    );
+    assert_eq!(separation.offset("a"), before);
+    separation.advance_restore(520.0).unwrap();
+    assert!(separation.is_empty());
+}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import references from "../../../../content/wikipedia-references.json";
 import { anatomyNames } from "./anatomy-names";
 import { useLanguage } from "../i18n";
+import { isTauri } from "@tauri-apps/api/core";
 
 const articles: Record<string, { url: string; status: string }> = references.articles;
 
@@ -67,7 +68,10 @@ export function WikipediaReader({ name, expanded = false }: { name: string; expa
       src={`${proxy}?url=${encodeURIComponent(article.url)}${new URL(article.url).hash}`}
       title={t("wikipedia.frame.title", { name: label })} aria-busy={loading}
       sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer"
-      onLoad={() => setLoading(false)} />
+      onLoad={() => {
+        setLoading(false);
+        if (isTauri() && import.meta.env.DEV) frame.current?.contentWindow?.postMessage({ type: "wikipedia:contextmenu", blocked: true }, "*");
+      }} />
       {loading && <div className="wikipedia-skeleton" role="status">
         <span className="sr-only">{t("wikipedia.loading")}</span>
         <div className="wikipedia-skeleton-content" aria-hidden="true">

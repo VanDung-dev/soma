@@ -5,7 +5,7 @@ export async function checkGraphics() {
   assert(document.querySelector('.model-canvas[aria-busy="false"]'), 'Wait for model loading to finish');
   const { AnatomyViewer } = await getWasm();
   const popover = document.querySelector('.settings-popover');
-  const [shadow, lighting, quality, fps] = popover.querySelectorAll('select');
+  const [shadow, lighting, quality, fps] = ['shadow', 'lighting', 'model', 'fps'].map(id => popover.querySelector(`select[id$="-${id}"]`));
   for (const [control, values] of [[shadow, ['high', 'low', 'off']], [lighting, ['high', 'low']],
     [quality, ['high', 'low']], [fps, ['60', '30']]]) {
     assert(JSON.stringify([...control.options].map(option => option.value)) === JSON.stringify(values),

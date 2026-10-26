@@ -11,11 +11,14 @@
     "serve": "node scripts/serve.mjs",
     "check": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
+    "pretest:browser": "npm run wasm:build --prefix ../..",
+    "test:browser": "node scripts/test-browser.mjs",
     "models:import": "node scripts/import-models.mjs",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build --no-bundle"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "1.1.1",
     "@tauri-apps/api": "^2",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
