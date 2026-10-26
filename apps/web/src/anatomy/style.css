@@ -17,14 +17,10 @@
 .camera-mode-switch::before { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); transition: transform .15s ease; }
 .hand-camera-toggle[aria-checked="true"] .camera-mode-switch { background: var(--accent); border-color: var(--accent); }
 .hand-camera-toggle[aria-checked="true"] .camera-mode-switch::before { transform: translateX(14px); background: var(--panel-bg); }
-.hand-camera-toggle[data-camera-active="true"] .line-md-icon { color: #008f32; filter: drop-shadow(0 0 4px currentColor); animation: camera-active-pulse 1s ease-in-out infinite; }
+.hand-camera-toggle[data-camera-active="true"] .line-md-icon { color: #008f32; filter: drop-shadow(0 0 4px currentColor); }
 .hand-camera-toggle[data-camera-active="true"] .line-md-icon svg { stroke-width: 2.8; }
 .hand-camera-toggle[data-camera-active="true"] .line-md-icon rect { fill: currentColor; fill-opacity: .25; }
 :root[data-theme="dark"] .hand-camera-toggle[data-camera-active="true"] .line-md-icon { color: #3cff7b; }
-@keyframes camera-active-pulse {
-  0%, 100% { opacity: 1; transform: scale(1.08); filter: drop-shadow(0 0 6px currentColor); }
-  50% { opacity: .25; transform: scale(.92); filter: drop-shadow(0 0 1px currentColor); }
-}
 .hand-camera-scene[hidden] { display: none; }
 .hand-camera-scene-overlay { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; container-type: size; pointer-events: none; }
 .hand-visual-overlay { position: fixed; inset: 0; width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0; overflow: hidden; border: 0; background: transparent; pointer-events: none; }
@@ -240,7 +236,6 @@
 @keyframes reader-reveal { from { opacity: .5; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
   .camera-mode-switch::before { transition: none; }
-  .hand-camera-toggle[data-camera-active="true"] .line-md-icon { animation: none; }
   .information-panel { transition: none; }
   .reader-expanded .wikipedia-reader { animation: none; }
   .wikipedia-skeleton::after { animation: none; display: none; }
