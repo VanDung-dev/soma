@@ -1,6 +1,6 @@
 # Rust computation ownership
 
-- Put project-owned CPU-intensive algorithms in Rust: geometry processing, camera and structure transforms, animation interpolation, gesture interpretation, and bulk numerical work. Keep portable algorithms in `crates/anatomy_renderer` and expose browser commands through `crates/anatomy_wasm`.
+- Put project-owned CPU-intensive algorithms in Rust: geometry processing, camera and structure transforms, animation interpolation, gesture interpretation, and bulk numerical work. Keep portable algorithms in `crates/renderer` and expose browser commands through `crates/wasm`.
 - Keep TypeScript responsible for React UI, study navigation, DOM measurements, input capture, networking, browser resource lifecycle, and scheduling. Forward commands and display results instead of reproducing Rust algorithms.
 - Keep large numerical buffers and intermediate animation state in Rust. Batch commands across the WASM boundary; avoid transferring per-structure offsets or rebuilding numerical arrays every frame.
 - Run long independent CPU jobs in Workers when they would block the UI. Reuse existing workers and transferable buffers. Rust/WASM on the main thread is not automatically asynchronous or parallel.
