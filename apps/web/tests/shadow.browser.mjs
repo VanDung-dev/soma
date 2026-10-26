@@ -1,4 +1,4 @@
-import fragment from '../../../crates/anatomy_wasm/src/shaders/model.frag.glsl?raw';
+import fragment from '../../../crates/wasm/src/shaders/model.frag.glsl?raw';
 
 // Run in Vite: (await import('/tests/shadow.browser.mjs')).checkShadowFiltering()
 export function checkShadowFiltering() {

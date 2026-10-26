@@ -1,4 +1,4 @@
-import fragment from '../../../crates/anatomy_wasm/src/shaders/model.frag.glsl?raw';
+import fragment from '../../../crates/wasm/src/shaders/model.frag.glsl?raw';
 
 // Run with a loaded WASM viewer and its canvas context to cover shadow-cache reuse.
 // Shadows live on a dedicated framebuffer; picking writes IDs to its own target.

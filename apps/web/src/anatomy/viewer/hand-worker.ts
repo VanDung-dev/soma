@@ -1,7 +1,7 @@
 import { HandLandmarker } from "@mediapipe/tasks-vision";
 import loaderUrl from "@mediapipe/tasks-vision/vision_wasm_module_internal.js?url";
 import binaryUrl from "@mediapipe/tasks-vision/vision_wasm_module_internal.wasm?url";
-import init, { HandGestureController } from "../../wasm/anatomy_wasm";
+import init, { HandGestureController } from "../../wasm/wasm";
 
 let landmarker: HandLandmarker;
 let gestures: HandGestureController;

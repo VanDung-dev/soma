@@ -1,6 +1,7 @@
 import { getCatalog } from '../src/anatomy/core.ts';
 import { StudySession } from '../src/anatomy/study/session.ts';
 import { ViewerRuntime } from '../src/anatomy/viewer/runtime.ts';
+import { structureName } from '../src/anatomy/anatomy-names.ts';
 
 // Run in Vite: (await import('/tests/viewer-runtime.browser.mjs')).checkViewerRuntime()
 export async function checkViewerRuntime() {
@@ -40,6 +41,11 @@ export async function checkViewerRuntime() {
     const ids = root.model.structure_ids;
     assert(first.session.getSnapshot().visibleIds.size === ids.length && second.session.getSnapshot().visibleIds.size === ids.length,
       'Both runtimes must load their own geometry');
+    for (const fixture of [first, second]) {
+      const meshes = fixture.session.getSnapshot().meshes;
+      const expected = [...meshes].sort((a, b) => structureName(a).localeCompare(structureName(b), 'vi') || a.source_object.localeCompare(b.source_object));
+      assert(meshes.every((part, index) => part === expected[index]), 'Startup must preserve Vietnamese name order and source-object tie breaks');
+    }
     for (const fixture of [first, second]) assert(JSON.stringify(fixture.statuses) === JSON.stringify(['loading', 'preparing', 'finishing']),
       'Viewer startup must publish status codes in source loading order');
     assert(first.session.changeVisibility(ids, false), 'The first runtime must accept visibility commands');

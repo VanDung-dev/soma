@@ -1,7 +1,7 @@
 import type { Structure, StudyTarget } from "../catalog/types";
 import { structureName } from "../anatomy-names";
 import { getWasm } from "../core";
-import type { AnatomyViewer } from "../../wasm/anatomy_wasm";
+import type { AnatomyViewer } from "../../wasm/wasm";
 import type { CameraCommand, StudyViewer, ViewerState, ViewerStatus, Viewport } from "./contracts";
 import { bindViewerInput } from "./input";
 import { loadModels } from "./loader";
@@ -92,8 +92,11 @@ export class ViewerRuntime implements StudyViewer {
       this.setGraphics(this.graphics);
       this.viewer!.configure_explosion(JSON.stringify(roots.map(root => root.model!.structure_ids)));
       if (this.failed) throw new Error("Model rendering failed");
+      const collator = new Intl.Collator("vi");
       this.meshes = [...new Map(structures.map(part => [part.source_id, part])).values()]
-        .sort((a, b) => structureName(a).localeCompare(structureName(b), "vi") || a.source_object.localeCompare(b.source_object));
+        .map(part => ({ part, name: structureName(part) }))
+        .sort((a, b) => collator.compare(a.name, b.name) || a.part.source_object.localeCompare(b.part.source_object))
+        .map(entry => entry.part);
       this.loading = false; this.animating = animate;
       this.options.onState({ meshes: this.meshes, building: animate, status: "finishing" });
       this.scheduleRender();

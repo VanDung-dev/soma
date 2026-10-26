@@ -1,4 +1,4 @@
-import type { AnatomyViewer } from "../../wasm/anatomy_wasm";
+import type { AnatomyViewer } from "../../wasm/wasm";
 import { shortcutAction } from "../../shortcuts";
 import { isCameraKey } from "../camera-controls";
 

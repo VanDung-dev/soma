@@ -28,8 +28,11 @@ interface TreeProps {
 function VisibilityCheckbox({ ids, visibleIds, label, disabled, onVisibility }: Pick<TreeProps, "visibleIds" | "disabled" | "onVisibility"> & { ids: string[]; label: string }) {
   const { t } = useLanguage();
   const ref = useRef<HTMLInputElement>(null);
-  let count = 0;
-  for (const id of ids) if (visibleIds.has(id)) count++;
+  const count = useMemo(() => {
+    let count = 0;
+    for (const id of ids) if (visibleIds.has(id)) count++;
+    return count;
+  }, [ids, visibleIds]);
   const mixed = count > 0 && count < ids.length;
   const checked = ids.length > 0 && count === ids.length;
   useEffect(() => { if (ref.current) ref.current.indeterminate = mixed; }, [mixed]);

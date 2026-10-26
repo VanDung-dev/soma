@@ -30,6 +30,17 @@ export async function checkStructureTree() {
     toggle.click(); await frames();
     const initialRows = rows().length;
     assert(initialRows >= 40 && initialRows < 100 && initialRows < ids.length, 'Opening a large folder must bound the initial mounted rows');
+    const systemCheckbox = root.querySelector(':scope > .folder-row .visibility-checkbox input');
+    const partCheckbox = rows()[0].querySelector('.visibility-checkbox input');
+    assert(systemCheckbox.checked && !systemCheckbox.indeterminate, 'Visible systems must start checked');
+    partCheckbox.click(); await frames();
+    assert(!systemCheckbox.checked && systemCheckbox.indeterminate, 'Hiding one structure must mark its system mixed');
+    partCheckbox.click(); await frames();
+    assert(systemCheckbox.checked && !systemCheckbox.indeterminate, 'Restoring the structure must check its system again');
+    systemCheckbox.click(); await frames();
+    assert(!systemCheckbox.checked && !systemCheckbox.indeterminate, 'Hiding the system must clear its checkbox');
+    systemCheckbox.click(); await frames();
+    assert(systemCheckbox.checked && !systemCheckbox.indeterminate, 'Showing the system must refresh its checkbox');
     const first = rows()[0].querySelector('.tree-name');
     first.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
     first.focus(); await frames();

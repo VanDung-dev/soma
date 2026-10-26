@@ -1,10 +1,10 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { Catalog } from "./catalog/types";
 
-let wasm: Promise<typeof import("../wasm/anatomy_wasm.js")> | undefined;
+let wasm: Promise<typeof import("../wasm/wasm.js")> | undefined;
 
 export function getWasm() {
-  return wasm ??= import("../wasm/anatomy_wasm.js").then(async module => {
+  return wasm ??= import("../wasm/wasm.js").then(async module => {
     await module.default();
     return module;
   });

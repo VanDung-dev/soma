@@ -2,7 +2,7 @@
 
 #[tauri::command]
 fn get_catalog() -> Result<String, String> {
-    anatomy_core::catalog_json().map_err(|error| error.to_string())
+    catalog::catalog_json().map_err(|error| error.to_string())
 }
 
 fn main() -> Result<(), tauri::Error> {

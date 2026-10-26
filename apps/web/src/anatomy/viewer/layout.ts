@@ -9,9 +9,9 @@ export function measureHandImage(host: HTMLElement, aspect: number): HandImageBo
 }
 
 export function measureHandRegion(host: HTMLElement, video: HTMLVideoElement, frame: HTMLElement, obstacles: HTMLElement[]): number[] {
-  const bounds = host.getBoundingClientRect();
-  if (!bounds.width || !bounds.height || !video.videoWidth || !video.videoHeight) return [0, 0, 0, 0];
+  if (!video.videoWidth || !video.videoHeight) return [0, 0, 0, 0];
   const { left, top, width, height } = measureHandImage(host, video.videoWidth / video.videoHeight);
+  if (!width || !height) return [0, 0, 0, 0];
   const rect = (element: HTMLElement) => {
     const area = element.getBoundingClientRect();
     const clamp = (value: number) => Math.max(0, Math.min(1, value));

@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { initSync, prepare_packages } from "../src/wasm/anatomy_wasm.js";
+import { initSync, prepare_packages } from "../src/wasm/wasm.js";
 
-initSync({ module: readFileSync(new URL("../src/wasm/anatomy_wasm_bg.wasm", import.meta.url)) });
+initSync({ module: readFileSync(new URL("../src/wasm/wasm_bg.wasm", import.meta.url)) });
 
 test("Rust prepares transferable geometry with matching identities and rejects invalid packages", () => {
   const folder = new URL("../public/models/z-anatomy/", import.meta.url);
