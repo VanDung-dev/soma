@@ -11,10 +11,14 @@ test('graphics preferences validate saved values and tolerate unavailable storag
       globalThis.window = { localStorage: { getItem: () => value } };
       assert.deepEqual(readGraphicsSettings(), defaultGraphics);
     }
-    for (const modelQuality of ['low', 'high']) for (const frameRate of [30, 60]) {
+    for (const modelQuality of ['low', 'high']) for (const frameRate of [30, 60, 120, 'display']) {
       const settings = { shadowQuality: 'low', lightingQuality: 'low', modelQuality, frameRate, grid: false, showFps: true };
       globalThis.window = { localStorage: { getItem: () => JSON.stringify(settings) } };
       assert.deepEqual(readGraphicsSettings(), settings);
+    }
+    for (const frameRate of [null, 0, -1, 59, 144, 240, '120', 'unlimited', 'auto']) {
+      globalThis.window = { localStorage: { getItem: () => JSON.stringify({ frameRate }) } };
+      assert.equal(readGraphicsSettings().frameRate, 60, 'Invalid or retired frame limits must retain the default');
     }
     for (const [quality, shadowQuality] of [['low', 'off'], ['balanced', 'low'], ['high', 'high']]) {
       globalThis.window = { localStorage: { getItem: () => JSON.stringify({ quality, frameRate: 30, grid: false }) } };
@@ -67,16 +71,16 @@ test('frame limits coalesce redraws, finish animations, and stop when idle or di
       const callbacks = [...pending.values()]; pending.clear();
       callbacks.forEach(callback => callback(time));
     };
-    for (const frameRate of [30, 60]) {
+    for (const refreshRate of [60, 120, 144, 240]) for (const frameRate of [30, 60, 120, 'display']) {
       runtime.graphics = { ...runtime.graphics, frameRate };
       runtime.lastRenderTime = -Infinity; draws = 0;
       const start = now;
-      for (let frame = 0; frame < 120; frame++) {
+      for (let frame = 0; frame < refreshRate; frame++) {
         runtime.scheduleRender(); runtime.scheduleRender();
         assert.equal(pending.size, 1);
-        tick(start + frame * 1000 / 120);
+        tick(start + frame * 1000 / refreshRate);
       }
-      assert.equal(draws, frameRate);
+      assert.equal(draws, frameRate === 'display' ? refreshRate : Math.min(frameRate, refreshRate), `${frameRate} FPS at ${refreshRate} Hz`);
       while (pending.size) tick(now + 1000 / 30);
       assert.equal(pending.size, 0);
     }

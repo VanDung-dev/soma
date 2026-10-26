@@ -108,7 +108,9 @@ export async function checkCameraDevices() {
     document.documentElement.dataset.theme = 'dark';
     assert(getComputedStyle(icon).color === 'rgb(60, 255, 123)', 'Use a brighter green for camera activity in the dark theme');
     if (originalTheme === undefined) delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = originalTheme;
-    assert(getComputedStyle(icon).animationName === (matchMedia('(prefers-reduced-motion: reduce)').matches ? 'none' : 'camera-active-pulse'), 'Pulse the camera icon unless reduced motion is requested');
+    const activeStyle = getComputedStyle(icon);
+    assert(activeStyle.animationName === 'none' && activeStyle.opacity === '1' && activeStyle.transform === 'none'
+      && activeStyle.filter !== 'none', 'Keep the active camera icon steadily lit without pulsing');
     streams[0].getVideoTracks()[0].dispatchEvent(new Event('ended'));
     await waitFor(() => toggle().dataset.cameraActive === 'false', 'Clear temporary camera activity when its track ends');
     media.enumerateDevices = enumerate; finishEnumeration();

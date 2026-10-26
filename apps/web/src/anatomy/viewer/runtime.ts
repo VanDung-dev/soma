@@ -132,9 +132,10 @@ export class ViewerRuntime implements StudyViewer {
       this.renderFrame = 0;
       if (this.failed || this.disposed) return;
       const now = performance.now();
-      const interval = 1000 / this.graphics.frameRate;
-      if (now - this.lastRenderTime + 0.5 < interval) { this.scheduleRender(); return; }
-      this.lastRenderTime = now;
+      const interval = this.graphics.frameRate === "display" ? 0 : 1000 / this.graphics.frameRate;
+      const elapsed = now - this.lastRenderTime;
+      if (elapsed + 0.5 < interval) { this.scheduleRender(); return; }
+      this.lastRenderTime = interval > 0 && elapsed < interval * 2 ? this.lastRenderTime + interval : now;
       try {
         if (this.resizePending) this.resizeCanvas();
         this.cameraAnimating = this.viewer!.advance_camera(now);

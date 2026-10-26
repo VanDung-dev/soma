@@ -111,11 +111,13 @@ export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForw
           <label htmlFor={`${settingsId}-fps`}>{t("graphics.frameRate.label")}</label>
           <select id={`${settingsId}-fps`} className="settings-select" value={graphics.frameRate}
             onChange={event => {
-              const frameRate = Number(event.currentTarget.value);
-              if (frameRate === 30 || frameRate === 60) onGraphicsChange({ ...graphics, frameRate });
+              const frameRate = event.currentTarget.value === "display" ? "display" : Number(event.currentTarget.value);
+              if (frameRate === "display" || frameRate === 30 || frameRate === 60 || frameRate === 120) onGraphicsChange({ ...graphics, frameRate });
             }}>
-            <option value="60">60 FPS</option>
             <option value="30">30 FPS</option>
+            <option value="60">60 FPS</option>
+            <option value="120">120 FPS</option>
+            <option value="display">{t("graphics.frameRate.display")}</option>
           </select>
         </div>
         <div className="settings-row">

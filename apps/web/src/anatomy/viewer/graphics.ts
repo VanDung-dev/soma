@@ -3,7 +3,7 @@ export type GraphicsSettings = {
   shadowQuality: "off" | "low" | "high";
   lightingQuality: GraphicsQuality;
   modelQuality: GraphicsQuality;
-  frameRate: 30 | 60;
+  frameRate: 30 | 60 | 120 | "display";
   grid: boolean;
   showFps: boolean;
 };
@@ -28,7 +28,7 @@ export function readGraphicsSettings(): GraphicsSettings {
       shadowQuality: shadowQuality === "low" || shadowQuality === "high" ? shadowQuality : "off",
       lightingQuality: readQuality(value?.lightingQuality),
       modelQuality: readQuality(value?.modelQuality ?? value?.quality),
-      frameRate: value?.frameRate === 30 ? 30 : 60,
+      frameRate: value?.frameRate === "display" || value?.frameRate === 30 || value?.frameRate === 120 ? value.frameRate : 60,
       grid: typeof value?.grid === "boolean" ? value.grid : true,
       showFps: typeof value?.showFps === "boolean" ? value.showFps : false,
     };

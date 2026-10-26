@@ -7,10 +7,12 @@ export async function checkGraphics() {
   const popover = document.querySelector('.settings-popover');
   const [shadow, lighting, quality, fps] = ['shadow', 'lighting', 'model', 'fps'].map(id => popover.querySelector(`select[id$="-${id}"]`));
   for (const [control, values] of [[shadow, ['high', 'low', 'off']], [lighting, ['high', 'low']],
-    [quality, ['high', 'low']], [fps, ['60', '30']]]) {
+    [quality, ['high', 'low']], [fps, ['30', '60', '120', 'display']]]) {
     assert(JSON.stringify([...control.options].map(option => option.value)) === JSON.stringify(values),
       'Expose only the requested levels in their requested order');
   }
+  assert(fps.options[3].textContent === (document.documentElement.lang === 'en' ? 'Match display' : 'Theo màn hình'),
+    'Describe browser-paced rendering in the selected language');
   assert(quality.labels[0].textContent === (document.documentElement.lang === 'en' ? 'Display sharpness' : 'Độ nét hiển thị'),
     'Label display sharpness explicitly');
   const grid = popover.querySelector('input[id$="-grid"]');
@@ -54,7 +56,11 @@ export async function checkGraphics() {
   };
   try {
     if (!original.open) popover.showPopover();
-    await choose(fps, '30'); await choose(fps, '60');
+    for (const value of ['30', '60', '120', 'display']) {
+      await choose(fps, value);
+      assert(JSON.parse(localStorage.getItem('human-atlas-graphics')).frameRate === (value === 'display' ? value : Number(value)),
+        'Apply and persist each frame-rate mode');
+    }
     await choose(shadow, 'off'); await choose(lighting, 'high'); await choose(quality, 'high');
     assert(viewer, 'Settings must reach the WASM viewer');
     const selected = viewer.selected_id(); viewer.select('');
