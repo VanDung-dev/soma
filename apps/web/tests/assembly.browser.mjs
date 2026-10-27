@@ -5,7 +5,7 @@ import { ViewerRuntime } from '../src/anatomy/viewer/runtime.ts';
 export async function checkRestoration() {
   const assert = (ok, message) => { if (!ok) throw Error(message); };
   const catalog = await getCatalog();
-  const root = catalog.targets.find(target => target.model?.path.endsWith('body-regions.glb'));
+  const root = catalog.roots.find(target => target.model?.path.endsWith('body-regions.glb'));
   const host = document.createElement('div');
   host.style.cssText = 'position:fixed;left:-1000px;width:300px;height:400px';
   document.body.append(host);
@@ -20,9 +20,9 @@ export async function checkRestoration() {
   session.connect(runtime);
   const frames = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   try {
-    await runtime.start([root]); await frames();
+    await runtime.start(catalog, [root]); await frames();
     assert(!session.getSnapshot().error, 'The restoration fixture must load real WASM geometry');
-    const viewer = runtime.viewer, [a, b] = root.model.structure_ids;
+    const viewer = runtime.viewer, [a, b] = catalog.members(root.id);
     const structureOffset = viewer.structure_offset;
     const restoreStructure = viewer.restore_structure;
     let offsetReads = 0, offsetWrites = 0;
@@ -64,7 +64,7 @@ export async function checkRestoration() {
       'Keep WebGL and the runtime healthy after cancellation');
     return { targeted: true, repeated: true, rustOwnsOffsets: true, reducedMotion: true, changedReducedMotion: true, overviewCancellation: true };
   } finally {
-    session.disconnect(runtime); runtime.dispose(); host.remove();
+    session.disconnect(runtime); runtime.dispose(); catalog.free(); host.remove();
   }
 }
 
@@ -89,7 +89,8 @@ export async function checkAssembly() {
     canvas.dispatchEvent(new WheelEvent('wheel', { ...point, deltaY: 0, bubbles: true, cancelable: true }));
     assert(viewer, 'Capture the live renderer');
     const catalog = await getCatalog();
-    ids = [...new Set(catalog.targets.flatMap(target => target.model?.structure_ids ?? []))];
+    ids = [...new Set(catalog.roots.flatMap(target => catalog.members(target.id)))];
+    catalog.free();
     for (const id of ids) {
       const target = viewer.preview_connection(id);
       if (target) { a = id; b = target; break; }

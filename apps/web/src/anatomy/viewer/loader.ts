@@ -1,25 +1,12 @@
-import type { Structure, StudyTarget } from "../catalog/types";
+import type { StudyTarget } from "../catalog/types";
 import type { PreparedGeometry } from "./contracts";
 
-export function validateMetadata(value: unknown, expectedIds: string[]): Structure[] {
-  const structures = (value as { structures?: Structure[] } | null)?.structures;
-  if (!Array.isArray(structures) || !structures.length
-    || !structures.every(s => s && [s.source_id, s.source_name, s.source_object, s.latin].every(v => typeof v === "string")
-      && s.source_id && s.source_name && ["", "left", "right"].includes(s.laterality)
-      && Array.isArray(s.collections) && s.collections.every(c => typeof c === "string"))) throw new Error("Metadata không hợp lệ");
-  const ids = new Set(structures.map(s => s.source_id));
-  if (ids.size !== structures.length) throw new Error("Metadata không hợp lệ");
-  if (ids.size !== expectedIds.length || new Set(expectedIds).size !== expectedIds.length || !expectedIds.every(id => ids.has(id))) {
-    throw new Error("Metadata không khớp catalog");
-  }
-  return structures;
-}
-
-export async function* loadModels(roots: StudyTarget[], signal: AbortSignal, onProgress: (loaded: number) => void) {
+export async function* loadModels(roots: StudyTarget[], signal: AbortSignal, onProgress: (loaded: number) => void,
+  ingest: (root: StudyTarget, json: string) => string[]) {
   signal.throwIfAborted();
   const worker = new Worker(new URL("./model-worker.ts", import.meta.url), { type: "module" });
   const downloadAbort = new AbortController();
-  const download = async (root: StudyTarget): Promise<{ bytes: Uint8Array; structures: Structure[] } | { cause: unknown }> => {
+  const download = async (root: StudyTarget): Promise<{ bytes: Uint8Array; metadata: string } | { cause: unknown }> => {
     try {
       const model = root.model!;
       const [response, metadataResponse] = await Promise.all([
@@ -27,8 +14,7 @@ export async function* loadModels(roots: StudyTarget[], signal: AbortSignal, onP
         fetch(`${import.meta.env.BASE_URL}${model.path.replace(/\.glb$/, ".json")}`, { signal: downloadAbort.signal }),
       ]);
       if (!response.ok || !metadataResponse.ok) throw new Error(`HTTP ${response.status}/${metadataResponse.status}`);
-      const structures = validateMetadata(await metadataResponse.json(), model.structure_ids);
-      return { bytes: new Uint8Array(await response.arrayBuffer()), structures };
+      return { bytes: new Uint8Array(await response.arrayBuffer()), metadata: await metadataResponse.text() };
     } catch (cause) { return { cause }; }
   };
   let cancelPreparation: (() => void) | undefined;
@@ -40,18 +26,19 @@ export async function* loadModels(roots: StudyTarget[], signal: AbortSignal, onP
       const pkg = await downloads.shift()!;
       signal.throwIfAborted();
       if ("cause" in pkg) throw pkg.cause;
+      const ids = ingest(roots[index]!, pkg.metadata);
       const prepared = await new Promise<PreparedGeometry>((resolve, reject) => {
         cancelPreparation = () => reject(new DOMException("Model loading cancelled", "AbortError"));
         worker.onmessage = ({ data }) => data.error ? reject(new Error(data.error)) : resolve(data.prepared);
         worker.onerror = event => reject(new Error(event.message));
         worker.onmessageerror = () => reject(new Error("Cannot transfer prepared geometry"));
-        worker.postMessage({ packages: [pkg.bytes], idsJson: JSON.stringify([pkg.structures.map(s => s.source_id)]) }, [pkg.bytes.buffer]);
+        worker.postMessage({ packages: [pkg.bytes], ids: [ids] }, [pkg.bytes.buffer]);
       });
       cancelPreparation = undefined;
       signal.throwIfAborted();
       onProgress(index + 1);
       signal.throwIfAborted();
-      yield { prepared, structures: pkg.structures };
+      yield prepared;
       if (index + 2 < roots.length) downloads.push(download(roots[index + 2]!));
     }
   } finally {

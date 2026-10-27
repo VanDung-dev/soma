@@ -87,6 +87,7 @@ export async function checkOnboarding({ touch = false } = {}) {
     else assert([...guide().querySelectorAll('kbd')].some(key => key.textContent === 'T'), 'Show the restore shortcut with separation');
     await next(); checkGeometry();
     assert(shell.dataset.onboarding === '3' && shell.querySelector('.catalog-panel').dataset.open === 'true', 'Open Structures for the search step');
+    assert(guide().querySelector('.onboarding-shortcuts kbd').textContent === '⌕', 'Teach the search button instead of a key');
     const focus = document.querySelector('.onboarding-focus');
     assert(parseFloat(getComputedStyle(focus).borderTopLeftRadius) > 0, 'Round the search spotlight corners');
     const targetBounds = shell.querySelector('.tree-actions').getBoundingClientRect();

@@ -144,6 +144,7 @@ async function trial(dpr, repetition) {
       blockedRequests.push(url.href); return route.abort();
     });
     await context.addInitScript(instrument);
+    await context.addInitScript(() => localStorage.setItem('anatomy-onboarding:v1', 'dismissed'));
     const page = await context.newPage();
     const errors = [], consoleMessages = [];
     page.on('pageerror', e => errors.push(e.message));
@@ -180,7 +181,7 @@ async function trial(dpr, repetition) {
       phases.push(row); console.log(`DPR ${dpr} trial ${repetition}: ${name} ${(end - start).toFixed(0)}ms`);
     }
     await phase('startup', async () => {
-      await page.goto(origin, { waitUntil: 'domcontentloaded', timeout: 120000 });
+      await page.goto(origin + '/anatomy', { waitUntil: 'domcontentloaded', timeout: 120000 });
       await page.waitForSelector('.model-canvas[aria-busy="false"]', { timeout: 120000 });
     });
     assert.equal(await page.locator('.model-error').count(), 0);
@@ -193,10 +194,10 @@ async function trial(dpr, repetition) {
     const focus = async () => { await canvas.focus(); };
     const hold = async (key, ms) => { await focus(); await page.keyboard.down(key); try { await delay(ms); } finally { await page.keyboard.up(key); } };
     const reset = async () => { await focus(); await page.keyboard.press('r'); await delay(1400); };
-    const settings = async (index, value) => {
+    const settings = async (name, value) => {
       const id = await page.locator('.settings-popover').getAttribute('id');
       const trigger = page.locator(`button[popovertarget="${id}"]:not([popovertargetaction="hide"])`);
-      await trigger.click(); await page.locator('.settings-popover select').nth(index).selectOption(value); await trigger.click(); await delay(700);
+      await trigger.click(); await page.locator(`.settings-popover select[id$="-${name}"]`).selectOption(value); await trigger.click(); await delay(700);
     };
     const explode = async value => {
       await page.locator('.explode-control input').evaluate((input, value) => {
@@ -222,11 +223,11 @@ async function trial(dpr, repetition) {
       }
     });
     await page.mouse.move(0, 0); await delay(300);
-    await settings(0, 'high');
+    await settings('shadow', 'high');
     await phase('rotate_shadow_high', () => hold('ArrowLeft', 6000));
-    await settings(0, 'off'); await settings(2, 'low'); await reset();
+    await settings('shadow', 'off'); await settings('model', 'low'); await reset();
     await phase('rotate_half_resolution', () => hold('ArrowLeft', 6000));
-    await settings(2, 'high'); await reset();
+    await settings('model', 'high'); await reset();
     await phase('idle_after_interactions', () => delay(4000));
     await page.screenshot({ path: path.join(output, `dpr-${dpr}-trial-${repetition}.png`) });
     const observed = await page.evaluate(() => {

@@ -1,3 +1,4 @@
+import { createCatalogFixture, initCatalogWasm } from './catalog.fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
@@ -8,12 +9,12 @@ test('manual movement blocks automatic explosion and preserves study navigation'
   try {
     const { StudySession } = await server.ssrLoadModule('/src/anatomy/study/session.ts');
     const catalog = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
-    const session = new StudySession(catalog), calls = [];
+    const session = new StudySession(await createCatalogFixture(server, catalog)), calls = [];
     const id = catalog.targets.find(target => target.model).model.structure_ids[0];
     session.connect({ setMoving: id => { calls.push(['move', id]); return true; },
       restoreStructure: id => { calls.push(['restore', id]); return true; },
       setExplosion: value => { calls.push(['explode', value]); return true; } });
-    session.updateViewer({ meshes: [{ source_id: id }], building: false });
+    session.updateViewer({ structureIds: [id], building: false });
     assert.equal(session.setMoving('missing'), false);
     session.changeExplosion(30);
     assert.equal(session.setMoving(id), false);
@@ -37,7 +38,7 @@ test('reader panel toggles at all times while reference reading remains limited 
   try {
     const { StudySession, canReadStructure } = await server.ssrLoadModule('/src/anatomy/study/session.ts');
     const catalog = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
-    const session = new StudySession(catalog);
+    const session = new StudySession(await createCatalogFixture(server, catalog));
     const [a, b] = catalog.targets.find(target => target.model).model.structure_ids;
     session.connect({ select: () => true, retargetExplosion() {} });
     assert.equal(canReadStructure(session.getSnapshot(), ''), false);
@@ -68,14 +69,14 @@ test('study commands share folder visibility policy independently of UI selectio
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
     const { StudySession } = await server.ssrLoadModule('/src/anatomy/study/session.ts');
-    const { indexCatalog, structureIds } = await server.ssrLoadModule('/src/anatomy/catalog/index.ts');
     const catalog = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
-    const index = indexCatalog(catalog);
+    const data = await createCatalogFixture(server, catalog);
+    const index = { roots: data.roots };
     const roots = catalog.targets.filter(t => !t.parent_id && t.model);
     assert.deepEqual(index.roots.map(t => t.id), roots.map(t => t.id), 'Keep source loading order independent of tree display order');
-    const root = roots[0], ids = structureIds(root);
+    const root = roots[0], ids = data.members(root.id);
     assert.deepEqual(ids, root.model.structure_ids, 'System operations must use display geometry membership');
-    const meshes = [...new Set(roots.flatMap(t => t.model.structure_ids))].map(source_id => ({ source_id }));
+    const structureIds = [...new Set(roots.flatMap(t => t.model.structure_ids))];
     const calls = [];
     let succeeds = true;
     const viewer = {
@@ -87,8 +88,8 @@ test('study commands share folder visibility policy independently of UI selectio
       overview: () => succeeds,
       control: () => succeeds,
     };
-    const session = new StudySession(catalog);
-    session.connect(viewer); session.updateViewer({ meshes, building: false });
+    const session = new StudySession(await createCatalogFixture(server, catalog));
+    session.connect(viewer); session.updateViewer({ structureIds, building: false });
     let notifications = 0;
     const unsubscribe = session.subscribe(() => notifications++);
     session.updateViewer({ selected: '' });
@@ -116,12 +117,12 @@ test('study commands share folder visibility policy independently of UI selectio
     assert.equal(session.getSnapshot(), before, 'Failed viewer mutations must not commit study state');
     succeeds = true;
     assert(session.overview());
-    assert.equal(session.getSnapshot().visibleIds.size, meshes.length);
+    assert.equal(session.getSnapshot().visibleIds.size, structureIds.length);
     assert.equal(session.getSnapshot().readingId, '');
     assert.equal(session.getSnapshot().explosionAmount, 0);
     unsubscribe();
-    const otherSession = new StudySession(catalog);
-    otherSession.connect(viewer); otherSession.updateViewer({ meshes, building: false });
+    const otherSession = new StudySession(await createCatalogFixture(server, catalog));
+    otherSession.connect(viewer); otherSession.updateViewer({ structureIds, building: false });
     session.changeVisibility(ids, false);
     assert(otherSession.getSnapshot().visibleIds.has(ids[0]), 'Viewer sessions must not share mutable visibility state');
     const replacement = { ...viewer, control: () => false };
@@ -136,7 +137,7 @@ test('Back and Forward follow anatomy navigation without recording hover or manu
     const { StudySession } = await server.ssrLoadModule('/src/anatomy/study/session.ts');
     const catalog = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
     const roots = catalog.targets.filter(target => !target.parent_id && target.model);
-    const meshes = [...new Set(roots.flatMap(target => target.model.structure_ids))].map(source_id => ({ source_id }));
+    const structureIds = [...new Set(roots.flatMap(target => target.model.structure_ids))];
     let succeeds = true;
     const calls = [];
     const viewer = {
@@ -145,15 +146,15 @@ test('Back and Forward follow anatomy navigation without recording hover or manu
       overview: () => { calls.push(['overview']); return succeeds; },
       changeVisibility: () => succeeds, setExplosion: () => succeeds, retargetExplosion() {}, control: () => true,
     };
-    const session = new StudySession(catalog);
-    session.connect(viewer); session.updateViewer({ meshes, building: false });
+    const session = new StudySession(await createCatalogFixture(server, catalog));
+    session.connect(viewer); session.updateViewer({ structureIds, building: false });
     assert.equal(session.back(), false);
     assert.equal(session.forward(), false);
     assert.equal(session.getSnapshot().canGoBack, false);
     assert.equal(session.getSnapshot().canGoForward, false);
     session.browseTarget(roots[0].id);
     session.browseTarget(roots[0].id);
-    session.updateViewer({ hovered: meshes[0].source_id });
+    session.updateViewer({ hovered: structureIds[0] });
     session.changeExplosion(20);
     session.control([{ kind: 'zoom', factor: 1.1 }]);
     assert(session.back());
@@ -161,12 +162,14 @@ test('Back and Forward follow anatomy navigation without recording hover or manu
     assert.equal(session.getSnapshot().canGoBack, false, 'Repeated selection and non-navigation actions must not add steps');
     assert(session.forward());
     assert.equal(session.getSnapshot().targetId, roots[0].id);
+    assert.equal(session.getSnapshot().reveal.id, roots[0].id, 'Forward must reveal the target path after old branches close');
     const id = roots[0].model.structure_ids[0];
     session.browseStructure(id);
     session.focus([id]);
     session.pick(id);
     assert(session.back());
     assert.equal(session.getSnapshot().targetId, roots[0].id, 'Selection followed by focus is one destination');
+    assert.equal(session.getSnapshot().reveal.id, roots[0].id, 'Back must replace the structure path with the target path');
     assert(session.forward());
     assert.deepEqual(session.getSnapshot().focusedIds, [id], 'Forward must replay the structure focus');
     assert.deepEqual(calls.findLast(call => call[0] === 'focus'), ['focus', [id], false, false]);
@@ -184,7 +187,7 @@ test('Back and Forward follow anatomy navigation without recording hover or manu
     const before = session.getSnapshot();
     succeeds = false;
     assert.equal(session.back(), false);
-    assert.equal(session.browseStructure(meshes[1].source_id), false);
+    assert.equal(session.browseStructure(structureIds[1]), false);
     assert.equal(session.browseTarget(roots[3].id), false);
     assert.equal(session.getSnapshot(), before, 'Failed navigation must not move history or commit state');
     succeeds = true;
@@ -192,7 +195,7 @@ test('Back and Forward follow anatomy navigation without recording hover or manu
     assert.equal(session.getSnapshot().readingId, id);
     assert(session.forward());
     assert.equal(session.getSnapshot().targetId, roots[2].id);
-    const other = new StudySession(catalog);
+    const other = new StudySession(await createCatalogFixture(server, catalog));
     assert.equal(other.getSnapshot().canGoBack, false, 'Navigation history belongs to one session');
   } finally { await server.close(); }
 });
@@ -200,11 +203,12 @@ test('Back and Forward follow anatomy navigation without recording hover or manu
 test('model metadata validation preserves identities and rejects malformed or mismatched packages', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
-    const { validateMetadata } = await server.ssrLoadModule('/src/anatomy/viewer/loader.ts');
+    const wasm = await initCatalogWasm(server);
+    const validateMetadata = (value, expected) => wasm.validate_metadata(JSON.stringify(value), expected);
     const metadata = JSON.parse(await readFile(new URL('../public/models/z-anatomy/skeletal-system.json', import.meta.url)));
     const ids = metadata.structures.map(s => s.source_id);
     const before = JSON.stringify(metadata);
-    assert.equal(validateMetadata(metadata, ids.slice().reverse()), metadata.structures);
+    assert.deepEqual(validateMetadata(metadata, ids.slice().reverse()), metadata.structures);
     assert.equal(JSON.stringify(metadata), before);
     for (const invalid of [null, {}, { structures: [] }, { structures: [null] },
       { structures: [metadata.structures[0], metadata.structures[0]] },

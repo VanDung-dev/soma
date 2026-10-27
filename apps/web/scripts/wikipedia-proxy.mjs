@@ -59,12 +59,12 @@ function frameBridge(source) {
     parent.postMessage({ type: 'wikipedia:contextmenu-open', x: event.clientX, y: event.clientY }, '*');
   });
   addEventListener('keydown', event => {
-    if (event.defaultPrevented || event.repeat || event.isComposing || event.altKey || event.shiftKey) return;
+    if (event.defaultPrevented || event.repeat || event.isComposing || event.keyCode === 229 || event.altKey || event.shiftKey) return;
     const key = event.key.toLowerCase();
-    if (key !== 'escape' && (event.target.isContentEditable || event.target.closest?.('input, textarea, select, [role="textbox"]'))) return;
     const command = /Mac|iPhone|iPad/i.test(navigator.platform) ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+    if (key !== 'escape' && (event.target.isContentEditable || event.target.closest?.('input, textarea, select, [role="textbox"]'))) return;
     if (command ? !['[', ']'].includes(key) && !['BracketLeft', 'BracketRight'].includes(event.code)
-      : event.metaKey || event.ctrlKey || !['escape', 'g', 'f', 't'].includes(key)) return;
+      : event.metaKey || event.ctrlKey || !['escape', 'g', 't'].includes(key)) return;
     event.preventDefault();
     parent.postMessage({ type: 'wikipedia:shortcut', key: event.key, code: event.code,
       metaKey: event.metaKey, ctrlKey: event.ctrlKey }, '*');

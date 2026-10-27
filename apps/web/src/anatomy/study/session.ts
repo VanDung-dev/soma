@@ -1,5 +1,4 @@
 import type { Catalog } from "../catalog/types";
-import { indexCatalog, structureIds } from "../catalog";
 import type { CameraCommand, StudyViewer, ViewerState } from "../viewer/contracts";
 
 export interface StudyState extends ViewerState {
@@ -21,19 +20,18 @@ export function canReadStructure(state: Pick<ViewerState, "movingId" | "separate
 }
 
 export class StudySession {
-  readonly catalog;
   private viewer: StudyViewer | undefined;
   private listeners = new Set<() => void>();
   private history: NavigationEntry[] = [{ kind: "overview" }];
   private historyIndex = 0;
   private navigating = false;
   private state: StudyState = {
-    building: true, loadedSystems: 0, status: "loading", error: false, meshes: [],
+    building: true, loadedSystems: 0, status: "loading", error: false, structureIds: [],
     selected: "", movingId: "", separatedIds: new Set(), focusedIds: [], readingId: "", visibleIds: new Set(), readerExpanded: false, explosionAmount: 0,
     canGoBack: false, canGoForward: false,
   };
 
-  constructor(catalog: Catalog) { this.catalog = indexCatalog(catalog); }
+  constructor(readonly catalog: Catalog) {}
 
   getSnapshot = (): Readonly<StudyState> => this.state;
   subscribe = (listener: () => void) => {
@@ -55,7 +53,7 @@ export class StudySession {
     const separatedIds = patch.separatedIds ?? this.state.separatedIds;
     const readerWasAvailable = canReadStructure(this.state, this.state.readingId) || !!this.state.targetId;
     const readerRemainsAvailable = !!this.state.targetId || canReadStructure({ movingId, separatedIds }, this.state.readingId);
-    this.update({ ...patch, ...(patch.meshes ? { visibleIds: new Set(patch.meshes.map(part => part.source_id)) } : {}),
+    this.update({ ...patch, ...(patch.structureIds ? { visibleIds: new Set(patch.structureIds) } : {}),
       ...(readerWasAvailable && !readerRemainsAvailable ? { readerExpanded: false } : {}) });
   };
 
@@ -90,7 +88,7 @@ export class StudySession {
     if (!success) return false;
     this.historyIndex = index;
     this.update({ canGoBack: index > 0, canGoForward: index < this.history.length - 1 });
-    if (entry.kind === "structure") this.revealStructure(entry.id);
+    if (entry.kind !== "overview") this.revealStructure(entry.id);
     return true;
   }
 
@@ -106,7 +104,7 @@ export class StudySession {
   };
 
   browseTarget = (id: string) => {
-    if (!this.catalog.targets.has(id) || !this.viewer?.select("")) return false;
+    if (!this.catalog.target(id) || !this.viewer?.select("")) return false;
     this.update({ readingId: "", readerExpanded: false, targetId: id, focusedIds: [], ...this.record({ kind: "target", id, focused: false }) });
     this.retargetExplosion();
     return true;
@@ -127,9 +125,9 @@ export class StudySession {
   };
 
   focus = (requestedIds: string[], targetId?: string) => {
-    const target = targetId ? this.catalog.targets.get(targetId) : undefined;
+    const target = targetId ? this.catalog.target(targetId) : undefined;
     if (targetId && !target) return false;
-    const ids = target ? structureIds(target) : requestedIds;
+    const ids = target ? this.catalog.members(target.id) : requestedIds;
     const folder = !!targetId;
     const reveal = folder && !ids.every(id => this.state.visibleIds.has(id));
     if (!ids.length || !this.viewer?.focus(ids, folder, reveal)) return false;
@@ -160,7 +158,7 @@ export class StudySession {
   overview = () => {
     if (!this.viewer?.overview()) return false;
     this.update({ readerExpanded: false, readingId: "", targetId: undefined, focusedIds: [],
-      visibleIds: new Set(this.state.meshes.map(part => part.source_id)), explosionAmount: 0, ...this.record({ kind: "overview" }) });
+      visibleIds: new Set(this.state.structureIds), explosionAmount: 0, ...this.record({ kind: "overview" }) });
     return true;
   };
 

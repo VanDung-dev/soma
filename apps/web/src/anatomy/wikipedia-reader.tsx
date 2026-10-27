@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import references from "../../../../content/wikipedia-references.json";
-import { anatomyNames } from "./anatomy-names";
+import { anatomy_names, wikipedia_reference } from "../content/content";
 import { useLanguage } from "../i18n";
 import { isTauri } from "@tauri-apps/api/core";
 
-const articles: Record<string, { url: string; status: string }> = references.articles;
-
 export function wikipediaReference(name: string) {
-  const article = Object.hasOwn(articles, name) ? articles[name] : undefined;
+  const article = wikipedia_reference(name) as { url: string; status: string } | undefined;
   if (!article) return undefined;
   const url = new URL(article.url);
   if (url.protocol !== "https:" || url.host !== "en.wikipedia.org" || !url.pathname.startsWith("/wiki/") || url.search) return undefined;
@@ -28,7 +25,7 @@ function readingUrl(value: unknown) {
 export function WikipediaReader({ name, expanded = false }: { name: string; expanded?: boolean }) {
   const { language, t } = useLanguage();
   const article = wikipediaReference(name);
-  const label = anatomyNames(name)[language];
+  const label = anatomy_names(name)[language];
   const [reload, setReload] = useState(0);
   const [currentUrl, setReadingUrl] = useState(article?.url);
   const [loading, setLoading] = useState(!!article);

@@ -12,7 +12,9 @@ export async function checkLanguage() {
     for (const language of ['en', 'vi', 'en', 'vi', 'en']) await choose(language);
     control.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
     control.focus();
-    assert(document.activeElement === control && getComputedStyle(control).outlineStyle === 'solid', 'Keep language switching keyboard accessible');
+    const style = getComputedStyle(control);
+    assert(document.activeElement === control && style.outlineStyle === 'none' && style.textDecorationLine.includes('underline'),
+      'Keep keyboard focus visible without a focus ring');
     return { bothLanguages: true, headerButton: true, accessibleLabel: true, focus: true };
   } finally { await choose(original); }
 }

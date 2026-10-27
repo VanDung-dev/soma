@@ -9,6 +9,12 @@ test('introductory guide respects saved decisions, supports replay and tolerates
   const previousWindow = globalThis.window;
   try {
     const { AnatomyOnboarding, onboardingStorageKey, readOnboardingStatus } = await server.ssrLoadModule('/src/anatomy/onboarding.tsx');
+    const { OnboardingControls } = await server.ssrLoadModule('/src/anatomy/onboarding-controls.tsx');
+    for (const mouse of [false, true]) {
+      const search = renderToStaticMarkup(createElement(OnboardingControls, { step: 3, mouse }));
+      assert(search.includes('⌕'), 'Teach the search button for both mouse and touch input');
+      assert.doesNotMatch(search, /<kbd>F<\/kbd>|Ctrl\+|⌘/);
+    }
     let saved = null;
     globalThis.window = { matchMedia: () => ({ matches: true }), localStorage: {
       getItem: key => { assert.equal(key, onboardingStorageKey); return saved; },

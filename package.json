@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": ["apps/web"],
   "scripts": {
-    "wasm:build": "wasm-pack build crates/wasm --target web --out-dir ../../apps/web/src/wasm --release --no-opt",
+    "content:build": "wasm-pack build crates/content --target web --out-dir ../../apps/web/src/content --release --no-opt",
+    "wasm:build": "npm run content:build && wasm-pack build crates/wasm --target web --out-dir ../../apps/web/src/wasm --release --no-opt",
     "dev": "npm run dev --workspace apps/web",
     "build": "npm run build --workspace apps/web",
     "serve": "npm run serve --workspace apps/web",

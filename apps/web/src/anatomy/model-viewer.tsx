@@ -9,7 +9,6 @@ import { ExplodeControls } from "./explode-controls";
 import { HandCameraControls } from "./hand-camera-controls";
 import { useCameraDevices } from "./camera-devices";
 import { WikipediaReader } from "./wikipedia-reader";
-import { anatomyNames, structureName, targetName } from "./anatomy-names";
 import { useLanguage } from "../i18n";
 import type { MessageKey } from "../i18n";
 import { canReadStructure, StudySession } from "./study/session";
@@ -37,7 +36,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const cameras = useCameraDevices();
   const helpId = useId();
   const settingsId = useId();
-  const findId = useId();
   const catalogId = useId();
   const informationId = useId();
   const menuBar = useRef<HTMLElement>(null);
@@ -50,10 +48,10 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const runtime = useRef<ViewerRuntime | null>(null);
   const session = useMemo(() => new StudySession(catalog), [catalog]);
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
-  const { meshes, building, error, status, loadedSystems, selected, readingId, targetId,
+  const { structureIds, building, error, status, loadedSystems, selected, readingId, targetId,
     visibleIds, readerExpanded, explosionAmount, movingId, separatedIds, reveal, canGoBack, canGoForward } = state;
   const roots = session.catalog.roots;
-  const target = targetId ? session.catalog.targets.get(targetId) : undefined;
+  const target = useMemo(() => targetId ? catalog.target(targetId) : undefined, [catalog, targetId]);
   const focusViewport = () => measureViewport({ host: host.current!, frame: focusFrame.current!,
     menu: menuBar.current!, catalog: catalogPanel.current!, information: informationPanel.current!, controls: panelToggles.current!, hud: hud.current! });
 
@@ -61,7 +59,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     const viewer = new ViewerRuntime(host.current!, { viewport: focusViewport,
       onState: session.updateViewer, onPick: session.pick, onFps: setFps, onHold: setHold, onSnap: setSnapTarget });
     runtime.current = viewer; session.connect(viewer);
-    void viewer.start(roots);
+    void viewer.start(catalog);
     return () => { session.disconnect(viewer); viewer.dispose(); if (runtime.current === viewer) runtime.current = null; };
   }, [session]);
   useEffect(() => {
@@ -70,13 +68,13 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   }, [graphics, session]);
   const performAction = useCallback((action: ReturnType<typeof shortcutAction>) => {
     if (!action) return;
-    const open = (id: string, toggle = true) => {
+    const open = (id: string) => {
       const panel = document.getElementById(id);
       if (!panel) return;
       const trigger = document.querySelector<HTMLButtonElement>(`button[popovertarget="${id}"]`);
-      if (toggle && panel.matches(":popover-open")) { panel.hidePopover(); trigger?.focus({ preventScroll: true }); return; }
+      if (panel.matches(":popover-open")) { panel.hidePopover(); trigger?.focus({ preventScroll: true }); return; }
       panel.showPopover();
-      panel.querySelector<HTMLElement>("input[type='search'], button:not(:disabled), input:not(:disabled), select:not(:disabled)")?.focus({ preventScroll: true });
+      panel.querySelector<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled)")?.focus({ preventScroll: true });
     };
     const current = session.getSnapshot();
     if (action === "settings") open(settingsId);
@@ -84,12 +82,9 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     else if (!current.building && !current.error) {
       if (action === "back") session.back();
       else if (action === "forward") session.forward();
-      else if (action === "find") {
-        const id = document.getElementById(findId)?.getAttribute("popovertarget");
-        if (id) open(id, false);
-      } else if (action === "restore" && (current.movingId || current.separatedIds.size)) session.restoreStructure("");
+      else if (action === "restore" && (current.movingId || current.separatedIds.size)) session.restoreStructure("");
     }
-  }, [session, helpId, settingsId, findId]);
+  }, [session, helpId, settingsId]);
   useEffect(() => {
     const keyDown = (event: KeyboardEvent) => {
       const action = shortcutAction(event);
@@ -124,19 +119,19 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     if (!session.focus(ids, focusTarget)) return;
     setPanel(null);
   }, [session]);
-  const chooseStructure = useCallback((id: string) => {
-    focusStructures([id]);
+  const chooseSearchResult = useCallback((id: string) => {
+    if (catalog.target(id)) focusStructures([], id);
+    else focusStructures([id]);
     session.revealStructure(id);
     host.current?.querySelector("canvas")?.focus({ preventScroll: true });
-  }, [session, focusStructures]);
-  const structures = useMemo(() => new Map(meshes.map(part => [part.source_id, part])), [meshes]);
-  const selectedPart = structures.get(readingId);
-  const snapPart = structures.get(snapTarget);
+  }, [catalog, session, focusStructures]);
+  const selectedPart = useMemo(() => catalog.detail(readingId), [catalog, readingId, structureIds]);
+  const snapPart = useMemo(() => catalog.detail(snapTarget), [catalog, snapTarget, structureIds]);
   const canReadReference = !!selectedPart && canReadStructure(state, readingId);
   const referenceName = canReadReference ? selectedPart.source_name : target?.source_name;
   const otherLanguage = language === "vi" ? "en" : "vi";
-  const heading = selectedPart ? structureName(selectedPart, language) : target ? targetName(target, language) : t("information.defaultTitle");
-  const otherHeading = selectedPart ? structureName(selectedPart, otherLanguage) : target ? targetName(target, otherLanguage) : "";
+  const heading = selectedPart ? selectedPart.names[language] : target ? target.names[language] : t("information.defaultTitle");
+  const otherHeading = selectedPart ? selectedPart.names[otherLanguage] : target ? target.names[otherLanguage] : "";
   const localizedStatus = t(statusMessages[status], { loaded: loadedSystems, total: roots.length });
   return (
     <>
@@ -152,14 +147,14 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         <button aria-expanded={panel === "information"} aria-controls={informationId} onClick={() => setPanel(panel === "information" ? null : "information")}>{t("information.panel.label")}</button>
       </div>
       <aside id={catalogId} ref={catalogPanel} className="catalog-panel" data-open={panel === "catalog"} aria-label={t("catalog.navigation.label")}>
-        <div className="catalog-heading"><h2>{t("catalog.heading")}</h2><span>{t("catalog.systemCount", { count: catalog.groups.length })}</span></div>
+        <div className="catalog-heading"><h2>{t("catalog.heading")}</h2><span>{t("catalog.systemCount", { count: catalog.groupCount })}</span></div>
         <div className="tree-actions">
-          <button disabled={building || error} onClick={() => session.changeVisibility(meshes.map(p => p.source_id), true)}>{t("catalog.showAll")}</button>
-          <button disabled={building || error} onClick={() => session.changeVisibility(meshes.map(p => p.source_id), false)}>{t("catalog.hideAll")}</button>
-          <StructureSearch triggerId={findId} structures={meshes} disabled={building || error} onSelect={chooseStructure} />
+          <button disabled={building || error} onClick={() => session.changeVisibility(structureIds, true)}>{t("catalog.showAll")}</button>
+          <button disabled={building || error} onClick={() => session.changeVisibility(structureIds, false)}>{t("catalog.hideAll")}</button>
+          <StructureSearch catalog={catalog} disabled={building || error} onSelect={chooseSearchResult} />
         </div>
         <div className="catalog-tree">
-          <StructureTree catalog={catalog} structures={meshes} visibleIds={visibleIds} selected={selected} targetId={targetId} reveal={reveal} disabled={building || error}
+          <StructureTree catalog={catalog} visibleIds={visibleIds} selected={selected} targetId={targetId} reveal={reveal} disabled={building || error}
             onVisibility={session.changeVisibility} onFocus={focusStructures} onSelect={session.browseStructure}
             onTarget={session.browseTarget} />
         </div>
@@ -179,12 +174,12 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
             {graphics.showFps && <span className="model-fps" aria-label={t("graphics.fps.current", { count: fps })}>{fps} FPS</span>}
             <div ref={hud} className="model-hud">
               {snapPart && <div className="model-status model-snap-hint" role="status">
-                {t("viewer.snapHint", { name: structureName(snapPart, language) })}
+                {t("viewer.snapHint", { name: snapPart.names[language] })}
               </div>}
               {(movingId || separatedIds.size > 0) && <div className="model-status separation-status" role="status">
                 <span>{t("context.dragHint")}</span>
               </div>}
-              <p className={`model-status${error ? " model-error" : ""}`} role={error ? "alert" : "status"}>{!error && !building && meshes.length ? t("viewer.status.visibleCount", { visible: visibleIds.size, total: meshes.length }) : localizedStatus}</p>
+              <p className={`model-status${error ? " model-error" : ""}`} role={error ? "alert" : "status"}>{!error && !building && structureIds.length ? t("viewer.status.visibleCount", { visible: visibleIds.size, total: structureIds.length }) : localizedStatus}</p>
               {building && !error && <progress className="model-progress" aria-label={t("viewer.loading.systems")} value={loadedSystems} max={roots.length} />}
               <ExplodeControls value={explosionAmount} disabled={building || error || !!movingId || !!separatedIds.size}
                 locked={!!movingId || !!separatedIds.size} onChange={session.changeExplosion} />
@@ -206,10 +201,10 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         </header>
         <div className="information-content" id="information-content">
           <div className="information-details">
-            {!selectedPart && target && !target.structure_ids.length && <p>{t("information.noLinkedModel")}</p>}
+            {!selectedPart && target && !target.count && <p>{t("information.noLinkedModel")}</p>}
             {selectedPart ? <>
               {selectedPart.latin && <p className="latin-name" lang="la">{selectedPart.latin}</p>}
-              <p className="collection-names">{selectedPart.collections.filter(name => !/^\d:/.test(name)).map(name => anatomyNames(name)[language]).join(" · ")}</p>
+              <p className="collection-names">{selectedPart.collection_names.map(name => name[language]).join(" · ")}</p>
             </> : !target && <p className="information-overview">{t("information.overview")}</p>}
           </div>
           {referenceName && <WikipediaReader key={referenceName} name={referenceName} expanded={readerExpanded} />}

@@ -37,7 +37,7 @@ test('runtime delegates restoration to WASM and synchronizes completion, reduced
       restore_structure: () => { calls.push(['restore']); active = false; separated = []; },
     };
     runtime.loading = false;
-    runtime.meshes = ['a', 'b', 'c'].map(source_id => ({ source_id }));
+    runtime.structureIds = ['a', 'b', 'c'];
     runtime.setMoving('a');
     const tick = time => {
       now = time;

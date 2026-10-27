@@ -20,11 +20,11 @@ export function OnboardingControls({ step, mouse }: { step: number; mouse: boole
     <span className="onboarding-input">{input}</span><strong>{t(label)}</strong>
   </li>;
   let rows: ReactNode[];
-  if (!mouse) {
+  if (step === 3) rows = [row("search.label", <kbd aria-label={t("search.label")}>⌕</kbd>)];
+  else if (!mouse) {
     if (step === 1) rows = [row("controls.mouse.rotate", <kbd>{t("onboarding.input.oneFinger")}</kbd>),
       row("onboarding.action.touchView", <kbd>{t("onboarding.input.twoFingers")}</kbd>)];
     else if (step === 2) rows = [row("onboarding.action.select", <kbd>{t("onboarding.input.tap")}</kbd>)];
-    else if (step === 3) rows = [row("search.label", <kbd aria-label={t("search.label")}>⌕</kbd>)];
     else if (step === 4) rows = [row("onboarding.action.visibility", <kbd>{t("onboarding.input.checkbox")}</kbd>),
       row("onboarding.action.select", <kbd>{t("onboarding.input.tap")}</kbd>)];
     else if (step === 5) rows = [row("onboarding.action.information", <kbd>{t("information.expand")}</kbd>)];
@@ -35,7 +35,6 @@ export function OnboardingControls({ step, mouse }: { step: number; mouse: boole
     row("onboarding.action.reset", <kbd>R</kbd>)];
   else if (step === 2) rows = [row("context.detach", <><MouseInput hold /><span aria-hidden="true">→</span><kbd>{t("onboarding.input.drag")}</kbd></>),
     row("context.restore", <kbd>T</kbd>)];
-  else if (step === 3) rows = [row("search.label", <kbd>F</kbd>)];
   else if (step === 4) rows = [row("onboarding.action.visibility", <kbd>{t("onboarding.input.checkbox")}</kbd>),
     row("onboarding.action.select", <kbd>{t("onboarding.input.clickName")}</kbd>),
     row("onboarding.action.focus", <><kbd>Shift</kbd><span aria-hidden="true">+</span><kbd>Enter</kbd></>)];

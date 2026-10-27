@@ -51,17 +51,22 @@ impl Scene {
         })
     }
 
-    pub fn set_visibility(&mut self, ids: &[String]) -> Result<(), String> {
-        let visible: HashSet<_> = ids.iter().map(String::as_str).collect();
+    fn visibility_ids<'a>(&self, ids: &'a [String]) -> Result<HashSet<&'a str>, String> {
+        let requested: HashSet<_> = ids.iter().map(String::as_str).collect();
         let known: HashSet<_> = self
             .parts
             .iter()
             .filter(|p| p.active)
             .map(|p| p.source_id.as_str())
             .collect();
-        if visible.len() != ids.len() || !visible.is_subset(&known) {
+        if requested.len() != ids.len() || !requested.is_subset(&known) {
             return Err("Unknown or duplicate visible structure ID".into());
         }
+        Ok(requested)
+    }
+
+    pub fn set_visibility(&mut self, ids: &[String]) -> Result<(), String> {
+        let visible = self.visibility_ids(ids)?;
         for part in &mut self.parts {
             part.visible = part.active && visible.contains(part.source_id.as_str());
         }
@@ -72,16 +77,7 @@ impl Scene {
     }
 
     pub fn change_visibility(&mut self, ids: &[String], shown: bool) -> Result<(), String> {
-        let changed: HashSet<_> = ids.iter().map(String::as_str).collect();
-        let known: HashSet<_> = self
-            .parts
-            .iter()
-            .filter(|p| p.active)
-            .map(|p| p.source_id.as_str())
-            .collect();
-        if changed.len() != ids.len() || !changed.is_subset(&known) {
-            return Err("Unknown or duplicate visible structure ID".into());
-        }
+        let changed = self.visibility_ids(ids)?;
         for part in &mut self.parts {
             if changed.contains(part.source_id.as_str()) {
                 part.visible = shown;

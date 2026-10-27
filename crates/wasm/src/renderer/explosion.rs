@@ -6,11 +6,11 @@ use super::{AnatomyViewer, util::js_error};
 
 #[wasm_bindgen]
 impl AnatomyViewer {
-    pub fn configure_explosion(&mut self, groups_json: &str) -> Result<(), JsValue> {
+    pub fn configure_explosion(&mut self, groups_json: JsValue) -> Result<(), JsValue> {
         if self.exploding {
             return Err(js_error("Leave explosion mode before configuring groups"));
         }
-        let groups: Vec<Vec<String>> = serde_json::from_str(groups_json).map_err(js_error)?;
+        let groups: Vec<Vec<String>> = super::util::read(groups_json)?;
         self.explosion = Explosion::new(&self.scene, groups).map_err(js_error)?;
         Ok(())
     }
@@ -45,13 +45,15 @@ impl AnatomyViewer {
         now: f64,
         animate: bool,
         overview: Option<bool>,
-        target_json: Option<String>,
+        target_json: Option<JsValue>,
     ) -> Result<(), JsValue> {
         if !self.exploding {
             return Err(js_error("Explosion mode is not enabled"));
         }
-        let ids: Vec<String> =
-            serde_json::from_str(target_json.as_deref().unwrap_or("[]")).map_err(js_error)?;
+        let ids: Vec<String> = target_json
+            .map(super::util::read)
+            .transpose()?
+            .unwrap_or_default();
         self.scene.bounds_for(&ids).map_err(js_error)?;
         self.explosion.set(amount, now).map_err(js_error)?;
         if ids != self.explosion_target {

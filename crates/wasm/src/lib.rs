@@ -75,8 +75,3 @@ impl HandGestureController {
         serde_json::to_string(&feedback).map_err(|error| JsValue::from_str(&error.to_string()))
     }
 }
-
-#[wasm_bindgen]
-pub fn get_catalog() -> Result<String, JsValue> {
-    catalog::catalog_json().map_err(|error| JsValue::from_str(&error.to_string()))
-}

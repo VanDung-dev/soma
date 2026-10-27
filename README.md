@@ -22,6 +22,7 @@ npm install
 | `npm run desktop:dev` | Tauri development |
 | `npm run desktop:build` | Desktop output: `target/release/`; unsigned, no installer |
 | `npm run wasm:build` | Rebuild WASM after Rust/GLSL changes; reload the page |
+| `npm run content:build` | Rebuild the independent Rust content-data WASM module |
 
 WASM builds before dev/build. Web and desktop dev share port 5173; run one at a time.
 Desktop requires [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/).

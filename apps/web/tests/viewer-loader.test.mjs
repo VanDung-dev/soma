@@ -11,12 +11,13 @@ test('model loading streams in order, bounds prefetch and cleans up cancellation
   }));
   let workerFailure = false;
   try {
-    const { loadModels } = await server.ssrLoadModule('/src/anatomy/viewer/loader.ts');
+    const { loadModels: load } = await server.ssrLoadModule('/src/anatomy/viewer/loader.ts');
+    const loadModels = (roots, signal, progress) => load(roots, signal, progress, (_root, json) => JSON.parse(json).structures.map(part => part.source_id));
     globalThis.fetch = async (url, { signal }) => {
       requests.push(url); signals.push(signal);
       const id = url.match(/\/(\d+)\.(glb|json)$/)[1];
       return { ok: true,
-        json: async () => ({ structures: [{ source_id: id, source_name: id, source_object: id, latin: '', laterality: '', collections: [] }] }),
+        text: async () => JSON.stringify({ structures: [{ source_id: id, source_name: id, source_object: id, latin: '', laterality: '', collections: [] }] }),
         arrayBuffer: async () => new Uint8Array([Number(id)]).buffer,
       };
     };
@@ -27,7 +28,7 @@ test('model loading streams in order, bounds prefetch and cleans up cancellation
         assert.equal(transfers[0], data.packages[0].buffer);
         queueMicrotask(() => {
           if (workerFailure) this.onerror({ message: 'Preparation failed' });
-          else this.onmessage({ data: { prepared: [new Float32Array([1]), new Uint32Array([0]), '{}'] } });
+          else this.onmessage({ data: { prepared: [new Float32Array([data.packages[0][0]]), new Uint32Array([0]), '{}'] } });
         });
       }
       terminate() { this.terminated = true; }
@@ -35,11 +36,11 @@ test('model loading streams in order, bounds prefetch and cleans up cancellation
     const controller = new AbortController(), progress = [];
     const stream = loadModels(roots, controller.signal, count => progress.push(count));
     const first = await stream.next();
-    assert.equal(first.value.structures[0].source_id, '0');
+    assert.equal(first.value[0][0], 0);
     assert.equal(requests.filter(url => url.endsWith('.glb')).length, 2, 'Prefetch only two systems');
     assert.deepEqual(posted, [0], 'Yield the first package before preparing the next');
     const second = await stream.next();
-    assert.equal(second.value.structures[0].source_id, '1');
+    assert.equal(second.value[0][0], 1);
     assert.equal(requests.filter(url => url.endsWith('.glb')).length, 3);
     assert.deepEqual(progress, [1, 2]);
     await stream.return();
@@ -48,10 +49,10 @@ test('model loading streams in order, bounds prefetch and cleans up cancellation
     assert(!controller.signal.aborted, 'Stream cleanup must not abort its caller');
 
     const completed = [], completedProgress = [];
-    for await (const pkg of loadModels(roots, controller.signal, count => completedProgress.push(count))) {
-      completed.push(pkg.structures[0].source_id);
+    for await (const prepared of loadModels(roots, controller.signal, count => completedProgress.push(count))) {
+      completed.push(prepared[0][0]);
     }
-    assert.deepEqual(completed, ['0', '1', '2', '3', '4']);
+    assert.deepEqual(completed, [0, 1, 2, 3, 4]);
     assert.deepEqual(completedProgress, [1, 2, 3, 4, 5]);
     assert(workers[1].terminated);
 

@@ -28,6 +28,10 @@ pub(crate) fn prepared_buffers(
 
 pub(crate) fn load_packages(packages: js_sys::Array, ids_json: &str) -> Result<Scene, JsValue> {
     let ids: Vec<Vec<String>> = serde_json::from_str(ids_json).map_err(js_error)?;
+    load_package_ids(packages, ids)
+}
+
+fn load_package_ids(packages: js_sys::Array, ids: Vec<Vec<String>>) -> Result<Scene, JsValue> {
     if packages.length() as usize != ids.len() {
         return Err(js_error("Package and metadata counts differ"));
     }
@@ -43,9 +47,22 @@ pub(crate) fn load_packages(packages: js_sys::Array, ids_json: &str) -> Result<S
 
 #[wasm_bindgen]
 pub fn prepare_packages(packages: js_sys::Array, ids_json: &str) -> Result<js_sys::Array, JsValue> {
-    let (packed, vertices, indices) = load_packages(packages, ids_json)?
-        .pack()
-        .map_err(js_error)?;
+    pack(load_packages(packages, ids_json)?)
+}
+
+#[wasm_bindgen]
+pub fn prepare_package_ids(
+    packages: js_sys::Array,
+    ids: JsValue,
+) -> Result<js_sys::Array, JsValue> {
+    pack(load_package_ids(
+        packages,
+        serde_wasm_bindgen::from_value(ids).map_err(js_error)?,
+    )?)
+}
+
+fn pack(scene: Scene) -> Result<js_sys::Array, JsValue> {
+    let (packed, vertices, indices) = scene.pack().map_err(js_error)?;
     let result = js_sys::Array::new();
     result.push(&Float32Array::from(vertices.as_slice()));
     result.push(&Uint32Array::from(indices.as_slice()));

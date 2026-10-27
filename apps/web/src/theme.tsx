@@ -37,8 +37,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const clearRevealOrigin = () => {
       for (const value of ["x", "y", "radius"]) root.style.removeProperty(`--theme-reveal-${value}`);
     };
-    const applyTheme = () => {
-      const effectiveTheme = getEffectiveTheme(theme);
+    const resetTransition = () => {
       window.clearTimeout(transitionTimeout);
       window.clearTimeout(removeTransitionTimeout);
       activeTransition.current?.skipTransition();
@@ -46,6 +45,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       window.cancelAnimationFrame(animationFrame);
       delete root.dataset.themeTransition;
       clearRevealOrigin();
+    };
+    const applyTheme = () => {
+      const effectiveTheme = getEffectiveTheme(theme);
+      resetTransition();
       if (appliedTheme.current === effectiveTheme) return;
       const update = () => {
         root.dataset.theme = effectiveTheme;
@@ -90,13 +93,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     mediaQuery.addEventListener("change", systemThemeChanged);
     return () => {
       mediaQuery.removeEventListener("change", systemThemeChanged);
-      window.clearTimeout(transitionTimeout);
-      window.clearTimeout(removeTransitionTimeout);
-      window.cancelAnimationFrame(animationFrame);
-      activeTransition.current?.skipTransition();
-      activeTransition.current = null;
-      delete root.dataset.themeTransition;
-      clearRevealOrigin();
+      resetTransition();
     };
   }, [theme]);
   const value = useMemo(() => ({ theme, setTheme }), [theme, setTheme]);

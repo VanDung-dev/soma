@@ -1,8 +1,9 @@
-import { getCatalog, getWasm } from '../src/anatomy/core.ts';
+import { getContent, getWasm } from '../src/anatomy/core.ts';
 
 // Run after loading in Vite: (await import('/tests/focus.browser.mjs')).checkFocusTree()
 export async function checkFocusTree() {
-  const catalog = await getCatalog(), { AnatomyViewer } = await getWasm();
+  const wasm = await getWasm(), { AnatomyViewer } = wasm;
+  const catalog = JSON.parse((await getContent()).get_catalog());
   const proto = AnatomyViewer.prototype, originalFocus = proto.focus, originalRender = proto.render;
   const originalVisibility = proto.change_visibility;
   const canvas = document.querySelector('.model-canvas canvas'), gl = canvas.getContext('webgl2');
@@ -22,11 +23,11 @@ export async function checkFocusTree() {
   let focusCalls = 0, revealCalls = 0, lastHide, lastIds, lastViewer, imageBounds;
   proto.change_visibility = function(ids, shown, ...args) {
     if (shown) revealCalls++;
-    else lastHide = { ids: JSON.parse(ids), now: args[0] };
+    else lastHide = { ids: (typeof ids === "string" ? JSON.parse(ids) : ids), now: args[0] };
     return originalVisibility.call(this,ids,shown,...args);
   };
   proto.focus = function(ids, ...frame) {
-    focusCalls++; lastIds = JSON.parse(ids); lastViewer = this;
+    focusCalls++; lastIds = (typeof ids === "string" ? JSON.parse(ids) : ids); lastViewer = this;
     return originalFocus.call(this, ids, ...frame);
   };
   proto.render = function() {

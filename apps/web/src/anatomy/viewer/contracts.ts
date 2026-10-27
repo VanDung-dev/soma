@@ -1,5 +1,3 @@
-import type { Structure } from "../catalog/types";
-
 export type Viewport = [number, number, number, number];
 export type PreparedGeometry = [Float32Array, Uint32Array, string];
 
@@ -15,7 +13,7 @@ export interface ViewerState {
   loadedSystems: number;
   status: ViewerStatus;
   error: boolean;
-  meshes: Structure[];
+  structureIds: string[];
   selected: string;
   movingId: string;
   separatedIds: ReadonlySet<string>;

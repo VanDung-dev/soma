@@ -127,7 +127,6 @@
 .anatomy-onboarding > .guide-heading h2 { font-size: 16px; }
 .popover-content.onboarding-content { display: flex; flex: 0 0 auto; flex-direction: column; gap: 16px; min-height: auto; overflow: visible; }
 .onboarding-copy h3 { margin: 0; color: var(--text); font-size: 17px; line-height: 1.4; }
-.anatomy-onboarding h2:focus { outline: none; }
 .onboarding-copy p { margin: 12px 0 0; font-size: 13px; line-height: 1.65; }
 .onboarding-copy .onboarding-progress { margin: 0 0 8px; color: var(--accent); font-size: 12px; }
 .onboarding-copy .onboarding-note { color: var(--muted); font-size: 11px; }
@@ -158,8 +157,7 @@
 .structure-search-input { display: flex; align-items: center; flex-shrink: 0; gap: 12px; padding: 12px; border-radius: var(--inner-radius); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
 .structure-search-input > svg { flex-shrink: 0; width: 22px; height: 22px; color: var(--accent); }
 .structure-search input { width: 100%; min-width: 0; padding: 0; border: 0; background: transparent; color: var(--text); font-size: 20px; line-height: 1.4; }
-.structure-search input:focus-visible { outline: none; }
-.structure-search-input:has(input:focus-visible) { box-shadow: inset 0 0 0 1px var(--accent); }
+.structure-search-input:has(input:focus-visible) { background-color: var(--selected-bg); }
 .search-status { flex-shrink: 0; margin: 0; padding: 10px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .structure-search-results { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; margin: 0; padding: 0; list-style: none; }
 .structure-search-results button { display: block; width: 100%; padding: 12px; border: 0; border-radius: var(--inner-radius); background: transparent; color: var(--text); text-align: left; cursor: pointer; }
@@ -185,7 +183,7 @@
 .visibility-checkbox-icon path:nth-child(2) { stroke: var(--checkbox-mark); }
 .visibility-checkbox input:checked + .visibility-checkbox-icon { color: var(--checkbox-fill); }
 .visibility-checkbox input:checked + .visibility-checkbox-icon path:first-child { fill: currentColor; fill-opacity: 1 !important; }
-.visibility-checkbox input:focus-visible + .visibility-checkbox-icon { outline: 3px solid var(--accent); outline-offset: 3px; }
+.visibility-checkbox:has(input:focus-visible) { background-color: var(--selected-bg); border-radius: var(--row-radius); }
 .visibility-checkbox input:indeterminate + .visibility-checkbox-icon::after { position: absolute; inset: 11px 5px auto; height: 2px; background: var(--checkbox-mark); content: ""; }
 .tree-no-model { flex-shrink: 0; width: 28px; text-align: center; color: var(--muted); }
 .folder-toggle { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; width: 28px; min-height: 32px; margin-left: -6px; padding: 0; border: 0; border-radius: var(--control-radius); background: transparent; }
