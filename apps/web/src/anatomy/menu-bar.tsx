@@ -3,10 +3,10 @@ import { LineIcon } from "../icons";
 import type { GraphicsSettings } from "./viewer/graphics";
 import { shortcutLabel } from "../shortcuts";
 import { PopoverPanel } from "../popover-panel";
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 
 export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForward, helpId, settingsId, graphics, onGraphicsChange, cameraEnabled, cameraActive, onCameraChange,
-  cameraDevices, cameraDeviceId, cameraDevicesError, onCameraDeviceChange, cameraAccessPending, onCameraAccessRequest }: {
+  cameraDevices, cameraDeviceId, cameraDevicesError, onCameraDeviceChange, cameraAccessPending, onCameraAccessRequest, catalogToggle, informationToggle }: {
   ref: RefObject<HTMLElement | null>;
   disabled: boolean;
   canGoBack: boolean;
@@ -26,6 +26,8 @@ export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForw
   onCameraDeviceChange: (deviceId: string) => void;
   cameraAccessPending: boolean;
   onCameraAccessRequest: () => void;
+  catalogToggle: ReactNode;
+  informationToggle: ReactNode;
 }) {
   const { t } = useLanguage();
   return <header ref={ref} className="app-menu-bar" aria-label={t("app.navigation.label")}>
@@ -45,6 +47,7 @@ export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForw
         onClick={() => onCameraChange(!cameraEnabled)}>
         <LineIcon name="camera" size={24} /><span className="camera-mode-switch" aria-hidden="true" />
       </button>
+      {catalogToggle}
     </div>
     <h1 className="app-menu-title" title={t("app.title")}>{t("app.title")}</h1>
     <div className="app-menu-actions">
@@ -54,6 +57,7 @@ export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForw
       <button className="controls-info" popoverTarget={settingsId} aria-label={t("app.settings")} title={`${t("app.settings")} (Esc)`}>
         <LineIcon name="cog" size={14} />
       </button>
+      {informationToggle}
     </div>
     <PopoverPanel id={settingsId} className="settings-popover" contentClassName="settings-content" title={t("app.settings")} closeLabel={t("app.settings.close")}>
         <div className="settings-row">

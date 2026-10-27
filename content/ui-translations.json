@@ -36,6 +36,8 @@
     "app.navigation.label": {"vi": "Thanh điều hướng", "en": "Navigation"},
     "app.back": {"vi": "Quay lại", "en": "Back"},
     "app.forward": {"vi": "Tiến tới", "en": "Forward"},
+    "panels.show": {"vi": "Hiện bảng {name}", "en": "Show {name} sidebar"},
+    "panels.hide": {"vi": "Ẩn bảng {name}", "en": "Hide {name} sidebar"},
     "app.help": {"vi": "Trợ giúp", "en": "Help"},
     "app.settings": {"vi": "Cài đặt", "en": "Settings"},
     "app.settings.close": {"vi": "Đóng cài đặt", "en": "Close settings"},

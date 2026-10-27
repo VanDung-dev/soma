@@ -10,6 +10,7 @@ import { HandCameraControls } from "./hand-camera-controls";
 import { useCameraDevices } from "./camera-devices";
 import { WikipediaReader } from "./wikipedia-reader";
 import { useLanguage } from "../i18n";
+import { LineIcon } from "../icons";
 import type { MessageKey } from "../i18n";
 import { canReadStructure, StudySession } from "./study/session";
 import type { ViewerStatus } from "./viewer/contracts";
@@ -30,6 +31,11 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const [hold, setHold] = useState<{ x: number; y: number } | null>(null);
   const [snapTarget, setSnapTarget] = useState("");
   const [panel, setPanel] = useState<"catalog" | "information" | null>(null);
+  const [collapsedPanels, setCollapsedPanels] = useState({ catalog: false, information: false });
+  const showPanel = useCallback((panel: "catalog" | "information" | null) => {
+    setPanel(panel);
+    if (panel) setCollapsedPanels(current => ({ ...current, [panel]: false }));
+  }, []);
   const [onboardingRun, setOnboardingRun] = useState(0);
   const [handCameraEnabled, setHandCameraEnabled] = useState(false);
   const [handCameraActive, setHandCameraActive] = useState(false);
@@ -105,14 +111,31 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     return () => { document.removeEventListener("keydown", keyDown); window.removeEventListener("message", frameKeyDown); };
   }, [performAction, settingsId]);
   useEffect(() => {
+    const panels = [catalogPanel.current!, informationPanel.current!];
     const centerControls = () => {
+      for (const panel of panels) {
+        panel.inert = !!panel.hidden || getComputedStyle(panel).pointerEvents === "none";
+        panel.ariaHidden = String(panel.inert);
+      }
       const viewport = focusViewport();
-      if (!building && !error) runtime.current?.centerReader(readerExpanded, viewport);
+      if (!building && !error) runtime.current?.centerReader(readerExpanded && !informationPanel.current!.inert && !!informationPanel.current?.getClientRects().length, viewport);
     };
+    let frame = 0;
+    const animateControls = () => {
+      frame = 0;
+      centerControls();
+      if (panels.some(panel => panel.getAnimations().some(animation => animation.playState === "running"))) frame = requestAnimationFrame(animateControls);
+    };
+    const startTransition = () => { if (!frame) frame = requestAnimationFrame(animateControls); };
+    for (const panel of panels) panel.addEventListener("transitionrun", startTransition);
     const observer = new ResizeObserver(centerControls);
     for (const element of [host.current!, menuBar.current!, catalogPanel.current!, informationPanel.current!, panelToggles.current!]) observer.observe(element);
     centerControls();
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+      for (const panel of panels) panel.removeEventListener("transitionrun", startTransition);
+    };
   }, [session, building, error, readerExpanded ? selected : "", readerExpanded, handCameraEnabled]);
 
   const focusStructures = useCallback((ids: string[], focusTarget?: string) => {
@@ -133,9 +156,17 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const heading = selectedPart ? selectedPart.names[language] : target ? target.names[language] : t("information.defaultTitle");
   const otherHeading = selectedPart ? selectedPart.names[otherLanguage] : target ? target.names[otherLanguage] : "";
   const localizedStatus = t(statusMessages[status], { loaded: loadedSystems, total: roots.length });
+  const panelToggle = (panel: "catalog" | "information", name: string) => <button type="button" className="controls-info sidebar-toggle"
+    aria-expanded={!collapsedPanels[panel]} aria-controls={panel === "catalog" ? catalogId : informationId}
+    aria-label={t(collapsedPanels[panel] ? "panels.show" : "panels.hide", { name })}
+    title={t(collapsedPanels[panel] ? "panels.show" : "panels.hide", { name })}
+    onClick={() => setCollapsedPanels(current => ({ ...current, [panel]: !current[panel] }))}>
+    <LineIcon name="sidebar" size={18} />
+  </button>;
   return (
     <>
       <MenuBar ref={menuBar} disabled={building || error} canGoBack={canGoBack} canGoForward={canGoForward}
+        catalogToggle={panelToggle("catalog", t("catalog.heading"))} informationToggle={panelToggle("information", t("information.panel.label"))}
         cameraEnabled={handCameraEnabled} cameraActive={handCameraActive || cameras.accessActive} onCameraChange={setHandCameraEnabled}
         cameraDevices={cameras.devices} cameraDeviceId={cameras.deviceId} cameraDevicesError={cameras.error} onCameraDeviceChange={cameras.setDeviceId}
         cameraAccessPending={cameras.requesting} onCameraAccessRequest={cameras.requestAccess}
@@ -146,7 +177,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         <button aria-expanded={panel === "catalog"} aria-controls={catalogId} onClick={() => setPanel(panel === "catalog" ? null : "catalog")}>{t("catalog.heading")}</button>
         <button aria-expanded={panel === "information"} aria-controls={informationId} onClick={() => setPanel(panel === "information" ? null : "information")}>{t("information.panel.label")}</button>
       </div>
-      <aside id={catalogId} ref={catalogPanel} className="catalog-panel" data-open={panel === "catalog"} aria-label={t("catalog.navigation.label")}>
+      <aside id={catalogId} ref={catalogPanel} className="catalog-panel" data-open={panel === "catalog"} data-collapsed={collapsedPanels.catalog} aria-label={t("catalog.navigation.label")}>
         <div className="catalog-heading"><h2>{t("catalog.heading")}</h2><span>{t("catalog.systemCount", { count: catalog.groupCount })}</span></div>
         <div className="tree-actions">
           <button disabled={building || error} onClick={() => session.changeVisibility(structureIds, true)}>{t("catalog.showAll")}</button>
@@ -187,7 +218,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
           </div>
         </section>
       </main>
-      <aside id={informationId} ref={informationPanel} className={`information-panel${readerExpanded ? " reader-expanded" : ""}`} data-open={panel === "information"} aria-label={t("information.panel.label")}>
+      <aside id={informationId} ref={informationPanel} className={`information-panel${readerExpanded ? " reader-expanded" : ""}`} data-open={panel === "information"} data-collapsed={collapsedPanels.information} aria-label={t("information.panel.label")}>
         <header className="information-heading" data-structure-id={readingId || undefined}>
           <div>
             <p className="eyebrow">{t("information.eyebrow")}</p>
@@ -213,7 +244,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
           </div>
         </div>
       </aside>
-      {!building && !error && !handCameraEnabled && <AnatomyOnboarding key={onboardingRun} replay={onboardingRun > 0} onPanelChange={setPanel} />}
+      {!building && !error && !handCameraEnabled && <AnatomyOnboarding key={onboardingRun} replay={onboardingRun > 0} onPanelChange={showPanel} />}
     </>
   );
 }

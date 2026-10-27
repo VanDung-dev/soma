@@ -41,6 +41,17 @@ test('camera mode reclaims hidden panels and compact panel controls without coll
       catalog: box(112, 122, 200, 712), information: box(888, 122, 200, 712), controls: box(112, 122, 976, 36), hud: box(450, 750, 300, 80) };
     const normal = measureViewport(elements);
     assert.equal(elements.frame.style.width, '552px');
+    elements.controls.hidden = true;
+    for (const [catalogHidden, informationHidden, left, width] of [
+      [true, false, '12px', '764px'], [false, true, '224px', '764px'], [true, true, '12px', '976px'],
+    ]) {
+      elements.catalog.hidden = catalogHidden;
+      elements.information.hidden = informationHidden;
+      measureViewport(elements);
+      assert.equal(elements.frame.style.left, left);
+      assert.equal(elements.frame.style.width, width);
+      assert.equal(elements.frame.style.height, '712px');
+    }
     elements.catalog.hidden = elements.information.hidden = elements.controls.hidden = true;
     for (const compact of [false, true]) {
       desktop = !compact;
@@ -55,6 +66,14 @@ test('camera mode reclaims hidden panels and compact panel controls without coll
     desktop = true;
     elements.catalog.hidden = elements.information.hidden = elements.controls.hidden = false;
     assert.deepEqual(measureViewport(elements), normal);
+    const catalogBounds = elements.catalog.getBoundingClientRect, informationBounds = elements.information.getBoundingClientRect;
+    elements.catalog.getBoundingClientRect = box(-112, 122, 200, 712).getBoundingClientRect;
+    elements.information.getBoundingClientRect = box(1112, 122, 200, 712).getBoundingClientRect;
+    measureViewport(elements);
+    assert.equal(elements.frame.style.left, '12px');
+    assert.equal(elements.frame.style.width, '976px');
+    elements.catalog.getBoundingClientRect = catalogBounds;
+    elements.information.getBoundingClientRect = informationBounds;
   } finally {
     if (originalWindow === undefined) delete globalThis.window; else globalThis.window = originalWindow;
     await server.close();
