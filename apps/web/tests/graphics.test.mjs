@@ -89,6 +89,13 @@ test('frame limits coalesce redraws, finish animations, and stop when idle or di
     for (let frame = 0; frame < 12; frame++) tick(now + 1000 / 120);
     assert.equal(runtime.animating, false);
     assert.equal(pending.size, 0);
+    runtime.viewer.advance_camera = () => --remaining > 0;
+    remaining = 3;
+    runtime.scheduleRender();
+    for (let frame = 0; frame < 12; frame++) tick(now + 1000 / 120);
+    assert.equal(remaining, 0, 'Keep drawing until WASM finishes the camera transition');
+    assert.equal(pending.size, 0, 'Stop drawing after the camera transition finishes');
+    runtime.viewer.advance_camera = () => false;
     runtime.setGraphics({ ...runtime.graphics, frameRate: 30, showFps: true });
     const sample = [...timers.values()][0], start = now;
     for (let frame = 0; frame < 30; frame++) {

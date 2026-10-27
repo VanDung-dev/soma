@@ -3,6 +3,7 @@ import { getWasm } from '../src/anatomy/core.ts';
 export async function checkStructureSearch() {
   const { AnatomyViewer } = await getWasm();
   const originalFocus = AnatomyViewer.prototype.focus;
+  const originalAnimated = AnatomyViewer.prototype.focus_animated;
   const trigger = document.querySelector('.structure-search-field');
   const popover = document.querySelector('.structure-search-popover');
   const form = popover.querySelector('form'), input = form.querySelector('input');
@@ -26,8 +27,12 @@ export async function checkStructureSearch() {
   const treeState = () => [...tree.querySelectorAll('.folder-toggle')].map(button => button.getAttribute('aria-expanded')).join(',');
   let focused, viewer, calls = 0;
   AnatomyViewer.prototype.focus = function(ids, ...viewport) {
-    focused = JSON.parse(ids); viewer = this; calls++;
+    focused = (typeof ids === "string" ? JSON.parse(ids) : ids); viewer = this; calls++;
     return originalFocus.call(this, ids, ...viewport);
+  };
+  AnatomyViewer.prototype.focus_animated = function(ids, ...viewport) {
+    focused = (typeof ids === "string" ? JSON.parse(ids) : ids); viewer = this; calls++;
+    return originalAnimated.call(this, ids, ...viewport);
   };
   try {
     assert(!trigger.disabled, 'Wait for startup to finish');
@@ -117,6 +122,7 @@ export async function checkStructureSearch() {
       independentTree: true, resultLimit: 20, exactSelection: true, hiddenEnabled: true, bilingualNames: true, latinSearch: true, viewportFits: true };
   } finally {
     AnatomyViewer.prototype.focus = originalFocus;
+    AnatomyViewer.prototype.focus_animated = originalAnimated;
     popover.hidePopover();
     for (const back = document.querySelector('.app-menu-history button'); !back.disabled;) { back.click(); await wait(); }
     await wait();

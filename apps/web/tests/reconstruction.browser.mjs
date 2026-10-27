@@ -1,11 +1,12 @@
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { StudyApp } from '../src/anatomy/study-app.tsx';
-import { getCatalog, getWasm } from '../src/anatomy/core.ts';
+import { getContent, getWasm } from '../src/anatomy/core.ts';
 
 // Run in Vite: (await import('/tests/reconstruction.browser.mjs')).checkStartupCamera()
 export async function checkStartupCamera(reducedMotion = false) {
-  const catalog = await getCatalog(), { AnatomyViewer } = await getWasm();
+  const wasm = await getWasm(), { AnatomyViewer } = wasm;
+  const catalog = JSON.parse((await getContent()).get_catalog());
   const systems = catalog.targets.filter(target => !target.parent_id && target.model).length;
   const originals = [], locations = new WeakMap();
   let viewer, appended = 0, frames = 0, animationFrames = 0, drawing = false, matrix, firstMatrix, failure;

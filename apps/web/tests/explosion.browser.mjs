@@ -384,7 +384,7 @@ export async function checkExplosionControls() {
     enabled = value; switches.push(value); return originalMode.call(this,value);
   };
   proto.set_explode = function(value, time, animate, fitOverview, targets) {
-    amount = value; overview = fitOverview; trackedIds = JSON.parse(targets || '[]');
+    amount = value; overview = fitOverview; trackedIds = (typeof targets === "string" ? JSON.parse(targets) : targets ?? []);
     assert(animate === !reduced, 'Respect reduced motion'); return original.call(this,value,time,animate,fitOverview,targets);
   };
   proto.render_explosion = function(time) {

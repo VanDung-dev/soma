@@ -1,4 +1,4 @@
-import { getCatalog } from '../src/anatomy/core.ts';
+import { getContent } from '../src/anatomy/core.ts';
 
 export async function checkStructureTree() {
   const assert = (ok, message) => { if (!ok) throw Error(message); };
@@ -10,7 +10,7 @@ export async function checkStructureTree() {
     }
     throw Error(message);
   };
-  const catalog = await getCatalog();
+  const catalog = JSON.parse((await getContent()).get_catalog());
   const target = catalog.targets.find(target => target.model?.path.endsWith('/muscular-insertions.glb'));
   const nested = new Set(catalog.targets.filter(child => child.parent_id === target.id).flatMap(child => child.structure_ids));
   const ids = target.model.structure_ids.filter(id => !nested.has(id));

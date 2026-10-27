@@ -1,3 +1,4 @@
+import { initCatalogWasm } from './catalog.fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
@@ -8,20 +9,16 @@ const parseJsonl = text => text.split('\n').filter(Boolean).map(line => JSON.par
 test('bilingual names preserve source identity and have safe, explicit fallbacks', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
-    const { anatomyNames, structureName, targetName } = await server.ssrLoadModule('/src/anatomy/anatomy-names.ts');
-    const part = { source_id: 'za:femur', source_name: 'Femur', source_object: 'Femur.l',
-      latin: 'Os femoris', laterality: 'left', collections: [] };
-    const original = structuredClone(part);
-    assert.equal(structureName(part), 'Xương đùi · trái');
-    assert.equal(structureName(part, 'en'), 'Femur · left');
-    assert.deepEqual(part, original);
-    assert.deepEqual(anatomyNames('An unmapped source'), { vi: 'An unmapped source', en: 'An unmapped source' });
-    assert.deepEqual(anatomyNames('constructor'), { vi: 'constructor', en: 'constructor' });
-    assert.equal(anatomyNames('Gluteus maximus muscle.e').vi, 'Cơ mông lớn');
-    assert.equal(anatomyNames('Optic nerve (II)').vi, 'Thần kinh thị giác (II)');
-    assert.equal(targetName({ source_name: 'Femur', title: 'Femur' }), 'Xương đùi');
-    assert.equal(targetName({ source_name: '1: Skeletal system', title: 'Hệ xương' }), 'Hệ xương');
-    assert.equal(targetName({ source_name: '1: Skeletal system', title: 'Hệ xương' }, 'en'), 'Skeletal system');
+    const { anatomy_names, structure_name, target_name } = await initCatalogWasm(server);
+    assert.equal(structure_name('Femur', 'left', 'vi'), 'Xương đùi · trái');
+    assert.equal(structure_name('Femur', 'left', 'en'), 'Femur · left');
+    assert.deepEqual(anatomy_names('An unmapped source'), { vi: 'An unmapped source', en: 'An unmapped source' });
+    assert.deepEqual(anatomy_names('constructor'), { vi: 'constructor', en: 'constructor' });
+    assert.equal(anatomy_names('Gluteus maximus muscle.e').vi, 'Cơ mông lớn');
+    assert.equal(anatomy_names('Optic nerve (II)').vi, 'Thần kinh thị giác (II)');
+    assert.equal(target_name('Femur', 'Femur', 'vi'), 'Xương đùi');
+    assert.equal(target_name('1: Skeletal system', 'Hệ xương', 'vi'), 'Hệ xương');
+    assert.equal(target_name('1: Skeletal system', 'Hệ xương', 'en'), 'Skeletal system');
 
     const inventory = parseJsonl(await readFile(new URL('../../../content/anatomy-names.jsonl', import.meta.url), 'utf8'));
     const catalog = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));

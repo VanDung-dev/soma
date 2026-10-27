@@ -1,3 +1,4 @@
+import { initCatalogWasm, createCatalogFixture } from './catalog.fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -8,8 +9,20 @@ import { createServer } from 'vite';
 test('structure search matches names, Latin and laterality, and reveals the selected tree path', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
-    const { createStructureSearch, StructureSearch } = await server.ssrLoadModule('/src/anatomy/structure-search.tsx');
-    const searchStructures = (parts, query) => createStructureSearch(parts)(query);
+    const wasm = await initCatalogWasm(server);
+    const { Catalog } = await server.ssrLoadModule('/src/anatomy/catalog/index.ts');
+    const { StructureSearch } = await server.ssrLoadModule('/src/anatomy/structure-search.tsx');
+    const fixture = parts => {
+      const ids = parts.map((_, i) => 'za:' + i.toString(16).padStart(16, '0'));
+      const targets = parts.length ? [{ id: 'fixture', title: 'Fixture', source_name: 'Fixture', group_id: 'g', structure_ids: ids,
+        model: { path: 'models/z-anatomy/fixture.glb', scope: 'fixture', structure_ids: ids } }] : [];
+      const raw = { schema_version: 4, groups: parts.length ? [{ id: 'g', title: 'Fixture' }] : [], targets };
+      const store = new Catalog(wasm.CatalogData.from_json(JSON.stringify(raw)));
+      if (parts.length) store.ingestMetadata(store.roots[0], JSON.stringify({ structures: parts.map((part, i) => ({ ...part, source_id: ids[i] })) }));
+      store.finish();
+      return { store, ids, search: query => store.search(query, 'vi', 100).items.map(row => ({ ...row, source_id: parts[ids.indexOf(row.source_id)].source_id })) };
+    };
+    const searchStructures = (parts, query) => { const f = fixture(parts); try { return f.search(query); } finally { f.store.free(); } };
     const { StructureTree } = await server.ssrLoadModule('/src/anatomy/structure-tree.tsx');
     const part = (id, name, latin, laterality = '') => ({ source_id: id, source_name: name,
       source_object: name, latin, laterality, collections: [] });
@@ -24,7 +37,7 @@ test('structure search matches names, Latin and laterality, and reveals the sele
     assert.deepEqual(searchStructures(parts, 'Femur left').map(p => p.source_id), ['left']);
     assert.deepEqual(searchStructures(parts, 'os femoris').map(p => p.source_id), ['right', 'left']);
     assert.deepEqual(searchStructures(parts, 'xuong don').map(p => p.source_id), ['clavicle']);
-    assert.deepEqual(searchStructures(parts, '   '), []);
+    assert.equal(searchStructures(parts, '   ').length, parts.length, 'Blank input shows A–Z');
     assert.deepEqual(searchStructures(parts, 'does-not-exist'), []);
     assert.deepEqual(searchStructures(parts, '---'), []);
     assert.deepEqual(searchStructures([], 'femur'), []);
@@ -32,7 +45,7 @@ test('structure search matches names, Latin and laterality, and reveals the sele
     for (const query of ['Femur left', 'Femur trai', 'xuong dui trai', 'Xương đùi · trái']) {
       assert.equal(searchStructures(withLeftHead, query)[0].source_id, 'left', query);
     }
-    const html = renderToStaticMarkup(createElement(StructureSearch, { structures: parts, disabled: true, onSelect() {} }));
+    const html = renderToStaticMarkup(createElement(StructureSearch, { catalog: fixture(parts).store, disabled: true, onSelect() {} }));
     assert.match(html, /role="search"/);
     assert.match(html, /<input[^>]*type="search"[^>]*disabled=""/);
     assert.match(html, /<button[^>]*disabled=""[^>]*aria-label="Tìm kiếm"/);
@@ -43,13 +56,13 @@ test('structure search matches names, Latin and laterality, and reveals the sele
     assert.doesNotMatch(html, /class="controls-info"/);
     assert.match(html, /A–Z/);
     const alphabetical = renderToStaticMarkup(createElement(StructureSearch, {
-      structures: [part('unknown', '???', ''), part('z', 'ZzzAtlas', ''), part('a', 'AaaAtlas', ''), part('m', 'MmmAtlas', '')],
+      catalog: fixture([part('unknown', '???', ''), part('z', 'ZzzAtlas', ''), part('a', 'AaaAtlas', ''), part('m', 'MmmAtlas', '')]).store,
       disabled: false, onSelect() {},
     }));
-    assert(alphabetical.indexOf('data-structure-id="a"') < alphabetical.indexOf('data-structure-id="m"'));
-    assert(alphabetical.indexOf('data-structure-id="m"') < alphabetical.indexOf('data-structure-id="z"'));
-    assert(alphabetical.indexOf('data-structure-id="z"') < alphabetical.indexOf('data-structure-id="unknown"'));
-    const find = createStructureSearch(parts);
+    assert(alphabetical.indexOf('data-structure-id="za:0000000000000002"') < alphabetical.indexOf('data-structure-id="za:0000000000000003"'));
+    assert(alphabetical.indexOf('data-structure-id="za:0000000000000003"') < alphabetical.indexOf('data-structure-id="za:0000000000000001"'));
+    assert(alphabetical.indexOf('data-structure-id="za:0000000000000001"') < alphabetical.indexOf('data-structure-id="za:0000000000000000"'));
+    const find = query => searchStructures(parts, query);
     assert.deepEqual(find('femur').map(part => part.source_id), ['right', 'left', 'head']);
     assert.deepEqual(find('xuong dui trai').map(part => part.source_id), ['left']);
     assert.deepEqual(find('Clavicula').map(part => part.source_id), ['clavicle']);
@@ -59,7 +72,7 @@ test('structure search matches names, Latin and laterality, and reveals the sele
     const femur = metadata.structures.find(p => p.source_name === 'Femur');
     assert(femur);
     const tree = renderToStaticMarkup(createElement(StructureTree, {
-      catalog, structures: metadata.structures, visibleIds: new Set([femur.source_id]), selected: femur.source_id,
+      catalog: await createCatalogFixture(server, catalog, [[catalog.targets.find(target => target.model?.path.endsWith('/skeletal-system.glb')), metadata]]), visibleIds: new Set([femur.source_id]), selected: femur.source_id,
       reveal: { id: femur.source_id }, disabled: false,
       onVisibility() {}, onSelect() {}, onTarget() {}, onFocus() {},
     }));
