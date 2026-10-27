@@ -21,10 +21,10 @@ export function HomePage() {
         {modules.map((module, index) => {
           const available = module.id === "anatomy";
           const Card = available ? "a" : "div";
-          return <Card key={module.id} className={`home-module home-module-${module.id}`} href={available ? `/${module.id}` : undefined} aria-disabled={available ? undefined : true}>
+          return <Card key={module.id} className={`home-module home-module-${module.id}`} href={available ? `/${module.id}` : undefined} aria-disabled={available ? undefined : true} draggable={false}>
             <div className="home-module-art" aria-hidden="true">
               <span className="home-module-number">0{index + 1}</span>
-              <img src={`/home/${module.id}.png`} alt="" width={640} height={640} decoding="async" />
+              <img src={`/home/${module.id}.png`} alt="" width={640} height={640} decoding="async" draggable={false} />
             </div>
             <div className="home-module-copy">
               <strong>{t(module.title)}</strong>

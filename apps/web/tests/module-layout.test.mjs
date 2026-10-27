@@ -39,6 +39,7 @@ test('Home and module routes share one workspace and navigation returns to Home'
         assert.deepEqual([...markup.matchAll(/class="home-module[^\"]*" href="([^"]+)"/g)].map(match => match[1]), ['/anatomy']);
         assert.equal((markup.match(/class="home-module-art"/g) ?? []).length, 3);
         assert.equal((markup.match(/class="home-module-copy"/g) ?? []).length, 3);
+        assert.equal((markup.match(/draggable="false"/g) ?? []).length, 6);
         for (const module of ['lessons', 'games']) assert(markup.includes(`class="home-module home-module-${module}" aria-disabled="true"`));
       }
     }
