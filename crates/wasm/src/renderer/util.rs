@@ -5,6 +5,14 @@ pub(crate) fn js_error(error: impl std::fmt::Display) -> JsValue {
     JsValue::from_str(&error.to_string())
 }
 
+pub(crate) fn read<T: serde::de::DeserializeOwned>(value: JsValue) -> Result<T, JsValue> {
+    if let Some(json) = value.as_string() {
+        serde_json::from_str(&json).map_err(js_error)
+    } else {
+        serde_wasm_bindgen::from_value(value).map_err(js_error)
+    }
+}
+
 fn shader(gl: &Gl, kind: u32, source: &str) -> Result<WebGlShader, JsValue> {
     let shader = gl
         .create_shader(kind)

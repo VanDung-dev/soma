@@ -52,14 +52,14 @@ impl AnatomyViewer {
     /// The host calls render once after batching mutations for the next frame.
     pub fn change_visibility(
         &mut self,
-        ids_json: &str,
+        ids_json: JsValue,
         shown: bool,
         now: Option<f64>,
     ) -> Result<(), JsValue> {
         if let Some(now) = now {
             self.reconstruction.check_time(now).map_err(js_error)?;
         }
-        let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
+        let ids: Vec<String> = super::util::read(ids_json)?;
         self.scene
             .change_visibility(&ids, shown)
             .map_err(js_error)?;
@@ -71,8 +71,8 @@ impl AnatomyViewer {
         Ok(())
     }
 
-    pub fn set_visibility(&mut self, ids_json: &str) -> Result<(), JsValue> {
-        let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
+    pub fn set_visibility(&mut self, ids_json: JsValue) -> Result<(), JsValue> {
+        let ids: Vec<String> = super::util::read(ids_json)?;
         self.scene.set_visibility(&ids).map_err(js_error)?;
         self.reconstruction
             .set_visibility(&self.scene.parts, None)
@@ -82,8 +82,8 @@ impl AnatomyViewer {
         Ok(())
     }
 
-    pub fn subset(&mut self, ids_json: &str) -> Result<(), JsValue> {
-        let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
+    pub fn subset(&mut self, ids_json: JsValue) -> Result<(), JsValue> {
+        let ids: Vec<String> = super::util::read(ids_json)?;
         let bounds = self.scene.subset(&ids).map_err(js_error)?;
         self.reconstruction
             .set_visibility(&self.scene.parts, None)

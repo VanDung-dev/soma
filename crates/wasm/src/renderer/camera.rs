@@ -7,19 +7,19 @@ use super::{AnatomyViewer, util::js_error};
 impl AnatomyViewer {
     pub fn focus(
         &mut self,
-        ids_json: &str,
+        ids_json: JsValue,
         left: f32,
         top: f32,
         width: f32,
         height: f32,
     ) -> Result<(), JsValue> {
-        let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
+        let ids: Vec<String> = super::util::read(ids_json)?;
         self.focus_ids(&ids, [left, top, width, height])
     }
 
     pub fn focus_animated(
         &mut self,
-        ids_json: &str,
+        ids_json: JsValue,
         left: f32,
         top: f32,
         width: f32,
@@ -29,7 +29,7 @@ impl AnatomyViewer {
         if !now.is_finite() || now < 0.0 {
             return Err(js_error("Invalid focus timestamp"));
         }
-        let ids: Vec<String> = serde_json::from_str(ids_json).map_err(js_error)?;
+        let ids: Vec<String> = super::util::read(ids_json)?;
         let before = self.camera.clone();
         self.focus_ids(&ids, [left, top, width, height])?;
         self.transition_camera(before, Some(now));
