@@ -4,12 +4,13 @@
 
 | Location | Responsibility |
 | --- | --- |
-| `crates/core` | Catalog data and validation; library name: `catalog` |
+| `crates/core` | Shared catalog schema and validation; library name: `catalog` |
+| `crates/content` | Catalog/metadata JSON, terminology, reference links, search and tree snapshots; independent content WASM output |
 | `crates/renderer` | Geometry, camera, gestures, animation, separation and snapping |
-| `crates/wasm` | Browser bindings, WebGL resources and rendering |
+| `crates/wasm` | Viewer/gesture bindings, WebGL resources and rendering; no dependency on content |
 | `apps/web/src-tauri` | Desktop host and native catalog command |
 | `apps/web/src/pages/module-layout.tsx` | Shared header, workspace frame and host navigation |
-| `apps/web/src/anatomy/catalog/` | Types, membership and hierarchy indexes |
+| `apps/web/src/anatomy/catalog/` | Typed adapter to the Rust catalog store; UI snapshot types |
 | `apps/web/src/anatomy/study/session.ts` | Study state, visibility, focus, reading and history |
 | `apps/web/src/anatomy/viewer/` | Canvas lifecycle, loading, workers, DOM input and scheduling |
 | `apps/web/src/anatomy/model-viewer.tsx` | Screen composition, preferences and camera mode |
@@ -17,7 +18,25 @@
 | `apps/web/scripts/` | Model pipeline, Wikipedia proxy and validation tools |
 | `content/`, `apps/web/public/models/` | Catalog and model assets |
 
-`core.ts` initializes WASM/catalog access. `core` uses library name `catalog` to
+`core.ts` initializes content and viewer WASM independently. The content module
+is built into `apps/web/src/content/`; the viewer module stays in
+`apps/web/src/wasm/`. Geometry and hand workers load only the viewer module.
+Each catalog handle owns its Rust data
+and is freed on page disposal; separate viewer hosts use separate handles.
+Metadata text goes directly to Rust for validation before geometry preparation.
+Rust retains source fields, names, membership, hierarchy and search indexes.
+React receives requested tree/search/detail snapshots and command IDs, without
+reconstructing the data indexes. Expansion, scrolling, focus and study history
+remain UI state. Identity lists stay as strings through the catalog adapter,
+runtime and session, exposed as `ViewerState.structureIds`. The model loader
+yields prepared geometry directly. Content sorting uses ICU4X in Rust, with the host locale resolved
+once per index rebuild for source-object ties; comparisons do not call back into
+JavaScript. Search reuses a memchr substring finder per query word. The default
+build does not require SIMD. Viewer commands accept JS arrays directly; legacy JSON string
+inputs remain accepted at the Rust boundary. Small graphics preferences and
+camera feedback serialization remain outside this content-data migration.
+
+`core` uses library name `catalog` to
 avoid Rust's built-in `core`; `::renderer` identifies the external crate in WASM.
 
 ## Data flow
@@ -58,6 +77,7 @@ Commands and setup: [README](README.md#checks).
 | Area | Tests |
 | --- | --- |
 | Catalog/domain | `crates/core/src/lib.rs` |
+| Content data/search | `crates/content/tests/` |
 | Camera, geometry, gestures, assembly | `crates/renderer/tests/` |
 | WASM hand state | `crates/wasm/tests/` |
 | Session, loader, input, preferences | `apps/web/tests/*.test.mjs` |
