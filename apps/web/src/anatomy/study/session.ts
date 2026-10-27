@@ -88,7 +88,7 @@ export class StudySession {
     if (!success) return false;
     this.historyIndex = index;
     this.update({ canGoBack: index > 0, canGoForward: index < this.history.length - 1 });
-    if (entry.kind === "structure") this.revealStructure(entry.id);
+    if (entry.kind !== "overview") this.revealStructure(entry.id);
     return true;
   }
 

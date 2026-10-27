@@ -1,4 +1,4 @@
-import { getContent } from '../src/anatomy/core.ts';
+import { getCatalog, getContent } from '../src/anatomy/core.ts';
 
 export async function checkStructureTree() {
   const assert = (ok, message) => { if (!ok) throw Error(message); };
@@ -72,11 +72,53 @@ export async function checkStructureTree() {
     assert(revealed.classList.contains('is-selected') && selected() === last.source_id, 'Search must synchronize selection and reveal');
     const bounds = revealed.getBoundingClientRect(), viewport = scroll.getBoundingClientRect();
     assert(bounds.bottom > viewport.top && bounds.top < viewport.bottom, 'Scroll the revealed row into view');
+    const firstPart = metadata.structures.find(part => part.source_id === ids[0]);
+    document.querySelector('.structure-search-field').click(); await frames();
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, firstPart.source_object);
+    input.dispatchEvent(new Event('input', { bubbles: true })); await frames();
+    const firstResult = search.querySelector('[data-structure-id="' + firstPart.source_id + '"]');
+    assert(firstResult, 'Find the first structure after revealing the last');
+    firstResult.click();
+    await waitFor(() => rows().length < 100 && root.querySelector('[data-structure-id="' + firstPart.source_id + '"].is-selected'),
+      'A new search must reset the previous large row limit in the same folder');
     toggle.click(); await frames(); scroll.scrollTop = 0;
     toggle.click(); await frames();
     assert(rows().length < 100, 'Reopening after a reveal must restore the initial row bound');
+    const store = await getCatalog();
+    try {
+      const expandedPath = () => [...scroll.querySelectorAll('.folder-toggle[aria-expanded="true"]')]
+        .map(button => button.closest('[data-target-id]').dataset.targetId);
+      const matchesPath = expected => {
+        const expanded = expandedPath();
+        return expanded.length === expected.length && expected.every(id => expanded.includes(id));
+      };
+      let lastId;
+      for (const query of ['sọ', 'xuong dui trai', 'thận', 'humerus left', target.source_name, 'sọ', 'xuong dui trai']) {
+        document.querySelector('.structure-search-field').click(); await frames();
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, query);
+        input.dispatchEvent(new Event('input', { bubbles: true })); await frames();
+        const result = search.querySelector('[role="option"]');
+        assert(result, 'Find a navigation result: ' + query);
+        const group = result.dataset.targetId, id = group || result.dataset.structureId;
+        lastId = id;
+        const path = store.reveal(id).map(([id]) => id);
+        const expected = group ? path.slice(1) : path;
+        result.click();
+        await waitFor(() => matchesPath(expected), 'Search must replace old branches with only the new path: ' + query);
+        if (group) assert(scroll.querySelector('[data-target-id="' + id + '"] > .folder-row .folder-toggle').getAttribute('aria-expanded') === 'false',
+          'Keep the selected group collapsed: ' + query);
+        else assert(scroll.querySelector('[data-structure-id="' + id + '"].is-selected'), 'Keep the selected structure visible: ' + query);
+      }
+      const skull = catalog.targets.find(target => target.source_name === 'Cranium');
+      back.click();
+      await waitFor(() => matchesPath(store.reveal(skull.id).slice(1).map(([id]) => id))
+        && scroll.querySelector('[data-target-id="' + skull.id + '"] > .folder-row.is-selected'), 'Back must restore only the skull parent path');
+      document.querySelector('.app-menu-history button:nth-child(2)').click();
+      await waitFor(() => matchesPath(store.reveal(lastId).map(([id]) => id))
+        && scroll.querySelector('[data-structure-id="' + lastId + '"].is-selected'), 'Forward must restore only the structure path');
+    } finally { store.free(); }
     return { initialRows, totalDirectRows: ids.length, keyboardSelection: true, pointerFocus: true, keyboardLoading: true,
-      scrollLoading: true, searchReveal: true, boundedReopen: true };
+      scrollLoading: true, searchReveal: true, boundedReopen: true, resetSearchLimit: true, replaceSearchPath: true, collapsedSearchGroup: true };
   } finally {
     search.hidePopover();
     while (!back.disabled) { back.click(); await frames(); }

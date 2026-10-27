@@ -162,12 +162,14 @@ test('Back and Forward follow anatomy navigation without recording hover or manu
     assert.equal(session.getSnapshot().canGoBack, false, 'Repeated selection and non-navigation actions must not add steps');
     assert(session.forward());
     assert.equal(session.getSnapshot().targetId, roots[0].id);
+    assert.equal(session.getSnapshot().reveal.id, roots[0].id, 'Forward must reveal the target path after old branches close');
     const id = roots[0].model.structure_ids[0];
     session.browseStructure(id);
     session.focus([id]);
     session.pick(id);
     assert(session.back());
     assert.equal(session.getSnapshot().targetId, roots[0].id, 'Selection followed by focus is one destination');
+    assert.equal(session.getSnapshot().reveal.id, roots[0].id, 'Back must replace the structure path with the target path');
     assert(session.forward());
     assert.deepEqual(session.getSnapshot().focusedIds, [id], 'Forward must replay the structure focus');
     assert.deepEqual(calls.findLast(call => call[0] === 'focus'), ['focus', [id], false, false]);

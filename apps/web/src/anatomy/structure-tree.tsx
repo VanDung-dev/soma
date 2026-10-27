@@ -34,18 +34,18 @@ function VisibilityCheckbox({ count, total, label, disabled, onChange }: {
 
 export const StructureTree = memo(function StructureTree(props: TreeProps) {
   const { t } = useLanguage();
-  const path = useMemo(() => props.reveal ? props.catalog.reveal(props.reveal.id) : [], [props.catalog, props.reveal]);
+  const path = useMemo(() => {
+    if (!props.reveal) return [];
+    const entries = props.catalog.reveal(props.reveal.id);
+    return entries[0]?.[0] === props.reveal.id ? entries.slice(1) : entries;
+  }, [props.catalog, props.reveal]);
   const [open, setOpen] = useState<string[]>(() => path.map(([id]) => id));
   const [limits, setLimits] = useState<Record<string, number>>(() => Object.fromEntries(path));
   useEffect(() => {
-    if (!path.length) return;
-    setOpen(current => [...new Set([...current, ...path.map(([id]) => id)])]);
-    setLimits(current => {
-      const next = { ...current };
-      for (const [id, limit] of path) next[id] = Math.max(next[id] ?? 40, limit);
-      return next;
-    });
-  }, [path]);
+    if (!props.reveal) return;
+    setOpen(path.map(([id]) => id));
+    setLimits(Object.fromEntries(path));
+  }, [path, props.reveal]);
   const rows = useMemo(() => props.catalog.tree(open, limits, [...props.visibleIds]), [props.catalog, open, limits, props.visibleIds]);
   const grow = useCallback((id: string, limit: number) => setLimits(current => current[id] === limit ? current : { ...current, [id]: limit }), []);
   const toggle = (folder: FolderView) => {
