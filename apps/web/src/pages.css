@@ -39,5 +39,3 @@
 }
 
 .model-space { --muted: var(--muted-dark); position: absolute; inset: 0; min-width: 0; min-height: 0; overflow: hidden; border-radius: inherit; background: var(--workspace-bg); }
-.module-page[data-focus-source="pointer"] .visibility-checkbox input:focus-visible + .visibility-checkbox-icon { outline: none; }
-.module-page[data-focus-source="pointer"] :is(button, a, select, canvas, summary, input[type="range"], input[type="checkbox"]):focus-visible { outline: none; }
