@@ -47,7 +47,7 @@ export async function checkControls() {
     const keyboard = guide.querySelector('[aria-label="Bàn phím"]').getBoundingClientRect();
     const mouse = guide.querySelector('[aria-label="Chuột"]').getBoundingClientRect();
     assert(keyboard.right < mouse.left, 'Keyboard instructions must be left of mouse instructions');
-    assert(guide.querySelectorAll('kbd').length === expected.length + 6, 'Document camera and app shortcuts');
+    assert(guide.querySelectorAll('kbd').length === expected.length + 5, 'Document camera and app shortcuts');
     assert(guide.innerText.includes('Di chuyển camera') && guide.innerText.includes('Xoay mô hình'), 'Distinguish camera movement from model rotation');
     assert(guide.innerText.includes('Shift + kéo') && guide.innerText.includes('Cuộn chuột'), 'Document mouse gestures');
     guide.querySelector('button').click(); await frames(1);

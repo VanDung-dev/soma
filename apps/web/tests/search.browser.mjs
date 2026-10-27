@@ -37,6 +37,15 @@ export async function checkStructureSearch() {
   try {
     assert(!trigger.disabled, 'Wait for startup to finish');
     if (popover.matches(':popover-open')) { popover.hidePopover(); await wait(); }
+    const canvas = document.querySelector('.model-canvas canvas');
+    canvas.focus();
+    for (const extra of [{ key: 'f' }, { key: 'f', ctrlKey: true }, { key: 'f', metaKey: true },
+      { key: '/', ctrlKey: true }, { key: '/', metaKey: true }]) {
+      const event = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...extra });
+      canvas.dispatchEvent(event); await wait();
+      assert(!event.defaultPrevented && !popover.matches(':popover-open'), 'Search must not intercept typing or browser shortcuts');
+    }
+    assert(!/Ctrl|⌘|\(F\)/.test(trigger.title), 'Remove keyboard hints from the search tooltip');
     assert(!tree.querySelector('mark'), 'The catalog must remain a normal tree');
     const state = treeState();
     const action = document.querySelector('.tree-actions > button').getBoundingClientRect();
