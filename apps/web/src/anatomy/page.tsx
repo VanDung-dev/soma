@@ -12,14 +12,15 @@ export function AnatomyPage() {
 
   useEffect(() => {
     let active = true;
+    let current: Catalog | undefined;
     getCatalog().then(
-      (value) => { if (active) setCatalog(value); },
+      (value) => { if (active) { current = value; setCatalog(value); } else value.free(); },
       (error: unknown) => {
         console.error("Catalog initialization failed", error);
         if (active) setFailed(true);
       },
     );
-    return () => { active = false; };
+    return () => { active = false; current?.free(); };
   }, []);
 
   if (catalog) return <StudyApp catalog={catalog} />;

@@ -1,21 +1,21 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import type { Catalog } from "./catalog/types";
+import { Catalog } from "./catalog";
+import * as bindings from "../wasm/wasm";
+import * as content from "../content/content";
 
 let wasm: Promise<typeof import("../wasm/wasm.js")> | undefined;
+let data: Promise<typeof import("../content/content.js")> | undefined;
 
 export function getWasm() {
-  return wasm ??= import("../wasm/wasm.js").then(async module => {
-    await module.default();
-    return module;
-  });
+  return wasm ??= bindings.default().then(() => bindings);
 }
 
+export function getContent() { return data ??= content.default().then(() => content); }
+
 export async function getCatalog(): Promise<Catalog> {
-  let json: string;
+  const content = await getContent();
   if (isTauri()) {
-    json = await invoke<string>("get_catalog");
-  } else {
-    json = (await getWasm()).get_catalog();
+    return new Catalog(content.CatalogData.from_json(await invoke<string>("get_catalog")));
   }
-  return JSON.parse(json) as Catalog;
+  return new Catalog(new content.CatalogData());
 }

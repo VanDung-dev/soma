@@ -1,5 +1,4 @@
-import type { Structure, StudyTarget } from "../catalog/types";
-import { structureName } from "../anatomy-names";
+import type { Catalog, StudyTarget } from "../catalog/types";
 import { getWasm } from "../core";
 import type { AnatomyViewer } from "../../wasm/wasm";
 import type { CameraCommand, StudyViewer, ViewerState, ViewerStatus, Viewport } from "./contracts";
@@ -21,7 +20,6 @@ export class ViewerRuntime implements StudyViewer {
   private animating = false;
   private exploding = false;
   private reassembling = false;
-  private cameraAnimating = false;
   private renderFrame = 0;
   private resizePending = false;
   private lastRenderTime = -Infinity;
@@ -29,7 +27,7 @@ export class ViewerRuntime implements StudyViewer {
   private fpsFrames = 0;
   private fpsStarted = 0;
   private fpsTimer = 0;
-  private meshes: Structure[] = [];
+  private structureIds: string[] = [];
   private movingId = "";
   private separatedIds = new Set<string>();
   private snapTarget = "";
@@ -65,24 +63,24 @@ export class ViewerRuntime implements StudyViewer {
     this.canvas.addEventListener("webglcontextlost", this.contextLost);
   }
 
-  async start(roots: StudyTarget[]) {
-    this.options.onState({ building: true, loadedSystems: 0, meshes: [], selected: "", error: false, status: "loading" });
+  async start(catalog: Catalog, roots: StudyTarget[] = catalog.roots) {
+    this.options.onState({ building: true, loadedSystems: 0, structureIds: [], selected: "", error: false, status: "loading" });
     try {
       const wasm = await getWasm();
       if (this.disposed) return;
+      catalog.clearMetadata();
       const packages = loadModels(roots, this.abort.signal, loadedSystems => {
         this.options.onState({ loadedSystems, status: "preparing" });
-      });
+      }, (root, json) => catalog.ingestMetadata(root, json));
       // Fit every system before the first frame so reconstruction cannot change the scale.
-      const started = performance.now(), structures: Structure[] = [];
-      for await (const pkg of packages) {
+      const started = performance.now();
+      for await (const prepared of packages) {
         if (this.disposed) return;
-        if (this.viewer) this.viewer.appendPrepared(pkg.prepared, started, true);
+        if (this.viewer) this.viewer.appendPrepared(prepared, started, true);
         else {
-          this.viewer = wasm.AnatomyViewer.fromPrepared(this.canvas, pkg.prepared);
+          this.viewer = wasm.AnatomyViewer.fromPrepared(this.canvas, prepared);
           this.viewer.begin_reconstruction(started, true);
         }
-        structures.push(...pkg.structures);
       }
       if (this.disposed) return;
       const animate = !this.motion.matches;
@@ -90,15 +88,12 @@ export class ViewerRuntime implements StudyViewer {
       this.resizeCanvas();
       this.viewer!.inspect("reset");
       this.setGraphics(this.graphics);
-      this.viewer!.configure_explosion(JSON.stringify(roots.map(root => root.model!.structure_ids)));
+      this.viewer!.configure_explosion(roots.map(root => catalog.members(root.id)));
       if (this.failed) throw new Error("Model rendering failed");
-      const collator = new Intl.Collator("vi");
-      this.meshes = [...new Map(structures.map(part => [part.source_id, part])).values()]
-        .map(part => ({ part, name: structureName(part) }))
-        .sort((a, b) => collator.compare(a.name, b.name) || a.part.source_object.localeCompare(b.part.source_object))
-        .map(entry => entry.part);
+      catalog.finish();
+      this.structureIds = catalog.identities();
       this.loading = false; this.animating = animate;
-      this.options.onState({ meshes: this.meshes, building: animate, status: "finishing" });
+      this.options.onState({ structureIds: this.structureIds, building: animate, status: "finishing" });
       this.scheduleRender();
     } catch (cause) {
       if (!this.disposed) this.fail(cause, "loadError");
@@ -138,7 +133,7 @@ export class ViewerRuntime implements StudyViewer {
       this.lastRenderTime = interval > 0 && elapsed < interval * 2 ? this.lastRenderTime + interval : now;
       try {
         if (this.resizePending) this.resizeCanvas();
-        this.cameraAnimating = this.viewer!.advance_camera(now);
+        const cameraAnimating = this.viewer!.advance_camera(now);
         const revealing = !this.animating && this.viewer!.advance_reconstruction(now);
         if (this.animating) {
           this.animating = this.viewer!.render_reconstruction(now);
@@ -156,7 +151,7 @@ export class ViewerRuntime implements StudyViewer {
           }
         } else this.viewer!.render();
         if (this.graphics.showFps) this.fpsFrames++;
-        if (this.cameraAnimating || revealing) this.scheduleRender();
+        if (cameraAnimating || revealing) this.scheduleRender();
       } catch (cause) { this.fail(cause, "renderError"); }
     });
   };
@@ -212,7 +207,7 @@ export class ViewerRuntime implements StudyViewer {
   private motionChanged = () => {
     if (!this.loading && this.motion.matches && this.viewer) {
       this.viewer.finish_reconstruction(); this.animating = false; this.scheduleRender();
-      this.viewer.finish_explosion(); this.viewer.finish_camera_transition(); this.cameraAnimating = false;
+      this.viewer.finish_explosion(); this.viewer.finish_camera_transition();
       if (this.restoration) {
         this.operate(viewer => viewer.finish_restoration());
         this.finishRestoration();
@@ -251,7 +246,7 @@ export class ViewerRuntime implements StudyViewer {
       if (!this.operate(viewer => { viewer.finish_explosion(); viewer.set_explode_mode(false); })) return false;
       this.exploding = false; this.reassembling = false;
     }
-    if (id && (this.loading || this.animating || this.exploding || !this.meshes.some(part => part.source_id === id))) return false;
+    if (id && (this.loading || this.animating || this.exploding || !this.structureIds.includes(id))) return false;
     if (!this.operate(viewer => viewer.select(id || viewer.selected_id()))) return false;
     this.movingId = id;
     this.canvas.dataset.moving = id ? "true" : "false";
@@ -281,7 +276,7 @@ export class ViewerRuntime implements StudyViewer {
   changeVisibility(ids: string[], shown: boolean) {
     this.snapStructure("", false);
     if (!shown && ids.includes(this.movingId)) this.setMoving("");
-    return this.operate(viewer => viewer.change_visibility(JSON.stringify(ids), shown, this.animationTime()));
+    return this.operate(viewer => viewer.change_visibility(ids, shown, this.animationTime()));
   }
 
   focus(ids: string[], folder: boolean, reveal: boolean) {
@@ -292,16 +287,13 @@ export class ViewerRuntime implements StudyViewer {
       if (folder) {
         const now = motionTime, focused = new Set(ids);
         if (reveal) {
-          viewer.change_visibility(JSON.stringify(ids), false);
-          viewer.change_visibility(JSON.stringify(ids), true, now);
+          viewer.change_visibility(ids, false);
+          viewer.change_visibility(ids, true, now);
         }
-        viewer.change_visibility(JSON.stringify(this.meshes.filter(part => !focused.has(part.source_id)).map(part => part.source_id)), false, now);
-      } else if (ids.length === 1) viewer.set_visibility(JSON.stringify(ids));
-      if (motionTime === undefined) viewer.focus(JSON.stringify(ids), ...this.options.viewport());
-      else {
-        viewer.focus_animated(JSON.stringify(ids), ...this.options.viewport(), motionTime);
-        this.cameraAnimating = true;
-      }
+        viewer.change_visibility(this.structureIds.filter(id => !focused.has(id)), false, now);
+      } else if (ids.length === 1) viewer.set_visibility(ids);
+      if (motionTime === undefined) viewer.focus(ids, ...this.options.viewport());
+      else viewer.focus_animated(ids, ...this.options.viewport(), motionTime);
       viewer.select(!folder && ids.length === 1 ? ids[0]! : "");
     });
   }
@@ -315,7 +307,7 @@ export class ViewerRuntime implements StudyViewer {
       }
       this.reassembling = value === 0 && this.exploding;
       if (this.exploding) viewer.set_explode(value / 100, performance.now(),
-        !this.motion.matches, !ids.length, JSON.stringify(ids));
+        !this.motion.matches, !ids.length, ids);
     });
   }
 
@@ -329,7 +321,6 @@ export class ViewerRuntime implements StudyViewer {
       const now = this.animationTime();
       if (expanded) viewer.center(viewport[0] + viewport[2] / 2, viewport[1] + viewport[3] / 2, now);
       else viewer.clear_center(now);
-      this.cameraAnimating = now !== undefined;
     });
   }
 
@@ -341,9 +332,9 @@ export class ViewerRuntime implements StudyViewer {
       if (this.exploding) {
         viewer.set_explode(0, performance.now(), false, false); viewer.set_explode_mode(false);
       }
-      viewer.set_visibility(JSON.stringify(this.meshes.map(part => part.source_id))); viewer.inspect("reset");
+      viewer.set_visibility(this.structureIds); viewer.inspect("reset");
     });
-    if (success) { this.exploding = false; this.reassembling = false; this.cameraAnimating = false;
+    if (success) { this.exploding = false; this.reassembling = false;
       this.restoration = undefined;
       this.movingId = ""; this.separatedIds.clear(); this.canvas.dataset.moving = "false"; this.publishSeparation(); }
     return success;
@@ -363,7 +354,7 @@ export class ViewerRuntime implements StudyViewer {
   }
 
   dispose() {
-    this.disposed = true; this.loading = true; this.animating = false; this.cameraAnimating = false;
+    this.disposed = true; this.loading = true; this.animating = false;
     this.abort.abort(); this.observer.disconnect(); this.unbindInput();
     this.motion.removeEventListener("change", this.motionChanged);
     this.canvas.removeEventListener("webglcontextlost", this.contextLost);
