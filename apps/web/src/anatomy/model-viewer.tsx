@@ -123,11 +123,12 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     if (!session.focus(ids, focusTarget)) return;
     setPanel(null);
   }, [session]);
-  const chooseStructure = useCallback((id: string) => {
-    focusStructures([id]);
+  const chooseSearchResult = useCallback((id: string) => {
+    if (catalog.target(id)) focusStructures([], id);
+    else focusStructures([id]);
     session.revealStructure(id);
     host.current?.querySelector("canvas")?.focus({ preventScroll: true });
-  }, [session, focusStructures]);
+  }, [catalog, session, focusStructures]);
   const selectedPart = useMemo(() => catalog.detail(readingId), [catalog, readingId, structureIds]);
   const snapPart = useMemo(() => catalog.detail(snapTarget), [catalog, snapTarget, structureIds]);
   const canReadReference = !!selectedPart && canReadStructure(state, readingId);
@@ -154,7 +155,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         <div className="tree-actions">
           <button disabled={building || error} onClick={() => session.changeVisibility(structureIds, true)}>{t("catalog.showAll")}</button>
           <button disabled={building || error} onClick={() => session.changeVisibility(structureIds, false)}>{t("catalog.hideAll")}</button>
-          <StructureSearch triggerId={findId} catalog={catalog} disabled={building || error} onSelect={chooseStructure} />
+          <StructureSearch triggerId={findId} catalog={catalog} disabled={building || error} onSelect={chooseSearchResult} />
         </div>
         <div className="catalog-tree">
           <StructureTree catalog={catalog} visibleIds={visibleIds} selected={selected} targetId={targetId} reveal={reveal} disabled={building || error}

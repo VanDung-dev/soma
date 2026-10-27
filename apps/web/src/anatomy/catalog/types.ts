@@ -24,4 +24,5 @@ export interface Structure {
 export interface StructureRow { source_id: string; names: AnatomyNames; latin: string }
 export interface StructureDetail extends Structure { names: AnatomyNames; collection_names: AnatomyNames[] }
 export interface FolderView { target: StudyTarget; visible: number; children: FolderView[]; structures: StructureRow[]; more: boolean; limit: number; total: number }
-export interface SearchPage { total: number; items: StructureRow[] }
+export type SearchRow = StructureRow | StudyTarget;
+export interface SearchPage { total: number; items: SearchRow[] }

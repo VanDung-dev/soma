@@ -91,7 +91,7 @@ function Folder({ folder, props, open, grow, toggle, revealRow, revealTarget }: 
   const otherLanguage = language === "vi" ? "en" : "vi";
   const title = target.names[language], otherName = target.names[otherLanguage];
   const focusFolder = () => { if (!props.disabled && target.count) props.onFocus([], target.id); };
-  return <li data-target-id={target.id}>
+  return <li data-target-id={target.id} ref={props.reveal?.id === target.id ? revealRow : undefined}>
     <div className={`tree-row folder-row${props.targetId === target.id ? " is-selected" : ""}`} onDoubleClick={focusFolder}>
       <button className="folder-toggle" aria-label={t(opened ? "tree.close" : "tree.open", { name: title })} aria-expanded={opened}
         onClick={() => toggle(folder)} onDoubleClick={event => event.stopPropagation()}>

@@ -38,7 +38,7 @@ export async function checkStructureSearch() {
     assert(!trigger.disabled, 'Wait for startup to finish');
     if (popover.matches(':popover-open')) { popover.hidePopover(); await wait(); }
     assert(!tree.querySelector('mark'), 'The catalog must remain a normal tree');
-    const state = treeState(), rowCount = tree.querySelectorAll('.tree-row').length;
+    const state = treeState();
     const action = document.querySelector('.tree-actions > button').getBoundingClientRect();
     const button = trigger.getBoundingClientRect();
     assert(trigger.closest('.tree-actions') && Math.abs(action.top + action.height / 2 - button.top - button.height / 2) < 1,
@@ -73,10 +73,28 @@ export async function checkStructureSearch() {
     assert(options().length > 20, 'Load more alphabetical results when scrolling');
     alphabetic();
     assert(calls === 0 && treeState() === state, 'Browsing A–Z must preserve the tree and model');
+    await enter('sọ');
+    const skull = options()[0], skullId = skull.dataset.targetId;
+    assert(skullId && skull.querySelector('span').textContent === 'Sọ' && skull.textContent.includes('54'), 'Find the skull group first');
+    assert(!options().some(option => /Bao gân/.test(option.textContent)), 'Do not match so inside extensors');
+    await enter('Cranium');
+    assert(options()[0].dataset.targetId === skullId, 'Resolve the English group name to the same skull');
+    await enter('so');
+    assert(options()[0].dataset.targetId === skullId, 'Keep unaccented skull search');
+    form.requestSubmit(); await wait();
+    assert(focused.length === 54 && viewer.visible_count() === 54 && viewer.selected_id() === '', 'Focus and show all 54 skull members');
+    assert(document.querySelector('.information-heading h2').textContent === 'Sọ', 'Show skull group information');
+    assert(tree.querySelector('[data-target-id="' + skullId + '"] > .folder-row.is-selected'), 'Reveal and select the skull group in the tree');
+    assert(!popover.matches(':popover-open') && document.activeElement === document.querySelector('.model-canvas canvas'), 'Close search and focus the canvas after choosing a group');
+    document.querySelector('.app-menu-history button').click(); await wait();
+    const catalogToggle = document.querySelector('.anatomy-panel-toggles button');
+    if (innerWidth <= 900 && catalogToggle.getAttribute('aria-expanded') === 'false') { catalogToggle.click(); await wait(); }
+    await open();
+    const stateAfterGroup = treeState(), rowsAfterGroup = tree.querySelectorAll('.tree-row').length, callsAfterGroup = calls;
     await enter('FEMUR');
     checkSize();
     assert(options().length >= 2 && /^Xương đùi/.test(options()[0].textContent), 'Rank exact bilingual names first');
-    assert(treeState() === state && tree.querySelectorAll('.tree-row').length === rowCount && calls === 0,
+    assert(treeState() === stateAfterGroup && tree.querySelectorAll('.tree-row').length === rowsAfterGroup && calls === callsAfterGroup,
       'Typing must not rebuild, expand or focus the catalog tree');
     await key('ArrowDown');
     assert(input.getAttribute('aria-activedescendant') === options()[1].id && options()[1].getAttribute('aria-selected') === 'true',
@@ -84,7 +102,7 @@ export async function checkStructureSearch() {
     await key('ArrowUp');
     assert(options()[0].getAttribute('aria-selected') === 'true', 'Navigate back to the first result');
     await enter('x');
-    assert(options().length === 20 && tree.querySelectorAll('.tree-row').length === rowCount, 'Bound broad searches to 20 result rows');
+    assert(options().length === 20 && tree.querySelectorAll('.tree-row').length === rowsAfterGroup, 'Bound broad searches to 20 result rows');
     await key('Escape');
     assert(!popover.matches(':popover-open') && document.activeElement === trigger && input.value === '', 'Escape closes, clears and restores focus');
     await open();
@@ -92,7 +110,7 @@ export async function checkStructureSearch() {
     checkSize();
     assert(!options().length && form.querySelector('[role="status"]').textContent.includes('Không tìm thấy'), 'Explain when no results match');
     form.requestSubmit(); await wait();
-    assert(calls === 0, 'An unmatched search must preserve the camera');
+    assert(calls === callsAfterGroup, 'An unmatched search must preserve the camera');
     await key('Escape');
     document.querySelector('.tree-actions > button:nth-child(2)').click(); await wait();
     await open(); await enter('xuong dui trai');
@@ -119,7 +137,7 @@ export async function checkStructureSearch() {
       'Keep Spotlight within the viewport');
     assert(popover.scrollWidth <= popover.clientWidth, 'Results must fit without horizontal overflow');
     return { iconAligned: true, centered: true, autofocus: true, keyboardNavigation: true, escapeRestoresFocus: true,
-      independentTree: true, resultLimit: 20, exactSelection: true, hiddenEnabled: true, bilingualNames: true, latinSearch: true, viewportFits: true };
+      independentTree: true, resultLimit: 20, exactSelection: true, hiddenEnabled: true, bilingualNames: true, latinSearch: true, skullGroup: true, viewportFits: true };
   } finally {
     AnatomyViewer.prototype.focus = originalFocus;
     AnatomyViewer.prototype.focus_animated = originalAnimated;

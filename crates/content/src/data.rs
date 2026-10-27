@@ -186,9 +186,16 @@ pub struct StructureDetail<'a> {
 }
 
 #[derive(Serialize)]
+#[serde(untagged)]
+pub enum SearchRow<'a> {
+    Structure(StructureRow<'a>),
+    Target(TargetView<'a>),
+}
+
+#[derive(Serialize)]
 pub struct SearchPage<'a> {
     pub total: usize,
-    pub items: Vec<StructureRow<'a>>,
+    pub items: Vec<SearchRow<'a>>,
 }
 
 #[derive(Serialize)]
@@ -207,6 +214,11 @@ struct Entry {
     text: String,
 }
 
+enum SearchHit {
+    Structure(usize),
+    Target(usize),
+}
+
 pub struct CatalogData {
     pub catalog: Catalog,
     targets: HashMap<String, usize>,
@@ -219,6 +231,7 @@ pub struct CatalogData {
     order: Vec<usize>,
     alphabetical: [Vec<usize>; 2],
     entries: Vec<Entry>,
+    target_entries: Vec<(usize, Entry)>,
 }
 
 impl CatalogData {
@@ -291,6 +304,7 @@ impl CatalogData {
             order: Vec::new(),
             alphabetical: [Vec::new(), Vec::new()],
             entries: Vec::new(),
+            target_entries: Vec::new(),
         })
     }
 
@@ -341,6 +355,7 @@ impl CatalogData {
         self.structure_index.clear();
         self.order.clear();
         self.entries.clear();
+        self.target_entries.clear();
         self.alphabetical = [Vec::new(), Vec::new()];
     }
 
@@ -462,6 +477,26 @@ impl CatalogData {
                 }
             })
             .collect();
+        self.target_entries = self
+            .catalog
+            .targets
+            .iter()
+            .enumerate()
+            .filter(|(_, target)| {
+                Self::ids(target)
+                    .iter()
+                    .any(|id| self.structure_index.contains_key(id))
+            })
+            .map(|(i, target)| {
+                let names = target_names(&target.source_name, &target.title);
+                let exact: Vec<_> = [&target.source_name, &names.vi, &names.en]
+                    .into_iter()
+                    .map(|name| normalize(name))
+                    .collect();
+                let text = exact.join(" ");
+                (i, Entry { exact, text })
+            })
+            .collect();
         Ok(())
     }
 
@@ -501,42 +536,68 @@ impl CatalogData {
     }
 
     pub fn search(&self, query: &str, language: &str, limit: usize) -> SearchPage<'_> {
+        if query.trim().is_empty() {
+            let order = &self.alphabetical[usize::from(language == "en")];
+            return SearchPage {
+                total: order.len(),
+                items: order
+                    .iter()
+                    .take(limit)
+                    .map(|i| SearchRow::Structure(self.row(*i)))
+                    .collect(),
+            };
+        }
+        let query = normalize(query);
+        let words: Vec<_> = query
+            .split_whitespace()
+            .map(memchr::memmem::Finder::new)
+            .collect();
         let mut matches = Vec::new();
-        let order = if query.trim().is_empty() {
-            &self.alphabetical[usize::from(language == "en")]
-        } else {
-            let query = normalize(query);
-            let words: Vec<_> = query
-                .split_whitespace()
-                .map(memchr::memmem::Finder::new)
-                .collect();
-            if !words.is_empty() {
-                let mut other = Vec::new();
-                for i in &self.order {
-                    let entry = &self.entries[*i];
-                    if words
+        let mut other = Vec::new();
+        if !words.is_empty() {
+            let entries = self
+                .order
+                .iter()
+                .map(|i| (&self.entries[*i], SearchHit::Structure(*i)))
+                .chain(
+                    self.target_entries
                         .iter()
-                        .all(|word| word.find(entry.text.as_bytes()).is_some())
-                    {
-                        if entry.exact.contains(&query) {
-                            matches.push(*i);
-                        } else {
-                            other.push(*i);
-                        }
+                        .map(|(i, entry)| (entry, SearchHit::Target(*i))),
+                );
+            for (entry, hit) in entries {
+                let text = entry.text.as_bytes();
+                if words.iter().all(|word| {
+                    word.find_iter(text)
+                        .any(|start| start == 0 || text[start - 1] == b' ')
+                }) {
+                    if entry.exact.contains(&query) {
+                        matches.push(hit);
+                    } else {
+                        other.push(hit);
                     }
                 }
-                matches.extend(other);
             }
-            &matches
-        };
+        }
+        matches.extend(other);
         SearchPage {
-            total: order.len(),
-            items: order.iter().take(limit).map(|i| self.row(*i)).collect(),
+            total: matches.len(),
+            items: matches
+                .into_iter()
+                .take(limit)
+                .map(|hit| match hit {
+                    SearchHit::Structure(i) => SearchRow::Structure(self.row(i)),
+                    SearchHit::Target(i) => SearchRow::Target(self.target_at(i)),
+                })
+                .collect(),
         }
     }
 
     pub fn reveal(&self, id: &str) -> Vec<(String, usize)> {
-        let mut target = self.reveal_targets.get(id).copied();
+        let mut target = self
+            .reveal_targets
+            .get(id)
+            .or_else(|| self.targets.get(id))
+            .copied();
         let mut path = Vec::new();
         while let Some(i) = target {
             let entry = &self.catalog.targets[i];

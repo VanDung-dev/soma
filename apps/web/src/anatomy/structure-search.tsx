@@ -1,6 +1,6 @@
 import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { Catalog, StructureRow } from "./catalog/types";
+import type { Catalog, SearchRow } from "./catalog/types";
 import { useLanguage } from "../i18n";
 
 function Magnifier() {
@@ -28,9 +28,9 @@ export const StructureSearch = memo(function StructureSearch({ catalog, disabled
   useEffect(() => {
     if (activeId) document.getElementById(activeId)?.scrollIntoView({ block: "nearest" });
   }, [activeId, query]);
-  const choose = (part: StructureRow) => {
+  const choose = (part: SearchRow) => {
     popover.current?.hidePopover();
-    onSelect(part.source_id);
+    onSelect("source_id" in part ? part.source_id : part.id);
   };
   const close = () => {
     popover.current?.hidePopover();
@@ -80,13 +80,15 @@ export const StructureSearch = memo(function StructureSearch({ catalog, disabled
           }}>
           {shown.map((part, index) => {
             const title = part.names[language], otherName = part.names[otherLanguage];
-            return <li key={part.source_id} role="presentation">
+            const structure = "source_id" in part;
+            return <li key={structure ? part.source_id : part.id} role="presentation">
               <button id={id + "-result-" + index} type="button" role="option" tabIndex={-1} aria-selected={index === activeIndex}
-                disabled={disabled} data-structure-id={part.source_id} onMouseDown={event => event.preventDefault()}
+                disabled={disabled} data-structure-id={structure ? part.source_id : undefined} data-target-id={structure ? undefined : part.id} onMouseDown={event => event.preventDefault()}
                 onClick={() => choose(part)}>
                 <span>{title}</span>
                 {otherName !== title && <small lang={otherLanguage}>{otherName}</small>}
-                {part.latin && <small lang="la">{part.latin}</small>}
+                {structure ? part.latin && <small lang="la">{part.latin}</small>
+                  : <small>{part.count} {t(language === "en" && part.count === 1 ? "tree.structureCount.one" : "tree.structureCount.other")}</small>}
               </button>
             </li>;
           })}

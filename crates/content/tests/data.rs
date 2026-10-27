@@ -1,9 +1,71 @@
-use content::data::{CatalogData, normalize, parse_metadata};
+use content::data::{CatalogData, SearchRow, normalize, parse_metadata};
 use std::collections::{HashMap, HashSet};
 
 const SOURCE: &str = include_str!("../../../content/catalog.json");
 const METADATA: &str =
     include_str!("../../../apps/web/public/models/z-anatomy/skeletal-system.json");
+
+fn structure_id<'a>(row: &SearchRow<'a>) -> &'a str {
+    match row {
+        SearchRow::Structure(row) => row.source_id,
+        SearchRow::Target(_) => panic!("Expected a structure"),
+    }
+}
+
+#[test]
+fn skull_search_returns_the_linked_group_without_midword_noise() {
+    let mut data = CatalogData::from_json(SOURCE).unwrap();
+    let packages: Vec<_> = data
+        .catalog
+        .targets
+        .iter()
+        .filter_map(|target| {
+            target
+                .model
+                .as_ref()
+                .map(|model| (target.id.clone(), model.path.clone()))
+        })
+        .collect();
+    for (id, path) in packages {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../apps/web/public")
+            .join(path.replace(".glb", ".json"));
+        data.ingest(&id, &std::fs::read_to_string(path).unwrap())
+            .unwrap();
+    }
+    data.finish("en-US").unwrap();
+    let skull = data
+        .catalog
+        .targets
+        .iter()
+        .find(|target| target.source_name == "Cranium")
+        .unwrap();
+    for query in ["sọ", "SỌ", " so ", "Cranium"] {
+        let page = data.search(query, "vi", 20);
+        let SearchRow::Target(first) = &page.items[0] else {
+            panic!("Find the skull group first: {query}")
+        };
+        assert_eq!(first.id, skull.id);
+        assert_eq!(first.names.vi, "Sọ");
+        assert_eq!(first.count, 54);
+        assert_eq!(data.members(first.id).unwrap(), skull.structure_ids);
+    }
+    let page = data.search("sọ", "vi", usize::MAX);
+    assert!(!page.items.iter().any(
+        |row| matches!(row, SearchRow::Structure(row) if row.source_id == "za:a250b6a53af7f133")
+    ));
+    assert!(page.items.iter().any(
+        |row| matches!(row, SearchRow::Structure(row) if row.names.vi == "Cân trên sọ · trái")
+    ));
+    assert_eq!(data.search("extens", "en", 1).items.len(), 1);
+    let path = data.reveal(&skull.id);
+    assert_eq!(path[0].0, skull.id);
+    assert_eq!(&path[1].0, skull.parent_id.as_ref().unwrap());
+    assert_eq!(data.search("sọ", "vi", 0).total, page.total);
+    assert!(data.search("sọ", "vi", 0).items.is_empty());
+    data.clear_metadata();
+    assert!(data.search("sọ", "vi", 20).items.is_empty());
+}
 
 #[test]
 fn normalization_preserves_bilingual_search_rules() {
@@ -91,7 +153,10 @@ fn metadata_validation_preserves_all_source_fields_and_is_atomic() {
     assert!(data.ingest(&root, &duplicate.to_string()).is_err());
     assert_eq!(data.identities(), before);
     let page = data.search("xuong dui trai", "vi", 20);
-    assert!(page.items[0].names.vi.starts_with("Xương đùi · trái"));
+    let SearchRow::Structure(first) = &page.items[0] else {
+        panic!("Expected femur")
+    };
+    assert!(first.names.vi.starts_with("Xương đùi · trái"));
     assert!(data.search("---", "vi", 20).items.is_empty());
     for language in ["vi", "en"] {
         let all = data.search("", language, usize::MAX);
@@ -99,14 +164,11 @@ fn metadata_validation_preserves_all_source_fields_and_is_atomic() {
             let page = data.search(" \t\n", language, limit);
             assert_eq!(page.total, expected.len());
             assert_eq!(
-                page.items
-                    .iter()
-                    .map(|row| row.source_id)
-                    .collect::<Vec<_>>(),
+                page.items.iter().map(structure_id).collect::<Vec<_>>(),
                 all.items
                     .iter()
                     .take(limit)
-                    .map(|row| row.source_id)
+                    .map(structure_id)
                     .collect::<Vec<_>>()
             );
         }

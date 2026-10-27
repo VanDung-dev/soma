@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { createServer } from 'vite';
 import { createCatalogFixture } from './catalog.fixture.mjs';
 
-test('Rust owns full catalog data while preserving all baseline queries, names, membership and reveal paths', async () => {
+test('Rust owns full catalog data, group and word-prefix searches, names, membership and reveal paths', async () => {
   const source = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
   const terminology = JSON.parse(await readFile(new URL('../../../content/anatomy-terminology.json', import.meta.url)));
   const roots = source.targets.filter(target => target.model);
@@ -17,14 +17,21 @@ test('Rust owns full catalog data while preserving all baseline queries, names, 
   const entries = parts.map(part => {
     const translated = names(part.source_name);
     const sides = part.laterality === 'left' ? ['trai', 'left'] : part.laterality === 'right' ? ['phai', 'right'] : [];
-    return { part, exact: [part.source_name, translated.vi, translated.en].flatMap(name => {
+    return { id: part.source_id, exact: [part.source_name, translated.vi, translated.en].flatMap(name => {
       const base = normalize(name); return [base, ...sides.map(side => base + ' ' + side)];
     }), text: normalize([label(part), label(part, 'en'), part.source_name, part.latin, part.source_object].join(' ')) };
   });
+  const loadedIds = new Set(parts.map(part => part.source_id));
+  for (const target of source.targets) {
+    if (!(target.model?.structure_ids ?? target.structure_ids).some(id => loadedIds.has(id))) continue;
+    const translated = names(target.source_name);
+    const exact = [target.source_name, target.title !== target.source_name ? target.title : translated.vi, translated.en].map(normalize);
+    entries.push({ id: target.id, exact, text: exact.join(' ') });
+  }
   const referenceSearch = query => {
     const text = normalize(query), exact = [], other = [];
     if (!text) return [];
-    for (const entry of entries) if (text.split(/\s+/).every(word => entry.text.includes(word))) (entry.exact.includes(text) ? exact : other).push(entry.part.source_id);
+    for (const entry of entries) if (text.split(/\s+/).every(word => (' ' + entry.text).includes(' ' + word))) (entry.exact.includes(text) ? exact : other).push(entry.id);
     return exact.concat(other);
   };
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
@@ -41,11 +48,11 @@ test('Rust owns full catalog data while preserving all baseline queries, names, 
     const queries = new Set(['---', 'ĐỘNG MẠCH', 'Femur left', 'xuong dui trai', 'Os femoris', '🦴', 'e\u0301', 'İ', 'ΟΣ', '不存在',
       ...parts.flatMap(part => [part.source_name, part.latin]).filter(Boolean)]);
     for (const query of queries) {
-      const actual = store.search(query, 'vi', parts.length);
+      const actual = store.search(query, 'vi', parts.length + source.targets.length);
       const expected = referenceSearch(query);
-      assert.deepEqual(actual.items.map(part => part.source_id), expected, query);
+      assert.deepEqual(actual.items.map(part => part.source_id ?? part.id), expected, query);
       assert.equal(actual.total, expected.length, query);
-      assert.deepEqual(store.search(query, 'vi', 20).items.map(part => part.source_id), expected.slice(0, 20), query);
+      assert.deepEqual(store.search(query, 'vi', 20).items.map(part => part.source_id ?? part.id), expected.slice(0, 20), query);
     }
     for (const language of ['vi', 'en']) {
       const collator = new Intl.Collator(language, { sensitivity: 'base', numeric: true, ignorePunctuation: true });
@@ -53,6 +60,20 @@ test('Rust owns full catalog data while preserving all baseline queries, names, 
       assert.deepEqual(store.search('', language, parts.length).items.map(part => part.source_id), alphabetical.map(part => part.source_id));
     }
     const byId = new Map(source.targets.map(target => [target.id, target]));
+    const skull = source.targets.find(target => target.source_name === 'Cranium');
+    for (const query of ['sọ', 'SỌ', 'so', 'Cranium']) {
+      for (const language of ['vi', 'en']) {
+        const first = store.search(query, language, 20).items[0];
+        assert.equal(first.id, skull.id, query);
+        assert.equal(first.names.vi, 'Sọ');
+        assert.equal(first.count, 54);
+      }
+    }
+    const skullResults = store.search('sọ', 'vi', 10000);
+    assert(!skullResults.items.some(row => row.source_id === 'za:a250b6a53af7f133'), 'Do not match so inside extensors');
+    assert(skullResults.items.some(row => row.names.vi === 'Cân trên sọ · trái'), 'Keep structure name matches');
+    assert(!skullResults.items.some(row => row.count === 0), 'Exclude groups without linked models');
+    assert.deepEqual(store.reveal(skull.id).map(([id]) => id), [skull.id, skull.parent_id]);
     const children = new Map(source.targets.map(target => [target.id, source.targets.filter(child => child.parent_id === target.id)]));
     const members = target => target.model?.structure_ids ?? target.structure_ids;
     for (const target of source.targets) assert.deepEqual(store.members(target.id), members(target));
