@@ -36,7 +36,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const cameras = useCameraDevices();
   const helpId = useId();
   const settingsId = useId();
-  const findId = useId();
   const catalogId = useId();
   const informationId = useId();
   const menuBar = useRef<HTMLElement>(null);
@@ -69,13 +68,13 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   }, [graphics, session]);
   const performAction = useCallback((action: ReturnType<typeof shortcutAction>) => {
     if (!action) return;
-    const open = (id: string, toggle = true) => {
+    const open = (id: string) => {
       const panel = document.getElementById(id);
       if (!panel) return;
       const trigger = document.querySelector<HTMLButtonElement>(`button[popovertarget="${id}"]`);
-      if (toggle && panel.matches(":popover-open")) { panel.hidePopover(); trigger?.focus({ preventScroll: true }); return; }
+      if (panel.matches(":popover-open")) { panel.hidePopover(); trigger?.focus({ preventScroll: true }); return; }
       panel.showPopover();
-      panel.querySelector<HTMLElement>("input[type='search'], button:not(:disabled), input:not(:disabled), select:not(:disabled)")?.focus({ preventScroll: true });
+      panel.querySelector<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled)")?.focus({ preventScroll: true });
     };
     const current = session.getSnapshot();
     if (action === "settings") open(settingsId);
@@ -83,12 +82,9 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     else if (!current.building && !current.error) {
       if (action === "back") session.back();
       else if (action === "forward") session.forward();
-      else if (action === "find") {
-        const id = document.getElementById(findId)?.getAttribute("popovertarget");
-        if (id) open(id, false);
-      } else if (action === "restore" && (current.movingId || current.separatedIds.size)) session.restoreStructure("");
+      else if (action === "restore" && (current.movingId || current.separatedIds.size)) session.restoreStructure("");
     }
-  }, [session, helpId, settingsId, findId]);
+  }, [session, helpId, settingsId]);
   useEffect(() => {
     const keyDown = (event: KeyboardEvent) => {
       const action = shortcutAction(event);
@@ -155,7 +151,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         <div className="tree-actions">
           <button disabled={building || error} onClick={() => session.changeVisibility(structureIds, true)}>{t("catalog.showAll")}</button>
           <button disabled={building || error} onClick={() => session.changeVisibility(structureIds, false)}>{t("catalog.hideAll")}</button>
-          <StructureSearch triggerId={findId} catalog={catalog} disabled={building || error} onSelect={chooseSearchResult} />
+          <StructureSearch catalog={catalog} disabled={building || error} onSelect={chooseSearchResult} />
         </div>
         <div className="catalog-tree">
           <StructureTree catalog={catalog} visibleIds={visibleIds} selected={selected} targetId={targetId} reveal={reveal} disabled={building || error}
