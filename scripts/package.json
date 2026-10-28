@@ -1,0 +1,10 @@
+{
+  "name": "@human-atlas/scripts",
+  "private": true,
+  "scripts": {
+    "models:import": "node models/import-models.mjs"
+  },
+  "devDependencies": {
+    "gltf-validator": "^2.0.0-dev.3.10"
+  }
+}

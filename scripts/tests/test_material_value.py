@@ -3,7 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace as Node
 import unittest
 
-path = Path(__file__).resolve().parents[1] / "scripts/export-z-anatomy.py"
+path = Path(__file__).resolve().parents[1] / "models/export-z-anatomy.py"
 helper = next(n for n in ast.parse(path.read_text()).body if isinstance(n, ast.FunctionDef) and n.name == "material_value")
 scope = {}
 exec(compile(ast.Module(body=[helper], type_ignores=[]), str(path), "exec"), scope)

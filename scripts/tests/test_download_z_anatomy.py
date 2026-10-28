@@ -10,7 +10,7 @@ from urllib.error import URLError
 from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile, ZipInfo
 
 spec = importlib.util.spec_from_file_location(
-    'download_z_anatomy', Path(__file__).resolve().parents[1] / 'scripts/download-z-anatomy.py')
+    'download_z_anatomy', Path(__file__).resolve().parents[1] / 'models/download-z-anatomy.py')
 importer = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(importer)
 

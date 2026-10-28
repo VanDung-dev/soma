@@ -47,12 +47,15 @@ BENCHMARK_BROWSER=/path/to/chromium npm run test:browser
 ## Content tools
 
 Python 3.13, UV and repository `.venv`; model export also requires Blender.
-Models are included; regenerate only when needed.
+Models are included; regenerate only when needed. Offline tools live in
+`scripts/models/` and `scripts/wikipedia/`, with Python tests in `scripts/tests/`.
+Node tooling has its own workspace manifest in `scripts/package.json`;
+install workspace dependencies with `npm install` from the repository root.
 
 ```sh
 uv sync
-uv run python -m unittest discover -s apps/web/tests -p 'test_*.py'
-npm run models:import --workspace apps/web
+uv run python -m unittest discover -s scripts/tests -p 'test_*.py'
+npm run models:import
 ```
 
 Blender exports use its bundled Python.

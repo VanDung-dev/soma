@@ -15,7 +15,9 @@
 | `apps/web/src/anatomy/viewer/` | Canvas lifecycle, loading, workers, DOM input and scheduling |
 | `apps/web/src/anatomy/model-viewer.tsx` | Screen composition, preferences and camera mode |
 | `apps/web/src/anatomy/wikipedia-reader.tsx` | Sandboxed reference reader |
-| `apps/web/scripts/` | Model pipeline, Wikipedia proxy and validation tools |
+| `scripts/models/` | Offline source preparation, Blender export and model validation/compression |
+| `scripts/wikipedia/` | Offline Wikipedia snapshot tools |
+| `apps/web/scripts/` | Web server, Wikipedia proxy and browser validation tools |
 | `content/`, `apps/web/public/models/` | Catalog and model assets |
 
 `core.ts` initializes content and viewer WASM independently. The content module
@@ -82,5 +84,6 @@ Commands and setup: [README](README.md#checks).
 | WASM hand state | `crates/wasm/tests/` |
 | Session, loader, input, preferences | `apps/web/tests/*.test.mjs` |
 | Rendering and browser interaction | `apps/web/tests/*.browser.mjs` |
+| Offline source, exporter helpers and Wikipedia snapshots | `scripts/tests/test_*.py` |
 
 Synthetic browser checks do not establish physical webcam or native WebView behavior.

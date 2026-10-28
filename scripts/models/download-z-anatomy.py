@@ -85,6 +85,6 @@ def prepare_source(root):
 
 if __name__ == '__main__':
     try:
-        prepare_source(Path(__file__).resolve().parents[3])
+        prepare_source(Path(__file__).resolve().parents[2])
     except (OSError, ValueError, BadZipFile, RuntimeError) as error:
         raise SystemExit(f'Z-Anatomy source preparation failed: {error}') from error

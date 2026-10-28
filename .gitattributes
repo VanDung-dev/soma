@@ -1,4 +1,5 @@
 # Exclude tests from GitHub language statistics
 apps/web/tests/** linguist-vendored
+scripts/tests/** linguist-vendored
 crates/renderer/tests/** linguist-vendored
 crates/content/tests/** linguist-vendored

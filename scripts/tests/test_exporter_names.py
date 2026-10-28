@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import unittest
 
 
-path = Path(__file__).resolve().parents[1] / 'scripts/export-z-anatomy.py'
+path = Path(__file__).resolve().parents[1] / 'models/export-z-anatomy.py'
 tree = ast.parse(path.read_text())
 nodes = [node for node in tree.body if isinstance(node, ast.FunctionDef)
          and node.name in {'structure_name', 'source_label', 'matching_labels'}

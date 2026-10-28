@@ -8,14 +8,14 @@ import { join } from 'node:path';
 import { brotliCompressSync, brotliDecompressSync, constants } from 'node:zlib';
 import validator from 'gltf-validator';
 
-const root = fileURLToPath(new URL('../../../', import.meta.url));
+const root = fileURLToPath(new URL('../../', import.meta.url));
 const venvPython = join(root, '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
 const python = process.env.PYTHON_BIN ?? (existsSync(venvPython) ? venvPython : process.platform === 'win32' ? 'python' : 'python3');
-const preparation = spawnSync(python, [join(root, 'apps/web/scripts/download-z-anatomy.py')], { cwd: root, stdio: 'inherit', timeout: 600000 });
+const preparation = spawnSync(python, [join(root, 'scripts/models/download-z-anatomy.py')], { cwd: root, stdio: 'inherit', timeout: 600000 });
 assert.ifError(preparation.error);
 assert.equal(preparation.status, 0, `Source preparation failed: ${preparation.signal ?? preparation.status}`);
 const blender = process.env.BLENDER_BIN ?? (process.platform === 'darwin' ? '/Applications/Blender.app/Contents/MacOS/Blender' : 'blender');
-const result = spawnSync(blender, ['--background', '--factory-startup', '--disable-autoexec', join(root, 'Z-Anatomy/Startup.blend'), '--python-exit-code', '1', '--python', join(root, 'apps/web/scripts/export-z-anatomy.py')], { cwd: root, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 600000 });
+const result = spawnSync(blender, ['--background', '--factory-startup', '--disable-autoexec', join(root, 'Z-Anatomy/Startup.blend'), '--python-exit-code', '1', '--python', join(root, 'scripts/models/export-z-anatomy.py')], { cwd: root, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 600000 });
 console.log(result.status === 0 ? result.stdout.split('\n').filter(line => /EXPORTED|WARNING/.test(line)).join('\n') : result.stdout);
 if (result.stderr) console.error(result.stderr);
 assert.ifError(result.error);
