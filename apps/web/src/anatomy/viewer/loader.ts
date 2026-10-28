@@ -11,7 +11,7 @@ export async function* loadModels(roots: StudyTarget[], signal: AbortSignal, onP
       const model = root.model!;
       const [response, metadataResponse] = await Promise.all([
         fetch(`${import.meta.env.BASE_URL}${model.path}`, { signal: downloadAbort.signal }),
-        fetch(`${import.meta.env.BASE_URL}${model.path.replace(/\.glb$/, ".json")}`, { signal: downloadAbort.signal }),
+        fetch(`${import.meta.env.BASE_URL}${model.path.replace(/\.glb(?:\.br)?$/, ".json")}`, { signal: downloadAbort.signal }),
       ]);
       if (!response.ok || !metadataResponse.ok) throw new Error(`HTTP ${response.status}/${metadataResponse.status}`);
       return { bytes: new Uint8Array(await response.arrayBuffer()), metadata: await metadataResponse.text() };

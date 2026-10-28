@@ -5,7 +5,7 @@ import { ViewerRuntime } from '../src/anatomy/viewer/runtime.ts';
 export async function checkRestoration() {
   const assert = (ok, message) => { if (!ok) throw Error(message); };
   const catalog = await getCatalog();
-  const root = catalog.roots.find(target => target.model?.path.endsWith('body-regions.glb'));
+  const root = catalog.roots.find(target => target.model?.path.endsWith('body-regions.glb.br'));
   const host = document.createElement('div');
   host.style.cssText = 'position:fixed;left:-1000px;width:300px;height:400px';
   document.body.append(host);

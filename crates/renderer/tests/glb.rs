@@ -1,11 +1,16 @@
 use renderer::Scene;
+use std::io::Read;
 use std::path::Path;
 
 #[test]
 fn rejects_corrupt_geometry_and_groups_multiple_primitives() {
     let folder =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/public/models/z-anatomy");
-    let bytes = std::fs::read(folder.join("visceral-systems.glb")).unwrap();
+    let compressed = std::fs::read(folder.join("visceral-systems.glb.br")).unwrap();
+    let mut bytes = Vec::new();
+    brotli_decompressor::Decompressor::new(compressed.as_slice(), 4096)
+        .read_to_end(&mut bytes)
+        .unwrap();
     let metadata: serde_json::Value =
         serde_json::from_slice(&std::fs::read(folder.join("visceral-systems.json")).unwrap())
             .unwrap();
@@ -15,6 +20,16 @@ fn rejects_corrupt_geometry_and_groups_multiple_primitives() {
         .iter()
         .map(|s| s["source_id"].as_str().unwrap().into())
         .collect();
+    let raw = Scene::from_glb(&bytes, &ids).unwrap();
+    let decoded = Scene::from_glb(&compressed, &ids).unwrap();
+    assert_eq!(raw.parts.len(), decoded.parts.len());
+    for (raw, decoded) in raw.parts.iter().zip(&decoded.parts) {
+        assert_eq!(raw.source_id, decoded.source_id);
+        assert_eq!(raw.vertices, decoded.vertices);
+        assert_eq!(raw.indices, decoded.indices);
+        assert_eq!(raw.color, decoded.color);
+    }
+    assert!(Scene::from_glb(&compressed[..compressed.len() / 2], &ids).is_err());
     let json_len = u32::from_le_bytes(bytes[12..16].try_into().unwrap()) as usize;
     let document: serde_json::Value = serde_json::from_slice(&bytes[20..20 + json_len]).unwrap();
     let accessor = document["meshes"][0]["primitives"][0]["attributes"]["POSITION"]
@@ -79,4 +94,15 @@ fn rejects_corrupt_geometry_and_groups_multiple_primitives() {
     assert_eq!(scene.visible_count(), 1);
     scene.inspect("hide").unwrap();
     assert_eq!(scene.visible_count(), 0);
+}
+
+#[test]
+fn rejects_brotli_models_exceeding_the_decoded_size_limit() {
+    let bytes = include_bytes!("fixtures/oversized.glb.br");
+    assert!(
+        Scene::from_glb(bytes, &[])
+            .err()
+            .unwrap()
+            .contains("128 MiB")
+    );
 }

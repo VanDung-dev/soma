@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
+import { brotliCompressSync, brotliDecompressSync, constants } from 'node:zlib';
 import validator from 'gltf-validator';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
@@ -61,14 +62,25 @@ for (const model of manifest.models) {
 // Publish only after every staged package has passed validation.
 await mkdir(output, { recursive: true });
 for (const model of manifest.models) {
-  await copyFile(join(stage, model.file), join(output, model.file));
+  const original = await readFile(join(stage, model.file));
+  const compressed = brotliCompressSync(original, { params: { [constants.BROTLI_PARAM_QUALITY]: 5 } });
+  assert.deepEqual(brotliDecompressSync(compressed), original);
+  const target = catalog.targets.find(t => t.model?.path === `models/z-anatomy/${model.file}`);
+  model.uncompressed_bytes = model.bytes;
+  model.uncompressed_sha256 = model.sha256;
+  model.compression = 'br';
+  model.file += '.br';
+  model.bytes = compressed.length;
+  model.sha256 = createHash('sha256').update(compressed).digest('hex');
+  target.model.path += '.br';
+  await writeFile(join(output, model.file), compressed);
   await copyFile(join(stage, model.metadata_file), join(output, model.metadata_file));
 }
 await writeFile(join(output, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
-await copyFile(join(stage, 'catalog.json'), join(root, 'content/catalog.json'));
+await writeFile(join(root, 'content/catalog.json'), JSON.stringify(catalog, null, 2) + '\n');
 const active = new Set(['manifest.json', ...manifest.models.flatMap(m => [m.file, m.metadata_file])]);
 for (const file of await readdir(output)) {
-  if (/^[a-z-]+\.(glb|json)$/.test(file) && !active.has(file)) await unlink(join(output, file));
+  if (/^[a-z-]+\.(glb(?:\.br)?|json)$/.test(file) && !active.has(file)) await unlink(join(output, file));
 }
 
 const inventory = new Map();

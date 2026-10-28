@@ -2,6 +2,7 @@ use crate::{Bounds, Primitive, Scene};
 use glam::{Mat3, Mat4, Vec3};
 use serde::Deserialize;
 use std::collections::HashSet;
+use std::io::Read;
 
 #[derive(Deserialize)]
 #[serde(default)]
@@ -21,6 +22,20 @@ impl Default for Surface {
 
 impl Scene {
     pub fn from_glb(bytes: &[u8], expected: &[String]) -> Result<Self, String> {
+        let mut decoded = Vec::new();
+        let bytes = if bytes.starts_with(b"glTF") {
+            bytes
+        } else {
+            let limit = 128 * 1024 * 1024;
+            brotli_decompressor::Decompressor::new(bytes, 4096)
+                .take(limit + 1)
+                .read_to_end(&mut decoded)
+                .map_err(|e| format!("Invalid Brotli model: {e}"))?;
+            if decoded.len() as u64 > limit {
+                return Err("Decompressed model exceeds 128 MiB".into());
+            }
+            &decoded
+        };
         let gltf = gltf::Gltf::from_slice(bytes).map_err(|e| e.to_string())?;
         let blob = gltf.blob.as_deref().ok_or("GLB has no binary buffer")?;
         // shortcut: static, untextured GLB packages; extend the loader when assets gain textures or animation.

@@ -14,7 +14,7 @@ fn worker_packing_preserves_geometry_and_validates_transfer_ranges() {
         .map(|s| s["source_id"].as_str().unwrap().to_owned())
         .collect();
     let scene = Scene::from_glb(
-        &std::fs::read(folder.join("body-regions.glb")).unwrap(),
+        &std::fs::read(folder.join("body-regions.glb.br")).unwrap(),
         &ids,
     )
     .unwrap();

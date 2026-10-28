@@ -27,7 +27,7 @@ fn merges_real_packages_and_preserves_world_geometry_materials_and_identity() {
                 |p| p.vertices.len().is_multiple_of(6) && p.color.iter().all(|v| v.is_finite())
             )
         );
-        if model["file"] == "muscular-system.glb" {
+        if model["file"] == "muscular-system.glb.br" {
             assert!(scene.parts.iter().any(|p| p.blend && p.color[3] < 1.0));
         }
         let mut package = std::collections::HashMap::<_, Vec<_>>::new();
@@ -119,7 +119,7 @@ fn scopes_selection_and_inspection_to_the_current_category() {
         .iter()
         .map(|s| s["source_id"].as_str().unwrap().to_string())
         .collect();
-    let bytes = std::fs::read(folder.join("cardiovascular-system.glb")).unwrap();
+    let bytes = std::fs::read(folder.join("cardiovascular-system.glb.br")).unwrap();
     assert!(Scene::from_glb(&bytes, &ids[..1]).is_err());
     assert!(Scene::from_glb(b"bad GLB", &ids).is_err());
     let mut scene = Scene::from_glb(&bytes, &ids).unwrap();

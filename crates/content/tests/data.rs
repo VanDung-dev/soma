@@ -29,7 +29,7 @@ fn skull_search_returns_the_linked_group_without_midword_noise() {
     for (id, path) in packages {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../apps/web/public")
-            .join(path.replace(".glb", ".json"));
+            .join(path.replace(".glb.br", ".json"));
         data.ingest(&id, &std::fs::read_to_string(path).unwrap())
             .unwrap();
     }
@@ -86,7 +86,7 @@ fn source_ties_follow_host_collation_and_invalid_locale_keeps_index() {
         .find(|t| {
             t.model
                 .as_ref()
-                .is_some_and(|m| m.path.ends_with("/skeletal-system.glb"))
+                .is_some_and(|m| m.path.ends_with("/skeletal-system.glb.br"))
         })
         .unwrap()
         .id
@@ -126,7 +126,7 @@ fn metadata_validation_preserves_all_source_fields_and_is_atomic() {
         .find(|t| {
             t.model
                 .as_ref()
-                .is_some_and(|m| m.path.ends_with("/skeletal-system.glb"))
+                .is_some_and(|m| m.path.ends_with("/skeletal-system.glb.br"))
         })
         .unwrap()
         .id
@@ -188,7 +188,7 @@ fn tree_snapshots_keep_display_membership_and_bound_direct_rows() {
         .find(|t| {
             t.model
                 .as_ref()
-                .is_some_and(|m| m.path.ends_with("/skeletal-system.glb"))
+                .is_some_and(|m| m.path.ends_with("/skeletal-system.glb.br"))
         })
         .unwrap()
         .id

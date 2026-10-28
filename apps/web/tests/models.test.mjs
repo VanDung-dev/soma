@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import validator from 'gltf-validator';
+import { brotliDecompressSync } from 'node:zlib';
 const folder = new URL('../public/models/z-anatomy/', import.meta.url);
 const catalog = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
 const manifest = JSON.parse(await readFile(new URL('manifest.json', folder)));
@@ -24,16 +25,19 @@ test('Z-Anatomy preserves geometry, structure identity, names and materials', as
   for (const target of roots) {
     const record = manifest.models.find(m => target.model.path === 'models/z-anatomy/' + m.file);
     assert(record, target.id);
-    assert.deepEqual(record.selection, selections[record.file.replace('.glb', '')]);
-    const bytes = await readFile(new URL(record.file, folder));
+    assert.deepEqual(record.selection, selections[record.file.replace('.glb.br', '')]);
+    const stored = await readFile(new URL(record.file, folder));
+    assert.equal(record.compression, 'br');
+    assert.equal(stored.length, record.bytes); assert.equal(hash(stored), record.sha256);
+    const bytes = brotliDecompressSync(stored);
     const metadataBytes = await readFile(new URL(record.metadata_file, folder));
-    assert.equal(bytes.length, record.bytes); assert.equal(hash(bytes), record.sha256);
+    assert.equal(bytes.length, record.uncompressed_bytes); assert.equal(hash(bytes), record.uncompressed_sha256);
     assert.equal(metadataBytes.length, record.metadata_bytes); assert.equal(hash(metadataBytes), record.metadata_sha256);
-    const report = await validator.validateBytes(new Uint8Array(bytes), { uri: record.file });
+    const report = await validator.validateBytes(new Uint8Array(bytes), { uri: record.file.replace(/\.br$/, '') });
     assert.equal(report.issues.numErrors, 0, JSON.stringify(report.issues.messages));
     assert.equal(report.issues.numWarnings, 0, JSON.stringify(report.issues.messages));
     const gltf = JSON.parse(bytes.subarray(20, 20 + bytes.readUInt32LE(12)));
-    if (record.file === 'skeletal-system.glb') {
+    if (record.file === 'skeletal-system.glb.br') {
       for (const name of ['Femur.l · Web', 'Femur.r · Web']) {
         const node = gltf.nodes.find(n => n.name === name);
         assert.deepEqual(gltf.meshes[node.mesh].primitives.map(p => gltf.materials[p.material].name).sort(), ['Bone · Web PBR', 'Cartilage · Web PBR'], 'Articular surfaces must retain their own material');
@@ -151,7 +155,7 @@ test('names and cross-asset folders remain independent of descriptions', async (
   assert.equal(thymus.structure_ids.length, 2);
   assert(thymus.structure_ids.every(id => lymphoid.structures.some(s => s.source_id === id)));
   const phalanges = catalog.targets.find(t => t.source_name === 'Phalanges of foot');
-  const attachments = manifest.models.find(m => m.file === 'muscular-insertions.glb');
+  const attachments = manifest.models.find(m => m.file === 'muscular-insertions.glb.br');
   assert.equal(phalanges.structure_ids.length, 28);
   assert(!phalanges.structure_ids.some(id => attachments.source_ids.includes(id)), 'Bone assemblies must not include muscle attachment meshes');
   for (const name of ['Thorax', 'Abdomen', 'Pelvis']) {

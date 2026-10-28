@@ -58,7 +58,7 @@ fn reconstruction_reveals_feet_before_head_and_finishes_without_changing_visibil
         .map(|s| s["source_id"].as_str().unwrap().into())
         .collect();
     let scene = Scene::from_glb(
-        &std::fs::read(folder.join("body-regions.glb")).unwrap(),
+        &std::fs::read(folder.join("body-regions.glb.br")).unwrap(),
         &ids,
     )
     .unwrap();

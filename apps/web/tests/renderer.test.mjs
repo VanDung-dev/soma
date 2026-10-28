@@ -7,7 +7,7 @@ initSync({ module: readFileSync(new URL("../src/wasm/wasm_bg.wasm", import.meta.
 
 test("Rust prepares transferable geometry with matching identities and rejects invalid packages", () => {
   const folder = new URL("../public/models/z-anatomy/", import.meta.url);
-  const bytes = new Uint8Array(readFileSync(new URL("body-regions.glb", folder)));
+  const bytes = new Uint8Array(readFileSync(new URL("body-regions.glb.br", folder)));
   const metadata = JSON.parse(readFileSync(new URL("body-regions.json", folder), "utf8"));
   const ids = metadata.structures.map(s => s.source_id);
   const [vertices, indices, descriptor] = prepare_packages([bytes], JSON.stringify([ids]));
