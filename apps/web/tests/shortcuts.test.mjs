@@ -11,9 +11,14 @@ test('app shortcuts match platform modifiers and preserve editing, composition a
     assert(isMacPlatform('MacIntel')); assert(!isMacPlatform('Win32')); assert(!isMacPlatform('Linux x86_64'));
     assert.equal(shortcutLabel('back', true), '⌘['); assert.equal(shortcutLabel('forward', false), 'Ctrl+]');
     assert.equal(shortcutLabel('restore', true), 'T'); assert.equal(shortcutLabel('settings', false), 'Esc');
+    assert.equal(shortcutLabel('catalog', true), '⇧⌘S'); assert.equal(shortcutLabel('information', false), 'Shift+Ctrl+.');
     assert(!Object.hasOwn(appShortcuts, 'find'), 'Search must not advertise a keyboard shortcut');
     for (const mac of [false, true]) {
       const command = mac ? { metaKey: true } : { ctrlKey: true };
+      assert.equal(shortcutAction(event({ key: 'S', shiftKey: true, ...command }), mac), 'catalog');
+      assert.equal(shortcutAction(event({ key: '>', code: 'Period', shiftKey: true, ...command }), mac), 'information');
+      assert.equal(shortcutAction(event({ key: 's', ...command }), mac), undefined);
+      assert.equal(shortcutAction(event({ key: 'S', shiftKey: true, ...command, target: { closest: () => ({}) } }), mac), undefined);
       assert.equal(shortcutAction(event({ key: '[', ...command }), mac), 'back');
       assert.equal(shortcutAction(event({ key: ']', ...command }), mac), 'forward');
       assert.equal(shortcutAction(event({ key: 'é', code: 'BracketLeft', ...command }), mac), 'back');

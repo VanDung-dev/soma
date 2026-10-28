@@ -17,7 +17,7 @@ import type { ViewerStatus } from "./viewer/contracts";
 import { ViewerRuntime } from "./viewer/runtime";
 import { measureViewport } from "./viewer/layout";
 import { graphicsStorageKey, readGraphicsSettings } from "./viewer/graphics";
-import { shortcutAction } from "../shortcuts";
+import { shortcutAction, shortcutLabel } from "../shortcuts";
 
 const statusMessages = {
   loading: "viewer.status.loading", preparing: "viewer.status.preparing", finishing: "viewer.status.finishing",
@@ -85,6 +85,10 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     const current = session.getSnapshot();
     if (action === "settings") open(settingsId);
     else if (action === "guide") open(helpId);
+    else if (action === "catalog" || action === "information") {
+      if (window.matchMedia("(min-width: 1141px)").matches) setCollapsedPanels(current => ({ ...current, [action]: !current[action] }));
+      else setPanel(current => current === action ? null : action);
+    }
     else if (!current.building && !current.error) {
       if (action === "back") session.back();
       else if (action === "forward") session.forward();
@@ -102,9 +106,9 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     const frameKeyDown = (event: MessageEvent) => {
       const data = event.data;
       if (data?.type !== "wikipedia:shortcut" || typeof data.key !== "string" || typeof data.code !== "string"
-        || typeof data.metaKey !== "boolean" || typeof data.ctrlKey !== "boolean"
+        || typeof data.metaKey !== "boolean" || typeof data.ctrlKey !== "boolean" || typeof data.shiftKey !== "boolean"
         || ![...document.querySelectorAll<HTMLIFrameElement>("iframe.wikipedia-article")].some(frame => frame.contentWindow === event.source)) return;
-      keyDown(new KeyboardEvent("keydown", { key: data.key, code: data.code, metaKey: data.metaKey, ctrlKey: data.ctrlKey, cancelable: true }));
+      keyDown(new KeyboardEvent("keydown", { key: data.key, code: data.code, metaKey: data.metaKey, ctrlKey: data.ctrlKey, shiftKey: data.shiftKey, cancelable: true }));
     };
     document.addEventListener("keydown", keyDown);
     window.addEventListener("message", frameKeyDown);
@@ -159,7 +163,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const panelToggle = (panel: "catalog" | "information", name: string) => <button type="button" className="controls-info sidebar-toggle"
     aria-expanded={!collapsedPanels[panel]} aria-controls={panel === "catalog" ? catalogId : informationId}
     aria-label={t(collapsedPanels[panel] ? "panels.show" : "panels.hide", { name })}
-    title={t(collapsedPanels[panel] ? "panels.show" : "panels.hide", { name })}
+    title={`${t(collapsedPanels[panel] ? "panels.show" : "panels.hide", { name })} (${shortcutLabel(panel)})`}
     onClick={() => setCollapsedPanels(current => ({ ...current, [panel]: !current[panel] }))}>
     <LineIcon name="sidebar" size={18} />
   </button>;

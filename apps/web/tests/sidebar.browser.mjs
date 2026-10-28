@@ -35,6 +35,17 @@ export async function checkSidebar() {
   try {
     await settle();
     check();
+    if (desktop) assert(document.querySelector('.app-menu-history .sidebar-toggle').previousElementSibling.getAttribute('aria-label') === document.querySelector('.app-menu-history button:nth-child(2)').getAttribute('aria-label'), 'Place the catalog toggle next to forward');
+    const command = /Mac|iPhone|iPad/i.test(navigator.platform) ? { metaKey: true } : { ctrlKey: true };
+    for (const [index, key, code] of [[0, 'S', 'KeyS'], [1, '>', 'Period']]) {
+      const before = visible(panels[index]);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key, code, shiftKey: true, ...command, bubbles: true, cancelable: true }));
+      await settle();
+      assert(visible(panels[index]) !== before, 'Shortcut toggles the intended sidebar');
+      check();
+      document.dispatchEvent(new KeyboardEvent('keydown', { key, code, shiftKey: true, ...command, bubbles: true, cancelable: true }));
+      await settle();
+    }
     for (const index of [0, 1, 0, 1, 1, 0, 1, 0]) {
       buttons[index].focus();
       buttons[index].click();

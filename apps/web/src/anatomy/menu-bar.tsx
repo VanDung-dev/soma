@@ -40,6 +40,7 @@ export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForw
         aria-label={t("app.forward")} title={`${t("app.forward")} (${shortcutLabel("forward")})`}>
         <LineIcon name="arrow-small-right" size={14} />
       </button>
+      {catalogToggle}
       <button type="button" className="hand-camera-toggle" role="switch" aria-checked={cameraEnabled}
         aria-label={t("handCamera.mode")} aria-description={cameraActive ? t("handCamera.active") : undefined}
         title={cameraActive ? `${t("handCamera.mode")} · ${t("handCamera.active")}` : t("handCamera.mode")}
@@ -47,7 +48,6 @@ export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForw
         onClick={() => onCameraChange(!cameraEnabled)}>
         <LineIcon name="camera" size={24} /><span className="camera-mode-switch" aria-hidden="true" />
       </button>
-      {catalogToggle}
     </div>
     <h1 className="app-menu-title" title={t("app.title")}>{t("app.title")}</h1>
     <div className="app-menu-actions">

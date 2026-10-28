@@ -47,7 +47,7 @@ export async function checkAppShortcuts() {
     roots[1].click(); await frames(); const second = document.querySelector('.information-heading h2').textContent;
     await key('[', canvas, command); assert(document.querySelector('.information-heading h2').textContent === first, 'Platform modifier + [ goes Back');
     await key(']', canvas, command); assert(document.querySelector('.information-heading h2').textContent === second, 'Platform modifier + ] goes Forward');
-    window.postMessage({ type: 'wikipedia:shortcut', key: 'g', code: 'KeyG', ctrlKey: false, metaKey: false }, '*');
+    window.postMessage({ type: 'wikipedia:shortcut', key: 'g', code: 'KeyG', ctrlKey: false, metaKey: false, shiftKey: false }, '*');
     await frames(); assert(!guide.matches(':popover-open'), 'Ignore shortcut messages from unknown windows');
     frame.className = 'wikipedia-article'; frame.sandbox = 'allow-scripts';
     frame.srcdoc = wikipediaPage('<html><head></head><body><script>addEventListener("message", e => { if(e.data?.type === "test:key") dispatchEvent(new KeyboardEvent("keydown", {key:e.data.key, code:e.data.code || "KeyG", metaKey:!!e.data.metaKey, ctrlKey:!!e.data.ctrlKey, bubbles:true, cancelable:true})); });</script></body></html>', new URL('https://en.wikipedia.org/wiki/Skeleton'));
