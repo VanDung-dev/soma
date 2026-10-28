@@ -35,7 +35,10 @@ export async function checkSidebar() {
   try {
     await settle();
     check();
-    if (desktop) assert(document.querySelector('.app-menu-history .sidebar-toggle').previousElementSibling.getAttribute('aria-label') === document.querySelector('.app-menu-history button:nth-child(2)').getAttribute('aria-label'), 'Place the catalog toggle next to forward');
+    if (desktop) {
+      assert(document.querySelector('.app-menu-history').firstElementChild === buttons[0], 'Place the catalog toggle at the left edge');
+      assert(document.querySelector('.app-menu-actions').lastElementChild === buttons[1], 'Place the information toggle at the right edge');
+    }
     const command = /Mac|iPhone|iPad/i.test(navigator.platform) ? { metaKey: true } : { ctrlKey: true };
     for (const [index, key, code] of [[0, 'S', 'KeyS'], [1, '>', 'Period']]) {
       const before = visible(panels[index]);

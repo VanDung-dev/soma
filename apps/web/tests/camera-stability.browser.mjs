@@ -72,7 +72,7 @@ export async function checkCameraStability() {
   const same = (a, b) => a.every((value, i) => Math.abs(value - b[i]) < 1e-5);
   const overview = async () => {
     for (let i = 0; i < 20; i++) {
-      const back = document.querySelector('.app-menu-history button');
+      const back = document.querySelector('.app-menu-history .history-back');
       if (back.disabled) break;
       back.click(); await wait();
     }

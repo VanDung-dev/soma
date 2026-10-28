@@ -397,7 +397,7 @@ export async function checkExplosionControls() {
   };
   try {
     input('0'); await wait();
-    for (const back = document.querySelector('.app-menu-history button'); !back.disabled;) { back.click(); await wait(); }
+    for (const back = document.querySelector('.app-menu-history .history-back'); !back.disabled;) { back.click(); await wait(); }
     input('0'); await wait(); switches.length = 0;
     assert(slider && slider.value === '0' && !document.querySelector('.view-modes')
       && !document.querySelector('.explode-control button'),
@@ -435,7 +435,7 @@ export async function checkExplosionControls() {
       assert(slider.value === '59', 'Release detents when the browser loses focus');
     } finally { slider.setPointerCapture = capture; }
     input('0'); await wait();
-    for (const back = document.querySelector('.app-menu-history button'); !back.disabled;) { back.click(); await wait(); }
+    for (const back = document.querySelector('.app-menu-history .history-back'); !back.disabled;) { back.click(); await wait(); }
     assert(!enabled && slider.value === '0', `Reset detent check: ${JSON.stringify({enabled,amount,switches,error:document.querySelector('.model-error')?.textContent})}`);
     switches.length = 0;
     input('100'); await wait();
@@ -515,7 +515,7 @@ export async function checkExplosionControls() {
   } finally {
     clearTimeout(timeout); reduced = true;
     input('0');
-    for (const back = document.querySelector('.app-menu-history button'); !back.disabled;) { back.click(); await wait(); }
+    for (const back = document.querySelector('.app-menu-history .history-back'); !back.disabled;) { back.click(); await wait(); }
     window.matchMedia = media; proto.set_explode = original; proto.set_explode_mode = originalMode;
     proto.render_explosion = originalRender;
   }

@@ -261,7 +261,7 @@ export async function checkPointerBounds() {
     pointer('pointercancel', inside); pointer('pointerleave', outside[0]);
     canvas.setPointerCapture = capture; canvas.releasePointerCapture = release; canvas.hasPointerCapture = has;
     for (const [method, original] of Object.entries(originals)) proto[method] = original;
-    for (const back = document.querySelector('.app-menu-history button'); !back.disabled;) { back.click(); await new Promise(requestAnimationFrame); }
+    for (const back = document.querySelector('.app-menu-history .history-back'); !back.disabled;) { back.click(); await new Promise(requestAnimationFrame); }
   }
 }
 

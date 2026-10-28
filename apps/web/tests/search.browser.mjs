@@ -95,7 +95,7 @@ export async function checkStructureSearch() {
     assert(document.querySelector('.information-heading h2').textContent === 'Sọ', 'Show skull group information');
     assert(tree.querySelector('[data-target-id="' + skullId + '"] > .folder-row.is-selected'), 'Reveal and select the skull group in the tree');
     assert(!popover.matches(':popover-open') && document.activeElement === document.querySelector('.model-canvas canvas'), 'Close search and focus the canvas after choosing a group');
-    document.querySelector('.app-menu-history button').click(); await wait();
+    document.querySelector('.app-menu-history .history-back').click(); await wait();
     const catalogToggle = document.querySelector('.anatomy-panel-toggles button');
     if (innerWidth <= 900 && catalogToggle.getAttribute('aria-expanded') === 'false') { catalogToggle.click(); await wait(); }
     await open();
@@ -151,7 +151,7 @@ export async function checkStructureSearch() {
     AnatomyViewer.prototype.focus = originalFocus;
     AnatomyViewer.prototype.focus_animated = originalAnimated;
     popover.hidePopover();
-    for (const back = document.querySelector('.app-menu-history button'); !back.disabled;) { back.click(); await wait(); }
+    for (const back = document.querySelector('.app-menu-history .history-back'); !back.disabled;) { back.click(); await wait(); }
     await wait();
   }
 }

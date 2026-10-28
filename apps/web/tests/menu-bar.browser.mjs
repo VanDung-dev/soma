@@ -1,6 +1,6 @@
 export async function checkMenuBar() {
   const bar = document.querySelector('.app-menu-bar');
-  const [back, forward] = bar.querySelectorAll('.app-menu-history button');
+  const back = bar.querySelector('.history-back'), forward = bar.querySelector('.history-forward');
   const [help, settings] = bar.querySelectorAll('.app-menu-actions button');
   const title = bar.querySelector('.app-menu-title');
   const assert = (ok, message) => { if (!ok) throw Error(message); };

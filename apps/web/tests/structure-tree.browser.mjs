@@ -22,7 +22,7 @@ export async function checkStructureTree() {
   const originalScroll = scroll.scrollTop;
   const selected = () => document.querySelector('.information-heading').dataset.structureId;
   const rows = () => [...root.querySelectorAll('.part-row')];
-  const back = document.querySelector('.app-menu-history button');
+  const back = document.querySelector('.app-menu-history .history-back');
   try {
     for (const panel of document.querySelectorAll('[popover]:popover-open')) panel.hidePopover();
     if (initialOpen) { toggle.click(); await frames(); }
@@ -113,7 +113,7 @@ export async function checkStructureTree() {
       back.click();
       await waitFor(() => matchesPath(store.reveal(skull.id).slice(1).map(([id]) => id))
         && scroll.querySelector('[data-target-id="' + skull.id + '"] > .folder-row.is-selected'), 'Back must restore only the skull parent path');
-      document.querySelector('.app-menu-history button:nth-child(2)').click();
+      document.querySelector('.app-menu-history .history-forward').click();
       await waitFor(() => matchesPath(store.reveal(lastId).map(([id]) => id))
         && scroll.querySelector('[data-structure-id="' + lastId + '"].is-selected'), 'Forward must restore only the structure path');
     } finally { store.free(); }

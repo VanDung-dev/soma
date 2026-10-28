@@ -32,15 +32,15 @@ export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForw
   const { t } = useLanguage();
   return <header ref={ref} className="app-menu-bar" aria-label={t("app.navigation.label")}>
     <div className="app-menu-history">
-      <button className="controls-info" disabled={disabled || !canGoBack} onClick={onBack}
+      {catalogToggle}
+      <button className="controls-info history-back" disabled={disabled || !canGoBack} onClick={onBack}
         aria-label={t("app.back")} title={`${t("app.back")} (${shortcutLabel("back")})`}>
         <LineIcon name="arrow-small-left" size={14} />
       </button>
-      <button className="controls-info" disabled={disabled || !canGoForward} onClick={onForward}
+      <button className="controls-info history-forward" disabled={disabled || !canGoForward} onClick={onForward}
         aria-label={t("app.forward")} title={`${t("app.forward")} (${shortcutLabel("forward")})`}>
         <LineIcon name="arrow-small-right" size={14} />
       </button>
-      {catalogToggle}
       <button type="button" className="hand-camera-toggle" role="switch" aria-checked={cameraEnabled}
         aria-label={t("handCamera.mode")} aria-description={cameraActive ? t("handCamera.active") : undefined}
         title={cameraActive ? `${t("handCamera.mode")} · ${t("handCamera.active")}` : t("handCamera.mode")}
