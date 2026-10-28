@@ -5,7 +5,7 @@ import { ViewerRuntime } from '../src/anatomy/viewer/runtime.ts';
 // Run in Vite: (await import('/tests/viewer-runtime.browser.mjs')).checkViewerRuntime()
 export async function checkViewerRuntime() {
   const catalog = await getCatalog();
-  const root = catalog.roots.find(t => t.model?.path.endsWith('skeletal-system.glb'));
+  const root = catalog.roots.find(t => t.model?.path.endsWith('skeletal-system.glb.br'));
   const assert = (ok, message) => { if (!ok) throw Error(message); };
   const fixtures = [];
   let timeout;

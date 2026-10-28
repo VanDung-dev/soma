@@ -5,8 +5,8 @@
 - Read `README.md` for setup, development, build, model regeneration, and validation commands.
 - Read `ARCHITECTURE.md` before changing module boundaries, state ownership, or viewer reuse.
 - The Rust workspace is defined in the root `Cargo.toml`: `crates/core` owns shared anatomy/domain data, `crates/renderer` owns rendering, `crates/wasm` exposes the browser-facing WASM layer, and `apps/web/src-tauri` contains the desktop host.
-- The web application and its npm scripts live in `apps/web`; root npm scripts delegate to that workspace.
-- The unused Python backend has been removed. Before adding server-side features, read the Backend direction section of `README.md` and `tasks/plan.md`; use Rust and agree on API/data contracts for the first feature. The Python content tools in `apps/web/` remain part of the web pipeline.
+- The web application and its npm scripts live in `apps/web`; root web commands delegate to that workspace. The root `models:import` command runs the offline pipeline in `scripts/models/`.
+- The unused Python backend has been removed. Before adding server-side features, read the Backend direction section of `README.md` and `tasks/plan.md`; use Rust and agree on API/data contracts for the first feature. Offline Python tools live in `scripts/models/` and `scripts/wikipedia/`, with tests in `scripts/tests/`; they do not run during normal web dev/build/serve.
 - Catalog and generated model assets live under `content/` and `apps/web/public/models/`. Model regeneration is a separate pipeline that requires Python and Blender; do not regenerate assets as part of routine development or builds.
 
 ## Project constraints

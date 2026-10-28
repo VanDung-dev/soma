@@ -13,7 +13,6 @@
     "test": "node --test tests/*.test.mjs",
     "pretest:browser": "npm run wasm:build --prefix ../..",
     "test:browser": "node scripts/test-browser.mjs",
-    "models:import": "node scripts/import-models.mjs",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build --no-bundle"
   },

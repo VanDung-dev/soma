@@ -1,7 +1,7 @@
 {
   "name": "human-atlas-workspace",
   "private": true,
-  "workspaces": ["apps/web"],
+  "workspaces": ["apps/web", "scripts"],
   "scripts": {
     "content:build": "wasm-pack build crates/content --target web --out-dir ../../apps/web/src/content --release --no-opt",
     "wasm:build": "npm run content:build && wasm-pack build crates/wasm --target web --out-dir ../../apps/web/src/wasm --release --no-opt",
@@ -11,6 +11,7 @@
     "check": "npm run check --workspace apps/web",
     "test": "npm run test --workspace apps/web",
     "test:browser": "npm run test:browser --workspace apps/web",
+    "models:import": "npm run models:import --workspace scripts",
     "desktop:dev": "npm run desktop:dev --workspace apps/web",
     "desktop:build": "npm run desktop:build --workspace apps/web"
   },

@@ -140,8 +140,8 @@ impl Catalog {
                         != model.structure_ids.len()
                     || !model.structure_ids.iter().all(|id| members.contains(id))
                     || !filename.is_some_and(|name| {
-                        name.ends_with(".glb")
-                            && name.len() > 4
+                        (name.ends_with(".glb") || name.ends_with(".glb.br"))
+                            && name.trim_end_matches(".br").len() > 4
                             && name
                                 .bytes()
                                 .all(|b| b.is_ascii_lowercase() || b == b'.' || b == b'-')
@@ -178,6 +178,22 @@ pub fn catalog_json() -> Result<String, CatalogError> {
 mod tests {
     use super::*;
     const STARTER: &str = include_str!("../../../content/catalog.json");
+
+    #[test]
+    fn accepts_glb_and_brotli_model_paths_and_rejects_other_formats() {
+        assert!(Catalog::from_json(STARTER).is_ok());
+        assert!(
+            changed(|v| {
+                let path = v["targets"][0]["model"]["path"].as_str().unwrap();
+                v["targets"][0]["model"]["path"] = path.trim_end_matches(".br").into();
+            })
+            .is_ok()
+        );
+        assert!(matches!(
+            changed(|v| v["targets"][0]["model"]["path"] = "models/z-anatomy/model.glb.gz".into()),
+            Err(CatalogError::InvalidModel(_))
+        ));
+    }
 
     #[test]
     fn source_catalog_has_nine_roots_and_deep_navigation() {

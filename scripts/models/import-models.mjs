@@ -5,16 +5,17 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
+import { brotliCompressSync, brotliDecompressSync, constants } from 'node:zlib';
 import validator from 'gltf-validator';
 
-const root = fileURLToPath(new URL('../../../', import.meta.url));
+const root = fileURLToPath(new URL('../../', import.meta.url));
 const venvPython = join(root, '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
 const python = process.env.PYTHON_BIN ?? (existsSync(venvPython) ? venvPython : process.platform === 'win32' ? 'python' : 'python3');
-const preparation = spawnSync(python, [join(root, 'apps/web/scripts/download-z-anatomy.py')], { cwd: root, stdio: 'inherit', timeout: 600000 });
+const preparation = spawnSync(python, [join(root, 'scripts/models/download-z-anatomy.py')], { cwd: root, stdio: 'inherit', timeout: 600000 });
 assert.ifError(preparation.error);
 assert.equal(preparation.status, 0, `Source preparation failed: ${preparation.signal ?? preparation.status}`);
 const blender = process.env.BLENDER_BIN ?? (process.platform === 'darwin' ? '/Applications/Blender.app/Contents/MacOS/Blender' : 'blender');
-const result = spawnSync(blender, ['--background', '--factory-startup', '--disable-autoexec', join(root, 'Z-Anatomy/Startup.blend'), '--python-exit-code', '1', '--python', join(root, 'apps/web/scripts/export-z-anatomy.py')], { cwd: root, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 600000 });
+const result = spawnSync(blender, ['--background', '--factory-startup', '--disable-autoexec', join(root, 'Z-Anatomy/Startup.blend'), '--python-exit-code', '1', '--python', join(root, 'scripts/models/export-z-anatomy.py')], { cwd: root, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 600000 });
 console.log(result.status === 0 ? result.stdout.split('\n').filter(line => /EXPORTED|WARNING/.test(line)).join('\n') : result.stdout);
 if (result.stderr) console.error(result.stderr);
 assert.ifError(result.error);
@@ -61,14 +62,25 @@ for (const model of manifest.models) {
 // Publish only after every staged package has passed validation.
 await mkdir(output, { recursive: true });
 for (const model of manifest.models) {
-  await copyFile(join(stage, model.file), join(output, model.file));
+  const original = await readFile(join(stage, model.file));
+  const compressed = brotliCompressSync(original, { params: { [constants.BROTLI_PARAM_QUALITY]: 5 } });
+  assert.deepEqual(brotliDecompressSync(compressed), original);
+  const target = catalog.targets.find(t => t.model?.path === `models/z-anatomy/${model.file}`);
+  model.uncompressed_bytes = model.bytes;
+  model.uncompressed_sha256 = model.sha256;
+  model.compression = 'br';
+  model.file += '.br';
+  model.bytes = compressed.length;
+  model.sha256 = createHash('sha256').update(compressed).digest('hex');
+  target.model.path += '.br';
+  await writeFile(join(output, model.file), compressed);
   await copyFile(join(stage, model.metadata_file), join(output, model.metadata_file));
 }
 await writeFile(join(output, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
-await copyFile(join(stage, 'catalog.json'), join(root, 'content/catalog.json'));
+await writeFile(join(root, 'content/catalog.json'), JSON.stringify(catalog, null, 2) + '\n');
 const active = new Set(['manifest.json', ...manifest.models.flatMap(m => [m.file, m.metadata_file])]);
 for (const file of await readdir(output)) {
-  if (/^[a-z-]+\.(glb|json)$/.test(file) && !active.has(file)) await unlink(join(output, file));
+  if (/^[a-z-]+\.(glb(?:\.br)?|json)$/.test(file) && !active.has(file)) await unlink(join(output, file));
 }
 
 const inventory = new Map();

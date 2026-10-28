@@ -8,7 +8,7 @@ import json
 import re
 from pathlib import Path
 
-root = Path(__file__).resolve().parents[3]
+root = Path(__file__).resolve().parents[2]
 source = root / 'Z-Anatomy' / 'Startup.blend'
 assert Path(bpy.data.filepath).resolve() == source.resolve()
 assert bpy.context.scene.unit_settings.system == 'METRIC'

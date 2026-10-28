@@ -7,7 +7,7 @@ test('model loading streams in order, bounds prefetch and cleans up cancellation
   const original = { fetch: globalThis.fetch, Worker: globalThis.Worker };
   const requests = [], signals = [], workers = [], posted = [];
   const roots = Array.from({ length: 5 }, (_, id) => ({
-    id: String(id), model: { path: `models/${id}.glb`, structure_ids: [String(id)] },
+    id: String(id), model: { path: `models/${id}.glb${id % 2 ? '.br' : ''}`, structure_ids: [String(id)] },
   }));
   let workerFailure = false;
   try {
@@ -15,7 +15,7 @@ test('model loading streams in order, bounds prefetch and cleans up cancellation
     const loadModels = (roots, signal, progress) => load(roots, signal, progress, (_root, json) => JSON.parse(json).structures.map(part => part.source_id));
     globalThis.fetch = async (url, { signal }) => {
       requests.push(url); signals.push(signal);
-      const id = url.match(/\/(\d+)\.(glb|json)$/)[1];
+      const id = url.match(/\/(\d+)\.(glb(?:\.br)?|json)$/)[1];
       return { ok: true,
         text: async () => JSON.stringify({ structures: [{ source_id: id, source_name: id, source_object: id, latin: '', laterality: '', collections: [] }] }),
         arrayBuffer: async () => new Uint8Array([Number(id)]).buffer,
@@ -37,11 +37,11 @@ test('model loading streams in order, bounds prefetch and cleans up cancellation
     const stream = loadModels(roots, controller.signal, count => progress.push(count));
     const first = await stream.next();
     assert.equal(first.value[0][0], 0);
-    assert.equal(requests.filter(url => url.endsWith('.glb')).length, 2, 'Prefetch only two systems');
+    assert.equal(requests.filter(url => /\.glb(?:\.br)?$/.test(url)).length, 2, 'Prefetch only two systems');
     assert.deepEqual(posted, [0], 'Yield the first package before preparing the next');
     const second = await stream.next();
     assert.equal(second.value[0][0], 1);
-    assert.equal(requests.filter(url => url.endsWith('.glb')).length, 3);
+    assert.equal(requests.filter(url => /\.glb(?:\.br)?$/.test(url)).length, 3);
     assert.deepEqual(progress, [1, 2]);
     await stream.return();
     assert(workers[0].terminated);

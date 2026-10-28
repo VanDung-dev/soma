@@ -1411,7 +1411,7 @@
   ],
   "models": [
     {
-      "file": "skeletal-system.glb",
+      "file": "skeletal-system.glb.br",
       "metadata_file": "skeletal-system.json",
       "structures": 277,
       "source_ids": [
@@ -1701,13 +1701,16 @@
       "catalog_nodes": 308,
       "primitives": 575,
       "triangles": 702011,
-      "bytes": 12043532,
-      "sha256": "a960d8aa584b306c0cdb2859d48d50b0f170671758a2f318ea23baa5f36b6abd",
+      "bytes": 6094404,
+      "sha256": "64468ce27a7b70e8ed0f179151cb61c8263321d5207fe1af9c410846dca5a922",
       "metadata_bytes": 98965,
-      "metadata_sha256": "31f1a458675ef13ba802bdecac1272671f9058c37c8e5cb65052f7f7700bd631"
+      "metadata_sha256": "31f1a458675ef13ba802bdecac1272671f9058c37c8e5cb65052f7f7700bd631",
+      "uncompressed_bytes": 12043532,
+      "uncompressed_sha256": "a960d8aa584b306c0cdb2859d48d50b0f170671758a2f318ea23baa5f36b6abd",
+      "compression": "br"
     },
     {
-      "file": "muscular-insertions.glb",
+      "file": "muscular-insertions.glb.br",
       "metadata_file": "muscular-insertions.json",
       "structures": 705,
       "source_ids": [
@@ -2425,13 +2428,16 @@
       "catalog_nodes": 91,
       "primitives": 705,
       "triangles": 931484,
-      "bytes": 15115504,
-      "sha256": "42b4cc0890847ea74c26e1771ba822bb9321414064edfbea366b59dd5bccf08c",
+      "bytes": 7543514,
+      "sha256": "ab8b04178274cf32345d2a8b44b83c5e998a15d479920518cc62666c51a7872e",
       "metadata_bytes": 178309,
-      "metadata_sha256": "e54092c91117c87a416eccc761fc873362c67251919619600ef62940f81dd6e1"
+      "metadata_sha256": "e54092c91117c87a416eccc761fc873362c67251919619600ef62940f81dd6e1",
+      "uncompressed_bytes": 15115504,
+      "uncompressed_sha256": "42b4cc0890847ea74c26e1771ba822bb9321414064edfbea366b59dd5bccf08c",
+      "compression": "br"
     },
     {
-      "file": "joints.glb",
+      "file": "joints.glb.br",
       "metadata_file": "joints.json",
       "structures": 413,
       "source_ids": [
@@ -2857,13 +2863,16 @@
       "catalog_nodes": 127,
       "primitives": 413,
       "triangles": 358055,
-      "bytes": 7075188,
-      "sha256": "3928ed9776f497cdd16bd7451e01ee40e3e059cd8c6c4d323a49e1571e5604b2",
+      "bytes": 2916001,
+      "sha256": "aa6ac8f9ec17c47d49d17c30b3eaab000cbea91bdc94d4fe6ca90ee400cca1ce",
       "metadata_bytes": 138642,
-      "metadata_sha256": "a01407402969a69e00852bdc779157d2033bc9f027ac3ed1210406cb5c9937d5"
+      "metadata_sha256": "a01407402969a69e00852bdc779157d2033bc9f027ac3ed1210406cb5c9937d5",
+      "uncompressed_bytes": 7075188,
+      "uncompressed_sha256": "3928ed9776f497cdd16bd7451e01ee40e3e059cd8c6c4d323a49e1571e5604b2",
+      "compression": "br"
     },
     {
-      "file": "muscular-system.glb",
+      "file": "muscular-system.glb.br",
       "metadata_file": "muscular-system.json",
       "structures": 683,
       "source_ids": [
@@ -3559,13 +3568,16 @@
       "catalog_nodes": 196,
       "primitives": 912,
       "triangles": 2323575,
-      "bytes": 40763640,
-      "sha256": "c26e3ddc5b1d3f609cd360def214541484694a68a9368e7dfdea476d87f0e3f0",
+      "bytes": 19511336,
+      "sha256": "09235febdbf63732687416275b1ba994417fcd269943cd3d1ad2d4b77e4361c0",
       "metadata_bytes": 241030,
-      "metadata_sha256": "231b6c40e08151d90cce44328722dba177be8f9178fd1786452728e5d112445a"
+      "metadata_sha256": "231b6c40e08151d90cce44328722dba177be8f9178fd1786452728e5d112445a",
+      "uncompressed_bytes": 40763640,
+      "uncompressed_sha256": "c26e3ddc5b1d3f609cd360def214541484694a68a9368e7dfdea476d87f0e3f0",
+      "compression": "br"
     },
     {
-      "file": "cardiovascular-system.glb",
+      "file": "cardiovascular-system.glb.br",
       "metadata_file": "cardiovascular-system.json",
       "structures": 676,
       "source_ids": [
@@ -4254,13 +4266,16 @@
       "catalog_nodes": 308,
       "primitives": 676,
       "triangles": 3843768,
-      "bytes": 61355136,
-      "sha256": "c8fb7750f8b63aa74fd7170ffef70ba0993c83de3c41569147874ee19ca76c55",
+      "bytes": 32109444,
+      "sha256": "af4f3267e8db432b6ea8b97b65b9b1a1f3353e184ed258816f0166758811186d",
       "metadata_bytes": 219153,
-      "metadata_sha256": "038f29221a271c9650f045d7ccdb9c2a5868931820d65cb10a2cbff84192d7f6"
+      "metadata_sha256": "038f29221a271c9650f045d7ccdb9c2a5868931820d65cb10a2cbff84192d7f6",
+      "uncompressed_bytes": 61355136,
+      "uncompressed_sha256": "c8fb7750f8b63aa74fd7170ffef70ba0993c83de3c41569147874ee19ca76c55",
+      "compression": "br"
     },
     {
-      "file": "lymphoid-organs.glb",
+      "file": "lymphoid-organs.glb.br",
       "metadata_file": "lymphoid-organs.json",
       "structures": 163,
       "source_ids": [
@@ -4436,13 +4451,16 @@
       "catalog_nodes": 58,
       "primitives": 163,
       "triangles": 127682,
-      "bytes": 1981860,
-      "sha256": "c23cf27c5d5130405f486075407feb31efd333ff22c7b2113e607c54c2055beb",
+      "bytes": 500293,
+      "sha256": "cd49bb95a4d05bd22d966e0d617a86ca36579d9a7ad677ff36ab00ef3dd8610b",
       "metadata_bytes": 45560,
-      "metadata_sha256": "3ab79a4845177ca586072112a2c3d991a6ebc2d0cb59c2774db69ac41fdb7b8f"
+      "metadata_sha256": "3ab79a4845177ca586072112a2c3d991a6ebc2d0cb59c2774db69ac41fdb7b8f",
+      "uncompressed_bytes": 1981860,
+      "uncompressed_sha256": "c23cf27c5d5130405f486075407feb31efd333ff22c7b2113e607c54c2055beb",
+      "compression": "br"
     },
     {
-      "file": "nervous-system.glb",
+      "file": "nervous-system.glb.br",
       "metadata_file": "nervous-system.json",
       "structures": 582,
       "source_ids": [
@@ -5037,13 +5055,16 @@
       "catalog_nodes": 489,
       "primitives": 708,
       "triangles": 2406786,
-      "bytes": 40004200,
-      "sha256": "ded12d49e1b478c63346f94d86edafe165096910a3778ae5216e047753774490",
+      "bytes": 20084119,
+      "sha256": "08aa4515880536a1b8ab83b9fa07a19f548077b7e28a6bbe221f250427c71b35",
       "metadata_bytes": 215247,
-      "metadata_sha256": "704a1fa2357fd0c2db468a8daaeb0b31ced96ea8f390a95754f766e6a66ecb5b"
+      "metadata_sha256": "704a1fa2357fd0c2db468a8daaeb0b31ced96ea8f390a95754f766e6a66ecb5b",
+      "uncompressed_bytes": 40004200,
+      "uncompressed_sha256": "ded12d49e1b478c63346f94d86edafe165096910a3778ae5216e047753774490",
+      "compression": "br"
     },
     {
-      "file": "visceral-systems.glb",
+      "file": "visceral-systems.glb.br",
       "metadata_file": "visceral-systems.json",
       "structures": 119,
       "source_ids": [
@@ -5175,13 +5196,16 @@
       "catalog_nodes": 313,
       "primitives": 138,
       "triangles": 714303,
-      "bytes": 12971740,
-      "sha256": "79214155f3a513d59494245ab0a2e20da8ee98533a6f9bbc1cc2ded71f53d282",
+      "bytes": 9994625,
+      "sha256": "a19614c78aca54bff59a258be3f040eb50e4d9fdbd2e394298ae55d84498d567",
       "metadata_bytes": 35881,
-      "metadata_sha256": "25d895e5a482ee07398456eed57edc9ff6ac0df7e18d07da953076a8ed88962d"
+      "metadata_sha256": "25d895e5a482ee07398456eed57edc9ff6ac0df7e18d07da953076a8ed88962d",
+      "uncompressed_bytes": 12971740,
+      "uncompressed_sha256": "79214155f3a513d59494245ab0a2e20da8ee98533a6f9bbc1cc2ded71f53d282",
+      "compression": "br"
     },
     {
-      "file": "body-regions.glb",
+      "file": "body-regions.glb.br",
       "metadata_file": "body-regions.json",
       "structures": 256,
       "source_ids": [
@@ -5450,10 +5474,13 @@
       "catalog_nodes": 91,
       "primitives": 696,
       "triangles": 135204,
-      "bytes": 3141292,
-      "sha256": "eec613d13f9173f8a0498ab83c11282a4f63e2073c292e82545c475a57f27f57",
+      "bytes": 1357990,
+      "sha256": "0c8a72c0eb0fe5c61e0420f136fd8faad9dc922e9905fc360398b75ce0369f13",
       "metadata_bytes": 74914,
-      "metadata_sha256": "7de8b1224d429b2ed677265af7a740783d0c57e5ef781c57bc7f7a2979bcac07"
+      "metadata_sha256": "7de8b1224d429b2ed677265af7a740783d0c57e5ef781c57bc7f7a2979bcac07",
+      "uncompressed_bytes": 3141292,
+      "uncompressed_sha256": "eec613d13f9173f8a0498ab83c11282a4f63e2073c292e82545c475a57f27f57",
+      "compression": "br"
     }
   ],
   "unique_structures": 3874,

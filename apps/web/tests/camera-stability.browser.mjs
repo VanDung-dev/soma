@@ -20,7 +20,7 @@ export async function checkViewerResize() {
   proto.appendPrepared = function(...args) { loads++; return original.append.apply(this, args); };
   proto.start_reconstruction = function(...args) { loads++; return original.start.apply(this, args); };
   const settle = () => new Promise(resolve => setTimeout(resolve, 300));
-  const resources = () => performance.getEntriesByType('resource').filter(e => /\.glb(?:\?|$)/.test(e.name)).length;
+  const resources = () => performance.getEntriesByType('resource').filter(e => /\.glb(?:\.br)?(?:\?|$)/.test(e.name)).length;
   try {
     const count = resources();
     host.style.width = `${host.clientWidth - 1}px`;

@@ -72,7 +72,7 @@ test('structure search matches names, Latin and laterality, and reveals the sele
     const femur = metadata.structures.find(p => p.source_name === 'Femur');
     assert(femur);
     const tree = renderToStaticMarkup(createElement(StructureTree, {
-      catalog: await createCatalogFixture(server, catalog, [[catalog.targets.find(target => target.model?.path.endsWith('/skeletal-system.glb')), metadata]]), visibleIds: new Set([femur.source_id]), selected: femur.source_id,
+      catalog: await createCatalogFixture(server, catalog, [[catalog.targets.find(target => target.model?.path.endsWith('/skeletal-system.glb.br')), metadata]]), visibleIds: new Set([femur.source_id]), selected: femur.source_id,
       reveal: { id: femur.source_id }, disabled: false,
       onVisibility() {}, onSelect() {}, onTarget() {}, onFocus() {},
     }));
