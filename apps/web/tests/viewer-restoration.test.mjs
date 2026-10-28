@@ -33,7 +33,7 @@ test('runtime delegates restoration to WASM and synchronizes completion, reduced
       finish_restoration: () => { calls.push(['finish']); active = false; separated = []; },
       advance_camera: () => false, advance_reconstruction: () => false, render() {}, free() {},
       finish_reconstruction() {}, finish_explosion() {}, finish_camera_transition() {},
-      clear_center() {}, set_visibility() {}, inspect() {},
+      clear_center() {}, change_visibility: (...args) => calls.push(['visibility', ...args]), inspect: (...args) => calls.push(['inspect', ...args]),
       restore_structure: () => { calls.push(['restore']); active = false; separated = []; },
     };
     runtime.loading = false;
@@ -67,10 +67,14 @@ test('runtime delegates restoration to WASM and synchronizes completion, reduced
     motion.matches = false; separated = ['a'];
     runtime.restoreStructure('a');
     assert(runtime.overview());
+    assert.deepEqual(calls.slice(-2), [['visibility', ['a', 'b', 'c'], true, 600], ['inspect', 'reset', 600]]);
     const advanced = calls.filter(([method]) => method === 'advance').length;
     tick(1000);
     assert.equal(runtime.restoration, undefined);
     assert.equal(calls.filter(([method]) => method === 'advance').length, advanced, 'Overview must not replay cancelled offsets');
+    motion.matches = true;
+    assert(runtime.overview());
+    assert.deepEqual(calls.slice(-2), [['visibility', ['a', 'b', 'c'], true, undefined], ['inspect', 'reset', undefined]]);
     t.mock.method(console, 'error', () => {});
     viewer.begin_restoration = () => { throw Error('Rejected restoration'); };
     assert.equal(runtime.restoreStructure('missing'), false);

@@ -332,7 +332,8 @@ export class ViewerRuntime implements StudyViewer {
       if (this.exploding) {
         viewer.set_explode(0, performance.now(), false, false); viewer.set_explode_mode(false);
       }
-      viewer.set_visibility(this.structureIds); viewer.inspect("reset");
+      const now = this.animationTime();
+      viewer.change_visibility(this.structureIds, true, now); viewer.inspect("reset", now);
     });
     if (success) { this.exploding = false; this.reassembling = false;
       this.restoration = undefined;
