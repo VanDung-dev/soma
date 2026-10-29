@@ -23,6 +23,7 @@ test('runtime delegates restoration to WASM and synchronizes completion, reduced
     runtime = new ViewerRuntime({ appendChild() {} }, { viewport: () => [0, 0, 1, 1], onState: patch => patches.push(patch), onPick() {} });
     const viewer = runtime.viewer = {
       selected_id: () => selected, select: id => { selected = id; }, separated_ids: () => separated,
+      clear_selection() {}, selection_ids: () => [],
       begin_restoration: (...args) => {
         calls.push(['begin', ...args]); active = args[2];
         if (!active) separated = separated.filter(id => !ids.includes(id));

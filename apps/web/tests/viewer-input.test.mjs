@@ -2,6 +2,96 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 
+test('right marquee selects a temporary group and left hold moves it together with cancellation', async t => {
+  const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
+  const previousWindow = globalThis.window;
+  let unbind;
+  try {
+    const { bindViewerInput } = await server.ssrLoadModule('/src/anatomy/viewer/input.ts');
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    globalThis.window = Object.assign(new EventTarget(), { setTimeout, clearTimeout });
+    const canvas = Object.assign(new EventTarget(), { width: 600, height: 300, clientWidth: 300, clientHeight: 150,
+      dataset: {}, focus() {}, setPointerCapture() {}, getBoundingClientRect: () => ({ left: 20, top: 40, width: 300, height: 150 }) });
+    let selection = [], selected = '', enabled = true, rotations = 0, pans = 0, starts = 0;
+    const regions = [], boxes = [], moves = [], restored = [], snaps = [];
+    const offsets = { a: new Float32Array([1, 2, 3]), b: new Float32Array([4, 5, 6]) };
+    const viewer = {
+      selected_id: () => selected, select: id => { selected = id; },
+      pick: x => { selected = x < 500 ? 'a' : ''; return selected; },
+      selection_ids: () => selection, clear_selection: () => { selection = []; },
+      select_region: (...args) => { regions.push(args); selection = ['a', 'b']; return selection; },
+      structure_offset: id => offsets[id], move_selection: (...args) => moves.push(args),
+      move_structure: () => assert.fail('The selected group must use one shared translation'),
+      restore_structure: (...args) => restored.push(args), rotate: () => rotations++, pan: () => pans++,
+    };
+    unbind = bindViewerInput(canvas, {
+      enabled: () => enabled, operate: action => { action(viewer); return true; }, redraw() {}, pick() {},
+      detachable: () => true, movable: () => true,
+      beginGroup: () => { starts++; return true; }, onBox: rect => boxes.push(rect), snap: (...args) => snaps.push(args),
+    });
+    const pointer = (type, values = {}) => {
+      const event = Object.assign(new Event(type, { cancelable: true }), {
+        clientX: 50, clientY: 70, pointerId: 1, pointerType: 'mouse', button: 0,
+        buttons: type === 'pointerup' ? 0 : 1, shiftKey: false, ...values,
+      });
+      canvas.dispatchEvent(event); return event;
+    };
+    const marquee = (reverse = false) => {
+      const start = reverse ? { clientX: 180, clientY: 140 } : { clientX: 50, clientY: 70 };
+      const end = reverse ? { clientX: 50, clientY: 70 } : { clientX: 180, clientY: 140 };
+      assert(pointer('pointerdown', { ...start, button: 2, buttons: 2 }).defaultPrevented);
+      pointer('pointermove', { ...end, button: -1, buttons: 2 });
+      assert.deepEqual(boxes.at(-1), { x: 30, y: 30, width: 130, height: 70 });
+      pointer('pointerup', { ...end, button: 2 });
+      assert.equal(boxes.at(-1), null);
+      assert.deepEqual(regions.at(-1), [60, 100, 260, 140]);
+    };
+    marquee(); marquee(true);
+    assert.equal(rotations, 0); assert.equal(pans, 0);
+    pointer('pointerdown'); t.mock.timers.tick(999);
+    assert.equal(starts, 0); assert.equal(canvas.dataset.dragging, undefined);
+    t.mock.timers.tick(1); assert.equal(starts, 1);
+    pointer('pointermove', { clientX: 80, clientY: 85 }); pointer('pointerup', { clientX: 80, clientY: 85 });
+    assert.deepEqual(moves, [['a', 0.1, 0.1]]);
+    assert.deepEqual(selection, ['a', 'b']);
+    assert(!snaps.some(([id]) => id), 'Temporary groups must not snap to a neighbor');
+    pointer('pointerdown'); t.mock.timers.tick(1000); pointer('pointermove', { clientX: 80 });
+    pointer('pointercancel');
+    assert.deepEqual(restored, [['a', offsets.a], ['b', offsets.b]], 'Cancel restores every member to its own offset');
+    for (const interrupt of [
+      () => pointer('pointercancel'), () => pointer('lostpointercapture'),
+      () => window.dispatchEvent(new Event('blur')), () => window.dispatchEvent(new Event('resize')),
+    ]) {
+      pointer('pointerdown', { button: 2, buttons: 2 }); interrupt();
+      pointer('pointerup', { clientX: 180, clientY: 140, button: 2 });
+      assert.equal(regions.length, 2); assert.equal(boxes.at(-1), null);
+    }
+    pointer('pointerdown', { button: 2, buttons: 2 });
+    pointer('pointermove', { clientX: -100, clientY: 900, buttons: 2 });
+    pointer('pointerup', { clientX: -100, clientY: 900, button: 2 });
+    assert.deepEqual(regions.at(-1), [0, 0, 60, 240], 'Clip captured pointers to the canvas');
+    pointer('pointerdown'); t.mock.timers.tick(500);
+    const escape = Object.assign(new Event('keydown', { cancelable: true }), { key: 'Escape' });
+    canvas.dispatchEvent(escape); t.mock.timers.tick(1000);
+    assert(escape.defaultPrevented); assert.deepEqual(selection, []); assert.equal(starts, 2);
+    const settings = Object.assign(new Event('keydown', { cancelable: true }), { key: 'Escape' });
+    canvas.dispatchEvent(settings); assert(!settings.defaultPrevented, 'Escape keeps the Settings shortcut when no group or gesture is active');
+    pointer('pointerdown', { shiftKey: true }); pointer('pointermove', { clientX: 80, shiftKey: true }); pointer('pointerup');
+    assert.equal(pans, 1, 'Shift drag retains camera pan');
+    enabled = false;
+    pointer('pointerdown', { button: 2, buttons: 2 }); pointer('pointerup', { clientX: 180, clientY: 140, button: 2 });
+    assert.equal(regions.length, 3, 'Disabled viewers cannot select');
+    enabled = true; marquee();
+    pointer('pointerdown'); t.mock.timers.tick(1000); pointer('pointermove', { clientX: 80 }); unbind();
+    assert.deepEqual(restored.slice(-2), [['a', offsets.a], ['b', offsets.b]], 'Disposal restores the whole drag');
+    assert.equal(boxes.at(-1), null);
+  } finally {
+    unbind?.(); t.mock.timers.reset();
+    if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow;
+    await server.close();
+  }
+});
+
 test('touchpad pinch follows gesture scale at the cursor while wheel zoom keeps its sensitivity', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   const previousWindow = globalThis.window;
@@ -189,7 +279,7 @@ test('manual separation drags only its structure and rotates only from empty bac
     assert.equal(selected, 'a', 'Clicking the active moving structure must select it again');
     assert.deepEqual(picked, ['b', 'a']);
     pointer('pointerdown', 130, 2, 2); pointer('pointermove', 150, 2, 2); pointer('pointerup', 150, 2);
-    assert.equal(pans, 1, 'Right dragging must retain camera pan');
+    assert.equal(pans, 0, 'Right dragging must select a region without panning');
     for (const shiftKey of [false, true]) {
       const menu = Object.assign(new Event('contextmenu', { cancelable: true }), { button: 2, shiftKey });
       canvas.dispatchEvent(menu);

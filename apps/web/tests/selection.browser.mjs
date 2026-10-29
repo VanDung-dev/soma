@@ -57,11 +57,27 @@ export async function checkSelectionOutline() {
     viewer.pan(0.01, 0); viewer.zoom(0.95); viewer.rotate(0.05, 0);
     assert(outline(pixels()).right > 20, 'Outline must follow camera operations');
     viewer.inspect('reset');
+    const grouped = viewer.select_region(0, 0, 256, 256);
+    assert(JSON.stringify(grouped) === JSON.stringify(['left', 'right']), 'Marquee collects visible source identities');
+    const groupOutline = outline(pixels());
+    assert(groupOutline.left > 20 && groupOutline.right > 20, 'Outline every selected structure');
+    viewer.restore_structure('left', new Float32Array([0.05, 0, 0]));
+    viewer.restore_structure('right', new Float32Array([0, 0.05, 0]));
+    const beforeLeft = viewer.structure_offset('left'), beforeRight = viewer.structure_offset('right');
+    viewer.begin_selection_drag(); viewer.move_selection('left', 0.05, 0.03);
+    const afterLeft = viewer.structure_offset('left'), afterRight = viewer.structure_offset('right');
+    assert(afterLeft.some((value, i) => Math.abs(value - beforeLeft[i]) > 1e-6), 'Move the selected group');
+    assert(afterLeft.every((value, i) => Math.abs(value - beforeLeft[i] - afterRight[i] + beforeRight[i]) < 1e-6),
+      'Group movement keeps the relative positions of previously separated structures');
+    assert(viewer.structure_group('left').length === 1, 'Marquee must not create a permanent connection');
+    viewer.restore_structure(''); viewer.clear_selection(); viewer.select('right');
     const beforeResize = outline(pixels()).right;
     viewer.resize(512, 512);
     assert(outline(pixels()).right > beforeResize * 2.5, 'Keep outline thickness in CSS pixels after resize');
     viewer.change_visibility('["right"]', false);
     assert(viewer.selected_id() === '' && outline(pixels()).first < 0, 'Hiding a selection must clear its outline');
+    assert(JSON.stringify(viewer.select_region(0, 0, 512, 512)) === '["left"]', 'Hidden structures must be excluded from marquee');
+    assert(viewer.select_region(512, 512, 100, 100).length === 0, 'Out-of-bounds marquee clears the group safely');
     viewer.select('left'); viewer.select('');
     assert(outline(pixels()).first < 0, 'Clearing selection must remove the outline');
     for (const [ids, frame] of [['["unknown"]', [0, 0, 1, 1]],
@@ -73,9 +89,68 @@ export async function checkSelectionOutline() {
     viewer.focus('["right"]', 0.2, 0.1, 0.6, 0.8);
     assert(viewer.visible_count() === 2, 'Focus must enable its target and preserve other visible models');
     return { selectedOnly: true, outsideSilhouette: true, pickingUnaffected: true,
-      camera: true, resize: true, hidden: true, deselected: true, focusApi: true, shadows };
+      camera: true, resize: true, hidden: true, deselected: true, focusApi: true, shadows,
+      marquee: true, groupOutline: true, relativeOffsets: true, temporaryGroup: true };
   } finally {
     viewer?.free(); canvas.remove();
+  }
+}
+
+export async function checkMarqueeInput() {
+  const { AnatomyViewer } = await getWasm(), proto = AnatomyViewer.prototype;
+  const canvas = document.querySelector('.model-canvas canvas');
+  const overlay = document.querySelector('.model-selection-box');
+  const frame = document.querySelector('.model-focus-frame').getBoundingClientRect();
+  const bounds = canvas.getBoundingClientRect();
+  const assert = (ok, message) => { if (!ok) throw Error(message); };
+  const capture = canvas.setPointerCapture, region = proto.select_region, move = proto.move_selection;
+  let viewer, ids, moves = 0;
+  const frames = async () => { for (let i = 0; i < 3; i++) await new Promise(requestAnimationFrame); };
+  const pointer = (type, point, extra = {}) => canvas.dispatchEvent(new PointerEvent(type, {
+    pointerId: 777, pointerType: 'mouse', bubbles: true, cancelable: true, ...point, ...extra,
+  }));
+  canvas.setPointerCapture = () => {};
+  proto.select_region = function(...args) { viewer = this; ids = region.apply(this, args); return ids; };
+  proto.move_selection = function(...args) { moves++; return move.apply(this, args); };
+  let before;
+  try {
+    const start = { clientX: frame.left + 10, clientY: frame.top + 10 };
+    const end = { clientX: frame.right - 10, clientY: frame.bottom - 10 };
+    pointer('pointerdown', start, { button: 2, buttons: 2 });
+    pointer('pointermove', end, { button: -1, buttons: 2 });
+    assert(!overlay.hidden && overlay.getBoundingClientRect().width > 100, 'Show the marquee while right dragging');
+    assert(getComputedStyle(overlay).pointerEvents === 'none', 'The marquee must not intercept input');
+    pointer('pointerup', end, { button: 2 }); await frames();
+    assert(overlay.hidden && ids.length > 1, 'Commit multiple structures and hide the marquee on release');
+    before = new Map(ids.map(id => [id, viewer.structure_offset(id)]));
+    let hit;
+    for (let y = frame.top + 20; y < frame.bottom - 20 && !hit; y += 10) {
+      for (let x = frame.left + 20; x < frame.right - 20 && !hit; x += 10) {
+        const id = viewer.pick(Math.floor((x - bounds.left) / bounds.width * canvas.width),
+          canvas.height - 1 - Math.floor((y - bounds.top) / bounds.height * canvas.height));
+        if (ids.includes(id)) hit = { clientX: x, clientY: y };
+      }
+    }
+    assert(hit, 'Find a visible member for the hold gesture');
+    viewer.select('');
+    pointer('pointerdown', hit, { buttons: 1 });
+    await new Promise(resolve => setTimeout(resolve, 1100));
+    assert(canvas.dataset.dragging === 'true', 'A left hold starts dragging the group');
+    pointer('pointermove', { ...hit, clientX: hit.clientX + 20 }, { buttons: 1 });
+    pointer('pointerup', { ...hit, clientX: hit.clientX + 20 }); await frames();
+    assert(moves === 1 && viewer.selection_ids().length === ids.length, 'Keep the temporary group after dragging');
+    const delta = viewer.structure_offset(ids[0]).map((value, i) => value - before.get(ids[0])[i]);
+    assert(delta.some(value => Math.abs(value) > 1e-6), 'The pointer gesture moves anatomy');
+    assert(ids.every(id => viewer.structure_offset(id).every((value, i) => Math.abs(value - before.get(id)[i] - delta[i]) < 1e-5)),
+      'Every selected model must move by the same amount');
+    canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); await frames();
+    assert(viewer.selection_ids().length === 0, 'Escape clears the temporary group');
+    return { marqueeOverlay: true, selected: ids.length, holdAndDrag: true, sharedTranslation: true, escape: true };
+  } finally {
+    pointer('pointercancel', { clientX: 0, clientY: 0 });
+    if (viewer && before) for (const [id, offset] of before) viewer.restore_structure(id, offset);
+    canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 't', bubbles: true }));
+    proto.select_region = region; proto.move_selection = move; canvas.setPointerCapture = capture;
   }
 }
 

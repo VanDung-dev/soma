@@ -82,6 +82,7 @@ export function ModelControls({ disabled, onControl, helpId, onReplayGuide }: {
             <div><dt>{t("controls.mouse.holdLeft")}</dt><dd>{t("context.detach")}</dd></div>
             <div><dt>{t("controls.mouse.wheel")}</dt><dd>{t("controls.mouse.zoomAtCursor")}</dd></div>
             <div><dt>{t("controls.mouse.panGesture")}</dt><dd>{t("controls.mouse.pan")}</dd></div>
+            <div><dt>{t("controls.mouse.dragRight")}</dt><dd>{t("controls.mouse.selectGroup")}</dd></div>
             <div><dt>{t("controls.mouse.click")}</dt><dd>{t("controls.mouse.showInfo")}</dd></div>
           </dl></section>
         </div>

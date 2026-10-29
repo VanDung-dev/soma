@@ -10,6 +10,7 @@ import type { GraphicsSettings } from "./graphics";
 export class ViewerRuntime implements StudyViewer {
   private viewer: AnatomyViewer | undefined;
   private canvas = document.createElement("canvas");
+  private selectionBox = document.createElement("div");
   private abort = new AbortController();
   private motion = window.matchMedia("(prefers-reduced-motion: reduce)");
   private observer: ResizeObserver;
@@ -46,6 +47,10 @@ export class ViewerRuntime implements StudyViewer {
     this.canvas.setAttribute("role", "img");
     this.canvas.tabIndex = 0;
     host.appendChild(this.canvas);
+    this.selectionBox.className = "model-selection-box";
+    this.selectionBox.hidden = true;
+    this.selectionBox.setAttribute("aria-hidden", "true");
+    host.appendChild(this.selectionBox);
     this.unbindInput = bindViewerInput(this.canvas, {
       enabled: () => !this.loading && !this.animating && !this.restoration && !this.failed,
       operate: this.operate, redraw: this.scheduleRender,
@@ -55,6 +60,13 @@ export class ViewerRuntime implements StudyViewer {
       joined: id => (this.viewer?.structure_group(id).length ?? 0) > 1,
       detachable: () => !this.exploding || this.reassembling,
       detach: id => this.setMoving(id) && this.operate(viewer => viewer.detach_structure(id)), onHold: options.onHold,
+      beginGroup: id => this.setMoving(id) && this.operate(viewer => viewer.begin_selection_drag()),
+      onBox: rect => {
+        this.selectionBox.hidden = !rect;
+        if (rect) Object.assign(this.selectionBox.style, {
+          left: `${rect.x}px`, top: `${rect.y}px`, width: `${rect.width}px`, height: `${rect.height}px`,
+        });
+      },
       snap: (id, commit) => this.snapStructure(id, commit),
       moved: () => this.publishSeparation(),
       restore: () => { this.restoreStructure(""); },
@@ -230,7 +242,10 @@ export class ViewerRuntime implements StudyViewer {
     this.fail(new Error("WebGL context lost"), "contextLost");
   };
 
-  select(id: string) { return this.operate(viewer => viewer.select(id)); }
+  select(id: string) { return this.operate(viewer => {
+    if (!viewer.selection_ids().includes(id)) viewer.clear_selection();
+    viewer.select(id);
+  }); }
 
   private publishSeparation() {
     if (this.viewer) this.separatedIds = new Set(this.viewer.separated_ids());
@@ -268,6 +283,7 @@ export class ViewerRuntime implements StudyViewer {
     this.snapStructure("", false);
     const all = !id || this.restoration?.all === true;
     return this.operate(viewer => {
+      viewer.clear_selection();
       const ids = viewer.begin_restoration(id, performance.now(), !this.motion.matches);
       this.restoration = { ids: new Set(ids), all };
       if (!viewer.restoration_active()) this.finishRestoration();
@@ -285,7 +301,10 @@ export class ViewerRuntime implements StudyViewer {
   changeVisibility(ids: string[], shown: boolean) {
     this.snapStructure("", false);
     if (!shown && ids.includes(this.movingId)) this.setMoving("");
-    return this.operate(viewer => viewer.change_visibility(ids, shown, this.animationTime()));
+    return this.operate(viewer => {
+      viewer.clear_selection();
+      viewer.change_visibility(ids, shown, this.animationTime());
+    });
   }
 
   focus(ids: string[], folder: boolean, reveal: boolean) {
@@ -293,6 +312,7 @@ export class ViewerRuntime implements StudyViewer {
     if (this.movingId) this.setMoving("");
     const motionTime = this.animationTime();
     return this.operate(viewer => {
+      viewer.clear_selection();
       if (folder) {
         const now = motionTime, focused = new Set(ids);
         if (reveal) {
@@ -310,6 +330,7 @@ export class ViewerRuntime implements StudyViewer {
   setExplosion(value: number, ids: string[]) {
     if (this.movingId || this.separatedIds.size) return false;
     return this.operate(viewer => {
+      viewer.clear_selection();
       if (value > 0 && !this.exploding) {
         viewer.set_explode_mode(true); this.exploding = true;
         viewer.reframe(...this.options.viewport());
@@ -336,6 +357,7 @@ export class ViewerRuntime implements StudyViewer {
   overview() {
     this.snapStructure("", false);
     const success = this.operate(viewer => {
+      viewer.clear_selection();
       viewer.clear_center(); viewer.select("");
       viewer.restore_structure("");
       if (this.exploding) {
@@ -371,6 +393,6 @@ export class ViewerRuntime implements StudyViewer {
     this.canvas.removeEventListener("webglcontextlost", this.contextLost);
     cancelAnimationFrame(this.renderFrame); this.renderFrame = 0;
     this.stopFpsMeter();
-    this.viewer?.free(); this.viewer = undefined; this.canvas.remove();
+    this.viewer?.free(); this.viewer = undefined; this.canvas.remove(); this.selectionBox.remove();
   }
 }

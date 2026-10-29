@@ -105,6 +105,7 @@
 .anatomy-space { position: absolute; inset: 0; overflow: hidden; }
 .model-canvas { position: absolute; inset: 0; isolation: isolate; touch-action: none; overflow: hidden; }
 .model-canvas canvas { position: relative; z-index: 1; display: block; width: 100%; height: 100%; }
+.model-selection-box { position: absolute; z-index: 2; pointer-events: none; border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .model-hold-progress { position: fixed; z-index: 7; width: 40px; height: 40px; transform: translate(-50%, -50%) rotate(-90deg); pointer-events: none; fill: none; stroke: var(--panel-bg); stroke-width: 4; filter: drop-shadow(0 1px 3px rgba(var(--shadow-rgb),.5)); visibility: hidden; animation: model-hold-show 0s .5s forwards; }
 .model-hold-fill { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: model-hold-fill .5s .5s linear forwards; }
 @keyframes model-hold-show { to { visibility: visible; } }

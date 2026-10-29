@@ -12,6 +12,8 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
   joined?: (id: string) => boolean;
   detachable?: () => boolean;
   detach?: (id: string) => boolean;
+  beginGroup?: (id: string) => boolean;
+  onBox?: (rect: { x: number; y: number; width: number; height: number } | null) => void;
   onHold?: (point: { x: number; y: number } | null) => void;
   snap?: (id: string, commit: boolean) => void;
   moved?: (id: string) => void;
@@ -21,7 +23,17 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
   let down = { x: 0, y: 0 };
   let dragged = false;
   let blockedPointer: number | undefined;
-  let drag: { pointerId: number; id: string; offset: Float32Array } | undefined;
+  let drag: { pointerId: number; id: string; offsets: Map<string, Float32Array>; group: boolean } | undefined;
+  let box: { pointerId: number; start: { x: number; y: number }; end: { x: number; y: number } } | undefined;
+  const boxRect = () => {
+    const bounds = canvas.getBoundingClientRect();
+    const x1 = Math.max(0, Math.min(bounds.width, box!.start.x - bounds.left));
+    const y1 = Math.max(0, Math.min(bounds.height, box!.start.y - bounds.top));
+    const x2 = Math.max(0, Math.min(bounds.width, box!.end.x - bounds.left));
+    const y2 = Math.max(0, Math.min(bounds.height, box!.end.y - bounds.top));
+    return { x: Math.min(x1, x2), y: Math.min(y1, y2), width: Math.abs(x2 - x1), height: Math.abs(y2 - y1) };
+  };
+  const cancelBox = () => { box = undefined; options.onBox?.(null); };
   let hold: { pointerId: number; timer: number } | undefined;
   const cancelHold = () => {
     if (!hold) return;
@@ -43,6 +55,13 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     if (!pointers.size) { down = point; dragged = false; }
     else dragged = true;
     pointers.set(event.pointerId, point);
+    if (box) cancelBox();
+    if (event.button === 2 && pointers.size === 1) {
+      event.preventDefault(); cancelDrag();
+      box = { pointerId: event.pointerId, start: point, end: point };
+      options.onBox?.(boxRect());
+      return;
+    }
     const id = options.moving?.();
     if (event.button === 0 && !event.shiftKey && pointers.size === 1) {
       const position = pickPosition(event);
@@ -50,20 +69,23 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
         const before = viewer.selected_id();
         const hit = viewer.pick(...position);
         viewer.select(before);
+        const members = viewer.selection_ids?.() ?? [];
+        const group = members.includes(hit);
         const movable = !!hit && (options.movable?.(hit) ?? hit === id);
-        if (movable) {
-          drag = { pointerId: event.pointerId, id: hit, offset: viewer.structure_offset(hit) };
+        if (movable && !group) {
+          drag = { pointerId: event.pointerId, id: hit, offsets: new Map([[hit, viewer.structure_offset(hit)]]), group: false };
           canvas.dataset.dragging = "true";
         }
-        if (hit && (!movable || options.joined?.(hit))) {
+        if (hit && (group || !movable || options.joined?.(hit))) {
           if (id && !movable) blockedPointer = event.pointerId;
-          if (event.pointerType === "mouse" && options.detachable?.() && options.detach) {
+          if (event.pointerType === "mouse" && options.detachable?.() && (group ? options.beginGroup : options.detach)) {
             hold = { pointerId: event.pointerId, timer: window.setTimeout(() => {
               cancelHold();
-              if (!options.enabled() || !options.detachable?.() || !options.detach?.(hit)) return;
+              if (!options.enabled() || !options.detachable?.() || !(group ? options.beginGroup?.(hit) : options.detach?.(hit))) return;
               options.pick(hit);
               options.operate(current => {
-                drag = { pointerId: event.pointerId, id: hit, offset: current.structure_offset(hit) };
+                drag = { pointerId: event.pointerId, id: hit, group,
+                  offsets: new Map((group ? members : [hit]).map(member => [member, current.structure_offset(member)])) };
                 canvas.dataset.dragging = "true";
                 canvas.dataset.draggable = "true";
               }, false);
@@ -81,9 +103,12 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     if (x >= 0 && y >= 0 && x < canvas.width && y < canvas.height) options.operate(renderer => {
       const before = renderer.selected_id();
       const id = renderer.pick(x, y);
-      canvas.dataset.draggable = id && (options.movable?.(id) ?? id === options.moving?.()) ? "true" : "false";
+      const members = renderer.selection_ids?.() ?? [];
+      canvas.dataset.draggable = id && ((options.movable?.(id) ?? id === options.moving?.()) || members.includes(id)) ? "true" : "false";
       if (read) {
-        if (id !== before) options.redraw();
+        const clearGroup = members.length > 0 && !members.includes(id);
+        if (clearGroup) renderer.clear_selection();
+        if (id !== before || clearGroup) options.redraw();
         options.pick(id);
       } else renderer.select(before);
     }, false);
@@ -104,6 +129,13 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
       return;
     }
     const point = { x: event.clientX, y: event.clientY };
+    if (box?.pointerId === event.pointerId) {
+      if (!options.enabled() || !(event.buttons & 2)) cancelBox();
+      else { box.end = point; options.onBox?.(boxRect()); }
+      pointers.set(event.pointerId, point);
+      dragged = true;
+      return;
+    }
     const other = [...pointers.entries()].find(([id]) => id !== event.pointerId)?.[1];
     const dx = point.x - previous.x, dy = point.y - previous.y;
     if (Math.hypot(point.x - down.x, point.y - down.y) > 5) dragged = true;
@@ -115,9 +147,10 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
       if (options.enabled() && options.operate(viewer => {
         const id = drag!.id;
         if (viewer.selected_id() !== id) { viewer.select(id); options.pick(id); }
-        viewer.move_structure(id, dx / canvas.clientWidth, dy / canvas.clientHeight);
+        if (drag!.group) viewer.move_selection(id, dx / canvas.clientWidth, dy / canvas.clientHeight);
+        else viewer.move_structure(id, dx / canvas.clientWidth, dy / canvas.clientHeight);
       })) {
-        options.snap?.(drag.id, false);
+        if (!drag.group) options.snap?.(drag.id, false);
       }
     } else if (!other && blockedPointer === event.pointerId && !(event.buttons & 2) && !event.shiftKey) {
       pointers.set(event.pointerId, point);
@@ -127,18 +160,33 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
       const after = Math.hypot(point.x - other.x, point.y - other.y);
       if (before > 1 && after > 1) options.operate(renderer => renderer.zoom(before / after));
       options.operate(renderer => renderer.pan(-dx / canvas.clientHeight / 2, dy / canvas.clientHeight / 2));
-    } else if (event.button === 2 || (event.buttons & 2) || event.shiftKey) {
+    } else if (event.shiftKey) {
       options.operate(renderer => renderer.pan(-dx / canvas.clientHeight, dy / canvas.clientHeight));
     } else options.operate(renderer => renderer.rotate(-dx / canvas.clientHeight * Math.PI * 2, dy / canvas.clientHeight * Math.PI * 2));
     pointers.set(event.pointerId, point);
   };
   const pointerUp = (event: PointerEvent) => {
     cancelHold();
+    if (box?.pointerId === event.pointerId) {
+      box.end = { x: event.clientX, y: event.clientY };
+      const rect = boxRect(), bounds = canvas.getBoundingClientRect();
+      cancelBox();
+      if (options.enabled()) options.operate(viewer => {
+        if (rect.width < 5 || rect.height < 5) { viewer.clear_selection?.(); return; }
+        const x = Math.floor(rect.x / bounds.width * canvas.width);
+        const top = Math.floor(rect.y / bounds.height * canvas.height);
+        const right = Math.min(canvas.width, Math.ceil((rect.x + rect.width) / bounds.width * canvas.width));
+        const bottom = Math.min(canvas.height, Math.ceil((rect.y + rect.height) / bounds.height * canvas.height));
+        viewer.select_region(x, canvas.height - bottom, right - x, bottom - top);
+      });
+      pointers.delete(event.pointerId); dragged = true;
+      return;
+    }
     if (drag?.pointerId === event.pointerId) {
-      const id = drag.id;
+      const { id, group } = drag;
       drag = undefined; canvas.dataset.dragging = "false";
       if (!dragged) pick(event, true);
-      if (dragged) options.snap?.(id, true);
+      if (dragged && !group) options.snap?.(id, true);
       else options.snap?.("", false);
       options.moved?.(id);
     }
@@ -152,13 +200,16 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     if (drag) {
       const previous = drag; drag = undefined;
       canvas.dataset.dragging = "false";
-      options.operate(viewer => viewer.restore_structure(previous.id, previous.offset));
+      options.operate(viewer => {
+        for (const [id, offset] of previous.offsets) viewer.restore_structure(id, offset);
+      });
       options.snap?.("", false);
       options.moved?.(previous.id);
     }
   };
   const pointerCancel = (event: PointerEvent) => {
     cancelHold();
+    if (box?.pointerId === event.pointerId) cancelBox();
     if (drag?.pointerId === event.pointerId) cancelDrag();
     if (blockedPointer === event.pointerId) blockedPointer = undefined;
     pointers.delete(event.pointerId); dragged = true;
@@ -167,7 +218,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
   const wheel = (event: WheelEvent) => {
     cancelHold();
     event.preventDefault();
-    if (drag) return;
+    if (drag || box) return;
     if (!options.enabled()) return;
     const pixels = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? canvas.clientHeight : 1);
     const bounds = canvas.getBoundingClientRect();
@@ -183,6 +234,13 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
   };
   const keyDown = (event: KeyboardEvent) => {
     cancelHold();
+    let selectedGroup = false;
+    if (event.key === "Escape") options.operate(viewer => { selectedGroup = (viewer.selection_ids?.().length ?? 0) > 0; }, false);
+    if (event.key === "Escape" && (drag || box || selectedGroup)) {
+      event.preventDefault(); cancelDrag(); cancelBox(); pointers.clear(); blockedPointer = undefined;
+      options.operate(viewer => viewer.clear_selection?.());
+      return;
+    }
     const action = shortcutAction(event);
     if (drag && action) {
       const current = drag; drag = undefined; canvas.dataset.dragging = "false"; pointers.clear();
@@ -195,7 +253,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
       event.preventDefault(); return;
     }
   };
-  const blur = () => { cancelHold(); cancelDrag(); blockedPointer = undefined; pointers.clear(); };
+  const blur = () => { cancelHold(); cancelDrag(); cancelBox(); blockedPointer = undefined; pointers.clear(); };
   canvas.addEventListener("keydown", keyDown); window.addEventListener("blur", blur);
   window.addEventListener("resize", blur);
   canvas.addEventListener("pointerdown", pointerDown); canvas.addEventListener("pointermove", pointerMove);
@@ -203,7 +261,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
   canvas.addEventListener("lostpointercapture", pointerCancel); canvas.addEventListener("pointerleave", pointerLeave);
   canvas.addEventListener("wheel", wheel, { passive: false }); canvas.addEventListener("contextmenu", contextMenu);
   return () => {
-    cancelHold();
+    cancelHold(); cancelDrag(); cancelBox();
     options.snap?.("", false);
     clearTimeout(hoverTimer);
     canvas.removeEventListener("keydown", keyDown); window.removeEventListener("blur", blur);
