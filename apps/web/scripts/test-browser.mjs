@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
+import { checkOrientationPointer } from '../tests/orientation-pointer.mjs';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.BENCHMARK_PLAYWRIGHT_MODULE || 'playwright');
@@ -24,6 +25,8 @@ try {
   await page.goto('/anatomy');
   await page.waitForSelector('.model-canvas[aria-busy="false"]', { timeout: 60000 });
   for (const [file, name] of [['language.browser.mjs', 'checkLanguage'], ['theme.browser.mjs', 'checkTheme'],
+    ['orientation-axes.browser.mjs', 'checkAxesVisibility'],
+    ['orientation-axes.browser.mjs', 'checkOrientationAxes'],
     ['sidebar.browser.mjs', 'checkSidebar'],
     ['sidebar.browser.mjs', 'checkSidebarMotion'],
     ['structure-tree.browser.mjs', 'checkStructureTree'], ['search.browser.mjs', 'checkStructureSearch'],
@@ -37,6 +40,7 @@ try {
       } finally { clearTimeout(timeout); }
     }, { file, name });
     console.log(name, JSON.stringify(result));
+    if (name === 'checkOrientationAxes') console.log('checkOrientationPointer', JSON.stringify(await checkOrientationPointer(page)));
   }
   assert.deepEqual(errors, [], 'Browser checks must not raise uncaught errors');
   await context.close();
@@ -55,7 +59,7 @@ try {
   }
   assert.deepEqual(errors, [], 'Blocked storage must not break startup or preference controls');
   await blocked.close();
-  console.log('Browser checks passed: 13');
+  console.log('Browser checks passed: 16');
 } finally {
   await browser?.close();
   await server.close();

@@ -1,0 +1,129 @@
+import assert from 'node:assert/strict';
+
+export async function checkOrientationPointer(page, { touch = false } = {}) {
+  await page.evaluate(async () => {
+    const { AnatomyViewer } = await import('/src/anatomy/core.ts').then(module => module.getWasm());
+    const probe = window.__orientationPointer = { originals: {}, viewer: null, views: [], rotations: 0 };
+    for (const name of ['camera_axes', 'orient', 'rotate']) {
+      probe.originals[name] = AnatomyViewer.prototype[name];
+      AnatomyViewer.prototype[name] = function(...args) {
+        probe.viewer = this;
+        if (name === 'orient') probe.views.push(args.slice(0, 2));
+        if (name === 'rotate') probe.rotations++;
+        return probe.originals[name].apply(this, args);
+      };
+    }
+  });
+  const reset = async () => {
+    await page.locator('.model-canvas canvas').press('r');
+    await page.waitForFunction(() => {
+      const y = document.querySelector('.orientation-axes [data-axis="Y"][data-direction="1"] circle');
+      const z = document.querySelector('.orientation-axes [data-axis="Z"][data-direction="1"] circle');
+      return Math.abs(Number(y.getAttribute('cx')) - 56 - Math.cos(-0.32) * 38) < 1e-4
+        && Math.abs(Number(z.getAttribute('cy')) - 56 + Math.cos(0.12) * 38) < 1e-4;
+    });
+    await page.evaluate(() => { window.__orientationPointer.views = []; window.__orientationPointer.rotations = 0; });
+  };
+  const point = async (axis, direction) => {
+    const area = await page.locator(`.orientation-axes [data-axis="${axis}"][data-direction="${direction}"] circle:not(.orientation-hit-target)`).boundingBox();
+    return { x: area.x + area.width / 2, y: area.y + area.height / 2 };
+  };
+  try {
+    await reset();
+    await page.mouse.move(0, 0);
+    assert.equal(await page.locator('.orientation-axes [aria-pressed="true"]').count(), 0, 'The default view must not show a selected axis');
+    const target = page.locator('.orientation-axes [data-axis="X"][data-direction="-1"]');
+    const appearance = () => target.evaluate(endpoint => ({
+      fill: getComputedStyle(endpoint.querySelector('circle:not(.orientation-hit-target)')).fill,
+      stroke: getComputedStyle(endpoint.querySelector('circle:not(.orientation-hit-target)')).stroke,
+      text: getComputedStyle(endpoint.querySelector('text')).fill,
+      textOpacity: getComputedStyle(endpoint.querySelector('text')).opacity,
+      groupOpacity: getComputedStyle(endpoint).opacity,
+    }));
+    const normal = await appearance(), hoverPoint = await point('X', -1);
+    await page.mouse.move(hoverPoint.x, hoverPoint.y);
+    assert.deepEqual(await appearance(), { ...normal, text: 'rgb(255, 255, 255)', textOpacity: '1', groupOpacity: '1' }, 'Hover must reveal a readable label and preserve the neutral background');
+    assert.equal(normal.fill, 'rgba(18, 23, 21, 0.75)', 'Give negative endpoints a neutral background');
+    assert.equal(normal.textOpacity, '0', 'Hide negative labels before hover');
+    await page.mouse.move(0, 0);
+    assert.deepEqual(await appearance(), normal, 'Restore the label when the pointer leaves');
+    for (const [index, axis] of [...'XYZ'].entries()) for (const direction of [-1, 1]) {
+      await reset();
+      const p = await point(axis, direction);
+      await page.mouse.click(p.x, p.y);
+      assert.deepEqual(await page.evaluate(() => window.__orientationPointer.views), [[axis, direction]], 'Click the selected endpoint exactly once');
+      await page.waitForFunction(({ index, direction }) => Math.abs(window.__orientationPointer.viewer.camera_axes()[index * 3 + 2] - direction) < 1e-5,
+        { index, direction });
+      await page.waitForFunction(({ axis, direction }) => document.querySelector(`.orientation-axes [data-axis="${axis}"][data-direction="${direction}"]`)?.getAttribute('aria-pressed') === 'true',
+        { axis, direction });
+      await page.mouse.move(0, 0);
+      const selected = page.locator(`.orientation-axes [data-axis="${axis}"][data-direction="${direction}"]`);
+      const selectedStyle = await selected.evaluate(element => ({
+        stroke: getComputedStyle(element.querySelector('circle:not(.orientation-hit-target)')).stroke,
+        fill: getComputedStyle(element.querySelector('circle:not(.orientation-hit-target)')).fill,
+        color: getComputedStyle(element).color,
+        text: getComputedStyle(element.querySelector('text')).fill,
+        opacity: getComputedStyle(element.querySelector('text')).opacity,
+      }));
+      assert.equal(selectedStyle.stroke, selectedStyle.color, 'Keep the selected endpoint border in its axis color');
+      assert.equal(selectedStyle.fill, selectedStyle.color, 'Fill the selected endpoint with its axis color');
+      assert.equal(selectedStyle.text, 'rgb(16, 24, 39)', 'Keep the selected label dark while the pointer is away');
+      assert.equal(selectedStyle.opacity, '1', 'Keep the selected direction visible after the pointer leaves');
+      const centered = await point(axis, direction);
+      await page.mouse.move(centered.x, centered.y);
+      assert.equal(await selected.evaluate(element => getComputedStyle(element.querySelector('text')).fill), 'rgb(255, 255, 255)',
+        'Brighten the selected label when the pointer returns');
+      await page.mouse.click(centered.x, centered.y);
+      assert.deepEqual(await page.evaluate(() => window.__orientationPointer.views), [[axis, direction], [axis, -direction]],
+        'Clicking the centered axis again must select its opposite');
+      await page.waitForFunction(({ axis, direction }) => document.querySelector(`.orientation-axes [data-axis="${axis}"][data-direction="${-direction}"]`)?.getAttribute('aria-pressed') === 'true',
+        { axis, direction });
+    }
+    if (touch) {
+      await reset();
+      const p = await point('Y', 1);
+      await page.touchscreen.tap(p.x, p.y);
+      assert.deepEqual(await page.evaluate(() => window.__orientationPointer.views), [['Y', 1]], 'Touch must choose an axis exactly once');
+      await page.waitForFunction(() => Math.abs(window.__orientationPointer.viewer.camera_axes()[5] - 1) < 1e-5);
+      await page.waitForSelector('.orientation-axes [data-axis="Y"][data-direction="1"][aria-pressed="true"]');
+      const centered = await point('Y', 1);
+      await page.touchscreen.tap(centered.x, centered.y);
+      assert.deepEqual(await page.evaluate(() => window.__orientationPointer.views), [['Y', 1], ['Y', -1]],
+        'Tapping the centered axis again must select its opposite');
+      await page.waitForSelector('.orientation-axes [data-axis="Y"][data-direction="-1"][aria-pressed="true"]');
+    }
+    await reset();
+    const p = await point('X', 1);
+    await page.mouse.move(p.x, p.y); await page.mouse.down();
+    await page.mouse.move(p.x - 110, p.y + 40, { steps: 8 }); await page.mouse.up();
+    const dragged = await page.evaluate(() => ({ views: window.__orientationPointer.views, rotations: window.__orientationPointer.rotations,
+      selection: getSelection().toString(), active: document.querySelector('.orientation-axes').dataset.dragging }));
+    assert.deepEqual(dragged.views, [], 'Dragging an endpoint must not snap on release');
+    assert(dragged.rotations > 0 && dragged.selection === '' && !dragged.active, 'Drag must rotate beyond the widget without selecting text or retaining capture');
+    assert.equal(await page.locator('.orientation-axes [aria-pressed="true"]').count(), 0, 'Dragging must clear the selected axis');
+    await page.mouse.move(p.x - 150, p.y + 60);
+    assert.equal(await page.evaluate(() => window.__orientationPointer.rotations), dragged.rotations, 'Release must stop rotation');
+    for (const event of ['pointercancel', 'blur']) {
+      await reset();
+      const start = await point('X', 1);
+      await page.mouse.move(start.x, start.y); await page.mouse.down();
+      await page.mouse.move(start.x - 10, start.y + 5);
+      await page.evaluate(event => event === 'blur' ? window.dispatchEvent(new Event('blur'))
+        : document.querySelector('.orientation-axes').dispatchEvent(new PointerEvent('pointercancel', { bubbles: true, pointerId: 1 })), event);
+      const before = await page.evaluate(() => window.__orientationPointer.rotations);
+      await page.mouse.move(start.x - 30, start.y + 20); await page.mouse.up();
+      assert.equal(await page.evaluate(() => window.__orientationPointer.rotations), before, 'Cancelled or unfocused dragging must stop');
+      assert.deepEqual(await page.evaluate(() => window.__orientationPointer.views), [], 'Cancelled dragging must not select a preset');
+    }
+    return { labelHover: true, selectedView: true, sixMousePresets: true, reverseOnRepeat: true, ...(touch ? { touchTap: true } : {}), capturedDrag: true, noSnapAfterDrag: true, noSelection: true,
+      release: true, cancel: true, blur: true };
+  } finally {
+    await page.mouse.up();
+    await page.evaluate(async () => {
+      const { AnatomyViewer } = await import('/src/anatomy/core.ts').then(module => module.getWasm());
+      Object.assign(AnatomyViewer.prototype, window.__orientationPointer.originals);
+      delete window.__orientationPointer;
+    });
+    await page.locator('.model-canvas canvas').press('r');
+  }
+}

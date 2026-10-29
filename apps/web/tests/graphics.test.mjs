@@ -12,9 +12,13 @@ test('graphics preferences validate saved values and tolerate unavailable storag
       assert.deepEqual(readGraphicsSettings(), defaultGraphics);
     }
     for (const modelQuality of ['low', 'high']) for (const frameRate of [30, 60, 120, 'display']) {
-      const settings = { shadowQuality: 'low', lightingQuality: 'low', modelQuality, frameRate, grid: false, showFps: true };
+      const settings = { shadowQuality: 'low', lightingQuality: 'low', modelQuality, frameRate, grid: false, showFps: true, showAxes: false };
       globalThis.window = { localStorage: { getItem: () => JSON.stringify(settings) } };
       assert.deepEqual(readGraphicsSettings(), settings);
+    }
+    for (const [value, expected] of [[false, false], [true, true], ['false', true], [null, true]]) {
+      globalThis.window = { localStorage: { getItem: () => JSON.stringify({ showAxes: value }) } };
+      assert.equal(readGraphicsSettings().showAxes, expected, 'Default to visible for old or invalid preferences');
     }
     for (const frameRate of [null, 0, -1, 59, 144, 240, '120', 'unlimited', 'auto']) {
       globalThis.window = { localStorage: { getItem: () => JSON.stringify({ frameRate }) } };
@@ -43,7 +47,8 @@ test('frame limits coalesce redraws, finish animations, and stop when idle or di
   try {
     const { ViewerRuntime } = await server.ssrLoadModule('/src/anatomy/viewer/runtime.ts');
     let now = 0, nextId = 0, draws = 0, remaining = 0, timerId = 0;
-    const pending = new Map(), timers = new Map(), reports = [], grids = [], renderSizes = [];
+    const pending = new Map(), timers = new Map(), reports = [], grids = [], renderSizes = [], orientations = [];
+    let axes = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
     globalThis.requestAnimationFrame = callback => { pending.set(++nextId, callback); return nextId; };
     globalThis.cancelAnimationFrame = id => pending.delete(id);
     globalThis.performance = { now: () => now };
@@ -55,9 +60,11 @@ test('frame limits coalesce redraws, finish animations, and stop when idle or di
       matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
       setInterval: callback => { timers.set(++timerId, callback); return timerId; }, clearInterval: id => timers.delete(id) };
     globalThis.ResizeObserver = class { observe() {} disconnect() {} };
-    runtime = new ViewerRuntime(host, { viewport() {}, onState() {}, onPick() {}, onFps: fps => reports.push(fps) });
+    runtime = new ViewerRuntime(host, { viewport() {}, onState() {}, onPick() {}, onFps: fps => reports.push(fps),
+      onOrientation: axes => orientations.push(axes) });
     runtime.viewer = {
       advance_camera: () => false, advance_reconstruction: () => false,
+      camera_axes: () => axes.slice(),
       render: () => draws++, render_reconstruction: () => { draws++; return --remaining > 0; },
       set_graphics: (_shadow, _lighting, grid, width, height) => { grids.push(grid); renderSizes.push([width, height]); }, selected_id: () => '', free() {},
     };
@@ -84,6 +91,12 @@ test('frame limits coalesce redraws, finish animations, and stop when idle or di
       while (pending.size) tick(now + 1000 / 30);
       assert.equal(pending.size, 0);
     }
+    assert.equal(orientations.length, 1, 'Unchanged camera axes must not trigger UI updates on each render');
+    axes = new Float32Array([0, 0, 1, 0, 1, 0, -1, 0, 0]);
+    runtime.scheduleRender(); tick(now + 100);
+    assert.equal(orientations.length, 2, 'Publish changed axes on the same render as the camera');
+    assert.deepEqual(orientations.at(-1), axes);
+    assert.equal(pending.size, 0, 'The axes must not keep the viewer rendering while idle');
     runtime.graphics.frameRate = 30; runtime.animating = true; remaining = 2;
     runtime.scheduleRender();
     for (let frame = 0; frame < 12; frame++) tick(now + 1000 / 120);
@@ -138,6 +151,13 @@ test('frame limits coalesce redraws, finish animations, and stop when idle or di
       assert.deepEqual([canvas.width, canvas.height], expected, 'Resize must use the same resolution as graphics settings');
     }
     const resizesBeforeDispose = resized;
+    const views = [];
+    runtime.viewer.orient = (...args) => views.push(args);
+    assert(runtime.control([{ kind: 'orient', axis: 'Y', direction: -1 }]));
+    assert.deepEqual(views.at(-1), ['Y', -1, now], 'Route preset views through the shared camera animation');
+    runtime.motion.matches = true;
+    assert(runtime.control([{ kind: 'orient', axis: 'Z', direction: 1 }]));
+    assert.deepEqual(views.at(-1), ['Z', 1, undefined], 'Snap axis views immediately under reduced motion');
     runtime.setGraphics({ ...runtime.graphics, showFps: true });
     runtime.dispose();
     assert.equal(timers.size, 0, 'Disposal must stop the FPS meter');

@@ -17,7 +17,8 @@ export async function checkGraphics() {
     'Label display sharpness explicitly');
   const grid = popover.querySelector('input[id$="-grid"]');
   const showFps = popover.querySelector('input[id$="-show-fps"]');
-  for (const control of [grid, showFps]) {
+  const showAxes = popover.querySelector('input[id$="-show-axes"]');
+  for (const control of [grid, showFps, showAxes]) {
     const icon = control.nextElementSibling;
     const border = getComputedStyle(icon.querySelector('path:first-child')).stroke;
     const mark = getComputedStyle(icon.querySelector('path:nth-child(2)')).stroke;
