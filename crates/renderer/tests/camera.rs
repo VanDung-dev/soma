@@ -2,6 +2,53 @@ use glam::Vec3;
 use renderer::{Bounds, Camera};
 
 #[test]
+fn axis_views_preserve_zoom_and_pivot_projection_including_both_poles() {
+    use std::f32::consts::{FRAC_PI_2, PI};
+    let mut original = Camera::new(Bounds {
+        min: Vec3::splat(-2.0),
+        max: Vec3::splat(2.0),
+    });
+    original.target = Vec3::new(0.3, 0.1, 0.2);
+    original.pan(0.1, -0.2).unwrap();
+    original.zoom(0.7).unwrap();
+    let pivot = Vec3::new(0.1, -0.1, 0.1);
+    let before = original.matrix().project_point3(pivot);
+    for (yaw, pitch, direction) in [
+        (FRAC_PI_2, 0.0, Vec3::X),
+        (3.0 * FRAC_PI_2, 0.0, -Vec3::X),
+        (0.0, FRAC_PI_2, Vec3::Y),
+        (0.0, -FRAC_PI_2, -Vec3::Y),
+        (0.0, 0.0, Vec3::Z),
+        (PI, 0.0, -Vec3::Z),
+    ] {
+        let mut camera = original.clone();
+        camera.orient_around(pivot, yaw, pitch).unwrap();
+        let basis = camera.light_basis();
+        assert!((basis.z_axis - direction).length() < 1e-6);
+        assert_eq!(camera.distance, original.distance);
+        assert!(camera.matrix().is_finite());
+        let center = camera.matrix().project_point3(pivot);
+        assert!((center - before).length() < 1e-5);
+        let right = camera.matrix().project_point3(pivot + basis.x_axis * 0.01);
+        let up = camera.matrix().project_point3(pivot + basis.y_axis * 0.01);
+        assert!(right.x > center.x && (right.y - center.y).abs() < 1e-5);
+        assert!(up.y > center.y && (up.x - center.x).abs() < 1e-5);
+        camera.rotate_around(pivot, 0.1, -0.1).unwrap();
+        assert!(camera.matrix().is_finite());
+    }
+    for (pivot, yaw, pitch) in [
+        (Vec3::NAN, 0.0, 0.0),
+        (pivot, f32::INFINITY, 0.0),
+        (pivot, 0.0, f32::NAN),
+        (pivot, 0.0, PI),
+    ] {
+        let mut camera = original.clone();
+        assert!(camera.orient_around(pivot, yaw, pitch).is_err());
+        assert_eq!(camera.matrix(), original.matrix());
+    }
+}
+
+#[test]
 fn explosion_tracking_contains_then_centers_the_moving_selection() {
     let body = Bounds {
         min: Vec3::splat(-1.0),

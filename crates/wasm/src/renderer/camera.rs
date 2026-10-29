@@ -5,6 +5,14 @@ use super::{AnatomyViewer, util::js_error};
 
 #[wasm_bindgen]
 impl AnatomyViewer {
+    pub fn camera_axes(&self) -> Vec<f32> {
+        let basis = self.camera.light_basis().transpose();
+        [basis.z_axis, basis.x_axis, basis.y_axis]
+            .into_iter()
+            .flat_map(|axis| axis.to_array())
+            .collect()
+    }
+
     pub fn focus(
         &mut self,
         ids_json: JsValue,
@@ -118,6 +126,32 @@ impl AnatomyViewer {
         self.camera
             .rotate_around(pivot, yaw, pitch)
             .map_err(js_error)?;
+        self.shadow_cached.set(false);
+        Ok(())
+    }
+
+    pub fn orient(&mut self, axis: &str, direction: i32, now: Option<f64>) -> Result<(), JsValue> {
+        use std::f32::consts::{FRAC_PI_2, PI};
+        let (yaw, pitch) = match (axis, direction) {
+            ("X", 1) => (0.0, 0.0),
+            ("X", -1) => (PI, 0.0),
+            ("Y", 1) => (FRAC_PI_2, 0.0),
+            ("Y", -1) => (3.0 * FRAC_PI_2, 0.0),
+            ("Z", 1) => (0.0, FRAC_PI_2),
+            ("Z", -1) => (0.0, -FRAC_PI_2),
+            _ => return Err(js_error("Invalid camera axis")),
+        };
+        if now.is_some_and(|time| !time.is_finite() || time < 0.0) {
+            return Err(js_error("Invalid camera transition timestamp"));
+        }
+        let before = self.camera.clone();
+        self.cancel_camera_transition();
+        self.stop_explosion_follow();
+        let pivot = self.orbit_bounds()?.center();
+        self.camera
+            .orient_around(pivot, yaw, pitch)
+            .map_err(js_error)?;
+        self.transition_camera(before, now);
         self.shadow_cached.set(false);
         Ok(())
     }

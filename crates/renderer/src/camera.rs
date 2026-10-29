@@ -199,9 +199,23 @@ impl Camera {
         if !pivot.is_finite() || !yaw.is_finite() || !pitch.is_finite() {
             return Err("Invalid camera rotation".into());
         }
+        self.orient_around(
+            pivot,
+            self.yaw + yaw,
+            (self.pitch + pitch).clamp(-1.55, 1.55),
+        )
+    }
+    pub fn orient_around(&mut self, pivot: Vec3, yaw: f32, pitch: f32) -> Result<(), String> {
+        if !pivot.is_finite()
+            || !yaw.is_finite()
+            || !pitch.is_finite()
+            || pitch.abs() > std::f32::consts::FRAC_PI_2
+        {
+            return Err("Invalid camera orientation".into());
+        }
         let offset = self.light_basis().transpose() * (self.target - pivot);
-        self.yaw = (self.yaw + yaw).rem_euclid(std::f32::consts::TAU);
-        self.pitch = (self.pitch + pitch).clamp(-1.55, 1.55);
+        self.yaw = yaw.rem_euclid(std::f32::consts::TAU);
+        self.pitch = pitch;
         // Rotate the existing view around the selection without first recentering it.
         self.target = pivot + self.light_basis() * offset;
         self.constrain_orbit(pivot);
@@ -319,6 +333,10 @@ impl Camera {
                 (self.view.radius() / 100.0).max(1e-6),
                 self.radius * 100.0,
             )
-            * glam::camera::rh::view::look_at_mat4(self.eye(), self.target, Vec3::Y)
+            * glam::camera::rh::view::look_at_mat4(
+                self.eye(),
+                self.target,
+                self.light_basis().y_axis,
+            )
     }
 }
