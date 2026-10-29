@@ -49,7 +49,7 @@ impl AnatomyViewer {
             gl.bind_framebuffer(Gl::FRAMEBUFFER, None);
         }
         self.draw_pass(picking, false);
-        if !picking && !self.scene.selected.is_empty() {
+        if !picking && (!self.scene.selected.is_empty() || !self.selection.is_empty()) {
             self.draw_outline();
         }
     }
@@ -102,6 +102,7 @@ impl AnatomyViewer {
             if part.visible
                 && self.reconstruction.opacity(i) > 0.0
                 && (part.source_id == self.scene.selected
+                    || self.selection.contains(&part.source_id)
                     || part.source_id == self.connection_target)
             {
                 let rect = screen_bounds(i);
@@ -147,6 +148,7 @@ impl AnatomyViewer {
             gl.color_mask(mask, mask, mask, mask);
             for (i, part) in self.scene.parts.iter().enumerate() {
                 let outlined = part.source_id == self.scene.selected
+                    || self.selection.contains(&part.source_id)
                     || part.source_id == self.connection_target;
                 if self.reconstruction.opacity(i) <= 0.0
                     || if mask {
@@ -370,7 +372,9 @@ impl AnatomyViewer {
             gl.uniform1i(
                 Some(&u.selected),
                 i32::from(
-                    p.source_id == self.scene.selected || p.source_id == self.connection_target,
+                    p.source_id == self.scene.selected
+                        || self.selection.contains(&p.source_id)
+                        || p.source_id == self.connection_target,
                 ),
             );
             let index = i + 1;

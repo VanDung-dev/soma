@@ -114,6 +114,64 @@ impl AnatomyViewer {
         self.scene.selected.clone()
     }
 
+    pub fn selection_ids(&self) -> Vec<String> {
+        let mut ids: Vec<_> = self.selection.iter().cloned().collect();
+        ids.sort();
+        ids
+    }
+
+    pub fn clear_selection(&mut self) {
+        self.selection.clear();
+    }
+
+    pub fn select_region(
+        &mut self,
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+    ) -> Result<Vec<String>, JsValue> {
+        let width = width.min(self.canvas.width().saturating_sub(x));
+        let height = height.min(self.canvas.height().saturating_sub(y));
+        if width == 0 || height == 0 {
+            self.selection.clear();
+            return Ok(Vec::new());
+        }
+        let gl = &self.gpu.gl;
+        gl.bind_framebuffer(Gl::FRAMEBUFFER, self.gpu.framebuffer.as_ref());
+        gl.enable(Gl::SCISSOR_TEST);
+        gl.scissor(x as i32, y as i32, width as i32, height as i32);
+        self.draw(true);
+        let mut pixels = vec![0; width as usize * height as usize * 4];
+        let result = gl.read_pixels_with_opt_u8_array(
+            x as i32,
+            y as i32,
+            width as i32,
+            height as i32,
+            Gl::RGBA,
+            Gl::UNSIGNED_BYTE,
+            Some(&mut pixels),
+        );
+        gl.disable(Gl::SCISSOR_TEST);
+        gl.bind_framebuffer(Gl::FRAMEBUFFER, None);
+        result?;
+        self.scene.select("").map_err(js_error)?;
+        let indices: std::collections::HashSet<_> = pixels
+            .chunks_exact(4)
+            .map(|pixel| pixel[0] as usize | (pixel[1] as usize) << 8 | (pixel[2] as usize) << 16)
+            .collect();
+        self.selection = indices
+            .into_iter()
+            .filter_map(|index| {
+                index
+                    .checked_sub(1)
+                    .and_then(|i| self.scene.parts.get(i))
+                    .map(|part| part.source_id.clone())
+            })
+            .collect();
+        Ok(self.selection_ids())
+    }
+
     pub fn pick(&mut self, x: u32, y: u32) -> Result<String, JsValue> {
         if x >= self.canvas.width() || y >= self.canvas.height() {
             return Ok(String::new());

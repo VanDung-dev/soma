@@ -4,6 +4,48 @@ use super::{AnatomyViewer, util::js_error};
 
 #[wasm_bindgen]
 impl AnatomyViewer {
+    pub fn begin_selection_drag(&mut self) -> Result<(), JsValue> {
+        let ids = self.selection_ids();
+        if self.exploding
+            || ids.is_empty()
+            || ids.iter().any(|id| {
+                !self
+                    .scene
+                    .parts
+                    .iter()
+                    .any(|part| part.active && part.visible && part.source_id == *id)
+            })
+        {
+            return Err(js_error("Selection is unavailable for movement"));
+        }
+        for id in ids {
+            self.separation.detach(&id);
+        }
+        self.connection_target.clear();
+        Ok(())
+    }
+
+    pub fn move_selection(&mut self, anchor: &str, x: f32, y: f32) -> Result<(), JsValue> {
+        if self.exploding {
+            return Err(js_error(
+                "Return explosion to zero before moving a selection",
+            ));
+        }
+        self.separation
+            .drag_selection(
+                &self.scene,
+                &self.camera,
+                &self.selection_ids(),
+                anchor,
+                x,
+                y,
+            )
+            .map_err(js_error)?;
+        self.cancel_camera_transition();
+        self.shadow_cached.set(false);
+        Ok(())
+    }
+
     pub fn structure_offset(&self, id: &str) -> Vec<f32> {
         self.separation.offset(id).to_array().to_vec()
     }

@@ -14,6 +14,7 @@ mod util;
 use ::renderer::{Camera, Explosion, PackedScene, Reconstruction, Scene, Separation};
 use js_sys::{Float32Array, Uint32Array};
 use std::cell::Cell;
+use std::collections::HashSet;
 use wasm_bindgen::{JsCast, prelude::*};
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext as Gl};
 
@@ -36,6 +37,7 @@ pub struct AnatomyViewer {
     pub(crate) camera_transition: Option<(Camera, f64)>,
     pub(crate) explosion: Explosion,
     pub(crate) separation: Separation,
+    pub(crate) selection: HashSet<String>,
     pub(crate) connection_target: String,
     pub(crate) uniforms: Uniforms,
     pub(crate) sphere_uniforms: SphereUniforms,
@@ -133,6 +135,7 @@ impl AnatomyViewer {
             camera_transition: None,
             explosion: Explosion::default(),
             separation: Separation::default(),
+            selection: HashSet::new(),
             connection_target: String::new(),
             uniforms,
             sphere_uniforms,
