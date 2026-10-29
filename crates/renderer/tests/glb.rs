@@ -3,6 +3,15 @@ use std::io::Read;
 use std::path::Path;
 
 #[test]
+fn rejects_brotli_with_invalid_block_switch() {
+    let bytes = [
+        0x20, 0x00, 0x10, 0x41, 0x41, 0x41, 0xfc, 0xff, 0xff, 0x07, 0x00, 0x22, 0x28, 0xf0, 0x0b,
+        0x60, 0xf7, 0xf4, 0x1f, 0x00, 0x00, 0x00,
+    ];
+    assert!(Scene::from_glb(&bytes, &[]).is_err());
+}
+
+#[test]
 fn rejects_corrupt_geometry_and_groups_multiple_primitives() {
     let folder =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/public/models/z-anatomy");

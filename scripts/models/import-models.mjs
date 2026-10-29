@@ -8,6 +8,8 @@ import { join } from 'node:path';
 import { brotliCompressSync, brotliDecompressSync, constants } from 'node:zlib';
 import validator from 'gltf-validator';
 
+assert.equal(constants.BROTLI_DECODER_ERROR_FORMAT_BLOCK_SWITCH, -17, 'A Node.js release with the Brotli security fix is required');
+
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const venvPython = join(root, '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
 const python = process.env.PYTHON_BIN ?? (existsSync(venvPython) ? venvPython : process.platform === 'win32' ? 'python' : 'python3');

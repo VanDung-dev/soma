@@ -2,7 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { brotliDecompressSync, constants } from 'node:zlib';
 import { createWebServer } from '../scripts/serve.mjs';
+
+test('Brotli rejects an invalid block switch', () => {
+  const input = Buffer.from('200010414141fcffff07002228f00b60f7f41f000000', 'hex');
+  assert.equal(constants.BROTLI_DECODER_ERROR_FORMAT_BLOCK_SWITCH, -17);
+  assert.throws(() => brotliDecompressSync(input), {
+    code: 'ERR__ERROR_FORMAT_BLOCK_SWITCH',
+    errno: -17,
+  });
+});
 
 test('model storage keeps only compressed GLBs and serves their bytes without HTTP decoding', async () => {
   const directory = new URL('../public/models/z-anatomy/', import.meta.url);

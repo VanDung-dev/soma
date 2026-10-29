@@ -15,5 +15,5 @@
     "desktop:dev": "npm run desktop:dev --workspace apps/web",
     "desktop:build": "npm run desktop:build --workspace apps/web"
   },
-  "engines": { "node": ">=24.22.0" }
+  "engines": { "node": "^24.22.1 || >=26.12.1" }
 }

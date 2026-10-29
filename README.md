@@ -4,7 +4,7 @@ Anatomy viewer: React, Rust/WASM and Tauri.
 
 ## Setup
 
-Node.js 24.22+, Rust 1.96+ and Cargo.
+Node.js 24.22.1+ (24.x) or 26.12.1+, Rust 1.96+ and Cargo.
 
 ```sh
 rustup target add wasm32-unknown-unknown
