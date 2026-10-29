@@ -125,6 +125,14 @@ export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForw
           </select>
         </div>
         <div className="settings-row">
+          <label htmlFor={`${settingsId}-show-axes`}>{t("graphics.axes.label")}</label>
+          <span className="visibility-checkbox settings-checkbox-control">
+            <input id={`${settingsId}-show-axes`} className="settings-checkbox" type="checkbox" checked={graphics.showAxes}
+              onChange={event => onGraphicsChange({ ...graphics, showAxes: event.currentTarget.checked })} />
+            <span className="visibility-checkbox-icon" aria-hidden="true"><LineIcon name={graphics.showAxes ? "square-to-confirm-square-twotone-transition" : "confirm-square-twotone-to-square-transition"} size={24} /></span>
+          </span>
+        </div>
+        <div className="settings-row">
           <label htmlFor={`${settingsId}-show-fps`}>{t("graphics.fps.label")}</label>
           <span className="visibility-checkbox settings-checkbox-control">
             <input id={`${settingsId}-show-fps`} className="settings-checkbox" type="checkbox" checked={graphics.showFps}

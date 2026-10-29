@@ -5,6 +5,8 @@ import { StructureSearch } from "./structure-search";
 import { ModelControls } from "./model-controls";
 import { AnatomyOnboarding } from "./onboarding";
 import { MenuBar } from "./menu-bar";
+import { OrientationAxes } from "./orientation-axes";
+import type { OrientationAxesHandle } from "./orientation-axes";
 import { ExplodeControls } from "./explode-controls";
 import { HandCameraControls } from "./hand-camera-controls";
 import { useCameraDevices } from "./camera-devices";
@@ -51,6 +53,8 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const informationPanel = useRef<HTMLElement>(null);
   const panelToggles = useRef<HTMLDivElement>(null);
   const hud = useRef<HTMLDivElement>(null);
+  const orientation = useRef<OrientationAxesHandle>(null);
+  const orientationHud = useRef<HTMLDivElement>(null);
   const runtime = useRef<ViewerRuntime | null>(null);
   const session = useMemo(() => new StudySession(catalog), [catalog]);
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
@@ -63,7 +67,8 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
 
   useEffect(() => {
     const viewer = new ViewerRuntime(host.current!, { viewport: focusViewport,
-      onState: session.updateViewer, onPick: session.pick, onFps: setFps, onHold: setHold, onSnap: setSnapTarget });
+      onState: session.updateViewer, onPick: session.pick, onFps: setFps, onHold: setHold, onSnap: setSnapTarget,
+      onOrientation: axes => orientation.current?.update(axes) });
     runtime.current = viewer; session.connect(viewer);
     void viewer.start(catalog);
     return () => { session.disconnect(viewer); viewer.dispose(); if (runtime.current === viewer) runtime.current = null; };
@@ -204,9 +209,14 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
           <div className="model-focus-frame" ref={focusFrame}>
             <HandCameraControls enabled={handCameraEnabled} disabled={building || error} cameraDisabled={!!movingId || !!separatedIds.size} onControl={session.control}
               deviceId={cameras.deviceId} onCameraStarted={cameras.refresh} onCameraActiveChange={setHandCameraActive}
-              sceneHost={host} interactionFrame={focusFrame} obstacles={[hud, catalogPanel, informationPanel, panelToggles]}
+              sceneHost={host} interactionFrame={focusFrame} obstacles={[hud, catalogPanel, informationPanel, panelToggles, orientationHud]}
               onEnabledChange={setHandCameraEnabled} />
-            {graphics.showFps && <span className="model-fps" aria-label={t("graphics.fps.current", { count: fps })}>{fps} FPS</span>}
+            <div className="model-orientation" ref={orientationHud}>
+              <div hidden={!graphics.showAxes}>
+                <OrientationAxes ref={orientation} disabled={building || error || !graphics.showAxes} onControl={session.control} />
+              </div>
+              {graphics.showFps && <span className="model-fps" aria-label={t("graphics.fps.current", { count: fps })}>{fps} FPS</span>}
+            </div>
             <div ref={hud} className="model-hud">
               {snapPart && <div className="model-status model-snap-hint" role="status">
                 {t("viewer.snapHint", { name: snapPart.names[language] })}

@@ -6,6 +6,7 @@ export type ViewerStatus = "loading" | "preparing" | "finishing" | "loadError" |
 export type CameraCommand =
   | { kind: "pan" | "rotate"; x: number; y: number }
   | { kind: "zoom"; factor: number }
+  | { kind: "orient"; axis: "X" | "Y" | "Z"; direction: -1 | 1 }
   | { kind: "reset" };
 
 export interface ViewerState {

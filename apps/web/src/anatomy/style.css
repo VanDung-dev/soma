@@ -15,7 +15,27 @@
 .settings-row > span, .settings-row > label { padding: 0 var(--panel-padding); font-size: 15px; }
 .settings-select { min-width: 0; max-width: 55%; flex-shrink: 0; height: var(--settings-control-size); padding: 0 8px; border: 1px solid var(--line); border-radius: var(--detail-radius); background: var(--control-hover); color: var(--text); font: inherit; }
 .settings-checkbox-control { margin: 8px; }
-.model-fps { position: absolute; top: 12px; right: 12px; padding: 6px 10px; border-radius: var(--control-radius); background: var(--panel-bg); color: var(--text); font: 12px/1.4 var(--font-ui); font-variant-numeric: tabular-nums; pointer-events: none; }
+.model-orientation { position: absolute; top: 12px; right: 12px; display: flex; flex-direction: column; align-items: center; gap: 12px; pointer-events: none; -webkit-user-select: none; user-select: none; cursor: default; }
+.orientation-axes { display: block; width: 80px; height: 80px; overflow: visible; border-radius: 50%; pointer-events: auto; touch-action: none; cursor: grab; }
+.orientation-axes[data-dragging="true"] { cursor: grabbing; }
+.orientation-axes[aria-disabled="true"] { cursor: default; }
+.orientation-axes:hover { background: rgba(var(--panel-rgb), .45); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.orientation-origin { fill: var(--muted); pointer-events: none; }
+.orientation-axes [data-axis="X"] { color: #f43f5e; }
+.orientation-axes [data-axis="Y"] { color: #84cc16; }
+.orientation-axes [data-axis="Z"] { color: #3b82f6; }
+.orientation-axes line { stroke: currentColor; stroke-width: 3; stroke-linecap: round; pointer-events: none; }
+.orientation-axes g circle { fill: currentColor; stroke: currentColor; stroke-width: 2; }
+.orientation-axes [data-direction="-1"] circle:not(.orientation-hit-target) { fill: rgba(18, 23, 21, .75); }
+.orientation-axes g[aria-pressed="true"] circle:not(.orientation-hit-target) { fill: currentColor; }
+.orientation-axes g .orientation-hit-target { fill: transparent; stroke: none; pointer-events: all; }
+.orientation-axes g:is(:hover, :focus-visible) { opacity: 1; }
+.orientation-axes text { fill: #101827; font: 600 14px var(--font-ui); }
+.orientation-axes [data-direction="-1"] text { opacity: 0; }
+.orientation-axes g[aria-pressed="true"] text { opacity: 1; }
+.orientation-axes g:hover text { fill: #fff; opacity: 1; }
+.orientation-axes g:focus-visible .orientation-hit-target { stroke: currentColor; stroke-width: 2; }
+.model-fps { padding: 6px 10px; border-radius: var(--control-radius); background: var(--panel-bg); color: var(--text); font: 12px/1.4 var(--font-ui); font-variant-numeric: tabular-nums; pointer-events: none; }
 .hand-camera-toggle { display: inline-flex; flex-shrink: 0; align-items: center; gap: 6px; height: 28px; min-height: 28px; padding: 0 4px; border: 0; border-radius: var(--inner-radius); background: transparent; color: var(--accent); font: 12px var(--font-ui); cursor: pointer; }
 .camera-mode-switch { position: relative; width: 34px; height: 20px; border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--panel-bg)); border-radius: var(--inner-radius); background: color-mix(in srgb, var(--accent) 10%, var(--panel-bg)); }
 .camera-mode-switch::before { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); transition: transform .15s ease; }

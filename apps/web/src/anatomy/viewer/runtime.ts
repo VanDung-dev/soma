@@ -27,6 +27,7 @@ export class ViewerRuntime implements StudyViewer {
   private fpsFrames = 0;
   private fpsStarted = 0;
   private fpsTimer = 0;
+  private orientation: Float32Array | undefined;
   private structureIds: string[] = [];
   private movingId = "";
   private separatedIds = new Set<string>();
@@ -38,6 +39,7 @@ export class ViewerRuntime implements StudyViewer {
     onState: (patch: Partial<ViewerState>) => void;
     onPick: (id: string) => void;
     onFps?: (fps: number) => void;
+    onOrientation?: (axes: Float32Array) => void;
     onHold?: (point: { x: number; y: number } | null) => void;
     onSnap?: (id: string) => void;
   }) {
@@ -150,6 +152,13 @@ export class ViewerRuntime implements StudyViewer {
             this.exploding = false; this.reassembling = false;
           }
         } else this.viewer!.render();
+        if (this.options.onOrientation) {
+          const axes = this.viewer!.camera_axes();
+          if (!this.orientation || axes.some((value, index) => value !== this.orientation![index])) {
+            this.orientation = axes;
+            this.options.onOrientation(axes);
+          }
+        }
         if (this.graphics.showFps) this.fpsFrames++;
         if (cameraAnimating || revealing) this.scheduleRender();
       } catch (cause) { this.fail(cause, "renderError"); }
@@ -348,6 +357,7 @@ export class ViewerRuntime implements StudyViewer {
           case "pan": viewer.pan(command.x, command.y); break;
           case "rotate": viewer.rotate(command.x, command.y); break;
           case "zoom": viewer.zoom(command.factor); break;
+          case "orient": viewer.orient(command.axis, command.direction, this.animationTime()); break;
           case "reset": viewer.inspect("reset", this.animationTime()); break;
         }
       }
