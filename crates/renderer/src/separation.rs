@@ -273,4 +273,57 @@ impl Separation {
             - inverse.project_point3(screen);
         self.set(scene, id, (offset + delta).to_array())
     }
+
+    pub fn drag_selection(
+        &mut self,
+        scene: &Scene,
+        camera: &Camera,
+        ids: &[String],
+        anchor: &str,
+        x: f32,
+        y: f32,
+    ) -> Result<(), String> {
+        if !x.is_finite() || !y.is_finite() || !ids.iter().any(|id| id == anchor) {
+            return Err("Invalid selection drag".into());
+        }
+        for id in ids {
+            if !scene
+                .parts
+                .iter()
+                .any(|part| part.active && part.visible && part.source_id == *id)
+            {
+                return Err("Unknown or hidden selected structure".into());
+            }
+        }
+        let bounds = scene
+            .bounds_for(&[anchor.into()])?
+            .ok_or("Unknown structure")?;
+        let matrix = camera.matrix();
+        let point = matrix * (bounds.center() + self.offset(anchor)).extend(1.0);
+        if point.w <= 1e-6 {
+            return Ok(());
+        }
+        let screen = point.truncate() / point.w;
+        let inverse = matrix.inverse();
+        let delta = inverse.project_point3(screen + Vec3::new(x * 2.0, -y * 2.0, 0.0))
+            - inverse.project_point3(screen);
+        let limit = scene.bounds.radius() * 3.0;
+        if !delta.is_finite()
+            || ids
+                .iter()
+                .any(|id| (self.offset(id) + delta).length() > limit)
+        {
+            return Ok(());
+        }
+        self.restoration = None;
+        for id in ids {
+            let offset = self.offset(id) + delta;
+            if offset == Vec3::ZERO {
+                self.offsets.remove(id);
+            } else {
+                self.offsets.insert(id.clone(), offset);
+            }
+        }
+        Ok(())
+    }
 }

@@ -31,6 +31,50 @@ fn groups() -> Vec<Vec<String>> {
 }
 
 #[test]
+fn selection_drag_preserves_relative_positions_and_rejects_invalid_members_atomically() {
+    let mut scene = scene();
+    let camera = Camera::new(scene.bounds);
+    let mut separation = Separation::default();
+    separation.set(&scene, "a", [0.2, 0.1, 0.0]).unwrap();
+    separation.set(&scene, "b", [-0.1, 0.0, 0.3]).unwrap();
+    let a = separation.offset("a");
+    let b = separation.offset("b");
+    let ids = vec!["a".into(), "b".into()];
+    separation
+        .drag_selection(&scene, &camera, &ids, "a", 0.1, -0.05)
+        .unwrap();
+    let delta = separation.offset("a") - a;
+    assert!(delta.length() > 0.0);
+    assert!((separation.offset("b") - b - delta).length() < 1e-6);
+    assert_eq!(separation.offset("c"), Vec3::ZERO);
+    let before = [separation.offset("a"), separation.offset("b")];
+    for invalid in [vec!["a".into(), "unknown".into()], vec!["b".into()]] {
+        assert!(
+            separation
+                .drag_selection(&scene, &camera, &invalid, "a", 0.1, 0.0)
+                .is_err()
+        );
+        assert_eq!(before, [separation.offset("a"), separation.offset("b")]);
+    }
+    assert!(
+        separation
+            .drag_selection(&scene, &camera, &ids, "a", f32::NAN, 0.0)
+            .is_err()
+    );
+    separation
+        .drag_selection(&scene, &camera, &ids, "a", 1e10, 0.0)
+        .unwrap();
+    assert_eq!(before, [separation.offset("a"), separation.offset("b")]);
+    scene.change_visibility(&["b".into()], false).unwrap();
+    assert!(
+        separation
+            .drag_selection(&scene, &camera, &ids, "a", 0.1, 0.0)
+            .is_err()
+    );
+    assert_eq!(before, [separation.offset("a"), separation.offset("b")]);
+}
+
+#[test]
 fn manual_separation_preserves_structure_identity_camera_and_original_geometry() {
     let scene = scene();
     let mut camera = Camera::new(scene.bounds);
