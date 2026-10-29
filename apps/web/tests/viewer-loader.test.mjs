@@ -74,3 +74,70 @@ test('model loading streams in order, bounds prefetch and cleans up cancellation
     await server.close();
   }
 });
+
+test('model cache reuses unchanged files, replaces changed versions and tolerates storage failure', async () => {
+  const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
+  const original = { fetch: globalThis.fetch, Worker: globalThis.Worker, indexedDB: globalThis.indexedDB };
+  const entries = new Map();
+  let version = 'first', modelRequests = 0, storageFails = false;
+  try {
+    const { loadModels } = await server.ssrLoadModule('/src/anatomy/viewer/loader.ts');
+    const database = {
+      createObjectStore() {}, close() {},
+      transaction() {
+        if (storageFails) throw Error('Storage unavailable');
+        const transaction = { objectStore: () => ({
+          get(key) {
+            const request = {};
+            queueMicrotask(() => { request.result = structuredClone(entries.get(key)); request.onsuccess(); });
+            return request;
+          },
+          put(value, key) {
+            const stored = structuredClone(value);
+            queueMicrotask(() => { entries.set(key, stored); transaction.oncomplete(); });
+          },
+        }) };
+        return transaction;
+      },
+    };
+    globalThis.indexedDB = { open() {
+      const request = { result: database };
+      queueMicrotask(() => { request.onupgradeneeded(); request.onsuccess(); });
+      return request;
+    } };
+    globalThis.fetch = async url => {
+      if (url.endsWith('manifest.json')) return Response.json({ models: [{ file: 'test.glb.br', sha256: version }] });
+      if (url.endsWith('.json')) return Response.json({ structures: [] });
+      modelRequests++;
+      return new Response(new Uint8Array([version === 'first' ? 1 : 2]));
+    };
+    globalThis.Worker = class {
+      postMessage(data) {
+        const copied = structuredClone(data, { transfer: [data.packages[0].buffer] });
+        queueMicrotask(() => this.onmessage({ data: { prepared: [new Float32Array([copied.packages[0][0]]), new Uint32Array(), '{}'] } }));
+      }
+      terminate() {}
+    };
+    const roots = [{ model: { path: 'models/z-anatomy/test.glb.br' } }];
+    const load = async () => {
+      const result = [];
+      for await (const prepared of loadModels(roots, new AbortController().signal, () => {}, () => [])) result.push(prepared[0][0]);
+      return result;
+    };
+    assert.deepEqual(await load(), [1]);
+    assert.deepEqual(await load(), [1]);
+    assert.equal(modelRequests, 1);
+    version = 'second';
+    assert.deepEqual(await load(), [2]);
+    assert.equal(modelRequests, 2);
+    assert.equal(entries.size, 1);
+    storageFails = true;
+    assert.deepEqual(await load(), [2]);
+    assert.equal(modelRequests, 3);
+  } finally {
+    for (const [name, value] of Object.entries(original)) {
+      if (value === undefined) delete globalThis[name]; else globalThis[name] = value;
+    }
+    await server.close();
+  }
+});
