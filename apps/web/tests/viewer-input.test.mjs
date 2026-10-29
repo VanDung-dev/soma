@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 
-test('right marquee selects a temporary group and left hold moves it together with cancellation', async t => {
+test('Shift-left marquee selects a temporary group and left hold moves it together with cancellation', async t => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   const previousWindow = globalThis.window;
   let unbind;
@@ -39,15 +39,19 @@ test('right marquee selects a temporary group and left hold moves it together wi
     const marquee = (reverse = false) => {
       const start = reverse ? { clientX: 180, clientY: 140 } : { clientX: 50, clientY: 70 };
       const end = reverse ? { clientX: 50, clientY: 70 } : { clientX: 180, clientY: 140 };
-      assert(pointer('pointerdown', { ...start, button: 2, buttons: 2 }).defaultPrevented);
-      pointer('pointermove', { ...end, button: -1, buttons: 2 });
+      assert(pointer('pointerdown', { ...start, button: 0, buttons: 1, shiftKey: true }).defaultPrevented);
+      pointer('pointermove', { ...end, button: -1, buttons: 1, shiftKey: true });
       assert.deepEqual(boxes.at(-1), { x: 30, y: 30, width: 130, height: 70 });
-      pointer('pointerup', { ...end, button: 2 });
+      pointer('pointerup', { ...end, button: 0, shiftKey: true });
       assert.equal(boxes.at(-1), null);
       assert.deepEqual(regions.at(-1), [60, 100, 260, 140]);
     };
     marquee(); marquee(true);
     assert.equal(rotations, 0); assert.equal(pans, 0);
+    pointer('pointerdown', { button: 0, buttons: 1, shiftKey: true });
+    pointer('pointerup', { button: 0, shiftKey: true });
+    assert.deepEqual(selection, ['a', 'b'], 'Shift click without a rectangle must preserve the group');
+    assert.equal(regions.length, 2);
     pointer('pointerdown'); t.mock.timers.tick(999);
     assert.equal(starts, 0); assert.equal(canvas.dataset.dragging, undefined);
     t.mock.timers.tick(1); assert.equal(starts, 1);
@@ -62,13 +66,13 @@ test('right marquee selects a temporary group and left hold moves it together wi
       () => pointer('pointercancel'), () => pointer('lostpointercapture'),
       () => window.dispatchEvent(new Event('blur')), () => window.dispatchEvent(new Event('resize')),
     ]) {
-      pointer('pointerdown', { button: 2, buttons: 2 }); interrupt();
-      pointer('pointerup', { clientX: 180, clientY: 140, button: 2 });
+      pointer('pointerdown', { button: 0, buttons: 1, shiftKey: true }); interrupt();
+      pointer('pointerup', { clientX: 180, clientY: 140, button: 0, shiftKey: true });
       assert.equal(regions.length, 2); assert.equal(boxes.at(-1), null);
     }
-    pointer('pointerdown', { button: 2, buttons: 2 });
-    pointer('pointermove', { clientX: -100, clientY: 900, buttons: 2 });
-    pointer('pointerup', { clientX: -100, clientY: 900, button: 2 });
+    pointer('pointerdown', { button: 0, buttons: 1, shiftKey: true });
+    pointer('pointermove', { clientX: -100, clientY: 900, buttons: 1, shiftKey: true });
+    pointer('pointerup', { clientX: -100, clientY: 900, button: 0, shiftKey: true });
     assert.deepEqual(regions.at(-1), [0, 0, 60, 240], 'Clip captured pointers to the canvas');
     pointer('pointerdown'); t.mock.timers.tick(500);
     const escape = Object.assign(new Event('keydown', { cancelable: true }), { key: 'Escape' });
@@ -76,10 +80,15 @@ test('right marquee selects a temporary group and left hold moves it together wi
     assert(escape.defaultPrevented); assert.deepEqual(selection, []); assert.equal(starts, 2);
     const settings = Object.assign(new Event('keydown', { cancelable: true }), { key: 'Escape' });
     canvas.dispatchEvent(settings); assert(!settings.defaultPrevented, 'Escape keeps the Settings shortcut when no group or gesture is active');
-    pointer('pointerdown', { shiftKey: true }); pointer('pointermove', { clientX: 80, shiftKey: true }); pointer('pointerup');
-    assert.equal(pans, 1, 'Shift drag retains camera pan');
+    for (const shiftKey of [false, true]) {
+      pointer('pointerdown', { button: 2, buttons: 2, shiftKey });
+      pointer('pointermove', { clientX: 80, button: -1, buttons: 2, shiftKey });
+      pointer('pointerup', { button: 2, shiftKey });
+    }
+    assert.equal(pans, 2, 'Right drag pans the camera with or without Shift');
+    assert.equal(regions.length, 3, 'Right drag must not select a region');
     enabled = false;
-    pointer('pointerdown', { button: 2, buttons: 2 }); pointer('pointerup', { clientX: 180, clientY: 140, button: 2 });
+    pointer('pointerdown', { button: 0, buttons: 1, shiftKey: true }); pointer('pointerup', { clientX: 180, clientY: 140, button: 0, shiftKey: true });
     assert.equal(regions.length, 3, 'Disabled viewers cannot select');
     enabled = true; marquee();
     pointer('pointerdown'); t.mock.timers.tick(1000); pointer('pointermove', { clientX: 80 }); unbind();
@@ -279,7 +288,7 @@ test('manual separation drags only its structure and rotates only from empty bac
     assert.equal(selected, 'a', 'Clicking the active moving structure must select it again');
     assert.deepEqual(picked, ['b', 'a']);
     pointer('pointerdown', 130, 2, 2); pointer('pointermove', 150, 2, 2); pointer('pointerup', 150, 2);
-    assert.equal(pans, 0, 'Right dragging must select a region without panning');
+    assert.equal(pans, 1, 'Right dragging must pan the camera');
     for (const shiftKey of [false, true]) {
       const menu = Object.assign(new Event('contextmenu', { cancelable: true }), { button: 2, shiftKey });
       canvas.dispatchEvent(menu);

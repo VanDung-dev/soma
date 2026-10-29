@@ -57,8 +57,12 @@ export async function checkSelectionOutline() {
     viewer.pan(0.01, 0); viewer.zoom(0.95); viewer.rotate(0.05, 0);
     assert(outline(pixels()).right > 20, 'Outline must follow camera operations');
     viewer.inspect('reset');
-    const grouped = viewer.select_region(0, 0, 256, 256);
-    assert(JSON.stringify(grouped) === JSON.stringify(['left', 'right']), 'Marquee collects visible source identities');
+    assert(JSON.stringify(viewer.select_region(0, 0, 128, 256)) === '["left"]', 'Select region A');
+    const grouped = viewer.select_region(128, 0, 128, 256);
+    assert(JSON.stringify(grouped) === '["left","right"]', 'Adding region B must preserve region A');
+    assert(JSON.stringify(viewer.select_region(128, 0, 128, 256)) === JSON.stringify(grouped), 'Repeated regions must not duplicate models');
+    assert(JSON.stringify(viewer.select_region(0, 0, 1, 1)) === JSON.stringify(grouped), 'Empty space must preserve the existing group');
+    assert(JSON.stringify(viewer.select_region(256, 256, 10, 10)) === JSON.stringify(grouped), 'Out-of-bounds regions must preserve the group');
     const groupOutline = outline(pixels());
     assert(groupOutline.left > 20 && groupOutline.right > 20, 'Outline every selected structure');
     viewer.restore_structure('left', new Float32Array([0.05, 0, 0]));
@@ -77,7 +81,8 @@ export async function checkSelectionOutline() {
     viewer.change_visibility('["right"]', false);
     assert(viewer.selected_id() === '' && outline(pixels()).first < 0, 'Hiding a selection must clear its outline');
     assert(JSON.stringify(viewer.select_region(0, 0, 512, 512)) === '["left"]', 'Hidden structures must be excluded from marquee');
-    assert(viewer.select_region(512, 512, 100, 100).length === 0, 'Out-of-bounds marquee clears the group safely');
+    assert(JSON.stringify(viewer.select_region(512, 512, 100, 100)) === '["left"]', 'Out-of-bounds marquee preserves the group safely');
+    viewer.clear_selection();
     viewer.select('left'); viewer.select('');
     assert(outline(pixels()).first < 0, 'Clearing selection must remove the outline');
     for (const [ids, frame] of [['["unknown"]', [0, 0, 1, 1]],
@@ -90,7 +95,8 @@ export async function checkSelectionOutline() {
     assert(viewer.visible_count() === 2, 'Focus must enable its target and preserve other visible models');
     return { selectedOnly: true, outsideSilhouette: true, pickingUnaffected: true,
       camera: true, resize: true, hidden: true, deselected: true, focusApi: true, shadows,
-      marquee: true, groupOutline: true, relativeOffsets: true, temporaryGroup: true };
+      marquee: true, additiveRegions: true, deduplicated: true, emptyRegionPreserved: true,
+      groupOutline: true, relativeOffsets: true, temporaryGroup: true };
   } finally {
     viewer?.free(); canvas.remove();
   }
@@ -116,12 +122,26 @@ export async function checkMarqueeInput() {
   try {
     const start = { clientX: frame.left + 10, clientY: frame.top + 10 };
     const end = { clientX: frame.right - 10, clientY: frame.bottom - 10 };
-    pointer('pointerdown', start, { button: 2, buttons: 2 });
-    pointer('pointermove', end, { button: -1, buttons: 2 });
-    assert(!overlay.hidden && overlay.getBoundingClientRect().width > 100, 'Show the marquee while right dragging');
+    const middleY = (start.clientY + end.clientY) / 2;
+    pointer('pointerdown', start, { button: 0, buttons: 1, shiftKey: true });
+    pointer('pointermove', { ...end, clientY: middleY }, { button: -1, buttons: 1, shiftKey: true });
+    assert(!overlay.hidden && overlay.getBoundingClientRect().width > 100, 'Show the marquee while Shift-left dragging');
     assert(getComputedStyle(overlay).pointerEvents === 'none', 'The marquee must not intercept input');
-    pointer('pointerup', end, { button: 2 }); await frames();
+    pointer('pointerup', { ...end, clientY: middleY }, { button: 0, shiftKey: true }); await frames();
     assert(overlay.hidden && ids.length > 1, 'Commit multiple structures and hide the marquee on release');
+    const firstRegion = [...ids];
+    pointer('pointerdown', { ...start, clientY: middleY }, { button: 0, buttons: 1, shiftKey: true });
+    pointer('pointermove', end, { button: -1, buttons: 1, shiftKey: true });
+    pointer('pointerup', end, { button: 0, shiftKey: true }); await frames();
+    assert(ids.length > firstRegion.length && firstRegion.every(id => ids.includes(id)), 'The second marquee must add models to the first region');
+    const combined = [...ids];
+    pointer('pointerdown', { ...start, clientY: middleY }, { button: 0, buttons: 1, shiftKey: true });
+    pointer('pointermove', end, { button: -1, buttons: 1, shiftKey: true });
+    pointer('pointerup', end, { button: 0, shiftKey: true }); await frames();
+    assert(JSON.stringify(ids) === JSON.stringify(combined), 'B reselected must keep AB without duplicates');
+    pointer('pointerdown', start, { button: 0, buttons: 1, shiftKey: true });
+    pointer('pointerup', start, { button: 0, shiftKey: true }); await frames();
+    assert(viewer.selection_ids().length === combined.length, 'A Shift click without dragging must preserve AB');
     before = new Map(ids.map(id => [id, viewer.structure_offset(id)]));
     let hit;
     for (let y = frame.top + 20; y < frame.bottom - 20 && !hit; y += 10) {
@@ -145,7 +165,8 @@ export async function checkMarqueeInput() {
       'Every selected model must move by the same amount');
     canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })); await frames();
     assert(viewer.selection_ids().length === 0, 'Escape clears the temporary group');
-    return { marqueeOverlay: true, selected: ids.length, holdAndDrag: true, sharedTranslation: true, escape: true };
+    return { marqueeOverlay: true, firstRegion: firstRegion.length, selected: ids.length,
+      additiveRegions: true, deduplicated: true, holdAndDrag: true, sharedTranslation: true, escape: true };
   } finally {
     pointer('pointercancel', { clientX: 0, clientY: 0 });
     if (viewer && before) for (const [id, offset] of before) viewer.restore_structure(id, offset);

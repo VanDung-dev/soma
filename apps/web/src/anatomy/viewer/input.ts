@@ -56,7 +56,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     else dragged = true;
     pointers.set(event.pointerId, point);
     if (box) cancelBox();
-    if (event.button === 2 && pointers.size === 1) {
+    if (event.button === 0 && event.shiftKey && pointers.size === 1) {
       event.preventDefault(); cancelDrag();
       box = { pointerId: event.pointerId, start: point, end: point };
       options.onBox?.(boxRect());
@@ -130,7 +130,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     }
     const point = { x: event.clientX, y: event.clientY };
     if (box?.pointerId === event.pointerId) {
-      if (!options.enabled() || !(event.buttons & 2)) cancelBox();
+      if (!options.enabled() || !(event.buttons & 1)) cancelBox();
       else { box.end = point; options.onBox?.(boxRect()); }
       pointers.set(event.pointerId, point);
       dragged = true;
@@ -160,7 +160,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
       const after = Math.hypot(point.x - other.x, point.y - other.y);
       if (before > 1 && after > 1) options.operate(renderer => renderer.zoom(before / after));
       options.operate(renderer => renderer.pan(-dx / canvas.clientHeight / 2, dy / canvas.clientHeight / 2));
-    } else if (event.shiftKey) {
+    } else if (event.button === 2 || (event.buttons & 2)) {
       options.operate(renderer => renderer.pan(-dx / canvas.clientHeight, dy / canvas.clientHeight));
     } else options.operate(renderer => renderer.rotate(-dx / canvas.clientHeight * Math.PI * 2, dy / canvas.clientHeight * Math.PI * 2));
     pointers.set(event.pointerId, point);
@@ -172,7 +172,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
       const rect = boxRect(), bounds = canvas.getBoundingClientRect();
       cancelBox();
       if (options.enabled()) options.operate(viewer => {
-        if (rect.width < 5 || rect.height < 5) { viewer.clear_selection?.(); return; }
+        if (rect.width < 5 || rect.height < 5) return;
         const x = Math.floor(rect.x / bounds.width * canvas.width);
         const top = Math.floor(rect.y / bounds.height * canvas.height);
         const right = Math.min(canvas.width, Math.ceil((rect.x + rect.width) / bounds.width * canvas.width));

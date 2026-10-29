@@ -225,9 +225,9 @@ export async function checkPointerBounds() {
       pointer('pointerup', point);
       assert(calls.includes('rotate'), 'Rotate anywhere on the canvas, including outside the focus frame');
       calls.length = 0;
-      pointer('pointerdown', point, { buttons: 1, shiftKey: true });
-      pointer('pointermove', { ...point, clientY: point.clientY + 10 }, { buttons: 1, shiftKey: true });
-      pointer('pointerup', point, { shiftKey: true });
+      pointer('pointerdown', point, { button: 2, buttons: 2 });
+      pointer('pointermove', { ...point, clientY: point.clientY + 10 }, { button: -1, buttons: 2 });
+      pointer('pointerup', point, { button: 2 });
       assert(calls.includes('pan'), 'Pan anywhere on the canvas');
       const menu = new MouseEvent('contextmenu', { ...point, button: 2, bubbles: true, cancelable: true });
       canvas.dispatchEvent(menu);

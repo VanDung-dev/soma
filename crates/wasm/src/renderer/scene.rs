@@ -134,8 +134,7 @@ impl AnatomyViewer {
         let width = width.min(self.canvas.width().saturating_sub(x));
         let height = height.min(self.canvas.height().saturating_sub(y));
         if width == 0 || height == 0 {
-            self.selection.clear();
-            return Ok(Vec::new());
+            return Ok(self.selection_ids());
         }
         let gl = &self.gpu.gl;
         gl.bind_framebuffer(Gl::FRAMEBUFFER, self.gpu.framebuffer.as_ref());
@@ -160,15 +159,13 @@ impl AnatomyViewer {
             .chunks_exact(4)
             .map(|pixel| pixel[0] as usize | (pixel[1] as usize) << 8 | (pixel[2] as usize) << 16)
             .collect();
-        self.selection = indices
-            .into_iter()
-            .filter_map(|index| {
+        self.selection
+            .extend(indices.into_iter().filter_map(|index| {
                 index
                     .checked_sub(1)
                     .and_then(|i| self.scene.parts.get(i))
                     .map(|part| part.source_id.clone())
-            })
-            .collect();
+            }));
         Ok(self.selection_ids())
     }
 
