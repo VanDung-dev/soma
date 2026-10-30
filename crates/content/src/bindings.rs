@@ -69,6 +69,9 @@ impl CatalogData {
     pub fn detail(&self, id: &str) -> Result<JsValue, JsValue> {
         value(&self.data.detail(id))
     }
+    pub fn openstax_reference(&self, id: &str) -> Result<JsValue, JsValue> {
+        value(&self.data.openstax_reference(id))
+    }
     pub fn search(&self, query: &str, language: &str, limit: usize) -> Result<JsValue, JsValue> {
         value(&self.data.search(query, language, limit))
     }

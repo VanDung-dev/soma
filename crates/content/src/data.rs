@@ -36,6 +36,19 @@ static REFERENCES: LazyLock<Result<References, String>> = LazyLock::new(|| {
         .map_err(|e| format!("References: {e}"))
 });
 
+#[derive(Deserialize, Serialize)]
+pub struct OpenStaxReference {
+    #[serde(skip_serializing)]
+    sources: Vec<String>,
+    pub url: String,
+    pub names: Names,
+}
+
+static OPENSTAX: LazyLock<Result<Vec<OpenStaxReference>, String>> = LazyLock::new(|| {
+    serde_json::from_str(include_str!("../../../content/openstax-references.json"))
+        .map_err(|e| format!("OpenStax references: {e}"))
+});
+
 pub fn reference(source: &str) -> Result<Option<&'static serde_json::Value>, String> {
     Ok(REFERENCES
         .as_ref()
@@ -237,6 +250,7 @@ pub struct CatalogData {
 impl CatalogData {
     pub fn from_json(json: &str) -> Result<Self, String> {
         TERMS.as_ref().map_err(Clone::clone)?;
+        OPENSTAX.as_ref().map_err(Clone::clone)?;
         let catalog = Catalog::from_json(json).map_err(|e| e.to_string())?;
         let targets: HashMap<_, _> = catalog
             .targets
@@ -338,6 +352,30 @@ impl CatalogData {
 
     pub fn target(&self, id: &str) -> Option<TargetView<'_>> {
         self.targets.get(id).map(|i| self.target_at(*i))
+    }
+
+    pub fn openstax_reference(&self, id: &str) -> Option<&'static OpenStaxReference> {
+        let sources: Vec<&str> = if let Some(i) = self.structure_index.get(id) {
+            let part = &self.structures[*i];
+            std::iter::once(part.source_name.as_str())
+                .chain(part.collections.iter().map(String::as_str))
+                .collect()
+        } else {
+            std::iter::successors(self.targets.get(id).copied(), |i| {
+                self.catalog.targets[*i]
+                    .parent_id
+                    .as_ref()
+                    .and_then(|parent| self.targets.get(parent).copied())
+            })
+            .map(|i| self.catalog.targets[i].source_name.as_str())
+            .collect()
+        };
+        OPENSTAX.as_ref().ok()?.iter().find(|reference| {
+            reference
+                .sources
+                .iter()
+                .any(|source| sources.contains(&source.as_str()))
+        })
     }
 
     pub fn roots(&self) -> Vec<TargetView<'_>> {

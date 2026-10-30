@@ -77,6 +77,64 @@ fn normalization_preserves_bilingual_search_rules() {
 }
 
 #[test]
+fn openstax_related_readings_prefer_specific_collections_and_inherit_group_context() {
+    let mut data = CatalogData::from_json(SOURCE).unwrap();
+    let root = data
+        .roots()
+        .into_iter()
+        .find(|root| root.source_name == "1: Skeletal system")
+        .unwrap()
+        .id
+        .to_owned();
+    data.ingest(&root, METADATA).unwrap();
+    data.finish("en-US").unwrap();
+    let parts: serde_json::Value = serde_json::from_str(METADATA).unwrap();
+    for (name, section) in [
+        ("Parietal bone", "7-2-the-skull"),
+        ("Femur", "8-4-bones-of-the-lower-limb"),
+    ] {
+        let part = parts["structures"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|part| part["source_name"] == name)
+            .unwrap();
+        let reference = data
+            .openstax_reference(part["source_id"].as_str().unwrap())
+            .unwrap();
+        assert!(reference.url.ends_with(section));
+    }
+    for (name, section) in [
+        ("1: Skeletal system", "7-1-divisions-of-the-skeletal-system"),
+        ("Cranium", "7-2-the-skull"),
+        ("Vertebral body", "7-3-the-vertebral-column"),
+    ] {
+        let target = data
+            .catalog
+            .targets
+            .iter()
+            .find(|target| target.source_name == name)
+            .unwrap();
+        assert!(
+            data.openstax_reference(&target.id)
+                .unwrap()
+                .url
+                .ends_with(section)
+        );
+    }
+    assert!(data.openstax_reference("unknown").is_none());
+    let mut unknown: serde_json::Value = serde_json::from_str(SOURCE).unwrap();
+    let id = unknown["targets"][0]["id"].as_str().unwrap().to_owned();
+    unknown["targets"][0]["source_name"] = "Unmapped topic".into();
+    assert!(
+        CatalogData::from_json(&unknown.to_string())
+            .unwrap()
+            .openstax_reference(&id)
+            .is_none()
+    );
+}
+
+#[test]
 fn source_ties_follow_host_collation_and_invalid_locale_keeps_index() {
     let mut data = CatalogData::from_json(SOURCE).unwrap();
     let root = data
