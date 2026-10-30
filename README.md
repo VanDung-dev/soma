@@ -74,6 +74,7 @@ No backend. Future server work: Rust, with API/data contracts agreed first.
 
 ## References
 
+- The anatomy information panel links to related sections of [OpenStax, Anatomy and Physiology 2e](https://openstax.org/details/books/anatomy-and-physiology-2e) (OpenStax, Rice University, 2022) alongside Wikipedia. These English web readings provide context for the selected structure or group; they do not imply that the book covers each model separately. The curated mappings live in `content/openstax-references.json`, ordered from specific topics to system overviews. No book text, images or PDF are bundled.
 - [Architecture](ARCHITECTURE.md)
 - Educational reference only; Vietnamese terminology and Wikipedia mappings await medical review.
 - Code: [Apache-2.0](LICENSE). Model/data terms: [NOTICE](NOTICE), [attribution](apps/web/public/models/z-anatomy/ATTRIBUTION.md).
