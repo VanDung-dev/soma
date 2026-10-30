@@ -84,14 +84,12 @@
 .information-heading { position: relative; flex-shrink: 0; padding: var(--panel-padding); border-radius: var(--inner-radius); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
 .information-heading > div { min-width: 0; }
 .information-heading h2, .information-heading .international-name { padding: 5px; }
-.information-heading .eyebrow { display: flex; align-items: center; min-height: 28px; padding: 4px 108px 4px 4px; margin: 0 0 6px; }
 .information-content { display: flex; flex-direction: column; gap: var(--panel-gap); flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--panel-padding); border-radius: var(--inner-radius); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
 .information-details { flex-shrink: 0; font-size: 14px; line-height: 1.8; }
 .information-details:empty { display: none; }
 .information-details p { margin: 0; }
 .information-overview { padding: 5px; }
 .information-details p + p { margin-top: 4px; }
-.eyebrow { color: var(--accent); font-size: 10px; font-weight: 600; letter-spacing: 1px; }
 .information-panel h2 { margin: 0; font: 23px/1.25 var(--font-ui); overflow-wrap: anywhere; }
 .latin-name { color: var(--accent); font-style: italic; }
 .international-name { color: var(--muted); font-size: 13px; margin: 4px 0 0; overflow-wrap: anywhere; }
@@ -99,7 +97,10 @@
 .reference-notice { color: var(--muted); font-size: 11px; line-height: 1.6; }
 .wikipedia-reader a, .model-credit a { color: var(--accent); text-underline-offset: 3px; }
 .model-credit a { display: block; width: fit-content; min-height: 28px; padding: 4px; }
-.model-credit { flex-shrink: 0; border-top: 1px solid var(--line); margin-top: auto; padding-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; }
+.model-credit { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; flex-shrink: 0; border-top: 1px solid var(--line); margin-top: auto; padding-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; }
+.model-credit > .reference-mapping-description { flex-basis: 100%; }
+.credit-sources { display: flex; align-items: baseline; gap: 8px; flex: 1; min-width: 0; }
+.credit-sources > a { min-width: 0; }
 .reference-mapping-description { margin-top: 8px; }
 #workspace { position: absolute; inset: 0; min-width: 0; min-height: 0; }
 .anatomy-space { position: absolute; inset: 0; overflow: hidden; }
@@ -246,8 +247,8 @@
 .reader-actions button, .reader-actions a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 10px; border: 1px solid var(--line-strong); border-radius: var(--inner-radius); background: var(--surface); font-size: 12px; line-height: 1.5; text-decoration: none; }
 .reader-expand { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: var(--control-radius); background: var(--surface); font-size: 12px; line-height: 1.5; text-decoration: none; }
 .reader-actions button:hover, .reader-actions a:hover, .reader-expand:hover { background: var(--control-hover); border-color: var(--line-hover); }
-.reference-mapping-description { padding: 12px; border: 1px solid var(--line); border-radius: var(--detail-radius); background: var(--surface); }
-.reader-expand { position: absolute; top: var(--panel-padding); right: var(--panel-padding); width: 96px; min-height: 32px; padding: 4px 12px; color: var(--accent); }
+.reference-mapping-description { padding: 1px 10px; border: 1px solid var(--line); border-radius: var(--detail-radius); background: var(--surface); }
+.reader-expand { position: absolute; top: var(--panel-padding); right: var(--panel-padding); width: 76px; min-height: 32px; padding: 4px 12px; color: var(--accent); }
 .reference-mapping { color: var(--muted); font-size: 11px; }
 .reference-mapping summary { width: fit-content; padding: 5px; cursor: pointer; text-underline-offset: 3px; }
 .reference-mapping summary:hover { color: var(--accent); text-decoration: underline; }
@@ -256,6 +257,13 @@
 .information-panel.reader-expanded { z-index: 5; width: min(960px, calc(100% - var(--panel-width) - var(--panel-inset) - var(--panel-inset) - 204px)); background: var(--panel-bg); box-shadow: 0 28px 80px rgba(var(--shadow-rgb),.24), 0 4px 16px rgba(var(--shadow-rgb),.08); }
 .reader-expanded .wikipedia-reader { animation: reader-reveal .32s ease-out; }
 .reader-expanded .wikipedia-article { min-height: clamp(120px, calc(100dvh - 500px), 360px); }
+.information-heading h2 { min-height: 32px; padding-right: 88px; }
+.information-panel:not(.reader-expanded) .information-heading h2 { font-size: 20px; }
+.information-panel:not(.reader-expanded) .information-content { gap: 8px; }
+.information-panel:not(.reader-expanded) .wikipedia-reader { flex: 1 1 0; min-height: 120px; }
+.information-panel:not(.reader-expanded) .wikipedia-article { min-height: 0; }
+.information-panel:not(.reader-expanded) .reader-actions { flex-shrink: 0; gap: 6px; }
+.information-panel:not(.reader-expanded) .reference-mapping[open] { flex-basis: 100%; }
 @keyframes reader-reveal { from { opacity: .5; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
   .camera-mode-switch::before { transition: none; }

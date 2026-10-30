@@ -1,5 +1,5 @@
 import type { CatalogData } from "../../content/content";
-import type { FolderView, SearchPage, StructureDetail, StudyTarget } from "./types";
+import type { FolderView, OpenStaxReference, SearchPage, StructureDetail, StudyTarget } from "./types";
 
 export class Catalog {
   readonly roots: StudyTarget[];
@@ -12,6 +12,7 @@ export class Catalog {
   finish() { this.data.finish(); }
   identities(): string[] { return this.data.identities(); }
   detail(id: string): StructureDetail | undefined { return this.data.detail(id); }
+  openstaxReference(id: string): OpenStaxReference | undefined { return this.data.openstax_reference(id); }
   search(query: string, language: string, limit: number): SearchPage { return this.data.search(query, language, limit); }
   reveal(id: string): [string, number][] { return this.data.reveal(id); }
   tree(open: string[], limits: Record<string, number>, visible: string[]): FolderView[] { return this.data.tree(open, limits, visible); }

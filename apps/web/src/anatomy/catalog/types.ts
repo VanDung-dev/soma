@@ -1,5 +1,6 @@
 export type { Catalog } from "./index";
 export interface AnatomyNames { vi: string; en: string }
+export interface OpenStaxReference { url: string; names: AnatomyNames }
 
 export interface StudyTarget {
   id: string;

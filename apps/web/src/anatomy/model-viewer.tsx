@@ -10,7 +10,8 @@ import type { OrientationAxesHandle } from "./orientation-axes";
 import { ExplodeControls } from "./explode-controls";
 import { HandCameraControls } from "./hand-camera-controls";
 import { useCameraDevices } from "./camera-devices";
-import { WikipediaReader } from "./wikipedia-reader";
+import { ReferenceNotice, WikipediaReader } from "./wikipedia-reader";
+import { OpenStaxLink, OpenStaxReading } from "./openstax-reference";
 import { useLanguage } from "../i18n";
 import { LineIcon } from "../icons";
 import type { MessageKey } from "../i18n";
@@ -161,6 +162,8 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const snapPart = useMemo(() => catalog.detail(snapTarget), [catalog, snapTarget, structureIds]);
   const canReadReference = !!selectedPart && canReadStructure(state, readingId);
   const referenceName = canReadReference ? selectedPart.source_name : target?.source_name;
+  const openstaxId = selectedPart?.source_id ?? target?.id ?? "";
+  const openstaxReference = useMemo(() => catalog.openstaxReference(openstaxId), [catalog, openstaxId, structureIds]);
   const otherLanguage = language === "vi" ? "en" : "vi";
   const heading = selectedPart ? selectedPart.names[language] : target ? target.names[language] : t("information.defaultTitle");
   const otherHeading = selectedPart ? selectedPart.names[otherLanguage] : target ? target.names[otherLanguage] : "";
@@ -235,7 +238,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       <aside id={informationId} ref={informationPanel} className={`information-panel${readerExpanded ? " reader-expanded" : ""}`} data-open={panel === "information"} data-collapsed={collapsedPanels.information} aria-label={t("information.panel.label")}>
         <header className="information-heading" data-structure-id={readingId || undefined}>
           <div>
-            <p className="eyebrow">{t("information.eyebrow")}</p>
             <h2>{heading}</h2>
             {otherHeading && otherHeading !== heading && <p className="international-name" lang={otherLanguage}>{otherHeading}</p>}
           </div>
@@ -252,9 +254,15 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
               <p className="collection-names">{selectedPart.collection_names.map(name => name[language]).join(" · ")}</p>
             </> : !target && <p className="information-overview">{t("information.overview")}</p>}
           </div>
-          {referenceName && <WikipediaReader key={referenceName} name={referenceName} expanded={readerExpanded} />}
+          {referenceName ? <WikipediaReader key={referenceName} name={referenceName} expanded={readerExpanded}
+            actions={<OpenStaxLink reference={openstaxReference} compact={!readerExpanded} />} />
+            : openstaxReference && <div className="reader-actions"><OpenStaxLink reference={openstaxReference} compact={!readerExpanded} /></div>}
           <div className="model-credit">
-            <a href={`${import.meta.env.BASE_URL}models/z-anatomy/ATTRIBUTION.md`} target="_blank" rel="noreferrer" aria-label={t("credit.link")}>{t("credit.summary")}</a>
+            {referenceName && <ReferenceNotice compact={!readerExpanded} />}
+            <div className="credit-sources">
+              <a href={`${import.meta.env.BASE_URL}models/z-anatomy/ATTRIBUTION.md`} target="_blank" rel="noreferrer" aria-label={t("credit.link")} title={t("credit.summary")}>{readerExpanded ? t("credit.summary") : "Z-Anatomy"}</a>
+              <OpenStaxReading reference={openstaxReference} compact={!readerExpanded} />
+            </div>
           </div>
         </div>
       </aside>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { anatomy_names, wikipedia_reference } from "../content/content";
 import { useLanguage } from "../i18n";
 import { isTauri } from "@tauri-apps/api/core";
@@ -22,7 +23,7 @@ function readingUrl(value: unknown) {
   return url.href;
 }
 
-export function WikipediaReader({ name, expanded = false }: { name: string; expanded?: boolean }) {
+export function WikipediaReader({ name, expanded = false, actions }: { name: string; expanded?: boolean; actions?: ReactNode }) {
   const { language, t } = useLanguage();
   const article = wikipediaReference(name);
   const label = anatomy_names(name)[language];
@@ -83,14 +84,21 @@ export function WikipediaReader({ name, expanded = false }: { name: string; expa
         <button onClick={() => { homePage.current = undefined; setReadingUrl(article.url); setLoading(true); setReload(value => value + 1); }}>{t("wikipedia.returnToArticle")}</button>
         <a href={currentUrl} target="_blank" rel="noreferrer">{t("wikipedia.open")}</a>
       </>}
+      {actions}
     </div>
-    <details className="reference-mapping" onToggle={event => {
-        if (event.currentTarget.open) event.currentTarget.scrollIntoView({ block: "nearest" });
-      }}>
-        <summary>{t("wikipedia.notes.summary")}</summary>
-        <div className="reference-mapping-description">
-          <p className="reference-notice">{t("wikipedia.notes.disclaimer")}</p>
-        </div>
-      </details>
   </section>;
+}
+
+export function ReferenceNotice({ compact = false }: { compact?: boolean }) {
+  const { t } = useLanguage();
+  const description = <div className="reference-mapping-description">
+    <p className="reference-notice">{t("wikipedia.notes.disclaimer")}</p>
+  </div>;
+  if (!compact) return description;
+  return <details className="reference-mapping" onToggle={event => {
+    if (event.currentTarget.open) event.currentTarget.scrollIntoView({ block: "nearest" });
+  }}>
+    <summary>{t("wikipedia.notes.short")}</summary>
+    {description}
+  </details>;
 }

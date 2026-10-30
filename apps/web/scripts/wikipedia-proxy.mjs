@@ -129,7 +129,7 @@ export async function wikipediaProxy(req, res, next) {
     if (res.destroyed) return;
     res.writeHead(502, { 'Content-Type': 'text/html; charset=utf-8',
       'Content-Security-Policy': "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; base-uri https://*.wikipedia.org" })
-      .end(wikipediaPage('<!doctype html><html lang="vi"><head><meta charset="utf-8"></head><body><p>Không tải được Wikipedia. Hãy thử “Về bài của bộ phận” hoặc mở bài gốc.</p></body></html>', source));
+      .end(wikipediaPage('<!doctype html><html lang="vi"><head><meta charset="utf-8"></head><body><p>Không tải được Wikipedia</p></body></html>', source));
   }
 }
 

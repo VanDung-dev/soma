@@ -61,7 +61,7 @@ test('Wikipedia proxy preserves the original page and isolates read-only upstrea
     const offline = await nativeFetch(base + encodeURIComponent('https://en.wikipedia.org/wiki/Skeleton'));
     assert.equal(offline.status, 502);
     const offlineHtml = await offline.text();
-    assert(offlineHtml.includes('Không tải được Wikipedia') && offlineHtml.includes('wikipedia:shortcut'));
+    assert(offlineHtml.includes('<p>Không tải được Wikipedia</p>') && offlineHtml.includes('wikipedia:shortcut'));
     assert(offlineHtml.includes("wikipedia:contextmenu-open"));
     assert(offline.headers.get('content-security-policy').includes("default-src 'none'")
       && !offline.headers.get('content-security-policy').includes('allow-same-origin'));
