@@ -22,8 +22,7 @@ impl AnatomyViewer {
             false,
             &matrix.inverse().to_cols_array(),
         );
-        let bounds = self.scene.bounds;
-        let center = bounds.center();
+        let center = self.camera.enclosure_center();
         gl.uniform4f(
             Some(&u.origin),
             center.x,

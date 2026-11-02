@@ -73,11 +73,7 @@ impl AnatomyViewer {
         } else {
             self.explosion_camera = None;
         }
-        let before = self.camera.clone();
         self.relayout_explosion()?;
-        if overview || (tracking && amount == 0.0) {
-            self.transition_camera(before, animate.then_some(now));
-        }
         if !animate {
             self.finish_explosion()?;
         }
@@ -89,7 +85,7 @@ impl AnatomyViewer {
         self.explosion.finish();
         if self.explosion_camera.is_some() {
             self.finish_camera_transition();
-            self.follow_explosion(1.0)?;
+            self.follow_explosion()?;
             if self.explosion.amount() == 0.0 {
                 self.explosion_camera = None;
             }
@@ -99,55 +95,72 @@ impl AnatomyViewer {
     }
 
     pub fn render_explosion(&mut self, now: f64) -> Result<bool, JsValue> {
-        let (moving, blend) = self
+        let (moving, _) = self
             .explosion
             .advance(now, self.scene.bounds.radius())
             .map_err(js_error)?;
         let camera_moving = self.explosion_camera.is_some() && self.advance_camera(now)?;
-        let tracking = self.follow_explosion(blend)?;
-        if !camera_moving && self.explosion.amount() == 0.0 {
+        self.follow_explosion()?;
+        if !moving && !camera_moving && self.explosion.amount() == 0.0 {
             self.explosion_camera = None;
         }
         self.shadow_cached.set(false);
         self.draw(false);
-        Ok(moving || camera_moving || tracking)
+        Ok(moving || camera_moving)
     }
 }
 
 impl AnatomyViewer {
     pub(super) fn stop_explosion_follow(&mut self) {
-        if !self.explosion_target.is_empty() {
-            self.explosion_target.clear();
-            self.explosion_camera = None;
-        }
+        self.explosion_target.clear();
+        self.explosion_camera = None;
     }
 
-    fn follow_explosion(&mut self, blend: f32) -> Result<bool, JsValue> {
-        if self.explosion.amount() == 0.0 || self.explosion_target.is_empty() {
-            return Ok(false);
-        }
+    fn follow_explosion(&mut self) -> Result<(), JsValue> {
         let Some(original) = &self.explosion_camera else {
-            return Ok(false);
+            return Ok(());
         };
         let ids: HashSet<_> = self.explosion_target.iter().map(String::as_str).collect();
-        let bounds = self
-            .scene
-            .parts
-            .iter()
-            .enumerate()
-            .filter(|(_, part)| {
-                part.active && part.visible && ids.contains(part.source_id.as_str())
-            })
+        let parts = self.scene.parts.iter().enumerate().filter(|(_, part)| {
+            part.active && part.visible && (ids.is_empty() || ids.contains(part.source_id.as_str()))
+        });
+        let bounds = parts
+            .clone()
             .map(|(i, part)| part.bounds.translated(self.explosion.offset(i)))
             .reduce(Bounds::union);
         let Some(bounds) = bounds else {
-            return Ok(false);
+            return Ok(());
         };
         let mut goal = original.clone();
         goal.aspect = self.camera.aspect;
-        goal.contain(bounds, self.layout_frame, self.explosion.amount() > 0.6)
-            .map_err(js_error)?;
-        Ok(self.camera.approach(&goal, blend))
+        let assembled = parts
+            .map(|(_, part)| part.bounds)
+            .reduce(Bounds::union)
+            .unwrap();
+        let progress = (self.explosion.displayed_amount() / 0.3).clamp(0.0, 1.0);
+        let progress = progress * progress * (3.0 - 2.0 * progress);
+        if progress > 0.0 {
+            let mut separated = goal.clone();
+            if ids.is_empty() {
+                separated = self
+                    .explosion
+                    .overview_camera_revealed(
+                        &self.scene,
+                        self.camera.aspect,
+                        self.layout_frame,
+                        &self.reconstruction,
+                    )
+                    .map_err(js_error)?;
+            } else {
+                separated
+                    .contain(bounds, self.layout_frame, true)
+                    .map_err(js_error)?;
+            }
+            goal.approach(&separated, progress);
+        }
+        goal.target += (bounds.center() - assembled.center()) * (1.0 - progress);
+        self.camera = goal;
+        Ok(())
     }
 
     pub(crate) fn relayout_explosion(&mut self) -> Result<(), JsValue> {
@@ -157,30 +170,6 @@ impl AnatomyViewer {
         let aspect = self.camera.aspect * self.layout_frame[2] / self.layout_frame[3];
         self.explosion
             .layout_revealed(&self.scene, aspect, &self.reconstruction);
-        if let Some(original) = &self.explosion_camera {
-            if !self.explosion_target.is_empty() && self.explosion.amount() > 0.0 {
-                self.shadow_cached.set(false);
-                return Ok(());
-            }
-            let mut goal = if self.explosion.amount() > 0.0 {
-                self.explosion
-                    .overview_camera_revealed(
-                        &self.scene,
-                        self.camera.aspect,
-                        self.layout_frame,
-                        &self.reconstruction,
-                    )
-                    .map_err(js_error)?
-            } else {
-                original.clone()
-            };
-            goal.aspect = self.camera.aspect;
-            if let Some((target, _)) = self.camera_transition.as_mut() {
-                *target = goal;
-            } else {
-                self.camera = goal;
-            }
-        }
         self.shadow_cached.set(false);
         Ok(())
     }

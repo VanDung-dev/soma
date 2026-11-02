@@ -56,6 +56,7 @@ impl AnatomyViewer {
         self.camera
             .reframe([left, top, width, height])
             .map_err(js_error)?;
+        self.layout_frame = [left, top, width, height];
         self.center_camera()?;
         self.shadow_cached.set(false);
         Ok(())
@@ -88,6 +89,18 @@ impl AnatomyViewer {
                 self.camera = Camera::new(self.scene.bounds);
                 self.camera
                     .resize(self.canvas.width(), self.canvas.height());
+                let ids: std::collections::HashSet<_> = self
+                    .scene
+                    .parts
+                    .iter()
+                    .filter(|part| part.active && part.visible)
+                    .map(|part| part.source_id.clone())
+                    .collect();
+                if let Some(bounds) = self.display_bounds(&ids.into_iter().collect::<Vec<_>>())? {
+                    self.camera
+                        .focus(bounds, self.layout_frame)
+                        .map_err(js_error)?;
+                }
             }
         } else {
             let bounds = self.scene.inspect(action).map_err(js_error)?;
@@ -304,8 +317,8 @@ impl AnatomyViewer {
             .iter()
             .filter(|p| {
                 p.active
-                    && (self.scene.selected.is_empty()
-                        || (p.visible && p.source_id == self.scene.selected))
+                    && p.visible
+                    && (self.scene.selected.is_empty() || p.source_id == self.scene.selected)
             })
             .map(|p| p.source_id.clone())
             .collect();
