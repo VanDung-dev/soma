@@ -109,6 +109,23 @@ fn explosion_tracking_contains_then_centers_the_moving_selection() {
 }
 
 #[test]
+fn finishing_a_camera_transition_copies_the_exact_goal() {
+    let bounds = Bounds {
+        min: Vec3::ZERO,
+        max: Vec3::ONE,
+    };
+    let mut camera = Camera::new(bounds);
+    let goal = Camera::layout(
+        bounds.translated(Vec3::new(0.37, 20.1, -0.42)),
+        1.5,
+        [0.2, 0.1, 0.6, 0.7],
+    )
+    .unwrap();
+    assert!(!camera.approach(&goal, 1.0));
+    assert_eq!(camera.matrix(), goal.matrix());
+}
+
+#[test]
 fn screen_zoom_keeps_the_pointer_ray_fixed_after_pan_rotation_and_focus() {
     let body = Bounds {
         min: Vec3::splat(-1.0),

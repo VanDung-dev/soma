@@ -10,6 +10,7 @@ pub struct Explosion {
     targets: Vec<Vec3>,
     time: Option<f64>,
     amount: f32,
+    displayed_amount: f32,
 }
 
 impl Explosion {
@@ -37,6 +38,9 @@ impl Explosion {
 
     pub fn amount(&self) -> f32 {
         self.amount
+    }
+    pub fn displayed_amount(&self) -> f32 {
+        self.displayed_amount
     }
     pub fn configured(&self) -> bool {
         !self.groups.is_empty()
@@ -169,7 +173,7 @@ impl Explosion {
         let displayed: Vec<_> = scene
             .parts
             .iter()
-            .zip(&self.targets)
+            .zip(&self.offsets)
             .enumerate()
             .filter(|(i, (part, _))| part.visible || reveal.fading_out(*i))
             .map(|(_, (part, offset))| part.bounds.translated(*offset))
@@ -212,7 +216,11 @@ impl Explosion {
         let dt = ((now - self.time.unwrap_or(now)) / 1000.0).clamp(0.0, 0.05) as f32;
         self.time = Some(now);
         let blend = 1.0 - (-12.0 * dt).exp();
-        let mut moving = false;
+        self.displayed_amount += (self.amount - self.displayed_amount) * blend;
+        let mut moving = (self.displayed_amount - self.amount).abs() >= 1e-5;
+        if !moving {
+            self.displayed_amount = self.amount;
+        }
         for (offset, target) in self.offsets.iter_mut().zip(&self.targets) {
             *offset = offset.lerp(*target, blend);
             if offset.distance(*target) < scale * 1e-5 {
@@ -226,11 +234,13 @@ impl Explosion {
 
     pub fn finish(&mut self) {
         self.offsets.clone_from(&self.targets);
+        self.displayed_amount = self.amount;
     }
     pub fn clear(&mut self) {
         self.offsets.fill(Vec3::ZERO);
         self.targets.fill(Vec3::ZERO);
         self.time = None;
         self.amount = 0.0;
+        self.displayed_amount = 0.0;
     }
 }

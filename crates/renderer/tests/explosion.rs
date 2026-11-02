@@ -31,6 +31,31 @@ fn groups() -> Vec<Vec<String>> {
 }
 
 #[test]
+fn overview_tracks_displayed_offsets_and_keeps_its_grid_around_the_camera() {
+    let mut scene = scene();
+    scene
+        .change_visibility(&["a".into(), "b".into()], false)
+        .unwrap();
+    let mut explosion = Explosion::new(&scene, groups()).unwrap();
+    explosion.layout(&scene, 1.0);
+    let frame = [0.2, 0.1, 0.6, 0.7];
+    let before = explosion.overview_camera(&scene, 1.5, frame).unwrap();
+    explosion.set(0.3, 0.0).unwrap();
+    explosion.layout(&scene, 1.0);
+    let pending = explosion.overview_camera(&scene, 1.5, frame).unwrap();
+    assert_eq!(pending.matrix(), before.matrix());
+    explosion.advance(16.0, scene.bounds.radius()).unwrap();
+    let moving = explosion.overview_camera(&scene, 1.5, frame).unwrap();
+    let bounds = scene.parts[3].bounds.translated(explosion.offset(3));
+    assert_eq!(moving.enclosure_center(), bounds.center());
+    assert!(moving.eye().distance(moving.enclosure_center()) < moving.enclosure_radius());
+    let point = moving.matrix().project_point3(bounds.center());
+    assert!(point.x.abs() < 1e-5);
+    assert!((point.y - 0.1).abs() < 1e-5);
+    assert_ne!(moving.matrix(), before.matrix());
+}
+
+#[test]
 fn selection_drag_preserves_relative_positions_and_rejects_invalid_members_atomically() {
     let mut scene = scene();
     let camera = Camera::new(scene.bounds);
@@ -353,10 +378,13 @@ fn animates_retargets_without_jumping_and_rejects_invalid_input() {
     explosion.layout(&scene, 1.0);
     let (moving, _) = explosion.advance(16.0, scene.bounds.radius()).unwrap();
     assert!(moving && explosion.offset(0) != Vec3::ZERO);
+    let displayed = explosion.displayed_amount();
+    assert!(displayed > 0.0 && displayed < explosion.amount());
     let previous = explosion.offset(0);
     explosion.set(0.3, 16.0).unwrap();
     explosion.layout(&scene, 1.0);
     assert_eq!(explosion.offset(0), previous);
+    assert_eq!(explosion.displayed_amount(), displayed);
     assert!(explosion.advance(15.0, scene.bounds.radius()).is_err());
     let mut moving = true;
     for frame in 2..150 {
@@ -366,6 +394,13 @@ fn animates_retargets_without_jumping_and_rejects_invalid_input() {
             .0;
     }
     assert!(!moving);
+    assert_eq!(explosion.displayed_amount(), 0.3);
+    explosion.set(0.0, 2400.0).unwrap();
+    explosion.layout(&scene, 1.0);
+    explosion.advance(2416.0, scene.bounds.radius()).unwrap();
+    assert!(explosion.displayed_amount() > 0.0 && explosion.displayed_amount() < 0.3);
+    explosion.finish();
+    assert_eq!(explosion.displayed_amount(), 0.0);
     explosion.clear();
     assert_eq!(explosion.offset(0), Vec3::ZERO);
 }

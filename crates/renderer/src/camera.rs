@@ -97,6 +97,10 @@ impl Camera {
         Ok(camera)
     }
     pub fn approach(&mut self, goal: &Self, blend: f32) -> bool {
+        if blend == 1.0 {
+            *self = goal.clone();
+            return false;
+        }
         self.target = self.target.lerp(goal.target, blend);
         self.distance += (goal.distance - self.distance) * blend;
         let yaw = (goal.yaw - self.yaw + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU)
@@ -273,6 +277,9 @@ impl Camera {
     }
     pub fn enclosure_radius(&self) -> f32 {
         self.radius * 6.0
+    }
+    pub fn enclosure_center(&self) -> Vec3 {
+        self.center
     }
     fn constrain_eye(&mut self) {
         self.constrain_orbit(self.target);
