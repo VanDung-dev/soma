@@ -55,15 +55,21 @@ impl AnatomyViewer {
             .transpose()?
             .unwrap_or_default();
         self.scene.bounds_for(&ids).map_err(js_error)?;
+        let focusing = amount == self.explosion.amount() && self.camera_transition.is_some();
         self.explosion.set(amount, now).map_err(js_error)?;
-        if ids != self.explosion_target {
+        if focusing {
+            self.explosion_camera = self
+                .camera_transition
+                .as_ref()
+                .map(|(goal, _)| goal.clone());
+        } else if ids != self.explosion_target {
             self.cancel_camera_transition();
             self.explosion_camera = None;
         }
         let overview =
             overview.unwrap_or(false) && (amount > 0.0 || self.explosion_camera.is_some());
         let tracking = !ids.is_empty() && (amount > 0.0 || self.explosion_camera.is_some());
-        if overview || tracking || self.explosion_camera.is_some() {
+        if !focusing && (overview || tracking || self.explosion_camera.is_some()) {
             self.cancel_camera_transition();
         }
         self.explosion_target = ids;
@@ -116,7 +122,7 @@ impl AnatomyViewer {
         self.explosion_camera = None;
     }
 
-    fn follow_explosion(&mut self) -> Result<(), JsValue> {
+    pub(super) fn follow_explosion(&mut self) -> Result<(), JsValue> {
         let Some(original) = &self.explosion_camera else {
             return Ok(());
         };
@@ -159,7 +165,11 @@ impl AnatomyViewer {
             goal.approach(&separated, progress);
         }
         goal.target += (bounds.center() - assembled.center()) * (1.0 - progress);
-        self.camera = goal;
+        if let Some((target, _)) = self.camera_transition.as_mut() {
+            *target = goal;
+        } else {
+            self.camera = goal;
+        }
         Ok(())
     }
 

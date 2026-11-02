@@ -216,6 +216,13 @@ impl AnatomyViewer {
         if now < *previous {
             return Err(js_error("Camera transition timestamps must increase"));
         }
+        if self.explosion_camera.is_some()
+            && self.explosion.amount() == 1.0
+            && (0..self.scene.parts.len()).any(|i| self.reconstruction.fading_out(i))
+        {
+            *previous = now;
+            return Ok(true);
+        }
         let dt = ((now - *previous) / 1000.0).min(0.05) as f32;
         *previous = now;
         let moving = self.camera.approach(goal, 1.0 - (-26.0 * dt).exp());
@@ -293,7 +300,12 @@ impl AnatomyViewer {
         self.relayout_explosion()?;
         self.explosion.finish();
         if let Some(bounds) = self.display_bounds(ids)? {
-            self.camera.focus(bounds, frame).map_err(js_error)?;
+            if self.exploding && self.explosion.amount() == 1.0 {
+                self.camera =
+                    Camera::layout(bounds, self.camera.aspect, frame).map_err(js_error)?;
+            } else {
+                self.camera.focus(bounds, frame).map_err(js_error)?;
+            }
             self.shadow_cached.set(false);
         }
         self.center_camera()?;
