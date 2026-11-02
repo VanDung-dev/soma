@@ -1,4 +1,5 @@
 import { getWasm } from '../src/anatomy/core.ts';
+import { appShortcuts } from '../src/shortcuts.ts';
 
 // Run in Vite: (await import('/tests/controls.browser.mjs')).checkControls()
 export async function checkControls() {
@@ -47,7 +48,7 @@ export async function checkControls() {
     const keyboard = guide.querySelector('[aria-label="Bàn phím"]').getBoundingClientRect();
     const mouse = guide.querySelector('[aria-label="Chuột"]').getBoundingClientRect();
     assert(keyboard.right < mouse.left, 'Keyboard instructions must be left of mouse instructions');
-    assert(guide.querySelectorAll('kbd').length === expected.length + 5, 'Document camera and app shortcuts');
+    assert(guide.querySelectorAll('kbd').length === expected.length + Object.keys(appShortcuts).length, 'Document camera and app shortcuts');
     assert(guide.innerText.includes('Di chuyển camera') && guide.innerText.includes('Xoay mô hình'), 'Distinguish camera movement from model rotation');
     assert(guide.innerText.includes('Shift + kéo') && guide.innerText.includes('Cuộn chuột'), 'Document mouse gestures');
     guide.querySelector('button').click(); await frames(1);
@@ -59,11 +60,12 @@ export async function checkControls() {
       control.focus();
       control.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'mouse' }));
       calls.length = 0;
-      assert(!send('keydown', 'r', control), 'Focused controls must retain their existing shortcut handling');
+      const checkbox = control.type === 'checkbox';
+      assert(send('keydown', 'r', control) === checkbox, 'R must reset from a catalog checkbox while preserving other control shortcuts');
       send('keyup', 'r', control);
       const indicator = control.type === 'checkbox' ? control.nextElementSibling : control;
       assert(getComputedStyle(indicator).outlineStyle === 'none', 'R after a pointer click must not reveal a control outline');
-      assert(!calls.length && document.activeElement === control, 'Focus styling must preserve control focus and camera state');
+      assert(calls.length === (checkbox ? 1 : 0) && document.activeElement === control, 'Reset must preserve control focus');
       for (const key of ['Tab', 'ArrowRight']) {
         send('keydown', key, control); send('keyup', key, control);
         assert(shell.dataset.focusSource === 'keyboard', 'Keyboard navigation must restore focus indicators');

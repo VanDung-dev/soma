@@ -15,7 +15,7 @@ export async function checkRestoration() {
   let runtime;
   try {
     window.matchMedia = query => query === '(prefers-reduced-motion: reduce)' ? motion : matchMedia.call(window, query);
-    runtime = new ViewerRuntime(host, { viewport: () => [0, 0, 1, 1], onState: session.updateViewer, onPick: session.pick });
+    runtime = new ViewerRuntime(host, { viewport: () => [0, 0, 1, 1], onState: session.updateViewer, onPick: session.pick, onHide: ids => session.changeVisibility(ids, false) });
   } finally { window.matchMedia = matchMedia; }
   session.connect(runtime);
   const frames = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));

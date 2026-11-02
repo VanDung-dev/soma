@@ -236,7 +236,7 @@ export async function checkExplosion() {
     assert(JSON.stringify(matrix) === uncentered, 'Closing after a manual adjustment must still restore the saved view');
     viewer.select('a'); viewer.change_visibility('["a"]',false); pixels();
     assert(viewer.selected_id() === '', 'Hiding the selected structure must release its pivot');
-    rotateAt([0,0,0], 'A hidden selection must fall back to the original model center');
+    rotateAt([0.55,0,0], 'A hidden selection must fall back to the visible model center');
     viewer.set_visibility('["a","b"]'); viewer.set_explode_mode(true);
     for (const amount of [NaN,Infinity,-0.1,1.1]) {
       let rejected = false;
@@ -254,21 +254,26 @@ export async function checkExplosion() {
     viewer.set_explode_mode(true); viewer.reframe(0.1,0.1,0.8,0.6);
     viewer.set_explode(0, 0, false, true); pixels();
     assert(JSON.stringify(matrix) === overviewStart, 'Zero must preserve the assembled camera');
+    viewer.set_explode(0.01, 0, true, true); viewer.render_explosion(0); pixels();
+    assert(JSON.stringify(matrix) === overviewStart, 'A first frame at zero elapsed time must preserve the exact camera');
+    viewer.set_explode(0, 0, false, true);
     for (const amount of [0.01,0.15,0.3,0.31,0.6,1]) {
       viewer.set_explode(amount, 0, false, true); pixels();
       const overviewOffsets = offsets.slice(-3);
       assert(JSON.stringify(matrix) !== overviewStart, 'Unselected overview must fit the separated inventory');
       const min = [Infinity, Infinity], max = [-Infinity, -Infinity];
+      const progress = Math.min(1, amount / 0.3), eased = progress * progress * (3 - 2 * progress);
       for (const [i, range] of [[0,[-0.9,-0.55]],[1,[-0.55,-0.2]],[2,[0.2,0.9]]]) {
         for (const x of range) for (const y of [-0.5,0.5]) {
           const point = project([x + overviewOffsets[i][0], y + overviewOffsets[i][1], overviewOffsets[i][2]]);
           const u = (point[0] + 1) / 2, v = (1 - point[1]) / 2;
           min[0] = Math.min(min[0],u); min[1] = Math.min(min[1],v);
           max[0] = Math.max(max[0],u); max[1] = Math.max(max[1],v);
-          assert(u >= 0.1 && u <= 0.9 && v >= 0.1 && v <= 0.7, 'Fit every structure between the panels');
+          assert(u >= 0.1 * eased && u <= 1 - 0.1 * eased && v >= 0.1 * eased && v <= 1 - 0.3 * eased,
+            `Fit every structure as the view moves between the panels at ${amount}`);
         }
       }
-      assert(Math.abs((min[0] + max[0]) / 2 - 0.5) < 1e-5
+      if (amount >= 0.3) assert(Math.abs((min[0] + max[0]) / 2 - 0.5) < 1e-5
         && Math.abs((min[1] + max[1]) / 2 - 0.4) < 1e-5,
         `Center the visible inventory rather than its 3D bounds at ${amount}`);
     }
@@ -307,10 +312,11 @@ export async function checkExplosion() {
       const offset = offsets.at(-3);
       for (const x of [-0.9,-0.2]) for (const y of [-0.5,0.5]) {
         const point = project([x+offset[0],y+offset[1],offset[2]]);
-        assert(point[0] >= -0.8001 && point[0] <= 0.8001 && point[1] >= -0.4001 && point[1] <= 0.8001,
+        if (amount >= 0.3) assert(point[0] >= -0.8001 && point[0] <= 0.8001 && point[1] >= -0.4001 && point[1] <= 0.8001,
           `Keep all selected primitives in the central frame at ${amount}`);
       }
-      if (amount > 0.6) centered([-0.55+offset[0],offset[1],offset[2]],[0,0.2], 'Center the moving selection from 61%');
+      if (amount >= 0.3) centered([-0.55+offset[0],offset[1],offset[2]],[0,0.2],
+        'Finish centering the selection by the first separation stage');
     }
     viewer.set_explode(0, 1, false, false, '["a"]'); pixels();
     assert(JSON.stringify(matrix) === trackingStart, 'Return to zero must restore the selection camera');
@@ -350,6 +356,28 @@ export async function checkExplosion() {
       assert(rejected, 'Reject malformed and unknown tracked structures');
     }
     viewer.set_explode(0, 4100, false, false, '["a","b"]'); viewer.set_explode_mode(false);
+    viewer.clear_center(); viewer.set_visibility('["a"]'); viewer.inspect('reset'); pixels();
+    const focusedWidth = Math.abs(project([-0.2,0,0])[0] - project([-0.9,0,0])[0]);
+    assert(focusedWidth > 0.5 && Math.abs(project([-0.55,0,0])[0]) < 1e-5,
+      'Reset must zoom to and center the visible subset without double click');
+    viewer.set_explode_mode(true); viewer.reframe(0.1,0.1,0.8,0.6);
+    for (const amount of [0.15,0.3,0.45,0.6,0.8,1]) {
+      viewer.set_explode(amount, 4200 + amount * 1000, false, true);
+      const displayed = pixels();
+      assert(displayed.filter((value, i) => i % 4 === 3 && value > 0 && value < 255).length > 500,
+        `A small visible subset must keep its grid at ${amount}`);
+      const moved = offsets.slice(-2)[0];
+      assert(pickCenter(-0.72, moved) === 'a', `The subset must stay visible at ${amount}`);
+      viewer.select('');
+    }
+    viewer.set_visibility('[]'); viewer.inspect('reset'); pixels();
+    assert(gl.getError() === gl.NO_ERROR, 'Resetting an empty scene must remain valid');
+    viewer.set_visibility('["a","b"]'); viewer.set_explode(0, 5300, false, true);
+    viewer.set_explode(1, 5400, true, true); viewer.render_explosion(5416);
+    viewer.pan(0.03,-0.02); pixels();
+    const manualOverview = JSON.stringify(matrix);
+    viewer.render_explosion(5432); pixels();
+    assert(JSON.stringify(matrix) === manualOverview, 'Manual navigation must interrupt overview tracking');
     return { reassembledResetCycles: 3, preservedCamera: true, animatedCameraAdjustments: true, sphereAtEveryLevel: true,
       multipart: true, picking: true, outline: true, exactCameraAndImageRestore: true,
       interrupt: true, visibility: true, empty: true, focus: true, resize: true, validation: true,

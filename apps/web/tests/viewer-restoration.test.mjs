@@ -20,7 +20,7 @@ test('runtime delegates restoration to WASM and synchronizes completion, reduced
     globalThis.ResizeObserver = class { observe() {} disconnect() {} };
     globalThis.requestAnimationFrame = callback => { pending.set(++nextFrame, callback); return nextFrame; };
     globalThis.cancelAnimationFrame = id => pending.delete(id);
-    runtime = new ViewerRuntime({ appendChild() {} }, { viewport: () => [0, 0, 1, 1], onState: patch => patches.push(patch), onPick() {} });
+    runtime = new ViewerRuntime({ appendChild() {} }, { viewport: () => [0, 0, 1, 1], onState: patch => patches.push(patch), onPick() {}, onHide() { return true; } });
     const viewer = runtime.viewer = {
       selected_id: () => selected, select: id => { selected = id; }, separated_ids: () => separated,
       clear_selection() {}, selection_ids: () => [],

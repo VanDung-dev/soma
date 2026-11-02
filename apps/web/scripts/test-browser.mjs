@@ -18,13 +18,13 @@ try {
   const baseURL = server.resolvedUrls.local[0];
   browser = await chromium.launch({ executablePath: process.env.BENCHMARK_BROWSER, headless: true, chromiumSandbox: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, baseURL });
-  await context.addInitScript(() => localStorage.setItem('anatomy-onboarding:v1', 'dismissed'));
+  await context.addInitScript(() => { if (window.top === window) localStorage.setItem('anatomy-onboarding:v1', 'dismissed'); });
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/anatomy');
   await page.waitForSelector('.model-canvas[aria-busy="false"]', { timeout: 60000 });
-  for (const [file, name] of [['selection.browser.mjs', 'checkSelectionOutline'], ['selection.browser.mjs', 'checkMarqueeInput'],
+  for (const [file, name] of [['visibility-camera.browser.mjs', 'checkExplosionEntry'], ['visibility-camera.browser.mjs', 'checkVisibilityCamera'], ['selection.browser.mjs', 'checkSelectionOutline'], ['selection.browser.mjs', 'checkMarqueeInput'],
     ['language.browser.mjs', 'checkLanguage'], ['theme.browser.mjs', 'checkTheme'],
     ['orientation-axes.browser.mjs', 'checkAxesVisibility'],
     ['orientation-axes.browser.mjs', 'checkOrientationAxes'],
@@ -60,7 +60,7 @@ try {
   }
   assert.deepEqual(errors, [], 'Blocked storage must not break startup or preference controls');
   await blocked.close();
-  console.log('Browser checks passed: 18');
+  console.log('Browser checks passed: 20');
 } finally {
   await browser?.close();
   await server.close();

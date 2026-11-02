@@ -19,7 +19,7 @@ export async function checkViewerRuntime() {
     let ready, fail, updates = 0, updatesAtCancellation;
     const loaded = new Promise((resolve, reject) => { ready = resolve; fail = reject; });
     const runtime = new ViewerRuntime(host, { viewport: () => [0, 0, 1, 1],
-      onPick: session.pick, onState: patch => {
+      onPick: session.pick, onHide: ids => session.changeVisibility(ids, false), onState: patch => {
         updates++; session.updateViewer(patch);
         if (patch.status) statuses.push(patch.status);
         if (cancelAfterFirst && patch.loadedSystems === 1) { runtime.dispose(); updatesAtCancellation = updates; }

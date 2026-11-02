@@ -81,7 +81,7 @@ test('Shift-left marquee selects a temporary group and left hold moves it togeth
     const settings = Object.assign(new Event('keydown', { cancelable: true }), { key: 'Escape' });
     canvas.dispatchEvent(settings); assert(!settings.defaultPrevented, 'Escape keeps the Settings shortcut when no group or gesture is active');
     for (const shiftKey of [false, true]) {
-      pointer('pointerdown', { button: 2, buttons: 2, shiftKey });
+      pointer('pointerdown', { clientX: 300, button: 2, buttons: 2, shiftKey });
       pointer('pointermove', { clientX: 80, button: -1, buttons: 2, shiftKey });
       pointer('pointerup', { button: 2, shiftKey });
     }
@@ -179,8 +179,10 @@ test('left hold detaches after one second and cancels on interrupted gestures', 
       buttons: type === 'pointerup' ? 0 : 1, shiftKey: false, ...values,
     }));
     pointer('pointerdown');
+    const menu = new Event('contextmenu', { cancelable: true });
+    canvas.dispatchEvent(menu); assert(menu.defaultPrevented);
     assert.equal(selected, 'a', 'Starting the hold must preserve selection');
-    assert.deepEqual(progress.at(-1), { x: 130, y: 100 });
+    assert.deepEqual(progress.at(-1), { x: 130, y: 100, action: 'move' });
     t.mock.timers.tick(999); assert.equal(detached.length, 0);
     pointer('pointermove', { clientX: 133 });
     assert.equal(rotations, 0, 'Small pointer jitter must not rotate the model');
@@ -191,10 +193,10 @@ test('left hold detaches after one second and cancels on interrupted gestures', 
     assert.deepEqual(moves, [['b', 0.1, 0]], 'Continue dragging without a second press or a jump');
     assert.deepEqual(committed, ['b']); assert.deepEqual(picked, ['b'], 'A held release must not select again');
     assert.deepEqual(snaps, [['b', false], ['b', true]], 'Preview while dragging and connect only on release');
-    pointer('pointerdown'); pointer('pointermove', { clientX: 131 }); pointer('pointerup', { clientX: 131 });
-    assert.deepEqual(snaps.at(-1), ['', false], 'Clear previews after a click with pointer jitter');
+    pointer('pointerdown', { button: 0, buttons: 1 }); pointer('pointermove', { clientX: 131, button: -1, buttons: 1 }); pointer('pointerup', { clientX: 131, button: 0 });
+    assert.deepEqual(snaps.at(-1), ['', false], 'A short click must clear the drag preview');
     moving = '';
-    pointer('pointerdown'); t.mock.timers.tick(400); pointer('pointerup'); t.mock.timers.tick(1000);
+    pointer('pointerdown', { button: 0, buttons: 1 }); t.mock.timers.tick(400); pointer('pointerup', { button: 0 }); t.mock.timers.tick(1000);
     assert.deepEqual(picked, ['b', 'b', 'b'], 'A short click keeps ordinary selection');
     assert.equal(detached.length, 1);
     pointer('pointerdown'); pointer('pointermove', { clientX: 150 }); t.mock.timers.tick(1000); pointer('pointerup');
@@ -205,7 +207,6 @@ test('left hold detaches after one second and cancels on interrupted gestures', 
       () => window.dispatchEvent(new Event('blur')), () => window.dispatchEvent(new Event('resize')),
       () => canvas.dispatchEvent(Object.assign(new Event('keydown'), { key: 'Escape' })),
       () => canvas.dispatchEvent(Object.assign(new Event('wheel'), { clientX: 130, clientY: 100, deltaY: 1, deltaMode: 0 })),
-      () => canvas.dispatchEvent(new Event('contextmenu')),
       () => { pointer('pointerdown', { pointerId: 2 }); pointer('pointerup', { pointerId: 2 }); },
     ];
     for (const interrupt of interruptions) {
@@ -240,6 +241,71 @@ test('left hold detaches after one second and cancels on interrupted gestures', 
     moving = '';
     pointer('pointerdown'); unbind(); t.mock.timers.tick(1000);
     assert.equal(detached.length, 3, 'Disposal must cancel the pending hold'); assert.equal(progress.at(-1), null);
+  } finally {
+    unbind?.(); t.mock.timers.reset();
+    if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow;
+    await server.close();
+  }
+});
+
+test('right hold hides the hit structure or selected group and cancels interrupted holds', async t => {
+  const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
+  const previousWindow = globalThis.window;
+  let unbind;
+  try {
+    const { bindViewerInput } = await server.ssrLoadModule('/src/anatomy/viewer/input.ts');
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    globalThis.window = Object.assign(new EventTarget(), { setTimeout, clearTimeout });
+    const canvas = Object.assign(new EventTarget(), { width: 300, height: 300, clientWidth: 300, clientHeight: 300,
+      dataset: {}, focus() {}, setPointerCapture() {}, getBoundingClientRect: () => ({ left: 0, top: 0, width: 300, height: 300 }) });
+    let selected = 'b', selection = [], enabled = true, hit = 'a', pans = 0;
+    const hidden = [], progress = [], picked = [];
+    const viewer = { selected_id: () => selected, select: id => { selected = id; },
+      pick: () => { selected = hit; return hit; }, selection_ids: () => selection, clear_selection() {},
+      rotate() {}, pan: () => pans++, zoom_at() {} };
+    unbind = bindViewerInput(canvas, { enabled: () => enabled, operate: action => { action(viewer); return true; },
+      redraw() {}, pick: id => picked.push(id), detachable: () => false,
+      hide: ids => { hidden.push(ids); selected = ''; return true; }, onHold: point => progress.push(point) });
+    const pointer = (type, values = {}) => canvas.dispatchEvent(Object.assign(new Event(type), {
+      clientX: 100, clientY: 100, pointerId: 1, pointerType: 'mouse', button: 2,
+      buttons: type === 'pointerup' ? 0 : 2, shiftKey: false, ...values,
+    }));
+    pointer('pointerdown');
+    assert.equal(selected, 'b');
+    const menu = new Event('contextmenu', { cancelable: true });
+    canvas.dispatchEvent(menu); assert(menu.defaultPrevented);
+    assert.deepEqual(progress.at(-1), { x: 100, y: 100, action: 'hide' });
+    t.mock.timers.tick(999); assert.deepEqual(hidden, []);
+    pointer('pointermove', { clientX: 102 }); t.mock.timers.tick(1);
+    assert.deepEqual(hidden, [['a']], 'Hiding remains available during automatic explosion');
+    assert.equal(progress.at(-1), null);
+    pointer('pointermove', { clientX: 140 }); pointer('pointerup');
+    assert.equal(pans, 0, 'A completed hide must consume the rest of the gesture');
+    assert.deepEqual(picked, [], 'Release must not select a structure behind the hidden one');
+    selection = ['a', 'b'];
+    pointer('pointerdown'); t.mock.timers.tick(1000); pointer('pointerup');
+    assert.deepEqual(hidden.at(-1), ['a', 'b']);
+    hit = 'c';
+    pointer('pointerdown'); t.mock.timers.tick(1000); pointer('pointerup');
+    assert.deepEqual(hidden.at(-1), ['c'], 'An outside hit must not hide the selected group');
+    for (const interrupt of [
+      () => pointer('pointerup'), () => pointer('pointercancel'), () => pointer('lostpointercapture'),
+      () => pointer('pointerleave'), () => pointer('pointermove', { clientX: 120 }),
+      () => window.dispatchEvent(new Event('blur')), () => window.dispatchEvent(new Event('resize')),
+      () => canvas.dispatchEvent(Object.assign(new Event('keydown'), { key: 'Escape' })),
+      () => canvas.dispatchEvent(Object.assign(new Event('wheel'), { deltaY: 1, deltaMode: 0 })),
+      () => { pointer('pointerdown', { pointerId: 2 }); pointer('pointercancel', { pointerId: 2 }); },
+      () => { enabled = false; },
+    ]) {
+      pointer('pointerdown'); t.mock.timers.tick(500); interrupt(); t.mock.timers.tick(1000);
+      assert.equal(hidden.length, 3); pointer('pointercancel'); enabled = true;
+    }
+    for (const values of [{ pointerType: 'touch' }, { button: 0, buttons: 1 }]) {
+      pointer('pointerdown', values); t.mock.timers.tick(1000); pointer('pointercancel');
+      assert.equal(hidden.length, 3);
+    }
+    pointer('pointerdown'); unbind(); t.mock.timers.tick(1000);
+    assert.equal(hidden.length, 3); assert.equal(progress.at(-1), null);
   } finally {
     unbind?.(); t.mock.timers.reset();
     if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow;
@@ -289,6 +355,10 @@ test('manual separation drags only its structure and rotates only from empty bac
     assert.deepEqual(picked, ['b', 'a']);
     pointer('pointerdown', 130, 2, 2); pointer('pointermove', 150, 2, 2); pointer('pointerup', 150, 2);
     assert.equal(pans, 1, 'Right dragging must pan the camera');
+    const movedCount = moves.length;
+    pointer('pointerdown', 30, 2, 2); pointer('pointermove', 50, -1, 2); pointer('pointerup', 50, 2);
+    assert.equal(pans, 2, 'Right dragging must pan even over a movable structure');
+    assert.equal(moves.length, movedCount, 'Right dragging must not move anatomy');
     for (const shiftKey of [false, true]) {
       const menu = Object.assign(new Event('contextmenu', { cancelable: true }), { button: 2, shiftKey });
       canvas.dispatchEvent(menu);

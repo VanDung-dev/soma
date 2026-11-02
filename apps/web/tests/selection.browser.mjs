@@ -153,11 +153,11 @@ export async function checkMarqueeInput() {
     }
     assert(hit, 'Find a visible member for the hold gesture');
     viewer.select('');
-    pointer('pointerdown', hit, { buttons: 1 });
+    pointer('pointerdown', hit, { button: 0, buttons: 1 });
     await new Promise(resolve => setTimeout(resolve, 1100));
     assert(canvas.dataset.dragging === 'true', 'A left hold starts dragging the group');
-    pointer('pointermove', { ...hit, clientX: hit.clientX + 20 }, { buttons: 1 });
-    pointer('pointerup', { ...hit, clientX: hit.clientX + 20 }); await frames();
+    pointer('pointermove', { ...hit, clientX: hit.clientX + 20 }, { button: -1, buttons: 1 });
+    pointer('pointerup', { ...hit, clientX: hit.clientX + 20 }, { button: 0 }); await frames();
     assert(moves === 1 && viewer.selection_ids().length === ids.length, 'Keep the temporary group after dragging');
     const delta = viewer.structure_offset(ids[0]).map((value, i) => value - before.get(ids[0])[i]);
     assert(delta.some(value => Math.abs(value) > 1e-6), 'The pointer gesture moves anatomy');
