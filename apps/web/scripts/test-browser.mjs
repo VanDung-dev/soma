@@ -24,7 +24,7 @@ try {
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/anatomy');
   await page.waitForSelector('.model-canvas[aria-busy="false"]', { timeout: 60000 });
-  for (const [file, name] of [['visibility-camera.browser.mjs', 'checkExplosionEntry'], ['visibility-camera.browser.mjs', 'checkVisibilityCamera'], ['selection.browser.mjs', 'checkSelectionOutline'], ['selection.browser.mjs', 'checkMarqueeInput'],
+  for (const [file, name] of [['inventory-switch.browser.mjs', 'checkInventorySwitch'], ['visibility-camera.browser.mjs', 'checkExplosionEntry'], ['visibility-camera.browser.mjs', 'checkVisibilityCamera'], ['selection.browser.mjs', 'checkSelectionOutline'], ['selection.browser.mjs', 'checkMarqueeInput'],
     ['language.browser.mjs', 'checkLanguage'], ['theme.browser.mjs', 'checkTheme'],
     ['orientation-axes.browser.mjs', 'checkAxesVisibility'],
     ['orientation-axes.browser.mjs', 'checkOrientationAxes'],
@@ -60,7 +60,7 @@ try {
   }
   assert.deepEqual(errors, [], 'Blocked storage must not break startup or preference controls');
   await blocked.close();
-  console.log('Browser checks passed: 20');
+  console.log('Browser checks passed: 21');
 } finally {
   await browser?.close();
   await server.close();
