@@ -113,6 +113,7 @@
     "controls.keyboard.label": {"vi": "Bàn phím", "en": "Keyboard"},
     "controls.mouse.label": {"vi": "Chuột", "en": "Mouse"},
     "controls.mouse.dragLeft": {"vi": "Kéo chuột trái", "en": "Drag with the left mouse button"},
+    "controls.mouse.holdRight": {"vi": "Giữ chuột phải 1 giây", "en": "Hold the right mouse button for 1 second"},
     "controls.mouse.holdLeft": {"vi": "Giữ chuột trái 1 giây", "en": "Hold the left mouse button for 1 second"},
     "controls.mouse.rotate": {"vi": "Xoay mô hình", "en": "Rotate the model"},
     "controls.mouse.wheel": {"vi": "Cuộn chuột", "en": "Scroll the mouse wheel"},
@@ -162,7 +163,7 @@
     "information.expand": {"vi": "Mở rộng", "en": "Expand"},
     "information.collapse": {"vi": "Thu nhỏ", "en": "Collapse"},
     "information.noLinkedModel": {"vi": "Nhánh này chưa có mô hình 3D được liên kết.", "en": "No 3D model is linked to this branch."},
-    "information.overview": {"vi": "Giữ chuột trái 1 giây trên bộ phận, rồi kéo để tách và quan sát.", "en": "Hold the left mouse button on a structure for 1 second, then drag to inspect it."},
+    "information.overview": {"vi": "Giữ chuột trái 1 giây rồi kéo để tách bộ phận; giữ chuột phải 1 giây để ẩn.", "en": "Hold left for 1 second, then drag to inspect a structure; hold right for 1 second to hide it."},
     "credit.summary": {"vi": "Z-Anatomy — CC BY-SA 4.0", "en": "Z-Anatomy — CC BY-SA 4.0"},
     "credit.link": {"vi": "Nguồn và giấy phép", "en": "Sources and licenses"},
     "window.minimize": {"vi": "Thu nhỏ cửa sổ", "en": "Minimize window"},
@@ -181,8 +182,9 @@
     "wikipedia.notes.short": {"vi": "Lưu ý", "en": "Note"},
     "wikipedia.notes.disclaimer": {"vi": "Wikipedia chỉ phục vụ tham khảo và học tập; thông tin có thể sai hoặc chưa cập nhật, không thay thế tài liệu chuyên môn hoặc tư vấn y tế.", "en": "Wikipedia is for reference and learning only. Its information may be inaccurate or outdated and does not replace professional sources or medical advice."},
     "context.detach": {"vi": "Tách để quan sát", "en": "Move to inspect"},
+    "context.hide": {"vi": "Ẩn bộ phận hoặc nhóm đã chọn", "en": "Hide the structure or selected group"},
     "context.restore": {"vi": "Đưa về vị trí gốc", "en": "Restore position"},
-    "context.dragHint": {"vi": "Kéo để di chuyển · Giữ để tách lại · T để khôi phục", "en": "Drag to move · Hold to detach again · T to restore"},
+    "context.dragHint": {"vi": "Kéo chuột trái để di chuyển · Giữ chuột trái để tách lại · T để khôi phục", "en": "Left drag to move · Hold left to detach again · T to restore"},
     "viewer.snapHint": {"vi": "Thả chuột để ghép với {name}", "en": "Release to connect with {name}"},
     "shortcuts.app": {"vi": "Thao tác ứng dụng", "en": "App actions"}
   }
