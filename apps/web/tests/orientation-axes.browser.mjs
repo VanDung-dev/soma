@@ -1,5 +1,30 @@
 import { getWasm } from '../src/anatomy/core.ts';
 
+export async function checkDefaultFrontView() {
+  const assert = (ok, message) => { if (!ok) throw Error(message); };
+  const widget = document.querySelector('.orientation-axes'), canvas = document.querySelector('.model-canvas canvas');
+  const frames = async count => { for (let i = 0; i < count; i++) await new Promise(requestAnimationFrame); };
+  const front = () => {
+    const positive = widget.querySelector('[data-axis="X"][data-direction="1"]');
+    const negative = widget.querySelector('[data-axis="X"][data-direction="-1"]');
+    const point = positive.querySelector('circle');
+    return Number(point.getAttribute('cx')) === 56 && Number(point.getAttribute('cy')) === 56
+      && Number(positive.getAttribute('opacity')) === 1 && Math.abs(Number(negative.getAttribute('opacity')) - 0.45) < 1e-6;
+  };
+  const key = async (name, count) => {
+    canvas.focus();
+    canvas.dispatchEvent(new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true }));
+    await frames(count);
+    canvas.dispatchEvent(new KeyboardEvent('keyup', { key: name, bubbles: true, cancelable: true }));
+  };
+  assert(front(), 'Startup must face +X with -X behind');
+  await key('ArrowLeft', 10); await key('ArrowUp', 10);
+  assert(!front(), 'Manual rotation must still change the view');
+  await key('r', 1); await frames(70);
+  assert(front(), 'R must restore the same frontal orientation as startup');
+  return { startupFront: true, resetFront: true, positiveXInFront: true, negativeXBehind: true, manualRotation: true };
+}
+
 export async function checkAxesVisibility() {
   const assert = (ok, message) => { if (!ok) throw Error(message); };
   const popover = document.querySelector('.settings-popover');

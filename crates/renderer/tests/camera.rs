@@ -2,6 +2,32 @@ use glam::Vec3;
 use renderer::{Bounds, Camera};
 
 #[test]
+fn startup_focus_and_reset_share_the_frontal_orientation() {
+    let bounds = Bounds {
+        min: Vec3::splat(-1.0),
+        max: Vec3::splat(1.0),
+    };
+    for (width, height) in [(1440, 900), (390, 600)] {
+        let mut camera = Camera::new(bounds);
+        camera.resize(width, height);
+        let startup = camera.matrix();
+        assert_eq!(camera.light_basis().z_axis, Vec3::Z);
+        assert_eq!(camera.light_basis().y_axis, Vec3::Y);
+        camera.rotate(0.6, -0.3).unwrap();
+        camera.pan(0.1, -0.2).unwrap();
+        camera.zoom(0.7).unwrap();
+        camera.reset();
+        assert_eq!(camera.matrix(), startup);
+        camera.rotate(-0.4, 0.2).unwrap();
+        camera.focus(bounds, [0.2, 0.1, 0.6, 0.7]).unwrap();
+        assert_eq!(camera.light_basis().z_axis, Vec3::Z);
+        assert_eq!(camera.light_basis().y_axis, Vec3::Y);
+        let layout = Camera::layout(bounds, camera.aspect, [0.2, 0.1, 0.6, 0.7]).unwrap();
+        assert_eq!(camera.light_basis(), layout.light_basis());
+    }
+}
+
+#[test]
 fn axis_views_preserve_zoom_and_pivot_projection_including_both_poles() {
     use std::f32::consts::{FRAC_PI_2, PI};
     let mut original = Camera::new(Bounds {
@@ -147,7 +173,10 @@ fn screen_zoom_keeps_the_pointer_ray_fixed_after_pan_rotation_and_focus() {
                 camera.pan(0.15, -0.12).unwrap();
                 let before = camera.matrix();
                 let depth = before.project_point3(camera.target).z;
-                let anchor = before.inverse().project_point3(Vec3::new(x, y, depth));
+                let anchor = glam::DMat4::from_cols_array(&before.to_cols_array().map(f64::from))
+                    .inverse()
+                    .project_point3(glam::DVec3::new(x as f64, y as f64, depth as f64))
+                    .as_vec3();
                 // Every depth on the pointer ray must stay under the cursor.
                 let nearer = camera.eye().lerp(anchor, 0.7);
                 let basis = camera.light_basis();
@@ -156,7 +185,11 @@ fn screen_zoom_keeps_the_pointer_ray_fixed_after_pan_rotation_and_focus() {
                     camera.zoom_at(x, y, factor).unwrap();
                     for point in [anchor, nearer] {
                         let screen = camera.matrix().project_point3(point);
-                        assert!((screen.x - x).abs() < 2e-4 && (screen.y - y).abs() < 2e-4);
+                        assert!(
+                            (screen.x - x).abs() < 2e-4 && (screen.y - y).abs() < 2e-4,
+                            "aspect={aspect}, focused={focused}, pointer=({x}, {y}), factor={factor}, before={:?}, after={screen:?}",
+                            before.project_point3(point)
+                        );
                     }
                     assert_eq!(camera.light_basis(), basis);
                 }
@@ -622,8 +655,9 @@ fn camera_fits_narrow_viewports_and_rejects_invalid_inputs() {
     camera.reset();
     assert_eq!(camera.yaw, initial_yaw);
     assert_eq!(camera.pitch, initial_pitch);
-    assert!(camera.eye().x < camera.target.x);
-    assert!(camera.eye().y > camera.target.y);
+    assert_eq!(camera.eye().x, camera.target.x);
+    assert_eq!(camera.eye().y, camera.target.y);
+    assert!(camera.eye().z > camera.target.z);
     let check_frame = |camera: &Camera| {
         let center = camera.matrix().project_point3(camera.target);
         assert!(center.x.abs() < 1e-5);

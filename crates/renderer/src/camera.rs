@@ -38,8 +38,8 @@ impl Camera {
         self.pan_offset = Vec3::ZERO;
         self.view = bounds;
         self.target = bounds.center();
-        self.yaw = -0.32;
-        self.pitch = 0.12;
+        self.yaw = 0.0;
+        self.pitch = 0.0;
         let fov = 38_f32.to_radians();
         let [_, _, width, height] = self.frame.unwrap_or([0.0, 0.0, 1.0, 1.0]);
         let limiting = (2.0 * ((fov * 0.5).tan() * height).atan())
