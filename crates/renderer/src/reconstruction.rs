@@ -71,7 +71,27 @@ impl Reconstruction {
             .get(index)
             .is_some_and(|reveal| reveal.to == 0.0 && reveal.value(self.time) > 0.0)
     }
+    pub fn waiting_to_reveal(&self, index: usize) -> bool {
+        self.reveals
+            .get(index)
+            .is_some_and(|reveal| reveal.to == 1.0 && reveal.value(self.time) == 0.0)
+    }
     pub fn set_visibility(&mut self, parts: &[Primitive], now: Option<f64>) -> Result<(), String> {
+        self.change_visibility(parts, now, false)
+    }
+    pub fn set_inventory_visibility(
+        &mut self,
+        parts: &[Primitive],
+        now: Option<f64>,
+    ) -> Result<(), String> {
+        self.change_visibility(parts, now, true)
+    }
+    fn change_visibility(
+        &mut self,
+        parts: &[Primitive],
+        now: Option<f64>,
+        inventory: bool,
+    ) -> Result<(), String> {
         if parts.len() != self.reveals.len() {
             return Err("Visibility geometry does not match reconstruction".into());
         }
@@ -94,7 +114,12 @@ impl Reconstruction {
             let level = (part.bounds.center().y - low) / (high - low).max(f32::EPSILON);
             *reveal = Reveal {
                 start: if now.is_some() {
-                    start + level as f64 * 340.0
+                    start
+                        + if inventory {
+                            if to == 1.0 { 300.0 } else { 0.0 }
+                        } else {
+                            level as f64 * 340.0
+                        }
                 } else {
                     start - 300.0
                 },

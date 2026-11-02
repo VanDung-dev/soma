@@ -31,6 +31,41 @@ fn groups() -> Vec<Vec<String>> {
 }
 
 #[test]
+fn inventory_switch_fades_in_the_final_layout_and_keeps_outgoing_parts_still() {
+    let mut scene = scene();
+    scene.set_visibility(&["a".into()]).unwrap();
+    let mut reveal = Reconstruction::default();
+    reveal
+        .append(&scene.parts, scene.bounds, 0.0, false)
+        .unwrap();
+    let mut explosion = Explosion::new(&scene, groups()).unwrap();
+    explosion.set(1.0, 0.0).unwrap();
+    explosion.layout_revealed(&scene, 1.0, &reveal);
+    explosion.finish();
+    let old = explosion.offset(0);
+    scene.set_visibility(&["b".into(), "c".into()]).unwrap();
+    reveal.set_visibility(&scene.parts, Some(100.0)).unwrap();
+    let bounds = explosion.layout_revealed(&scene, 1.0, &reveal);
+    let mut reference = Explosion::new(&scene, groups()).unwrap();
+    reference.set(1.0, 100.0).unwrap();
+    let expected = reference.layout(&scene, 1.0);
+    assert_eq!(bounds.min, expected.min);
+    assert_eq!(bounds.max, expected.max);
+    reference.finish();
+    for index in [2, 3] {
+        assert_eq!(reveal.opacity(index), 0.0);
+        assert_eq!(explosion.offset(index), reference.offset(index));
+    }
+    explosion.advance(116.0, scene.bounds.radius()).unwrap();
+    assert_eq!(explosion.offset(0), old);
+    reveal.advance(1000.0).unwrap();
+    explosion.layout_revealed(&scene, 1.0, &reveal);
+    for index in [2, 3] {
+        assert_eq!(explosion.offset(index), reference.offset(index));
+    }
+}
+
+#[test]
 fn overview_tracks_displayed_offsets_and_keeps_its_grid_around_the_camera() {
     let mut scene = scene();
     scene

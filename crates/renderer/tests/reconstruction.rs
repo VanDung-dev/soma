@@ -2,6 +2,38 @@ use renderer::{Primitive, Reconstruction, Scene};
 use std::path::Path;
 
 #[test]
+fn inventory_replacement_hides_the_old_system_before_revealing_the_new_one() {
+    let mut parts: Vec<Primitive> = (0..2).map(|i| serde_json::from_value(serde_json::json!({
+        "source_id": i.to_string(), "bounds": {"min": [0.0,i as f32,0.0], "max": [0.1,i as f32 + 0.1,0.1]},
+        "color": [0.5,0.5,0.5,1.0], "roughness": 0.6, "metallic": 0.0,
+        "specular": 0.04, "subsurface": 0.0, "double_sided": false, "blend": false,
+        "alpha_cutoff": 0.0, "active": true, "visible": i == 0
+    })).unwrap()).collect();
+    let mut reveal = Reconstruction::default();
+    reveal
+        .append(&parts, parts[0].bounds.union(parts[1].bounds), 0.0, false)
+        .unwrap();
+    parts[0].visible = false;
+    parts[1].visible = true;
+    reveal
+        .set_inventory_visibility(&parts, Some(100.0))
+        .unwrap();
+    reveal.advance(250.0).unwrap();
+    assert!((reveal.opacity(0) - 0.5).abs() < 1e-6);
+    assert_eq!(reveal.opacity(1), 0.0);
+    reveal.advance(400.0).unwrap();
+    assert_eq!(reveal.opacity(0), 0.0);
+    assert_eq!(reveal.opacity(1), 0.0);
+    reveal.advance(550.0).unwrap();
+    assert!((reveal.opacity(1) - 0.5).abs() < 1e-6);
+    parts[0].visible = true;
+    parts[1].visible = false;
+    reveal.set_inventory_visibility(&parts, None).unwrap();
+    assert_eq!(reveal.opacity(0), 1.0);
+    assert_eq!(reveal.opacity(1), 0.0);
+}
+
+#[test]
 fn visibility_reveals_only_changed_parts_and_reverses_from_the_displayed_value() {
     let mut parts: Vec<Primitive> = (0..3).map(|i| serde_json::from_value(serde_json::json!({
         "source_id": i.to_string(), "bounds": {"min": [0.0,i as f32,0.0], "max": [0.1,i as f32 + 0.1,0.1]},

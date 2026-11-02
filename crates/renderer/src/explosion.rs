@@ -78,7 +78,7 @@ impl Explosion {
             .parts
             .iter()
             .enumerate()
-            .filter(|(i, p)| p.visible || reveal.fading_out(*i))
+            .filter(|(i, p)| p.visible || (self.amount < 1.0 && reveal.fading_out(*i)))
         {
             structures
                 .entry(&part.source_id)
@@ -127,8 +127,12 @@ impl Explosion {
         self.targets = scene
             .parts
             .iter()
-            .map(|part| {
+            .enumerate()
+            .map(|(index, part)| {
                 let Some((cell, bounds)) = cells.get(part.source_id.as_str()) else {
+                    if self.amount == 1.0 && reveal.fading_out(index) {
+                        return self.offsets[index];
+                    }
                     return Vec3::ZERO;
                 };
                 let group = self.groups.get(&part.source_id).copied().unwrap_or(0);
@@ -144,11 +148,18 @@ impl Explosion {
                 }
             })
             .collect();
+        if self.amount == 1.0 {
+            for (index, part) in scene.parts.iter().enumerate() {
+                if part.visible && reveal.waiting_to_reveal(index) {
+                    self.offsets[index] = self.targets[index];
+                }
+            }
+        }
         scene
             .parts
             .iter()
             .enumerate()
-            .filter(|(i, p)| p.visible || reveal.fading_out(*i))
+            .filter(|(i, p)| p.visible || (self.amount < 1.0 && reveal.fading_out(*i)))
             .map(|(i, p)| p.bounds.translated(self.targets[i]))
             .reduce(Bounds::union)
             .unwrap_or(scene.bounds)
@@ -175,7 +186,7 @@ impl Explosion {
             .iter()
             .zip(&self.offsets)
             .enumerate()
-            .filter(|(i, (part, _))| part.visible || reveal.fading_out(*i))
+            .filter(|(i, (part, _))| part.visible || (self.amount < 1.0 && reveal.fading_out(*i)))
             .map(|(_, (part, offset))| part.bounds.translated(*offset))
             .collect();
         let bounds = displayed
