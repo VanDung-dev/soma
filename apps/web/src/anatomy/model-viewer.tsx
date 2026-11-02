@@ -31,7 +31,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const { language, t } = useLanguage();
   const [graphics, setGraphics] = useState(readGraphicsSettings);
   const [fps, setFps] = useState(0);
-  const [hold, setHold] = useState<{ x: number; y: number } | null>(null);
+  const [hold, setHold] = useState<{ x: number; y: number; action: "hide" | "move" } | null>(null);
   const [snapTarget, setSnapTarget] = useState("");
   const [panel, setPanel] = useState<"catalog" | "information" | null>(null);
   const [collapsedPanels, setCollapsedPanels] = useState({ catalog: false, information: false });
@@ -68,7 +68,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
 
   useEffect(() => {
     const viewer = new ViewerRuntime(host.current!, { viewport: focusViewport,
-      onState: session.updateViewer, onPick: session.pick, onFps: setFps, onHold: setHold, onSnap: setSnapTarget,
+      onState: session.updateViewer, onPick: session.pick, onHide: ids => session.changeVisibility(ids, false), onFps: setFps, onHold: setHold, onSnap: setSnapTarget,
       onOrientation: axes => orientation.current?.update(axes) });
     runtime.current = viewer; session.connect(viewer);
     void viewer.start(catalog);
@@ -205,7 +205,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       <main id="workspace" tabIndex={-1}>
         <section className="anatomy-space" aria-label={t("viewer.section.label")}>
           <div className="model-canvas" ref={host} aria-busy={building && !error} />
-          {hold && <svg className="model-hold-progress" style={{ left: hold.x, top: hold.y }} viewBox="0 0 40 40" aria-hidden="true">
+          {hold && <svg key={hold.action} className="model-hold-progress" data-action={hold.action} style={{ left: hold.x, top: hold.y }} viewBox="0 0 40 40" aria-hidden="true">
             <circle cx="20" cy="20" r="16" />
             <circle className="model-hold-fill" cx="20" cy="20" r="16" pathLength="100" />
           </svg>}

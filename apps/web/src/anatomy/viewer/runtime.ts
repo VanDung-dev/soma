@@ -39,9 +39,10 @@ export class ViewerRuntime implements StudyViewer {
     viewport: () => Viewport;
     onState: (patch: Partial<ViewerState>) => void;
     onPick: (id: string) => void;
+    onHide: (ids: string[]) => boolean;
     onFps?: (fps: number) => void;
     onOrientation?: (axes: Float32Array) => void;
-    onHold?: (point: { x: number; y: number } | null) => void;
+    onHold?: (point: { x: number; y: number; action: "hide" | "move" } | null) => void;
     onSnap?: (id: string) => void;
   }) {
     this.canvas.setAttribute("role", "img");
@@ -61,6 +62,7 @@ export class ViewerRuntime implements StudyViewer {
       detachable: () => !this.exploding || this.reassembling,
       detach: id => this.setMoving(id) && this.operate(viewer => viewer.detach_structure(id)), onHold: options.onHold,
       beginGroup: id => this.setMoving(id) && this.operate(viewer => viewer.begin_selection_drag()),
+      hide: options.onHide,
       onBox: rect => {
         this.selectionBox.hidden = !rect;
         if (rect) Object.assign(this.selectionBox.style, {

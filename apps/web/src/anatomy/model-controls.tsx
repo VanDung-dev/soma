@@ -35,8 +35,9 @@ export function ModelControls({ disabled, onControl, helpId, onReplayGuide }: {
     const keyDown = (event: KeyboardEvent) => {
       if (disabled || event.defaultPrevented || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target;
-      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [role='textbox'], [role='menu'], .app-menu-bar, .app-popover, .catalog-panel, .information-panel"))) return;
       const key = event.key.toLowerCase();
+      const resetCheckbox = key === "r" && target instanceof HTMLInputElement && target.type === "checkbox" && !!target.closest(".catalog-panel");
+      if (!resetCheckbox && target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [role='textbox'], [role='menu'], .app-menu-bar, .app-popover, .catalog-panel, .information-panel"))) return;
       if (!isCameraKey(key)) return;
       event.preventDefault();
       if (pressed.has(key) || event.repeat) return;
@@ -79,6 +80,7 @@ export function ModelControls({ disabled, onControl, helpId, onReplayGuide }: {
           </section>
           <section aria-label={t("controls.mouse.label")}><h3>{t("controls.mouse.label")}</h3><dl className="guide-mouse">
             <div><dt>{t("controls.mouse.dragLeft")}</dt><dd>{t("controls.mouse.rotate")}</dd></div>
+            <div><dt>{t("controls.mouse.holdRight")}</dt><dd>{t("context.hide")}</dd></div>
             <div><dt>{t("controls.mouse.holdLeft")}</dt><dd>{t("context.detach")}</dd></div>
             <div><dt>{t("controls.mouse.wheel")}</dt><dd>{t("controls.mouse.zoomAtCursor")}</dd></div>
             <div><dt>{t("controls.mouse.panGesture")}</dt><dd>{t("controls.mouse.pan")}</dd></div>

@@ -109,6 +109,7 @@
 .model-selection-box { position: absolute; z-index: 2; pointer-events: none; border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .model-hold-progress { position: fixed; z-index: 7; width: 40px; height: 40px; transform: translate(-50%, -50%) rotate(-90deg); pointer-events: none; fill: none; stroke: var(--panel-bg); stroke-width: 4; filter: drop-shadow(0 1px 3px rgba(var(--shadow-rgb),.5)); visibility: hidden; animation: model-hold-show 0s .5s forwards; }
 .model-hold-fill { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: model-hold-fill .5s .5s linear forwards; }
+.model-hold-progress[data-action="hide"] { transform: translate(-50%, -50%) rotate(-90deg) scaleY(-1); }
 @keyframes model-hold-show { to { visibility: visible; } }
 @keyframes model-hold-fill { to { stroke-dashoffset: 0; } }
 .model-focus-frame { position: absolute; z-index: 1; border-radius: var(--panel-radius); pointer-events: none; }
@@ -244,7 +245,7 @@
 .wikipedia-skeleton::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(var(--highlight-rgb), .3), transparent); transform: translateX(-100%); animation: wikipedia-shimmer 1.5s linear infinite; }
 @keyframes wikipedia-shimmer { to { transform: translateX(100%); } }
 .reader-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.reader-actions button, .reader-actions a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 10px; border: 1px solid var(--line-strong); border-radius: var(--inner-radius); background: var(--surface); font-size: 12px; line-height: 1.5; text-decoration: none; }
+.reader-actions button, .reader-actions a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 10px; border: 1px solid var(--line-strong); border-radius: var(--inner-radius); background: var(--surface); color: inherit; font-size: 12px; line-height: 1.5; text-decoration: none; }
 .reader-expand { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: var(--control-radius); background: var(--surface); font-size: 12px; line-height: 1.5; text-decoration: none; }
 .reader-actions button:hover, .reader-actions a:hover, .reader-expand:hover { background: var(--control-hover); border-color: var(--line-hover); }
 .reference-mapping-description { padding: 1px 10px; border: 1px solid var(--line); border-radius: var(--detail-radius); background: var(--surface); }
