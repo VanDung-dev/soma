@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Human Atlas",
+  "productName": "Soma",
   "version": "0.1.0",
   "identifier": "com.humanatlas.study",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [{
       "label": "main",
       "url": "home",
-      "title": "Human Atlas — Tự học giải phẫu",
+      "title": "Soma — Tự học giải phẫu",
       "titleBarStyle": "Overlay",
       "hiddenTitle": true,
       "trafficLightPosition": { "x": 16, "y": 26 },

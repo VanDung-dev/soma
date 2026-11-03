@@ -15,7 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 API = 'https://en.wikipedia.org/w/api.php'
-USER_AGENT = 'HumanAtlasContentImporter/0.1 (https://github.com/VanDung-dev/human-atlas-rs)'
+USER_AGENT = 'SomaContentImporter/0.1 (https://github.com/VanDung-dev/soma)'
 
 
 class ArticleText(HTMLParser):

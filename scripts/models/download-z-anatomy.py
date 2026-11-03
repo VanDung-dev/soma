@@ -11,7 +11,7 @@ MAX_EXTRACTED = 2 * 1024 * 1024 * 1024
 
 
 def download_archive(url, destination):
-    request = Request(url, headers={'User-Agent': 'human-atlas-rs model importer'})
+    request = Request(url, headers={'User-Agent': 'soma model importer'})
     print(f'Downloading Z-Anatomy source: {url}', flush=True)
     with urlopen(request, timeout=60) as response, destination.open('wb') as output:
         expected = response.headers.get('Content-Length')

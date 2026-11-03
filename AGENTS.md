@@ -1,4 +1,4 @@
-# Human Atlas Rust repository guidance
+# Soma repository guidance
 
 ## Project structure
 

@@ -23,7 +23,7 @@
     "handCamera.error.model": {"vi": "Không tải được bộ nhận diện tay. Camera đã tắt. Bạn có thể thử lại hoặc dùng trình duyệt khác.", "en": "Hand tracking could not load. The camera is off. Try again or use another browser."},
     "handCamera.error.processing": {"vi": "Nhận diện tay bị gián đoạn. Camera đã tắt; hãy thử lại.", "en": "Hand tracking was interrupted. The camera is off; please retry."},
     "module.home": {"vi": "Home", "en": "Home"},
-    "home.brand.label": {"vi": "Human Atlas — Trang chủ", "en": "Human Atlas — Home"},
+    "home.brand.label": {"vi": "Soma — Trang chủ", "en": "Soma — Home"},
     "home.description": {"vi": "Chọn một phần để bắt đầu.", "en": "Choose a section to get started."},
     "home.modules.label": {"vi": "Các phần trong ứng dụng", "en": "App sections"},
     "home.anatomy.description": {"vi": "Khám phá mô hình giải phẫu 3D.", "en": "Explore the 3D anatomy model."},

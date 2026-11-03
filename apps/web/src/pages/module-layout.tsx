@@ -20,7 +20,7 @@ export function ModuleLayout({ children, page, onClick }: { children: ReactNode;
   const nextTheme = theme === "auto" ? "light" : theme === "light" ? "dark" : "auto";
   const themeIcon = theme === "auto" ? "star-alt" : theme === "light" ? "sunny" : "moon-alt";
   const title = t(`module.${page}`);
-  useEffect(() => { document.title = `Human Atlas — ${title}`; }, [title]);
+  useEffect(() => { document.title = `Soma — ${title}`; }, [title]);
   useEffect(() => {
     if (!suppressContextMenu) return;
     let disposed = false;
@@ -67,7 +67,7 @@ export function ModuleLayout({ children, page, onClick }: { children: ReactNode;
       }
     }}>
     <header className="module-header" data-tauri-drag-region={macOS || windows ? "deep" : undefined}>
-      <a className="module-brand" href="/home" aria-label={t("home.brand.label")}>Human Atlas</a>
+      <a className="module-brand" href="/home" aria-label={t("home.brand.label")}>Soma</a>
       <nav className="module-nav" aria-label={t("app.navigation.label")}>
         <a href="/home" aria-current={page === "home" ? "page" : undefined}>{t("module.home")}</a>
         <a href="/anatomy" aria-current={page === "anatomy" ? "page" : undefined}>{t("module.anatomy")}</a>

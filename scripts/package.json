@@ -1,5 +1,5 @@
 {
-  "name": "@human-atlas/scripts",
+  "name": "@soma/scripts",
   "private": true,
   "scripts": {
     "models:import": "node models/import-models.mjs"

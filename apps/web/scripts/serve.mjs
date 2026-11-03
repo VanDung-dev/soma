@@ -30,5 +30,5 @@ export function createWebServer(directory = dist) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const port = Number(process.env.PORT ?? 4173);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw Error('PORT must be between 1 and 65535');
-  createWebServer().listen(port, process.env.HOST ?? '127.0.0.1', () => console.log(`Human Atlas: http://${process.env.HOST ?? '127.0.0.1'}:${port}`));
+  createWebServer().listen(port, process.env.HOST ?? '127.0.0.1', () => console.log(`Soma: http://${process.env.HOST ?? '127.0.0.1'}:${port}`));
 }

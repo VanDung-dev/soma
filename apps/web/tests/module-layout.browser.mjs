@@ -83,7 +83,7 @@ export async function checkModuleNavigation() {
           assert(host.querySelector('.module-page') === frame && host.querySelector('.module-header') === header && host.querySelector('.module-content') === content, 'Keep the same frame, header and content container');
           assert(content.dataset.page === page, 'Render the selected module');
           assert(host.querySelector('.module-nav [aria-current="page"]').pathname === '/' + page, 'Update the active navigation link');
-          assert(document.title === 'Human Atlas — ' + host.querySelector('.module-nav [aria-current="page"]').textContent, 'Update the window title');
+          assert(document.title === 'Soma — ' + host.querySelector('.module-nav [aria-current="page"]').textContent, 'Update the window title');
         };
         for (const page of ['anatomy']) {
           assert(click(host.querySelector(`.home-module-${page} strong`)) === desktop, 'Intercept Home cards only on desktop, including nested targets');

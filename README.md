@@ -1,4 +1,4 @@
-# Human Atlas Rust
+# Soma
 
 Anatomy viewer: React, Rust/WASM and Tauri.
 

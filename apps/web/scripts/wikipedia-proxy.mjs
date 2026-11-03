@@ -110,7 +110,7 @@ export async function wikipediaProxy(req, res, next) {
   try {
     let response;
     for (let redirects = 0; redirects <= 5; redirects++) {
-      response = await fetch(source, { redirect: 'manual', signal, headers: { 'User-Agent': 'HumanAtlas/0.1 (Wikipedia article reader)' } });
+      response = await fetch(source, { redirect: 'manual', signal, headers: { 'User-Agent': 'Soma/0.1 (Wikipedia article reader)' } });
       if (![301, 302, 303, 307, 308].includes(response.status)) break;
       const location = response.headers.get('location');
       const target = location && wikipediaUrl(new URL(location, source).href);

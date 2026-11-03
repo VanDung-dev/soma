@@ -1,4 +1,4 @@
-# Human Atlas app icons
+# Soma app icons
 
 The web and desktop icons are derived from [the Cranium Home preview](../home/anatomy.png).
 Only transparent margins were cropped before centering and resizing the image.

@@ -9,7 +9,7 @@ import "./fonts.css";
 const root = createRoot(document.getElementById("root")!);
 const language = getInitialLanguage();
 document.documentElement.lang = language;
-document.title = "Human Atlas";
+document.title = "Soma";
 const theme = getEffectiveTheme(getInitialTheme());
 document.documentElement.dataset.theme = theme;
 document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#292b2a" : "#f5f2ec");

@@ -14,7 +14,7 @@ export function HomePage() {
   return <main className="home-page" aria-labelledby="home-title">
     <div className="home-content">
       <header className="home-heading">
-        <h1 id="home-title">Human Atlas</h1>
+        <h1 id="home-title">Soma</h1>
         <p>{t("home.description")}</p>
       </header>
       <nav className="home-modules" aria-label={t("home.modules.label")}>

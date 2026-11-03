@@ -3,6 +3,6 @@
 <plist version="1.0">
 <dict>
     <key>NSCameraUsageDescription</key>
-    <string>Human Atlas uses the camera for optional hand controls. Video is processed on this device.</string>
+    <string>Soma uses the camera for optional hand controls. Video is processed on this device.</string>
 </dict>
 </plist>

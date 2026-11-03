@@ -1,4 +1,4 @@
-# Human Atlas desktop icons
+# Soma desktop icons
 
 These icons are resized and format-converted copies of
 `../../public/icons/app-icon.png`, derived from `../../public/home/anatomy.png`.
