@@ -27,6 +27,18 @@ npm install
 WASM builds before dev/build. Web and desktop dev share port 5173; run one at a time.
 Desktop requires [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/).
 
+### Manual desktop build on GitHub Actions
+
+Once the workflow is on the default branch, open **Actions → Build desktop → Run workflow** and select `all` to build all four platforms in one run. Download each platform's ZIP from **Artifacts** on the completed run.
+
+With GitHub CLI, request all four builds from the repository root.
+
+```sh
+gh workflow run desktop-build.yml -f platform=all
+```
+
+For a single platform, use `windows-x64`, `windows-arm64`, `macos-x64`, or `macos-arm64`. The workflow runs only on manual request.
+
 ### macOS app and ZIP
 
 Run from the repository root on macOS.
