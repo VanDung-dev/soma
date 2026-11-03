@@ -27,6 +27,35 @@ npm install
 WASM builds before dev/build. Web and desktop dev share port 5173; run one at a time.
 Desktop requires [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/).
 
+### macOS app and ZIP
+
+Run from the repository root on macOS.
+
+```sh
+npm exec --workspace apps/web -- tauri build \
+  --bundles app --config '{"bundle":{"active":true}}' &&
+ditto -c -k --sequesterRsrc --keepParent \
+  target/release/bundle/macos/Soma.app \
+  target/release/Soma-macOS.zip
+```
+
+Extract `target/release/Soma-macOS.zip` and open `Soma.app` in Finder.
+
+### Windows x64 installer and ZIP
+
+Run in PowerShell from the repository root on Windows with the x64 MSVC Rust toolchain and the [Windows Tauri prerequisites](https://v2.tauri.app/start/prerequisites/#windows).
+
+```powershell
+npm.cmd exec --workspace apps/web -- tauri build --bundles nsis --target x86_64-pc-windows-msvc
+if ($LASTEXITCODE -ne 0) { throw 'Soma build failed' }
+
+$version = (Get-Content apps/web/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+$installer = "target/x86_64-pc-windows-msvc/release/bundle/nsis/Soma_${version}_x64-setup.exe"
+Compress-Archive -LiteralPath $installer -DestinationPath target/Soma-Windows-x64.zip -Force
+```
+
+Extract `target/Soma-Windows-x64.zip` and run the setup executable.
+
 ## Checks
 
 ```sh
