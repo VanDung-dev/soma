@@ -148,6 +148,7 @@ out
 # Nuxt.js build / generate output
 .nuxt
 dist
+/apps/web/dist-desktop/
 
 # Gatsby files
 .cache/

@@ -9,7 +9,7 @@ tauri-build.workspace = true
 
 [dependencies]
 catalog.workspace = true
-tauri.workspace = true
+tauri = { workspace = true, features = ["protocol-asset"] }
 tauri-plugin-opener = ">=2, <3"
 
 [features]

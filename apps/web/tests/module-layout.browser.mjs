@@ -13,10 +13,17 @@ export async function checkModuleNavigation() {
   const originalUrl = location.href;
   assert(['/', '/home', '/home/'].includes(location.pathname), 'Start the navigation probe on Home');
   let catalogCalls = 0;
+  const openedDocuments = [];
+  let editorAvailable = true;
   try {
     Object.defineProperty(window, '__TAURI_INTERNALS__', { configurable: true, value: {
-      invoke: async command => {
-        assert(command === 'get_catalog', 'Only mock the native catalog command');
+      invoke: async (command, args) => {
+        if (command === 'open_attribution') {
+          if (!editorAvailable) throw Error('Editor unavailable');
+          openedDocuments.push(args.path);
+          return;
+        }
+        assert(command === 'get_catalog', 'Only mock the catalog and attribution commands');
         catalogCalls++;
         return catalog;
       },
@@ -45,6 +52,13 @@ export async function checkModuleNavigation() {
         const content = host.querySelector('.module-content');
         const credit = host.querySelector('.home-credit a');
         const creditHref = credit.getAttribute('href');
+        editorAvailable = true;
+        assert(click(credit) === desktop, 'Open source links natively on desktop');
+        if (desktop) {
+          assert(openedDocuments.at(-1) === creditHref, 'Pass the document to the native editor command');
+          assert(!host.querySelector('.source-document'), 'Keep the in-app reader closed when the editor opens');
+        }
+        editorAvailable = false;
         const readDocument = path => new Promise((resolve, reject) => {
           const observer = new MutationObserver(check);
           const timeout = setTimeout(() => { observer.disconnect(); reject(Error(`Source document timed out: ${path}; ${host.querySelector('.source-document')?.outerHTML}`)); }, 5000);
@@ -58,7 +72,7 @@ export async function checkModuleNavigation() {
         for (const path of ['/home/ATTRIBUTION.md', '/models/z-anatomy/ATTRIBUTION.md', '/missing/ATTRIBUTION.md']) {
           credit.href = path;
           credit.focus();
-          assert(click(credit) === desktop, 'Open bundled source documents inside desktop and retain browser links');
+          assert(click(credit) === desktop, 'Fall back to the in-app reader on desktop and retain browser links');
           if (desktop) {
             const result = await readDocument(path);
             const panel = host.querySelector('.source-document');
@@ -137,7 +151,8 @@ export async function checkModuleNavigation() {
         host.remove();
       }
     }
-    assert(catalogCalls === 1, 'Mount Anatomy once through the native catalog path');
+    await Promise.resolve();
+    assert(catalogCalls === 2, 'Load the native catalog on each of the two Anatomy visits');
     return { desktopInPlace: true, stableFrame: true, webLinksPreserved: true, keyboardFocus: true, linkExceptions: true,
       sourceDocuments: true, sourceTextPreserved: true, sourceErrors: true, sourceFocusRestored: true };
   } finally {

@@ -1,5 +1,5 @@
 import { useState, type MouseEvent } from "react";
-import { isTauri } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { LanguageProvider } from "./i18n";
 import { HomePage } from "./home/page";
 import { GamesPage } from "./games/page";
@@ -41,7 +41,7 @@ function AppRoute() {
     if (url.protocol !== window.location.protocol || url.host !== window.location.host || url.search || url.hash) return;
     if (url.pathname.endsWith("/ATTRIBUTION.md")) {
       event.preventDefault();
-      setDocumentPath(url.pathname);
+      void invoke("open_attribution", { path: url.pathname }).catch(() => setDocumentPath(url.pathname));
       return;
     }
     if (link.target && link.target !== "_self") return;

@@ -2,16 +2,38 @@
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use tauri::{AppHandle, LogicalSize, Manager, PhysicalSize, WebviewWindow, WindowEvent};
 #[cfg(target_os = "macos")]
 use tauri::{
-    AppHandle, Wry,
+    Wry,
     menu::{AboutMetadata, Menu, MenuItemKind, PredefinedMenuItem},
 };
-use tauri::{LogicalSize, Manager, PhysicalSize, WebviewWindow, WindowEvent};
 
 #[tauri::command]
 fn get_catalog() -> Result<String, String> {
     catalog::catalog_json().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn open_attribution(app: AppHandle, path: &str) -> Result<(), String> {
+    let resource = match path {
+        "/home/ATTRIBUTION.md" => "home/ATTRIBUTION.md",
+        "/models/z-anatomy/ATTRIBUTION.md" => "models/z-anatomy/ATTRIBUTION.md",
+        _ => return Err("Unknown attribution document".into()),
+    };
+    let path = app
+        .path()
+        .resolve(resource, tauri::path::BaseDirectory::Resource)
+        .map_err(|error| error.to_string())?;
+    if !path.is_file() {
+        return Err("Attribution document is missing".into());
+    }
+    let editor = match std::env::consts::OS {
+        "macos" => "/System/Applications/TextEdit.app",
+        "windows" => "notepad.exe",
+        _ => return Err("No configured text editor".into()),
+    };
+    tauri_plugin_opener::open_path(path, Some(editor)).map_err(|error| error.to_string())
 }
 
 fn interface_zoom(
@@ -91,7 +113,7 @@ fn main() -> Result<(), tauri::Error> {
 
     builder
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![get_catalog])
+        .invoke_handler(tauri::generate_handler![get_catalog, open_attribution])
         .manage(AtomicU64::new(1.0_f64.to_bits()))
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {

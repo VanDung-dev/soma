@@ -1,5 +1,6 @@
 import type { StudyTarget } from "../catalog/types";
 import type { PreparedGeometry } from "./contracts";
+import { fetchModelAsset, usesBundledModels } from "../../model-assets";
 
 export async function* loadModels(roots: StudyTarget[], signal: AbortSignal, onProgress: (loaded: number) => void,
   ingest: (root: StudyTarget, json: string) => string[]) {
@@ -23,7 +24,7 @@ export async function* loadModels(roots: StudyTarget[], signal: AbortSignal, onP
               if (saved?.version === version) return saved.bytes;
             } catch {}
           }
-          const fetched = await fetch(`${import.meta.env.BASE_URL}${model.path}`, { signal: downloadAbort.signal });
+          const fetched = await fetchModelAsset(model.path, { signal: downloadAbort.signal });
           if (!fetched.ok) throw new Error(`HTTP ${fetched.status}`);
           const bytes = await fetched.arrayBuffer();
           if (version && cache) {
@@ -38,7 +39,7 @@ export async function* loadModels(roots: StudyTarget[], signal: AbortSignal, onP
           }
           return bytes;
         })(),
-        fetch(`${import.meta.env.BASE_URL}${model.path.replace(/\.glb(?:\.br)?$/, ".json")}`, { signal: downloadAbort.signal }),
+        fetchModelAsset(model.path.replace(/\.glb(?:\.br)?$/, ".json"), { signal: downloadAbort.signal }),
       ]);
       if (!metadataResponse.ok) throw new Error(`HTTP ${metadataResponse.status}`);
       return { bytes: new Uint8Array(response), metadata: await metadataResponse.text() };
@@ -50,7 +51,7 @@ export async function* loadModels(roots: StudyTarget[], signal: AbortSignal, onP
   try {
     cache = await (async () => {
       try {
-        if (!globalThis.indexedDB) return;
+        if (usesBundledModels || !globalThis.indexedDB) return;
         const response = await fetch(`${import.meta.env.BASE_URL}models/z-anatomy/manifest.json`, { signal: downloadAbort.signal, cache: "no-cache" });
         if (!response.ok) return;
         const manifest = await response.json() as { models: { file: string; sha256: string }[] };
