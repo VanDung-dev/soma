@@ -29,29 +29,33 @@ Desktop requires [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/
 
 ### Manual desktop build on GitHub Actions
 
-Once the workflow is on the default branch, open **Actions → Build desktop → Run workflow** and select `all` to build all four platforms in one run. Download each platform's ZIP from **Artifacts** on the completed run.
+Once the workflow is on the default branch, open **Actions → Build desktop → Run workflow** and select `all` to build both packages. Download the ZIP files from **Artifacts** on the completed run.
 
-With GitHub CLI, request all four builds from the repository root.
+- `Soma-windows.zip` contains an x64 installer. The app runs natively on x64 and under emulation on Windows 11 Arm64.
+- `Soma-macos.zip` contains a universal app that runs natively on Intel and Apple Silicon.
+
+With GitHub CLI, request both builds from the repository root.
 
 ```sh
 gh workflow run desktop-build.yml -f platform=all
 ```
 
-For a single platform, use `windows-x64`, `windows-arm64`, `macos-x64`, or `macos-arm64`. The workflow runs only on manual request.
+For a single package, use `windows` or `macos`. The workflow runs only on manual request.
 
-### macOS app and ZIP
+### macOS universal app and ZIP
 
 Run from the repository root on macOS.
 
 ```sh
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
 npm exec --workspace apps/web -- tauri build \
-  --bundles app --config '{"bundle":{"active":true}}' &&
+  --bundles app --target universal-apple-darwin &&
 ditto -c -k --sequesterRsrc --keepParent \
-  target/release/bundle/macos/Soma.app \
-  target/release/Soma-macOS.zip
+  target/universal-apple-darwin/release/bundle/macos/Soma.app \
+  target/Soma-macos.zip
 ```
 
-Extract `target/release/Soma-macOS.zip` and open `Soma.app` in Finder.
+Extract `target/Soma-macos.zip` and open `Soma.app` in Finder.
 
 ### Windows x64 installer and ZIP
 

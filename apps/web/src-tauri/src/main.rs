@@ -2,6 +2,11 @@
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
+#[cfg(target_os = "macos")]
+use tauri::{
+    AppHandle, Wry,
+    menu::{AboutMetadata, Menu, MenuItemKind, PredefinedMenuItem},
+};
 use tauri::{LogicalSize, Manager, PhysicalSize, WebviewWindow, WindowEvent};
 
 #[tauri::command]
@@ -52,8 +57,39 @@ fn fit_interface(window: &WebviewWindow) {
     }
 }
 
+#[cfg(target_os = "macos")]
+fn macos_menu(app: &AppHandle<Wry>) -> tauri::Result<Menu<Wry>> {
+    let menu = Menu::default(app)?;
+    if let Some(MenuItemKind::Submenu(soma_menu)) = menu.items()?.first() {
+        let bundle = &app.config().bundle;
+        let platform = match std::env::consts::ARCH {
+            "aarch64" => "Apple Silicon · arm64",
+            "x86_64" => "Intel · x86_64",
+            arch => arch,
+        };
+        let about = PredefinedMenuItem::about(
+            app,
+            None,
+            Some(AboutMetadata {
+                name: Some(app.package_info().name.clone()),
+                version: Some(app.package_info().version.to_string()),
+                short_version: Some(format!("macOS · {platform}")),
+                copyright: bundle.copyright.clone(),
+                ..Default::default()
+            }),
+        )?;
+        soma_menu.remove_at(0)?;
+        soma_menu.insert(&about, 0)?;
+    }
+    Ok(menu)
+}
+
 fn main() -> Result<(), tauri::Error> {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(target_os = "macos")]
+    let builder = builder.menu(macos_menu);
+
+    builder
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![get_catalog])
         .manage(AtomicU64::new(1.0_f64.to_bits()))

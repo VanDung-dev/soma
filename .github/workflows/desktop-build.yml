@@ -4,16 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       platform:
-        description: Platform to build (or all four)
+        description: Platform to build (or both)
         required: true
         type: choice
         default: all
         options:
           - all
-          - windows-x64
-          - windows-arm64
-          - macos-x64
-          - macos-arm64
+          - windows
+          - macos
 
 permissions:
   contents: read
@@ -23,18 +21,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ${{ fromJSON(inputs.platform == 'all' && '["windows-x64","windows-arm64","macos-x64","macos-arm64"]' || format('["{0}"]', inputs.platform)) }}
-    runs-on: >-
-      ${{ fromJSON('{
-      "windows-x64": "windows-2025",
-      "windows-arm64": "windows-11-vs2026-arm",
-      "macos-x64": "macos-15-intel",
-      "macos-arm64": "macos-15"
-      }')[matrix.platform] }}
-    env:
-      SOMA_PLATFORM: ${{ matrix.platform }}
-      SOMA_ARCH: ${{ endsWith(matrix.platform, '-arm64') && 'arm64' || 'x64' }}
-      SOMA_TARGET: ${{ endsWith(matrix.platform, '-arm64') && 'aarch64' || 'x86_64' }}-${{ startsWith(matrix.platform, 'windows-') && 'pc-windows-msvc' || 'apple-darwin' }}
+        platform: ${{ fromJSON(inputs.platform == 'all' && '["windows","macos"]' || format('["{0}"]', inputs.platform)) }}
+    runs-on: ${{ matrix.platform == 'windows' && 'windows-2025' || 'macos-15' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -42,29 +30,34 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '24.22.2'
-          architecture: ${{ env.SOMA_ARCH }}
           cache: npm
       - name: Install Rust and wasm-pack
         shell: bash
         run: |
-          rustup toolchain install "1.96.0-$SOMA_TARGET" --profile minimal --target wasm32-unknown-unknown
-          rustup override set "1.96.0-$SOMA_TARGET"
+          rustup toolchain install 1.96.0 --profile minimal --target wasm32-unknown-unknown
+          rustup override set 1.96.0
           cargo install wasm-pack --version 0.15.1 --locked
+      - name: Install macOS Rust targets
+        if: runner.os == 'macOS'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
       - run: npm ci
       - name: Package Windows installer
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          npm.cmd exec --workspace apps/web -- tauri build --bundles nsis --target $env:SOMA_TARGET
+          npm.cmd exec --workspace apps/web -- tauri build --bundles nsis --target x86_64-pc-windows-msvc
           if ($LASTEXITCODE -ne 0) { throw 'Soma build failed' }
           $version = (Get-Content apps/web/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
-          $installer = "target/$env:SOMA_TARGET/release/bundle/nsis/Soma_${version}_${env:SOMA_ARCH}-setup.exe"
-          Compress-Archive -LiteralPath $installer -DestinationPath "Soma-$env:SOMA_PLATFORM.zip"
+          $installer = "target/x86_64-pc-windows-msvc/release/bundle/nsis/Soma_${version}_x64-setup.exe"
+          Compress-Archive -LiteralPath $installer -DestinationPath "Soma-windows.zip"
       - name: Package macOS app
         if: runner.os == 'macOS'
         run: |
-          npm exec --workspace apps/web -- tauri build --bundles app --target "$SOMA_TARGET"
-          ditto -c -k --sequesterRsrc --keepParent "target/$SOMA_TARGET/release/bundle/macos/Soma.app" "Soma-$SOMA_PLATFORM.zip"
+          npm exec --workspace apps/web -- tauri build --bundles app --target universal-apple-darwin
+          app=target/universal-apple-darwin/release/bundle/macos/Soma.app
+          architectures=$(lipo -archs "$app/Contents/MacOS/soma")
+          [[ " $architectures " == *" x86_64 "* && " $architectures " == *" arm64 "* ]]
+          ditto -c -k --sequesterRsrc --keepParent "$app" Soma-macos.zip
       - uses: actions/upload-artifact@v7
         with:
           path: Soma-${{ matrix.platform }}.zip
