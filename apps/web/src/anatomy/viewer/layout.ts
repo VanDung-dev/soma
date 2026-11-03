@@ -1,6 +1,7 @@
 import type { Viewport } from "./contracts";
 
 export type HandImageBounds = Pick<DOMRect, "left" | "top" | "width" | "height">;
+export const desktopPanelQuery = "(min-width: 1141px)";
 
 export function measureHandImage(host: HTMLElement, aspect: number): HandImageBounds {
   const bounds = host.getBoundingClientRect();
@@ -27,19 +28,17 @@ export function measureHandRegion(host: HTMLElement, video: HTMLVideoElement, fr
 }
 
 export function measureViewport(elements: {
-  host: HTMLElement; frame: HTMLElement; menu: HTMLElement; catalog: HTMLElement; information: HTMLElement; controls: HTMLElement; hud: HTMLElement;
+  host: HTMLElement; frame: HTMLElement; menu: HTMLElement; catalog: HTMLElement; information: HTMLElement; hud: HTMLElement;
 }): Viewport {
-  const { host, frame, menu, catalog, information, controls, hud } = elements;
+  const { host, frame, menu, catalog, information, hud } = elements;
   const area = host.getBoundingClientRect();
-  const desktop = window.matchMedia("(min-width: 1141px)").matches;
+  const desktop = window.matchMedia(desktopPanelQuery).matches;
   const catalogArea = desktop ? catalog.getBoundingClientRect() : undefined;
   const informationArea = desktop ? information.getBoundingClientRect() : undefined;
   const left = catalogArea?.width ? Math.max(12, catalogArea.right - area.left + 12) : 12;
   const right = informationArea?.width ? Math.min(area.width - 12, informationArea.left - area.left - 12) : area.width - 12;
   const panelArea = catalogArea?.width ? catalogArea : informationArea?.width ? informationArea : undefined;
-  const controlsArea = controls.getBoundingClientRect();
-  const frameTop = panelArea ? panelArea.top - area.top
-    : controlsArea.width ? controlsArea.bottom - area.top + 16 : menu.getBoundingClientRect().bottom - area.top + 12;
+  const frameTop = (panelArea?.top ?? menu.getBoundingClientRect().bottom + 12) - area.top;
   const frameBottom = panelArea ? panelArea.bottom - area.top : area.height - 16;
   Object.assign(frame.style, { left: `${left}px`, top: `${frameTop}px`, width: `${Math.max(1, right - left)}px`, height: `${Math.max(1, frameBottom - frameTop)}px` });
   // Reserve the controls inside the frame when fitting anatomy to the camera.

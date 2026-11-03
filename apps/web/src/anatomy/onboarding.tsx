@@ -66,8 +66,8 @@ export function AnatomyOnboarding({ replay, onPanelChange }: {
         shell.style.setProperty(`--onboarding-${name}`, `${value}px`);
       }
       const visibleTarget = target?.getClientRects().length ? target
-        : step === 3 || step === 4 ? shell.querySelector<HTMLElement>(".anatomy-panel-toggles button")
-          : step === 5 ? shell.querySelector<HTMLElement>(".anatomy-panel-toggles button:nth-child(2)") : null;
+        : step === 3 || step === 4 ? shell.querySelector<HTMLElement>(".app-menu-history .sidebar-toggle")
+          : step === 5 ? shell.querySelector<HTMLElement>(".app-menu-actions .sidebar-toggle") : null;
       const rect = visibleTarget?.getBoundingClientRect();
       const inset = parseFloat(getComputedStyle(shell).getPropertyValue("--panel-inset"));
       const horizontalPadding = step === 3 ? 5 : 0;
@@ -101,7 +101,7 @@ export function AnatomyOnboarding({ replay, onPanelChange }: {
     const observer = new ResizeObserver(schedule);
     observer.observe(shell); observer.observe(workspace); observer.observe(card);
     if (target) observer.observe(target);
-    for (const panel of shell.querySelectorAll(".catalog-panel, .anatomy-panel-toggles")) observer.observe(panel);
+    for (const element of shell.querySelectorAll(".catalog-panel, .app-menu-bar")) observer.observe(element);
     window.addEventListener("resize", schedule);
     shell.addEventListener("scroll", schedule, true);
     const keyDown = (event: KeyboardEvent) => {

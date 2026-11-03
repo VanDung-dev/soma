@@ -18,7 +18,7 @@ import type { MessageKey } from "../i18n";
 import { canReadStructure, StudySession } from "./study/session";
 import type { ViewerStatus } from "./viewer/contracts";
 import { ViewerRuntime } from "./viewer/runtime";
-import { measureViewport } from "./viewer/layout";
+import { desktopPanelQuery, measureViewport } from "./viewer/layout";
 import { graphicsStorageKey, readGraphicsSettings } from "./viewer/graphics";
 import { shortcutAction, shortcutLabel } from "../shortcuts";
 
@@ -35,6 +35,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const [snapTarget, setSnapTarget] = useState("");
   const [panel, setPanel] = useState<"catalog" | "information" | null>(null);
   const [collapsedPanels, setCollapsedPanels] = useState({ catalog: false, information: false });
+  const [desktopPanels, setDesktopPanels] = useState(() => window.matchMedia(desktopPanelQuery).matches);
   const showPanel = useCallback((panel: "catalog" | "information" | null) => {
     setPanel(panel);
     if (panel) setCollapsedPanels(current => ({ ...current, [panel]: false }));
@@ -52,7 +53,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const focusFrame = useRef<HTMLDivElement>(null);
   const catalogPanel = useRef<HTMLElement>(null);
   const informationPanel = useRef<HTMLElement>(null);
-  const panelToggles = useRef<HTMLDivElement>(null);
   const hud = useRef<HTMLDivElement>(null);
   const orientation = useRef<OrientationAxesHandle>(null);
   const orientationHud = useRef<HTMLDivElement>(null);
@@ -64,8 +64,15 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const roots = session.catalog.roots;
   const target = useMemo(() => targetId ? catalog.target(targetId) : undefined, [catalog, targetId]);
   const focusViewport = () => measureViewport({ host: host.current!, frame: focusFrame.current!,
-    menu: menuBar.current!, catalog: catalogPanel.current!, information: informationPanel.current!, controls: panelToggles.current!, hud: hud.current! });
+    menu: menuBar.current!, catalog: catalogPanel.current!, information: informationPanel.current!, hud: hud.current! });
 
+  useEffect(() => {
+    const media = window.matchMedia(desktopPanelQuery);
+    const update = () => setDesktopPanels(media.matches);
+    media.addEventListener("change", update);
+    update();
+    return () => media.removeEventListener("change", update);
+  }, []);
   useEffect(() => {
     const viewer = new ViewerRuntime(host.current!, { viewport: focusViewport,
       onState: session.updateViewer, onPick: session.pick, onHide: ids => session.changeVisibility(ids, false), onFps: setFps, onHold: setHold, onSnap: setSnapTarget,
@@ -92,7 +99,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     if (action === "settings") open(settingsId);
     else if (action === "guide") open(helpId);
     else if (action === "catalog" || action === "information") {
-      if (window.matchMedia("(min-width: 1141px)").matches) setCollapsedPanels(current => ({ ...current, [action]: !current[action] }));
+      if (desktopPanels) setCollapsedPanels(current => ({ ...current, [action]: !current[action] }));
       else setPanel(current => current === action ? null : action);
     }
     else if (!current.building && !current.error) {
@@ -100,7 +107,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       else if (action === "forward") session.forward();
       else if (action === "restore" && (current.movingId || current.separatedIds.size)) session.restoreStructure("");
     }
-  }, [session, helpId, settingsId]);
+  }, [session, helpId, settingsId, desktopPanels]);
   useEffect(() => {
     const keyDown = (event: KeyboardEvent) => {
       const action = shortcutAction(event);
@@ -139,7 +146,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     const startTransition = () => { if (!frame) frame = requestAnimationFrame(animateControls); };
     for (const panel of panels) panel.addEventListener("transitionrun", startTransition);
     const observer = new ResizeObserver(centerControls);
-    for (const element of [host.current!, menuBar.current!, catalogPanel.current!, informationPanel.current!, panelToggles.current!]) observer.observe(element);
+    for (const element of [host.current!, menuBar.current!, catalogPanel.current!, informationPanel.current!]) observer.observe(element);
     centerControls();
     return () => {
       observer.disconnect();
@@ -168,13 +175,15 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const heading = selectedPart ? selectedPart.names[language] : target ? target.names[language] : t("information.defaultTitle");
   const otherHeading = selectedPart ? selectedPart.names[otherLanguage] : target ? target.names[otherLanguage] : "";
   const localizedStatus = t(statusMessages[status], { loaded: loadedSystems, total: roots.length });
-  const panelToggle = (panel: "catalog" | "information", name: string) => <button type="button" className="controls-info sidebar-toggle"
-    aria-expanded={!collapsedPanels[panel]} aria-controls={panel === "catalog" ? catalogId : informationId}
-    aria-label={t(collapsedPanels[panel] ? "panels.show" : "panels.hide", { name })}
-    title={`${t(collapsedPanels[panel] ? "panels.show" : "panels.hide", { name })} (${shortcutLabel(panel)})`}
-    onClick={() => setCollapsedPanels(current => ({ ...current, [panel]: !current[panel] }))}>
-    <LineIcon name="sidebar" size={18} />
-  </button>;
+  const panelToggle = (target: "catalog" | "information", name: string) => {
+    const expanded = desktopPanels ? !collapsedPanels[target] : panel === target;
+    const label = t(expanded ? "panels.hide" : "panels.show", { name });
+    return <button type="button" className="controls-info sidebar-toggle"
+      aria-expanded={expanded} aria-controls={target === "catalog" ? catalogId : informationId}
+      aria-label={label} title={`${label} (${shortcutLabel(target)})`} onClick={() => performAction(target)}>
+      <LineIcon name="sidebar" size={18} />
+    </button>;
+  };
   return (
     <>
       <MenuBar ref={menuBar} disabled={building || error} canGoBack={canGoBack} canGoForward={canGoForward}
@@ -185,10 +194,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         onBack={session.back} onForward={session.forward} helpId={helpId} settingsId={settingsId} graphics={graphics} onGraphicsChange={setGraphics} />
       <ModelControls disabled={building || error} onControl={session.control} helpId={helpId}
         onReplayGuide={() => { document.getElementById(helpId)?.hidePopover(); setHandCameraEnabled(false); setOnboardingRun(run => run + 1); }} />
-      <div ref={panelToggles} className="anatomy-panel-toggles">
-        <button aria-expanded={panel === "catalog"} aria-controls={catalogId} onClick={() => setPanel(panel === "catalog" ? null : "catalog")}>{t("catalog.heading")}</button>
-        <button aria-expanded={panel === "information"} aria-controls={informationId} onClick={() => setPanel(panel === "information" ? null : "information")}>{t("information.panel.label")}</button>
-      </div>
       <aside id={catalogId} ref={catalogPanel} className="catalog-panel" data-open={panel === "catalog"} data-collapsed={collapsedPanels.catalog} aria-label={t("catalog.navigation.label")}>
         <div className="catalog-heading"><h2>{t("catalog.heading")}</h2><span>{t("catalog.systemCount", { count: catalog.groupCount })}</span></div>
         <div className="tree-actions">
@@ -212,7 +217,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
           <div className="model-focus-frame" ref={focusFrame}>
             <HandCameraControls enabled={handCameraEnabled} disabled={building || error} cameraDisabled={!!movingId || !!separatedIds.size} onControl={session.control}
               deviceId={cameras.deviceId} onCameraStarted={cameras.refresh} onCameraActiveChange={setHandCameraActive}
-              sceneHost={host} interactionFrame={focusFrame} obstacles={[hud, catalogPanel, informationPanel, panelToggles, orientationHud]}
+              sceneHost={host} interactionFrame={focusFrame} obstacles={[hud, catalogPanel, informationPanel, orientationHud]}
               onEnabledChange={setHandCameraEnabled} />
             <div className="model-orientation" ref={orientationHud}>
               <div hidden={!graphics.showAxes}>

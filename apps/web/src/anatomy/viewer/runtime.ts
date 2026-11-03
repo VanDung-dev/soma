@@ -13,6 +13,7 @@ export class ViewerRuntime implements StudyViewer {
   private selectionBox = document.createElement("div");
   private abort = new AbortController();
   private motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  private resolution = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
   private observer: ResizeObserver;
   private unbindInput: () => void;
   private disposed = false;
@@ -76,6 +77,7 @@ export class ViewerRuntime implements StudyViewer {
     this.observer = new ResizeObserver(this.resize);
     this.observer.observe(host);
     this.motion.addEventListener("change", this.motionChanged);
+    this.resolution.addEventListener("change", this.resolutionChanged);
     this.canvas.addEventListener("webglcontextlost", this.contextLost);
   }
 
@@ -182,6 +184,13 @@ export class ViewerRuntime implements StudyViewer {
   private resize = () => {
     this.resizePending = true;
     this.scheduleRender();
+  };
+
+  private resolutionChanged = () => {
+    this.resolution.removeEventListener("change", this.resolutionChanged);
+    this.resolution = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+    this.resolution.addEventListener("change", this.resolutionChanged);
+    this.resize();
   };
 
   private resizeCanvas() {
@@ -392,6 +401,7 @@ export class ViewerRuntime implements StudyViewer {
     this.disposed = true; this.loading = true; this.animating = false;
     this.abort.abort(); this.observer.disconnect(); this.unbindInput();
     this.motion.removeEventListener("change", this.motionChanged);
+    this.resolution.removeEventListener("change", this.resolutionChanged);
     this.canvas.removeEventListener("webglcontextlost", this.contextLost);
     cancelAnimationFrame(this.renderFrame); this.renderFrame = 0;
     this.stopFpsMeter();
