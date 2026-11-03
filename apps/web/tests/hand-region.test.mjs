@@ -26,7 +26,7 @@ test('hand start region follows the letterboxed image and excludes visible panel
   } finally { await server.close(); }
 });
 
-test('camera mode reclaims hidden panels and compact panel controls without collapsing the viewport', async () => {
+test('camera mode reclaims hidden panels without collapsing the viewport', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   const originalWindow = globalThis.window;
   try {
@@ -38,10 +38,9 @@ test('camera mode reclaims hidden panels and compact panel controls without coll
         : { left, top, width, height, right: left + width, bottom: top + height };
     } });
     const elements = { host: box(100, 50, 1000, 800), frame: { style: {} }, menu: box(112, 62, 976, 48),
-      catalog: box(112, 122, 200, 712), information: box(888, 122, 200, 712), controls: box(112, 122, 976, 36), hud: box(450, 750, 300, 80) };
+      catalog: box(112, 122, 200, 712), information: box(888, 122, 200, 712), hud: box(450, 750, 300, 80) };
     const normal = measureViewport(elements);
     assert.equal(elements.frame.style.width, '552px');
-    elements.controls.hidden = true;
     for (const [catalogHidden, informationHidden, left, width] of [
       [true, false, '12px', '764px'], [false, true, '224px', '764px'], [true, true, '12px', '976px'],
     ]) {
@@ -52,7 +51,7 @@ test('camera mode reclaims hidden panels and compact panel controls without coll
       assert.equal(elements.frame.style.width, width);
       assert.equal(elements.frame.style.height, '712px');
     }
-    elements.catalog.hidden = elements.information.hidden = elements.controls.hidden = true;
+    elements.catalog.hidden = elements.information.hidden = true;
     for (const compact of [false, true]) {
       desktop = !compact;
       const camera = measureViewport(elements);
@@ -64,7 +63,7 @@ test('camera mode reclaims hidden panels and compact panel controls without coll
       assert(camera.every(value => value > 0 && value <= 1));
     }
     desktop = true;
-    elements.catalog.hidden = elements.information.hidden = elements.controls.hidden = false;
+    elements.catalog.hidden = elements.information.hidden = false;
     assert.deepEqual(measureViewport(elements), normal);
     const catalogBounds = elements.catalog.getBoundingClientRect, informationBounds = elements.information.getBoundingClientRect;
     elements.catalog.getBoundingClientRect = box(-112, 122, 200, 712).getBoundingClientRect;

@@ -14,7 +14,11 @@ test('runtime delegates restoration to WASM and synchronizes completion, reduced
     const pending = new Map(), calls = [], patches = [];
     const motion = Object.assign(new EventTarget(), { matches: false });
     const canvas = Object.assign(new EventTarget(), { dataset: {}, setAttribute() {}, remove() {} });
-    globalThis.window = Object.assign(new EventTarget(), { matchMedia: () => motion, clearInterval() {} });
+    globalThis.window = Object.assign(new EventTarget(), {
+      devicePixelRatio: 1,
+      matchMedia: query => query === '(prefers-reduced-motion: reduce)' ? motion : new EventTarget(),
+      clearInterval() {},
+    });
     globalThis.document = { createElement: () => canvas };
     globalThis.performance = { now: () => now };
     globalThis.ResizeObserver = class { observe() {} disconnect() {} };

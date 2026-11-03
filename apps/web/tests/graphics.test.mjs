@@ -40,7 +40,7 @@ test('graphics preferences validate saved values and tolerate unavailable storag
   }
 });
 
-test('frame limits coalesce redraws, finish animations, and stop when idle or disposed', async () => {
+test('viewer coalesces redraws, reacts to display scaling, and stops when idle or disposed', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   const original = { requestAnimationFrame: globalThis.requestAnimationFrame, cancelAnimationFrame: globalThis.cancelAnimationFrame,
     performance: globalThis.performance, document: globalThis.document, window: globalThis.window, ResizeObserver: globalThis.ResizeObserver };
@@ -56,8 +56,13 @@ test('frame limits coalesce redraws, finish animations, and stop when idle or di
     const host = { appendChild() {}, getBoundingClientRect: () => ({ width: 800, height: 600 }) };
     const canvas = { setAttribute() {}, addEventListener() {}, removeEventListener() {}, remove() {} };
     globalThis.document = { createElement: () => canvas };
+    const mediaQueries = new Map();
     globalThis.window = { devicePixelRatio: 1, addEventListener() {}, removeEventListener() {},
-      matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
+      matchMedia: query => {
+        const media = Object.assign(new EventTarget(), { matches: false });
+        mediaQueries.set(query, media);
+        return media;
+      },
       setInterval: callback => { timers.set(++timerId, callback); return timerId; }, clearInterval: id => timers.delete(id) };
     globalThis.ResizeObserver = class { observe() {} disconnect() {} };
     runtime = new ViewerRuntime(host, { viewport() {}, onState() {}, onPick() {}, onHide() { return true; }, onFps: fps => reports.push(fps),
@@ -142,6 +147,16 @@ test('frame limits coalesce redraws, finish animations, and stop when idle or di
     assert.deepEqual([canvas.width, canvas.height], [900, 650]);
     runtime.resize(); tick(now + 40);
     assert.equal(resized, 1, 'Unchanged pixel dimensions must not reallocate the canvas');
+    let resolution = mediaQueries.get('(resolution: 1dppx)');
+    for (const [dpr, expected] of [[1.25, [1125, 813]], [1.5, [1350, 975]], [2, [1800, 1300]]]) {
+      window.devicePixelRatio = dpr;
+      resolution.dispatchEvent(new Event('change'));
+      tick(now + 40);
+      assert.deepEqual([canvas.width, canvas.height], expected, 'DPR changes must resize the canvas even when the host stays the same size');
+      resolution.dispatchEvent(new Event('change'));
+      assert.equal(pending.size, 0, 'Stop listening to the previous resolution after a change');
+      resolution = mediaQueries.get(`(resolution: ${dpr}dppx)`);
+    }
     for (const [dpr, modelQuality, expected] of [[3, 'high', [1800, 1300]], [3, 'low', [900, 650]],
       [1.25, 'high', [1125, 813]], [1.25, 'low', [563, 406]]]) {
       window.devicePixelRatio = dpr;
@@ -160,6 +175,8 @@ test('frame limits coalesce redraws, finish animations, and stop when idle or di
     assert.deepEqual(views.at(-1), ['Z', 1, undefined], 'Snap axis views immediately under reduced motion');
     runtime.setGraphics({ ...runtime.graphics, showFps: true });
     runtime.dispose();
+    resolution.dispatchEvent(new Event('change'));
+    assert.equal(runtime.resizePending, false, 'Disposal must remove the resolution listener');
     assert.equal(timers.size, 0, 'Disposal must stop the FPS meter');
     const before = draws; tick(now + 1000);
     assert.equal(draws, before);

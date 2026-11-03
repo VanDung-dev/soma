@@ -96,8 +96,8 @@ export async function checkStructureSearch() {
     assert(tree.querySelector('[data-target-id="' + skullId + '"] > .folder-row.is-selected'), 'Reveal and select the skull group in the tree');
     assert(!popover.matches(':popover-open') && document.activeElement === document.querySelector('.model-canvas canvas'), 'Close search and focus the canvas after choosing a group');
     document.querySelector('.app-menu-history .history-back').click(); await wait();
-    const catalogToggle = document.querySelector('.anatomy-panel-toggles button');
-    if (innerWidth <= 900 && catalogToggle.getAttribute('aria-expanded') === 'false') { catalogToggle.click(); await wait(); }
+    const catalogToggle = document.querySelector('.app-menu-history .sidebar-toggle');
+    if (catalogToggle.getAttribute('aria-expanded') === 'false') { catalogToggle.click(); await wait(); }
     await open();
     const stateAfterGroup = treeState(), rowsAfterGroup = tree.querySelectorAll('.tree-row').length, callsAfterGroup = calls;
     await enter('FEMUR');

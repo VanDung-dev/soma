@@ -8,7 +8,7 @@ export async function checkSidebar() {
     await frames();
   };
   const desktop = matchMedia('(min-width: 1141px)').matches;
-  const buttons = [...document.querySelectorAll(desktop ? '.sidebar-toggle' : '.anatomy-panel-toggles button')];
+  const buttons = [...document.querySelectorAll('.sidebar-toggle')];
   const frame = document.querySelector('.model-focus-frame');
   const canvas = document.querySelector('.model-canvas canvas');
   const tree = document.querySelector('.catalog-tree');
@@ -35,10 +35,9 @@ export async function checkSidebar() {
   try {
     await settle();
     check();
-    if (desktop) {
-      assert(document.querySelector('.app-menu-history').firstElementChild === buttons[0], 'Place the catalog toggle at the left edge');
-      assert(document.querySelector('.app-menu-actions').lastElementChild === buttons[1], 'Place the information toggle at the right edge');
-    }
+    assert(buttons.length === 2 && buttons.every(visible), 'Show exactly two sidebar toggles at every window width');
+    assert(document.querySelector('.app-menu-history').firstElementChild === buttons[0], 'Place the catalog toggle at the left edge');
+    assert(document.querySelector('.app-menu-actions').lastElementChild === buttons[1], 'Place the information toggle at the right edge');
     const command = /Mac|iPhone|iPad/i.test(navigator.platform) ? { metaKey: true } : { ctrlKey: true };
     for (const [index, key, code] of [[0, 'S', 'KeyS'], [1, '>', 'Period']]) {
       const before = visible(panels[index]);
@@ -71,7 +70,7 @@ export async function checkSidebarMotion() {
   const frames = async () => { for (let i = 0; i < 3; i++) await new Promise(requestAnimationFrame); };
   const desktop = matchMedia('(min-width: 1141px)').matches;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const buttons = [...document.querySelectorAll(desktop ? '.sidebar-toggle' : '.anatomy-panel-toggles button')];
+  const buttons = [...document.querySelectorAll('.sidebar-toggle')];
   const panels = [...document.querySelectorAll('.catalog-panel, .information-panel')];
   const settle = async () => {
     await Promise.all(panels.flatMap(panel => panel.getAnimations()).map(animation => animation.finished.catch(() => {})));
