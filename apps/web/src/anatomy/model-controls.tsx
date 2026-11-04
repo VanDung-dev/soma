@@ -1,8 +1,8 @@
-import { useEffect, useEffectEvent } from "react";
 import { useLanguage } from "../i18n";
 import type { CameraCommand } from "./viewer/contracts";
 import { PopoverPanel } from "../popover-panel";
-import { cameraControlGroups, cameraControls, isCameraKey } from "./camera-controls";
+import { cameraControlGroups } from "./camera-controls";
+import { useCameraKeys } from "./use-camera-keys";
 import { appShortcuts, shortcutLabel } from "../shortcuts";
 import type { AppShortcut } from "../shortcuts";
 
@@ -15,52 +15,7 @@ export function ModelControls({ disabled, onControl, helpId, onReplayGuide }: {
   onReplayGuide: () => void;
 }) {
   const { t } = useLanguage();
-  const run = useEffectEvent((keys: Set<string>, step: number) => onControl(cameraControls.filter(control => keys.has(control.key)).map(control => control.action(step))));
-  useEffect(() => {
-    const pressed = new Set<string>();
-    let frame = 0, previous = 0;
-    const stop = () => {
-      pressed.clear();
-      cancelAnimationFrame(frame); frame = 0;
-    };
-    const tick = (now: number) => {
-      frame = 0;
-      const keys = new Set([...pressed].filter(key => key !== "r"));
-      if (!keys.size) return;
-      const step = Math.max(0, Math.min((now - previous) / 1000, 0.05)) * 4;
-      previous = now;
-      if (step > 0 && !run(keys, step)) { stop(); return; }
-      frame = requestAnimationFrame(tick);
-    };
-    const keyDown = (event: KeyboardEvent) => {
-      if (disabled || event.defaultPrevented || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
-      const target = event.target;
-      const key = event.key.toLowerCase();
-      const resetCheckbox = key === "r" && target instanceof HTMLInputElement && target.type === "checkbox" && !!target.closest(".catalog-panel");
-      if (!resetCheckbox && target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [role='textbox'], [role='menu'], .app-menu-bar, .app-popover, .catalog-panel, .information-panel"))) return;
-      if (!isCameraKey(key)) return;
-      event.preventDefault();
-      if (pressed.has(key) || event.repeat) return;
-      pressed.add(key);
-      if (key === "r") run(new Set([key]), 1);
-      else if (!frame) { previous = performance.now(); frame = requestAnimationFrame(tick); }
-    };
-    const keyUp = (event: KeyboardEvent) => {
-      if (!pressed.delete(event.key.toLowerCase())) return;
-      event.preventDefault();
-      if (!pressed.size) { cancelAnimationFrame(frame); frame = 0; }
-    };
-    const visibilityChanged = () => { if (document.hidden) stop(); };
-    window.addEventListener("keydown", keyDown); window.addEventListener("keyup", keyUp);
-    window.addEventListener("blur", stop); window.addEventListener("focusin", stop);
-    document.addEventListener("visibilitychange", visibilityChanged);
-    return () => {
-      stop();
-      window.removeEventListener("keydown", keyDown); window.removeEventListener("keyup", keyUp);
-      window.removeEventListener("blur", stop); window.removeEventListener("focusin", stop);
-      document.removeEventListener("visibilitychange", visibilityChanged);
-    };
-  }, [disabled]);
+  useCameraKeys(disabled, onControl);
   return <PopoverPanel id={helpId} className="controls-guide" contentClassName="guide-content" title={t("controls.guide.title")} closeLabel={t("controls.guide.close")}
       footer={<button className="onboarding-replay" disabled={disabled} onClick={onReplayGuide}>{t("onboarding.replay")}</button>}>
         <div className="guide-columns">

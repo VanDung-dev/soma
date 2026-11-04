@@ -2,6 +2,7 @@ import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Catalog, SearchRow } from "./catalog/types";
 import { useLanguage } from "../i18n";
+import { LineIcon } from "../icons";
 
 function Magnifier() {
   return <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
@@ -9,8 +10,9 @@ function Magnifier() {
   </svg>;
 }
 
-export const StructureSearch = memo(function StructureSearch({ catalog, disabled, onSelect }: {
+export const StructureSearch = memo(function StructureSearch({ catalog, disabled, onSelect, targetIds, label, value }: {
   catalog: Catalog; disabled: boolean; onSelect: (id: string) => void;
+  targetIds?: readonly string[]; label?: string; value?: string;
 }) {
   const id = useId();
   const { language, t } = useLanguage();
@@ -20,7 +22,8 @@ export const StructureSearch = memo(function StructureSearch({ catalog, disabled
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const [limit, setLimit] = useState(20);
-  const results = useMemo(() => catalog.search(query, language, limit), [catalog, query, language, limit, disabled]);
+  const results = useMemo(() => targetIds ? catalog.searchTargets(query, language, limit, targetIds)
+    : catalog.search(query, language, limit), [catalog, query, language, limit, disabled, targetIds]);
   const shown = results.items;
   const otherLanguage = language === "vi" ? "en" : "vi";
   const activeId = shown[activeIndex] ? id + "-result-" + activeIndex : undefined;
@@ -35,7 +38,7 @@ export const StructureSearch = memo(function StructureSearch({ catalog, disabled
     popover.current?.hidePopover();
     trigger.current?.focus({ preventScroll: true });
   };
-  const dialog = <section ref={popover} id={id} className="structure-search-popover" popover="auto" role="dialog" aria-label={t("search.label")}
+  const dialog = <section ref={popover} id={id} className="structure-search-popover" popover="auto" role="dialog" aria-label={label ?? t("search.label")}
       onToggle={event => {
         if (event.currentTarget.matches(":popover-open")) {
           input.current?.focus({ preventScroll: true });
@@ -66,6 +69,8 @@ export const StructureSearch = memo(function StructureSearch({ catalog, disabled
               if (next >= shown.length) setLimit(next + 20);
               setActiveIndex(next);
             }} />
+          {targetIds && <button type="button" className="controls-info structure-search-close" onClick={close}
+            aria-label={t("search.close")} title={t("search.close")}><LineIcon name="close-small" size={18} /></button>}
         </div>
         <p id={id + "-status"} className="search-status" role="status">{query.trim() ? results.total
           ? t("search.resultCount", { count: results.total }) + (results.total > shown.length ? " · " + t("search.refine") : "")
@@ -80,12 +85,14 @@ export const StructureSearch = memo(function StructureSearch({ catalog, disabled
           {shown.map((part, index) => {
             const title = part.names[language], otherName = part.names[otherLanguage];
             const structure = "source_id" in part;
+            const parent = targetIds && !structure && part.parent_id ? catalog.target(part.parent_id)?.names[language] : undefined;
             return <li key={structure ? part.source_id : part.id} role="presentation">
               <button id={id + "-result-" + index} type="button" role="option" tabIndex={-1} aria-selected={index === activeIndex}
                 disabled={disabled} data-structure-id={structure ? part.source_id : undefined} data-target-id={structure ? undefined : part.id} onMouseDown={event => event.preventDefault()}
                 onClick={() => choose(part)}>
                 <span>{title}</span>
                 {otherName !== title && <small lang={otherLanguage}>{otherName}</small>}
+                {parent && <small>{parent}</small>}
                 {structure ? part.latin && <small lang="la">{part.latin}</small>
                   : <small>{part.count} {t(language === "en" && part.count === 1 ? "tree.structureCount.one" : "tree.structureCount.other")}</small>}
               </button>
@@ -95,8 +102,10 @@ export const StructureSearch = memo(function StructureSearch({ catalog, disabled
       </form>
     </section>;
   return <>
-    <button ref={trigger} className="structure-search-field" type="button" disabled={disabled} popoverTarget={id}
-      aria-label={t("search.submit")} title={t("search.submit")}><Magnifier /></button>
+    <button ref={trigger} className="structure-search-field" data-labeled={!!label || undefined}
+      type="button" disabled={disabled} popoverTarget={id}
+      aria-label={value ? `${label ?? t("search.submit")} · ${value}` : label ?? t("search.submit")}
+      title={label ?? t("search.submit")}><Magnifier />{label && <span>{value ?? label}</span>}</button>
     {typeof document === "undefined" ? dialog : createPortal(dialog, document.body)}
   </>;
 });

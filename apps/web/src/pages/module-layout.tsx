@@ -71,7 +71,7 @@ export function ModuleLayout({ children, page, onClick }: { children: ReactNode;
       <nav className="module-nav" aria-label={t("app.navigation.label")}>
         <a href="/home" aria-current={page === "home" ? "page" : undefined}>{t("module.home")}</a>
         <a href="/anatomy" aria-current={page === "anatomy" ? "page" : undefined}>{t("module.anatomy")}</a>
-        <span className="module-nav-disabled" aria-disabled="true" aria-current={page === "lessons" ? "page" : undefined}>{t("module.lessons")}</span>
+        <a href="/lessons" aria-current={page === "lessons" ? "page" : undefined}>{t("module.lessons")}</a>
         <span className="module-nav-disabled" aria-disabled="true" aria-current={page === "games" ? "page" : undefined}>{t("module.games")}</span>
       </nav>
       <div className="module-preferences">

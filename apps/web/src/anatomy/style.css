@@ -76,7 +76,8 @@
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-new(root) { animation: none; }
 }
-.information-panel, .catalog-panel { position: absolute; z-index: 3; top: calc(var(--panel-inset) + var(--menu-height) + var(--panel-gap)); bottom: var(--panel-inset); min-width: 0; overflow-y: auto; scrollbar-gutter: stable; padding: var(--panel-padding); border: 0; border-radius: var(--panel-radius); background: rgba(var(--panel-rgb),.94); backdrop-filter: blur(14px); box-shadow: 0 24px 60px rgba(var(--shadow-rgb),.16), 0 3px 10px rgba(var(--shadow-rgb),.06), inset 0 0 0 1px rgba(var(--highlight-rgb),.8), inset 0 1px 0 var(--highlight); transition: translate .24s cubic-bezier(.22,1,.36,1), opacity .24s ease, display .24s allow-discrete, width .32s cubic-bezier(.22,1,.36,1), box-shadow .32s ease; }
+.workspace-panel-surface, .information-panel, .catalog-panel { border-radius: var(--panel-radius); background: rgba(var(--panel-rgb),.94); backdrop-filter: blur(14px); box-shadow: 0 24px 60px rgba(var(--shadow-rgb),.16), 0 3px 10px rgba(var(--shadow-rgb),.06), inset 0 0 0 1px rgba(var(--highlight-rgb),.8), inset 0 1px 0 var(--highlight); }
+.information-panel, .catalog-panel { position: absolute; z-index: 3; top: calc(var(--panel-inset) + var(--menu-height) + var(--panel-gap)); bottom: var(--panel-inset); min-width: 0; overflow-y: auto; scrollbar-gutter: stable; padding: var(--panel-padding); border: 0; transition: translate .24s cubic-bezier(.22,1,.36,1), opacity .24s ease, display .24s allow-discrete, width .32s cubic-bezier(.22,1,.36,1), box-shadow .32s ease; }
 .catalog-panel { left: var(--panel-inset); width: var(--panel-width); padding: var(--panel-padding); display: flex; flex-direction: column; overflow: hidden; scrollbar-gutter: auto; }
 .catalog-heading, .structure-search, .tree-actions { flex-shrink: 0; }
 .catalog-tree { position: relative; z-index: 1; isolation: isolate; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: auto; padding: 9px; border: 1px solid var(--line); border-radius: var(--inner-radius); background: var(--surface); box-shadow: 0 4px 12px rgba(var(--shadow-rgb),.06); }
@@ -178,11 +179,16 @@
 .catalog-heading h2 { margin: 0; padding: 5px; font: 25px var(--font-ui); }
 .catalog-heading > span { padding: 5px; font-size: 11px; color: var(--muted-light); }
 .tree-actions > .structure-search-field { display: grid; place-items: center; flex-shrink: 0; width: 38px; height: 38px; margin-left: auto; padding: 0; border-radius: var(--inner-radius); color: var(--accent); }
+.structure-search-field[data-labeled] { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 44px; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: var(--inner-radius); color: var(--text); background: var(--surface); text-align: left; font-size: 13px; }
+.structure-search-field[data-labeled] > svg { flex: none; color: var(--accent); }
+.structure-search-field[data-labeled] > span { min-width: 0; overflow-wrap: anywhere; }
+.structure-search-field[data-labeled]:not(:disabled):hover { background: var(--control-hover); }
 .structure-search-popover { overflow: hidden; }
 .structure-search-popover:popover-open { display: flex; }
 .structure-search { display: flex; flex: 1; flex-direction: column; min-height: 0; margin: 0; }
 .structure-search-input { display: flex; align-items: center; flex-shrink: 0; gap: 12px; padding: 12px; border-radius: var(--inner-radius); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
 .structure-search-input > svg { flex-shrink: 0; width: 22px; height: 22px; color: var(--accent); }
+.structure-search-input > .structure-search-close { width: 44px; height: 44px; }
 .structure-search input { width: 100%; min-width: 0; padding: 0; border: 0; background: transparent; color: var(--text); font-size: 20px; line-height: 1.4; }
 .structure-search-input:has(input:focus-visible) { background-color: var(--selected-bg); }
 .search-status { flex-shrink: 0; margin: 0; padding: 10px; color: var(--muted); font-size: 12px; line-height: 1.5; }

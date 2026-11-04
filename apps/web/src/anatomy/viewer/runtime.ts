@@ -38,9 +38,11 @@ export class ViewerRuntime implements StudyViewer {
 
   constructor(private host: HTMLElement, private options: {
     viewport: () => Viewport;
+    viewportElement?: HTMLElement;
     onState: (patch: Partial<ViewerState>) => void;
     onPick: (id: string) => void;
     onHide: (ids: string[]) => boolean;
+    allowSeparation?: boolean;
     onFps?: (fps: number) => void;
     onOrientation?: (axes: Float32Array) => void;
     onHold?: (point: { x: number; y: number; action: "hide" | "move" } | null) => void;
@@ -60,7 +62,7 @@ export class ViewerRuntime implements StudyViewer {
       moving: () => this.movingId || this.separatedIds.values().next().value || "",
       movable: id => id === this.movingId || this.separatedIds.has(id),
       joined: id => (this.viewer?.structure_group(id).length ?? 0) > 1,
-      detachable: () => !this.exploding || this.reassembling,
+      detachable: () => options.allowSeparation !== false && (!this.exploding || this.reassembling),
       detach: id => this.setMoving(id) && this.operate(viewer => viewer.detach_structure(id)), onHold: options.onHold,
       beginGroup: id => this.setMoving(id) && this.operate(viewer => viewer.begin_selection_drag()),
       hide: options.onHide,
@@ -76,6 +78,7 @@ export class ViewerRuntime implements StudyViewer {
     });
     this.observer = new ResizeObserver(this.resize);
     this.observer.observe(host);
+    if (options.viewportElement) this.observer.observe(options.viewportElement);
     this.motion.addEventListener("change", this.motionChanged);
     this.resolution.addEventListener("change", this.resolutionChanged);
     this.canvas.addEventListener("webglcontextlost", this.contextLost);

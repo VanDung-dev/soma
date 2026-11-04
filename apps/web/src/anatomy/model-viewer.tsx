@@ -14,18 +14,12 @@ import { ReferenceNotice, WikipediaReader } from "./wikipedia-reader";
 import { OpenStaxLink, OpenStaxReading } from "./openstax-reference";
 import { useLanguage } from "../i18n";
 import { LineIcon } from "../icons";
-import type { MessageKey } from "../i18n";
 import { canReadStructure, StudySession } from "./study/session";
-import type { ViewerStatus } from "./viewer/contracts";
 import { ViewerRuntime } from "./viewer/runtime";
+import { ViewerStatusNotice } from "./viewer-status";
 import { desktopPanelQuery, measureViewport } from "./viewer/layout";
 import { graphicsStorageKey, readGraphicsSettings } from "./viewer/graphics";
 import { shortcutAction, shortcutLabel } from "../shortcuts";
-
-const statusMessages = {
-  loading: "viewer.status.loading", preparing: "viewer.status.preparing", finishing: "viewer.status.finishing",
-  loadError: "viewer.error.load", processError: "viewer.error.process", renderError: "viewer.error.render", contextLost: "viewer.error.contextLost",
-} satisfies Record<ViewerStatus, MessageKey>;
 
 export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const { language, t } = useLanguage();
@@ -59,7 +53,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const runtime = useRef<ViewerRuntime | null>(null);
   const session = useMemo(() => new StudySession(catalog), [catalog]);
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
-  const { structureIds, building, error, status, loadedSystems, selected, readingId, targetId,
+  const { structureIds, building, error, loadedSystems, selected, readingId, targetId,
     visibleIds, readerExpanded, explosionAmount, movingId, separatedIds, reveal, canGoBack, canGoForward } = state;
   const roots = session.catalog.roots;
   const target = useMemo(() => targetId ? catalog.target(targetId) : undefined, [catalog, targetId]);
@@ -174,7 +168,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const otherLanguage = language === "vi" ? "en" : "vi";
   const heading = selectedPart ? selectedPart.names[language] : target ? target.names[language] : t("information.defaultTitle");
   const otherHeading = selectedPart ? selectedPart.names[otherLanguage] : target ? target.names[otherLanguage] : "";
-  const localizedStatus = t(statusMessages[status], { loaded: loadedSystems, total: roots.length });
   const panelToggle = (target: "catalog" | "information", name: string) => {
     const expanded = desktopPanels ? !collapsedPanels[target] : panel === target;
     const label = t(expanded ? "panels.hide" : "panels.show", { name });
@@ -232,7 +225,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
               {(movingId || separatedIds.size > 0) && <div className="model-status separation-status" role="status">
                 <span>{t("context.dragHint")}</span>
               </div>}
-              <p className={`model-status${error ? " model-error" : ""}`} role={error ? "alert" : "status"}>{!error && !building && structureIds.length ? t("viewer.status.visibleCount", { visible: visibleIds.size, total: structureIds.length }) : localizedStatus}</p>
+              <ViewerStatusNotice state={state} totalSystems={roots.length} />
               {building && !error && <progress className="model-progress" aria-label={t("viewer.loading.systems")} value={loadedSystems} max={roots.length} />}
               <ExplodeControls value={explosionAmount} disabled={building || error || !!movingId || !!separatedIds.size}
                 locked={!!movingId || !!separatedIds.size} onChange={session.changeExplosion} />

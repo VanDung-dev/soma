@@ -3,6 +3,14 @@ import type { Viewport } from "./contracts";
 export type HandImageBounds = Pick<DOMRect, "left" | "top" | "width" | "height">;
 export const desktopPanelQuery = "(min-width: 1141px)";
 
+export function viewportInFrame(host: HTMLElement, frame: HTMLElement): Viewport {
+  const area = host.getBoundingClientRect();
+  const bounds = frame.getBoundingClientRect();
+  if (!area.width || !area.height || !bounds.width || !bounds.height) return [0, 0, 1, 1];
+  return [(bounds.left - area.left) / area.width, (bounds.top - area.top) / area.height,
+    bounds.width / area.width, bounds.height / area.height];
+}
+
 export function measureHandImage(host: HTMLElement, aspect: number): HandImageBounds {
   const bounds = host.getBoundingClientRect();
   const width = Math.min(bounds.width, bounds.height * aspect), height = width / aspect;
