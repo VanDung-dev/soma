@@ -75,6 +75,21 @@ impl CatalogData {
     pub fn search(&self, query: &str, language: &str, limit: usize) -> Result<JsValue, JsValue> {
         value(&self.data.search(query, language, limit))
     }
+    pub fn search_targets(
+        &self,
+        query: &str,
+        language: &str,
+        limit: usize,
+        ids: JsValue,
+    ) -> Result<JsValue, JsValue> {
+        let ids: Vec<String> = read(ids)?;
+        value(
+            &self
+                .data
+                .search_targets(query, language, limit, &ids)
+                .map_err(|e| JsValue::from_str(&e))?,
+        )
+    }
     pub fn reveal(&self, id: &str) -> Result<JsValue, JsValue> {
         value(&self.data.reveal(id))
     }

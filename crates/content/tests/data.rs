@@ -77,6 +77,28 @@ fn normalization_preserves_bilingual_search_rules() {
 }
 
 #[test]
+fn scoped_search_uses_catalog_names_before_any_models_load() {
+    let data = CatalogData::from_json(SOURCE).unwrap();
+    let ids = [
+        "collection:94f4f0afe3598035".to_owned(),
+        "collection:a6f4bb7246cd6e74".to_owned(),
+    ];
+    for query in ["cau nao", "CẦU NÃO", "Pons"] {
+        let page = data.search_targets(query, "vi", 1, &ids).unwrap();
+        assert_eq!(page.total, 1);
+        assert!(matches!(&page.items[0], SearchRow::Target(target) if target.id == ids[0]));
+    }
+    assert_eq!(
+        data.search_targets("Pons", "vi", 20, &ids[1..])
+            .unwrap()
+            .total,
+        0
+    );
+    assert_eq!(data.search_targets("", "en", 1, &ids).unwrap().total, 2);
+    assert_eq!(data.search("Pons", "vi", 20).total, 0);
+}
+
+#[test]
 fn openstax_related_readings_prefer_specific_collections_and_inherit_group_context() {
     let mut data = CatalogData::from_json(SOURCE).unwrap();
     let root = data
