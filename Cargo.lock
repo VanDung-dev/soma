@@ -3329,7 +3329,10 @@ dependencies = [
 name = "soma"
 version = "0.1.0"
 dependencies = [
+ "block2",
  "core",
+ "objc2-app-kit",
+ "objc2-foundation",
  "tauri",
  "tauri-build",
  "tauri-plugin-opener",

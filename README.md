@@ -32,7 +32,7 @@ Desktop requires [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/
 Once the workflow is on the default branch, open **Actions → Build desktop → Run workflow** and select `all` to build both packages. Download the ZIP files from **Artifacts** on the completed run.
 
 - `Soma-windows.zip` contains an x64 installer. The app runs natively on x64 and under emulation on Windows 11 Arm64.
-- `Soma-macos.zip` contains a universal app that runs natively on Intel and Apple Silicon.
+- `Soma-macos.zip` contains a universal app for Intel and Apple Silicon and requires macOS 15 or later.
 
 With GitHub CLI, request both builds from the repository root.
 

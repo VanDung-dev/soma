@@ -80,6 +80,76 @@ fn fit_interface(window: &WebviewWindow) {
 }
 
 #[cfg(target_os = "macos")]
+fn traffic_light_position(window: &WebviewWindow) -> Option<(f64, f64)> {
+    window
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|config| config.label == window.label())
+        .and_then(|config| config.traffic_light_position.as_ref())
+        .map(|position| (position.x, position.y))
+}
+
+#[cfg(target_os = "macos")]
+fn keep_traffic_lights_aligned(window: &WebviewWindow) {
+    use std::ptr::NonNull;
+
+    use block2::RcBlock;
+    use objc2_app_kit::{NSView, NSWindow, NSWindowButton, NSWindowStyleMask};
+    use objc2_foundation::NSTimer;
+
+    let Some((x, y)) = traffic_light_position(window) else {
+        return;
+    };
+    let app = window.app_handle().clone();
+    let label = window.label().to_owned();
+    let restore = RcBlock::new(move |timer: NonNull<NSTimer>| {
+        let Some(window) = app.get_webview_window(&label) else {
+            unsafe { timer.as_ref() }.invalidate();
+            return;
+        };
+        let Ok(native) = window.ns_window() else {
+            return;
+        };
+        let Some(native) = (unsafe { native.cast::<NSWindow>().as_ref() }) else {
+            return;
+        };
+        if !native.isVisible() || native.styleMask().contains(NSWindowStyleMask::FullScreen) {
+            return;
+        }
+        let [Some(close), Some(minimize), Some(zoom)] = [
+            NSWindowButton::CloseButton,
+            NSWindowButton::MiniaturizeButton,
+            NSWindowButton::ZoomButton,
+        ]
+        .map(|button| native.standardWindowButton(button)) else {
+            return;
+        };
+        if [&close, &minimize, &zoom]
+            .iter()
+            .any(|button| button.isHiddenOrHasHiddenAncestor() || button.alphaValue() < 1.0)
+        {
+            return;
+        }
+        let Some(titlebar) = (unsafe { close.superview().and_then(|view| view.superview()) })
+        else {
+            return;
+        };
+        let button = NSView::frame(&close);
+        let height = NSView::frame(&titlebar).size.height;
+        if ((button.origin.x - x).abs() > 0.5 || (height - button.size.height - y).abs() > 0.5)
+            && let Ok(title) = window.title()
+        {
+            let _ = window.set_title(&title);
+        }
+    });
+    let timer =
+        unsafe { NSTimer::scheduledTimerWithTimeInterval_repeats_block(0.25, true, &restore) };
+    timer.setTolerance(0.05);
+}
+
+#[cfg(target_os = "macos")]
 fn macos_menu(app: &AppHandle<Wry>) -> tauri::Result<Menu<Wry>> {
     let menu = Menu::default(app)?;
     if let Some(MenuItemKind::Submenu(soma_menu)) = menu.items()?.first() {
@@ -118,6 +188,8 @@ fn main() -> Result<(), tauri::Error> {
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
                 fit_interface(&window);
+                #[cfg(target_os = "macos")]
+                keep_traffic_lights_aligned(&window);
             }
             Ok(())
         })
