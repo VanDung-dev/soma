@@ -12,6 +12,7 @@ export async function checkStructureSearch() {
   const open = async () => {
     if (!popover.matches(':popover-open')) trigger.click();
     await wait();
+    await Promise.all(popover.getAnimations().map(animation => animation.finished));
   };
   const enter = async text => {
     input.focus();

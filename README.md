@@ -110,6 +110,24 @@ npm run models:import
 
 Blender exports use its bundled Python.
 
+## Lessons
+
+Open **Lessons** and create a draft. Insert text, 3D observation or structure
+identification from the outline. Write in the center and use Settings to arrange
+the selected section or choose its anatomy and answer choices. A lesson can use
+one model from the Soma anatomy catalog. The editor shows the selected 3D area
+while you work. Preview runs the lesson as a learner sees it.
+Use the library search to find drafts by title or description. A draft opens at
+`/lessons/<id>/edit`, which reloads the saved draft in the same profile.
+Drafts autosave in the current browser profile or desktop WebView. Export a
+completed draft as `.jsoma` to back it up or import it on another device.
+
+A JSoma v1 lesson is a ZIP with `manifest.json` and `content.json`. The manifest
+records the format version, kind and SHA-256 of the content. The editor keeps
+lesson and step IDs stable across edits. The model root, step targets and
+identification choices reference Soma catalog IDs. Practice answers are checked
+on the device.
+
 ## Wikipedia proxy
 
 `npm run serve` includes the proxy. Static hosting and packaged desktop need a deployed proxy:

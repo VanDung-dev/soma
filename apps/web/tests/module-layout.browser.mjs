@@ -178,7 +178,7 @@ export async function checkModuleLayout() {
   assert(root.querySelectorAll('.model-space').length === 1, 'The shared layout must own the only workspace');
   assert(content.dataset.page === name, 'Render the module at its own URL');
   const currentNavigation = root.querySelector('.module-nav [aria-current="page"]');
-  assert(name === 'lessons' || name === 'games' ? currentNavigation.getAttribute('aria-disabled') === 'true' : currentNavigation.getAttribute('href') === '/' + name, 'Mark the current module in navigation');
+  assert(name === 'games' ? currentNavigation.getAttribute('aria-disabled') === 'true' : currentNavigation.getAttribute('href') === '/' + name, 'Mark the current module in navigation');
   assert(JSON.stringify([...root.querySelectorAll('.module-nav a, .module-nav-disabled')].map(link => link.textContent)) === JSON.stringify(['Home', '3D Anatomy', 'Lessons', 'Games']), 'Show all modules while disabling unavailable ones');
   assert(root.querySelector('.module-brand').getAttribute('href') === '/home' && !root.querySelector('.brand-mark'), 'The brand must link to Home without a mark');
   const outer = content.getBoundingClientRect(), inner = space.getBoundingClientRect();

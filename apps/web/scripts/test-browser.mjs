@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
 import { checkOrientationPointer } from '../tests/orientation-pointer.mjs';
+import { checkLessons } from '../tests/lessons.browser.mjs';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.BENCHMARK_PLAYWRIGHT_MODULE || 'playwright');
@@ -43,6 +44,8 @@ try {
     console.log(name, JSON.stringify(result));
     if (name === 'checkOrientationAxes') console.log('checkOrientationPointer', JSON.stringify(await checkOrientationPointer(page)));
   }
+  await checkLessons(page);
+  console.log('checkLessons passed');
   assert.deepEqual(errors, [], 'Browser checks must not raise uncaught errors');
   await context.close();
   const blocked = await browser.newContext({ viewport: { width: 1440, height: 900 }, baseURL });
@@ -60,7 +63,7 @@ try {
   }
   assert.deepEqual(errors, [], 'Blocked storage must not break startup or preference controls');
   await blocked.close();
-  console.log('Browser checks passed: 22');
+  console.log('Browser checks passed: 23');
 } finally {
   await browser?.close();
   await server.close();

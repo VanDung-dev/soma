@@ -24,23 +24,22 @@ test('Home and module routes share one workspace and navigation returns to Home'
       const markup = render('/' + name);
       assert.equal((markup.match(/class="model-space"/g) ?? []).length, 1);
       assert(markup.includes(`data-page="${name}"`));
-      if (name === 'home' || name === 'anatomy') assert(markup.includes(`href="/${name}" aria-current="page"`));
-      else assert(markup.includes(`aria-disabled="true" aria-current="page">${name === 'lessons' ? 'Lessons' : 'Games'}</span>`));
+      if (name !== 'games') assert(markup.includes(`href="/${name}" aria-current="page"`));
+      else assert(markup.includes('aria-disabled="true" aria-current="page">Games</span>'));
       assert(markup.includes('class="module-brand" href="/home"'));
       assert(!markup.includes('brand-mark'));
       const navigation = markup.match(/<nav class="module-nav"[\s\S]*?<\/nav>/)[0];
-      assert.deepEqual([...navigation.matchAll(/href="([^"]+)"/g)].map(match => match[1]), ['/home', '/anatomy']);
-      assert(navigation.includes('aria-disabled="true"') && navigation.includes('Lessons</span>'));
+      assert.deepEqual([...navigation.matchAll(/href="([^"]+)"/g)].map(match => match[1]), ['/home', '/anatomy', '/lessons']);
       assert(navigation.includes('aria-disabled="true"') && navigation.includes('Games</span>'));
       assert.equal(render('/' + name + '/'), markup);
       if (name === 'home') {
         assert(markup.includes('Chọn một phần để bắt đầu.'));
-        assert.equal((markup.match(/Chưa có nội dung\./g) ?? []).length, 2);
-        assert.deepEqual([...markup.matchAll(/class="home-module[^\"]*" href="([^"]+)"/g)].map(match => match[1]), ['/anatomy']);
+        assert.equal((markup.match(/Chưa có nội dung\./g) ?? []).length, 1);
+        assert.deepEqual([...markup.matchAll(/class="home-module[^\"]*" href="([^"]+)"/g)].map(match => match[1]), ['/anatomy', '/lessons']);
         assert.equal((markup.match(/class="home-module-art"/g) ?? []).length, 3);
         assert.equal((markup.match(/class="home-module-copy"/g) ?? []).length, 3);
         assert.equal((markup.match(/draggable="false"/g) ?? []).length, 6);
-        for (const module of ['lessons', 'games']) assert(markup.includes(`class="home-module home-module-${module}" aria-disabled="true"`));
+        assert(markup.includes('class="home-module home-module-games" aria-disabled="true"'));
       }
     }
   } finally {
@@ -57,7 +56,7 @@ test('the production server serves module URLs and keeps missing assets as error
     await writeFile(path.join(directory, 'site.webmanifest'), JSON.stringify({ name: 'Soma' }));
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     const base = `http://127.0.0.1:${server.address().port}`;
-    for (const route of ['/', '/home', '/home/', '/anatomy', '/lessons', '/games', '/anatomy/']) {
+    for (const route of ['/', '/home', '/home/', '/anatomy', '/lessons', '/lessons/example-lesson/edit', '/games', '/anatomy/']) {
       const response = await fetch(base + route);
       assert.equal(response.status, 200);
       assert.equal(await response.text(), '<main>Soma</main>');
