@@ -3,7 +3,6 @@ import type { Catalog, StudyTarget } from "../anatomy/catalog/types";
 import { StructureSearch } from "../anatomy/structure-search";
 import { useLanguage } from "../i18n";
 import type { Language } from "../i18n";
-import { LineIcon } from "../icons";
 import { lessonText } from "./contract";
 import type { Lesson, LessonStep } from "./contract";
 
@@ -45,13 +44,14 @@ export function LessonInspector({ catalog, lesson, active, index, locale, target
             const kind = event.target.value as LessonStep["kind"];
             const { id, title, instruction } = active;
             const base = { id, title, instruction };
-            const targetId = active.kind === "text" ? "" : active.targetId;
+            const targetId = active.kind === "text" ? lesson.modelId : active.targetId;
+            const visibleIds = active.kind === "text" ? undefined : active.visibleIds;
             const losesChoices = active.kind === "identify_structure" &&
               (active.choiceIds.length || lessonText(active.explanation, locale));
             if ((losesChoices || kind === "text" && targetId) && !window.confirm(t("lessons.confirmTypeChange"))) return;
             onChange(kind === "identify_structure"
-              ? { ...base, kind, targetId, choiceIds: [], answerId: "", explanation: { vi: "", en: "" } }
-              : kind === "observe" ? { ...base, kind, targetId } : { ...base, kind });
+              ? { ...base, kind, targetId, visibleIds, choiceIds: [], answerId: "", explanation: { vi: "", en: "" } }
+              : kind === "observe" ? { ...base, kind, targetId, visibleIds } : { ...base, kind });
           }}>
             {lessonBlockTools.map(item => <option key={item.kind} value={item.kind}>{t(item.name)}</option>)}
           </select>
@@ -67,8 +67,12 @@ export function LessonInspector({ catalog, lesson, active, index, locale, target
               <option value={lesson.modelId}>{lesson.modelId}</option>}
           </select>
         </label>
-        {active && <StructurePicker catalog={catalog} targets={targets} value={active.targetId}
-          onChange={targetId => onChange({ ...active, targetId })} />}
+        {active && catalog.roots.some(model => model.id === lesson.modelId) && <>
+          <button className="lesson-button" popoverTarget="lesson-scene-structures">
+            {t("lessons.sceneStructures")}
+          </button>
+          <p>{active.visibleIds ? t("lessons.sceneCount", { count: active.visibleIds.length }) : t("lessons.composeSceneHint")}</p>
+        </>}
         <p>{t("lessons.sharedModel")}</p>
       </section>}
       {active?.kind === "identify_structure" && <ExerciseFields catalog={catalog} targets={targets} step={active} locale={locale}
@@ -85,27 +89,6 @@ export function LessonInspector({ catalog, lesson, active, index, locale, target
   </aside>;
 }
 
-function StructurePicker({ catalog, targets, value, onChange }: {
-  catalog: Catalog; targets: StudyTarget[]; value: string; onChange: (id: string) => void;
-}) {
-  const { language, t } = useLanguage();
-  const ids = useMemo(() => targets.map(target => target.id), [targets]);
-  const available = ids.includes(value);
-  return <div className="lesson-structure-picker" role="group" aria-label={t("lessons.structure")}>
-    <span>{t("lessons.structure")}</span>
-    <div className="lesson-structure-actions">
-      <StructureSearch catalog={catalog} targetIds={ids} disabled={!ids.length} onSelect={onChange}
-        label={t("lessons.selectStructure")} value={value ? catalog.target(value)?.names[language] ?? value : undefined} />
-      {value && <button type="button" className="controls-info" onClick={event => {
-        event.currentTarget.parentElement?.querySelector<HTMLButtonElement>(".structure-search-field")?.focus();
-        onChange("");
-      }}
-        aria-label={t("lessons.clearStructure")} title={t("lessons.clearStructure")}><LineIcon name="close-small" /></button>}
-    </div>
-    {value && !available && <p role="status">{t("lessons.structureUnavailable")}</p>}
-  </div>;
-}
-
 function ExerciseFields({ catalog, targets, step, locale, onChange }: {
   catalog: Catalog;
   targets: StudyTarget[];
@@ -115,13 +98,13 @@ function ExerciseFields({ catalog, targets, step, locale, onChange }: {
 }) {
   const { language, t } = useLanguage();
   const available = useMemo(() => {
-    const visible = new Set(catalog.members(step.targetId));
+    const visible = new Set(step.visibleIds ?? catalog.members(step.targetId));
     const used = new Set(step.choiceIds.flatMap(id => catalog.members(id)));
     return targets.filter(target => {
       const ids = catalog.members(target.id);
       return ids.length > 0 && ids.length < visible.size && ids.every(id => visible.has(id) && !used.has(id));
     }).map(target => target.id);
-  }, [catalog, targets, step.targetId, step.choiceIds]);
+  }, [catalog, targets, step.targetId, step.visibleIds, step.choiceIds]);
   return <section className="lesson-inspector-section">
     <h3>{t("lessons.answers")}</h3>
     <p>{t("lessons.answerHint")}</p>

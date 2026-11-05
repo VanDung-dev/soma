@@ -10,9 +10,9 @@ function Magnifier() {
   </svg>;
 }
 
-export const StructureSearch = memo(function StructureSearch({ catalog, disabled, onSelect, targetIds, label, value }: {
+export const StructureSearch = memo(function StructureSearch({ catalog, disabled, onSelect, targetIds, structureIds, label, value }: {
   catalog: Catalog; disabled: boolean; onSelect: (id: string) => void;
-  targetIds?: readonly string[]; label?: string; value?: string;
+  targetIds?: readonly string[]; structureIds?: readonly string[]; label?: string; value?: string;
 }) {
   const id = useId();
   const { language, t } = useLanguage();
@@ -22,8 +22,11 @@ export const StructureSearch = memo(function StructureSearch({ catalog, disabled
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const [limit, setLimit] = useState(20);
-  const results = useMemo(() => targetIds ? catalog.searchTargets(query, language, limit, targetIds)
-    : catalog.search(query, language, limit), [catalog, query, language, limit, disabled, targetIds]);
+  const results = useMemo(() => {
+    if (structureIds) return catalog.searchStructures(query, language, limit, structureIds);
+    if (targetIds) return catalog.searchTargets(query, language, limit, targetIds);
+    return catalog.search(query, language, limit);
+  }, [catalog, query, language, limit, disabled, structureIds, targetIds]);
   const shown = results.items;
   const otherLanguage = language === "vi" ? "en" : "vi";
   const activeId = shown[activeIndex] ? id + "-result-" + activeIndex : undefined;
@@ -69,7 +72,7 @@ export const StructureSearch = memo(function StructureSearch({ catalog, disabled
               if (next >= shown.length) setLimit(next + 20);
               setActiveIndex(next);
             }} />
-          {targetIds && <button type="button" className="controls-info structure-search-close" onClick={close}
+          {(targetIds || structureIds) && <button type="button" className="controls-info structure-search-close" onClick={close}
             aria-label={t("search.close")} title={t("search.close")}><LineIcon name="close-small" size={18} /></button>}
         </div>
         <p id={id + "-status"} className="search-status" role="status">{query.trim() ? results.total

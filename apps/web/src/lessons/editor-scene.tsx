@@ -1,15 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { getCatalog } from "../anatomy/core";
 import type { Catalog } from "../anatomy/catalog/types";
 import { OrientationAxes } from "../anatomy/orientation-axes";
 import { ViewerStatusNotice } from "../anatomy/viewer-status";
+import { StructureTree } from "../anatomy/structure-tree";
+import { ExplodeControls } from "../anatomy/explode-controls";
+import { PopoverPanel } from "../popover-panel";
 import { useLanguage } from "../i18n";
 import { useLessonViewer } from "./viewer";
+import { LessonStructureTools } from "./structure-tools";
 
-export function EditorScene({ modelId, targetId, frame, inactive }: {
-  modelId: string; targetId: string; frame: HTMLElement; inactive: boolean;
-}) {
+type SceneProps = {
+  modelId: string; targetId: string; sectionId: string; frame: HTMLElement; controls: HTMLElement; inactive: boolean;
+  visibleIds?: string[]; onChangeScene: (ids: string[]) => void;
+};
+
+export function EditorScene(props: SceneProps) {
   const { t } = useLanguage();
   const [catalog, setCatalog] = useState<Catalog>();
   const [failed, setFailed] = useState(false);
@@ -26,30 +33,70 @@ export function EditorScene({ modelId, targetId, frame, inactive }: {
     return () => { active = false; owned?.free(); };
   }, []);
 
-  if (catalog) return <Scene catalog={catalog} modelId={modelId} targetId={targetId} frame={frame} inactive={inactive} />;
+  if (catalog) return <Scene catalog={catalog} {...props} />;
   return createPortal(
     <p className={`lesson-model-message model-status${failed ? " model-error" : ""}`} role={failed ? "alert" : "status"}>
       {t(failed ? "lessons.targetError" : "viewer.status.loading")}
-    </p>, frame);
+    </p>, props.frame);
 }
 
-function Scene({ catalog, modelId, targetId, frame, inactive }: {
-  catalog: Catalog; modelId: string; targetId: string; frame: HTMLElement; inactive: boolean;
-}) {
-  const { t } = useLanguage();
-  const { host, orientation, showAxes, session, state } = useLessonViewer(catalog, modelId, undefined, frame);
+function Scene({ catalog, modelId, targetId, sectionId, frame, controls, inactive, visibleIds, onChangeScene }: SceneProps & { catalog: Catalog }) {
+  const { language, t } = useLanguage();
+  const ids = useMemo(() => visibleIds ?? catalog.members(targetId), [catalog, targetId, visibleIds]);
+  const { host, orientation, showAxes, session, state, hold, snapTarget } = useLessonViewer(catalog, modelId, undefined, frame,
+    hiddenIds => {
+      const hidden = new Set(hiddenIds);
+      onChangeScene(ids.filter(id => !hidden.has(id)));
+    });
   const ready = !state.building && !state.error;
+  const shown = useMemo(() => new Set(ids), [ids]);
+  const reveal = useMemo(() => ({ id: targetId }), [targetId]);
+  const snapPart = useMemo(() => catalog.detail(snapTarget), [catalog, snapTarget, state.structureIds]);
+  const separated = !!state.movingId || !!state.separatedIds.size;
   useEffect(() => {
-    if (ready) session.focus([], targetId);
-  }, [ready, session, targetId]);
+    if (ready) session.overview();
+  }, [ready, session, sectionId]);
+  useEffect(() => {
+    if (ready) session.showScene(ids);
+  }, [ready, session, sectionId, ids]);
 
   return <div className="lesson-editor-scene" inert={inactive} aria-label={t("viewer.section.label")} role="group">
     <div className="model-canvas" ref={host} aria-busy={state.building && !state.error} />
+    {hold && <svg key={hold.action} className="model-hold-progress" data-action={hold.action} style={{ left: hold.x, top: hold.y }} viewBox="0 0 40 40" aria-hidden="true">
+      <circle cx="20" cy="20" r="16" />
+      <circle className="model-hold-fill" cx="20" cy="20" r="16" pathLength="100" />
+    </svg>}
+    {createPortal(<div className="lesson-editor-hud">
+      <ExplodeControls value={state.explosionAmount} disabled={!ready || separated} locked={separated} onChange={session.changeExplosion} />
+    </div>, controls)}
     {createPortal(<>
       {showAxes && <div className="model-orientation"><OrientationAxes ref={orientation} disabled={!ready} onControl={session.control} /></div>}
       {!ready && <ViewerStatusNotice className="lesson-model-message" state={state} totalSystems={1} />}
-      <button className="lesson-button lesson-scene-fit" disabled={!ready}
-        onClick={() => session.focus([], targetId)}>{t("lessons.fitScene")}</button>
+      {ready && <LessonStructureTools key={sectionId} catalog={catalog} session={session} state={state} ids={ids} />}
+      <div className="lesson-scene-feedback">
+        {snapPart && <p className="model-status model-snap-hint" role="status">{t("viewer.snapHint", { name: snapPart.names[language] })}</p>}
+        {separated && <p className="model-status separation-status" role="status">{t("context.dragHint")}</p>}
+      </div>
+      {createPortal(<PopoverPanel key={sectionId} id="lesson-scene-structures" className="lesson-scene-structures" contentClassName="catalog-tree lesson-scene-tree"
+        title={t("lessons.sceneStructures")} closeLabel={t("lessons.closeSceneStructures")}>
+        <p>{t("lessons.composeSceneHint")}</p>
+        <div className="lesson-inspector-actions">
+          <button className="lesson-button" disabled={!ready} onClick={() => onChangeScene(catalog.members(modelId))}>{t("catalog.showAll")}</button>
+          <button className="lesson-button" disabled={!ready} onClick={() => onChangeScene([])}>{t("catalog.hideAll")}</button>
+          <button className="lesson-button" disabled={!ready} onClick={() => onChangeScene(catalog.members(targetId))}>{t("lessons.resetScene")}</button>
+        </div>
+        <p role="status">{t("lessons.sceneCount", { count: ids.length })}</p>
+        {ready ? <StructureTree catalog={catalog} rootId={modelId} visibleIds={shown} selected={state.readingId}
+          targetId={state.targetId} reveal={reveal} disabled={!ready} onVisibility={(members, visible) => {
+            const next = new Set(ids);
+            members.forEach(id => { if (visible) next.add(id); else next.delete(id); });
+            onChangeScene([...next]);
+          }} onSelect={session.browseStructure} onTarget={session.browseTarget}
+          onFocus={(members, target) => onChangeScene(target ? catalog.members(target) : members)} />
+          : <p role="status">{t("viewer.status.loading")}</p>}
+      </PopoverPanel>, document.body)}
+      <button className={`lesson-button lesson-scene-fit${separated ? " lesson-scene-restore" : ""}`} disabled={!ready}
+        onClick={() => separated ? session.restoreStructure("") : session.showScene(ids)}>{t(separated ? "context.restore" : "lessons.fitScene")}</button>
       <a className="lesson-model-credit" href="/models/z-anatomy/ATTRIBUTION.md" target="_blank" rel="noreferrer"
         aria-label={t("credit.link")}>Z-Anatomy</a>
     </>, frame)}

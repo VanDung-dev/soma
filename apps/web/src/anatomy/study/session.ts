@@ -124,6 +124,17 @@ export class StudySession {
     return true;
   };
 
+  showScene = (ids: string[]) => {
+    if (!ids.every(id => this.state.structureIds.includes(id))) return false;
+    const success = ids.length
+      ? this.viewer?.focus(ids, true, !ids.every(id => this.state.visibleIds.has(id)))
+      : this.viewer?.changeVisibility(this.state.structureIds, false);
+    if (!success) return false;
+    this.update({ visibleIds: new Set(ids), readingId: "", readerExpanded: false, targetId: undefined, focusedIds: ids });
+    this.retargetExplosion();
+    return true;
+  };
+
   focus = (requestedIds: string[], targetId?: string) => {
     const target = targetId ? this.catalog.target(targetId) : undefined;
     if (targetId && !target) return false;

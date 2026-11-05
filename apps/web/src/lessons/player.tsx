@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Catalog } from "../anatomy/catalog/types";
 import { OrientationAxes } from "../anatomy/orientation-axes";
 import { ViewerStatusNotice } from "../anatomy/viewer-status";
@@ -6,6 +6,7 @@ import { useLanguage } from "../i18n";
 import type { Lesson } from "./contract";
 import { lessonText, validateLessonTargets } from "./contract";
 import { useLessonViewer } from "./viewer";
+import { LessonStructureTools } from "./structure-tools";
 
 export function LessonPlayer({ lesson, catalog }: { lesson: Lesson; catalog: Catalog }) {
   const { language, t } = useLanguage();
@@ -25,6 +26,7 @@ export function LessonPlayer({ lesson, catalog }: { lesson: Lesson; catalog: Cat
   const [validated, setValidated] = useState(!usesModel);
   const [complete, setComplete] = useState(false);
   const step = lesson.steps[index]!;
+  const sceneIds = useMemo(() => step.kind === "text" ? [] : step.visibleIds ?? catalog.members(step.targetId), [catalog, step]);
   const exercise = step.kind === "identify_structure" ? step : undefined;
   const solved = passed.has(step.id);
   const ready = validated && !state.error && !failed;
@@ -41,8 +43,8 @@ export function LessonPlayer({ lesson, catalog }: { lesson: Lesson; catalog: Cat
   }, [catalog, lesson, state.building, state.error, state.structureIds]);
 
   useEffect(() => {
-    if (ready && !complete && step.kind !== "text" && !session.focus([], step.targetId)) setFailed(true);
-  }, [complete, ready, session, step]);
+    if (ready && !complete && step.kind !== "text" && !session.showScene(sceneIds)) setFailed(true);
+  }, [complete, ready, session, step, sceneIds]);
 
   useEffect(() => {
     if (index || complete) heading.current?.focus();
@@ -62,6 +64,8 @@ export function LessonPlayer({ lesson, catalog }: { lesson: Lesson; catalog: Cat
         {showAxes && <div className="model-orientation"><OrientationAxes ref={orientation} disabled={!ready} onControl={session.control} /></div>}
         {failed ? <p className="lesson-model-message model-status model-error" role="alert">{t("lessons.targetError")}</p>
           : (state.building || state.error) && <ViewerStatusNotice className="lesson-model-message" state={state} totalSystems={1} />}
+        {ready && step.kind !== "text" && (!exercise || solved) &&
+          <LessonStructureTools key={step.id} catalog={catalog} session={session} state={state} ids={sceneIds} />}
         <a className="lesson-model-credit" href="/models/z-anatomy/ATTRIBUTION.md" target="_blank" rel="noreferrer"
           aria-label={t("credit.link")}>Z-Anatomy</a>
       </section>}
@@ -73,7 +77,11 @@ export function LessonPlayer({ lesson, catalog }: { lesson: Lesson; catalog: Cat
           <legend>{t("lessons.choose")}</legend>
           {exercise.choiceIds.map(id => <label key={id}>
             <input type="radio" name="lesson-choice" checked={id === (solved ? exercise.answerId : choice)}
-              onChange={() => { setSelection({ source: "choice", id }); setIncorrect(false); }} />
+              onChange={() => {
+                session.browseStructure("");
+                setSelection({ source: "choice", id });
+                setIncorrect(false);
+              }} />
             {catalog.target(id)?.names[language] ?? id}
           </label>)}
         </fieldset>}

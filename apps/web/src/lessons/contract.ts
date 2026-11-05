@@ -1,9 +1,9 @@
 export type LessonText = { vi: string; en: string };
 
 type StepContent = { id: string; title: LessonText; instruction: LessonText };
-export type LessonStep = StepContent & ({ kind: "text" } | { kind: "observe"; targetId: string } | {
+type LessonScene = { targetId: string; visibleIds?: string[] };
+export type LessonStep = StepContent & ({ kind: "text" } | LessonScene & { kind: "observe" } | LessonScene & {
   kind: "identify_structure";
-  targetId: string;
   choiceIds: string[];
   answerId: string;
   explanation: LessonText;
@@ -55,7 +55,9 @@ export function readLesson(value: unknown, draft = false): Lesson {
     if (!object(step) || !slug(step.id) || ids.has(step.id) || !localized(step.title, !draft) || !localized(step.instruction, !draft)) {
       throw new LessonValidationError("stepText", `${label} needs a title and instructions.`, index + 1);
     }
-    if (step.kind !== "text" && (!string(step.targetId) || (!draft && (!value.modelId || !step.targetId)))) {
+    if (step.kind !== "text" && (!string(step.targetId) || (!draft && (!value.modelId || !step.targetId))
+      || step.visibleIds !== undefined && (!Array.isArray(step.visibleIds) || !step.visibleIds.every(string)
+        || new Set(step.visibleIds).size !== step.visibleIds.length))) {
       throw new LessonValidationError("target", `${label} needs a model and a structure.`, index + 1);
     }
     if (step.kind !== "text" && step.kind !== "observe" && (step.kind !== "identify_structure" || !Array.isArray(step.choiceIds)
@@ -72,8 +74,9 @@ export function validateLessonTargets(lesson: Lesson, structureIds: readonly str
   const model = new Set(structureIds);
   for (const [index, step] of lesson.steps.entries()) {
     if (step.kind === "text") continue;
-    const scene = members(step.targetId);
-    if (!scene.length || !scene.every(id => model.has(id))) {
+    const target = members(step.targetId);
+    const scene = step.visibleIds ?? target;
+    if (!target.length || !target.every(id => model.has(id)) || !scene.length || !scene.every(id => model.has(id))) {
       throw new LessonValidationError("scope", `Step ${index + 1}: unavailable structure.`, index + 1);
     }
     if (step.kind !== "identify_structure") continue;

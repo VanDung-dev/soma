@@ -35,3 +35,28 @@ test('an exercise must have distinct selectable structures inside its visible ta
   assert.throws(() => validateLessonTargets(lesson, ['1'], id => members[id]), /unavailable structure/);
   assert.throws(() => validateLessonTargets(lesson, ['1', '2'], id => id === 'b' ? ['1'] : members[id]), /cannot overlap/);
 });
+
+test('custom scenes persist exact model members and bound exercise choices', () => {
+  const lesson = {
+    ...draft, title: text('Custom skull'), modelId: 'model',
+    steps: [{ id: 'observe', kind: 'observe', title: text('Head'), instruction: text('Explore.'),
+      targetId: 'skull', visibleIds: ['1', '2', 'jaw'] }],
+  };
+  const members = { skull: ['1', '2'], a: ['1'], b: ['jaw'], otherModel: ['elsewhere'] };
+  const validate = value => validateLessonTargets(value, ['1', '2', 'jaw'], id => members[id] ?? []);
+  validate(readLesson(lesson));
+  assert.throws(() => validate({ ...lesson, steps: [{ ...lesson.steps[0], targetId: 'otherModel' }] }), /unavailable structure/);
+  assert.deepEqual(readLesson(unpackLesson(packLesson(lesson))), lesson);
+  for (const visibleIds of [null, '1', [1], ['1', '1']]) {
+    assert.throws(() => readLesson({ ...lesson, steps: [{ ...lesson.steps[0], visibleIds }] }), /needs a model/);
+  }
+  for (const visibleIds of [[], ['missing']]) {
+    const value = { ...lesson, steps: [{ ...lesson.steps[0], visibleIds }] };
+    assert.deepEqual(readLesson(value, true), value);
+    assert.throws(() => validate(value), /unavailable structure/);
+  }
+  const exercise = { ...lesson, steps: [{ ...lesson.steps[0], kind: 'identify_structure',
+    choiceIds: ['a', 'b'], answerId: 'b', explanation: text('') }] };
+  validate(readLesson(exercise));
+  assert.throws(() => validate({ ...exercise, steps: [{ ...exercise.steps[0], visibleIds: ['1', '2'] }] }), /cannot overlap/);
+});
