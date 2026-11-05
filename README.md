@@ -72,8 +72,9 @@ Compress-Archive -LiteralPath $installer -DestinationPath target/Soma-Windows-x6
 
 Extract `target/Soma-Windows-x64.zip` and run the setup executable.
 
-Desktop builds include the compressed models and source notices in a separate
-`models/` resource directory. The packaged app reads those files offline.
+Desktop builds include one compressed GLB containing all nine anatomy systems,
+one combined JSON containing metadata and provenance, and readable source notices
+in a separate `models/` resource directory. The packaged app reads those files offline.
 For `npm run desktop:build`, keep the generated `models/` directory alongside
 the executable when running from `target/release/`.
 
