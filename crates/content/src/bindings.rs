@@ -90,6 +90,16 @@ impl CatalogData {
                 .map_err(|e| JsValue::from_str(&e))?,
         )
     }
+    pub fn search_structures(
+        &self,
+        query: &str,
+        language: &str,
+        limit: usize,
+        ids: JsValue,
+    ) -> Result<JsValue, JsValue> {
+        let ids: Vec<String> = read(ids)?;
+        value(&self.data.search_structures(query, language, limit, &ids))
+    }
     pub fn reveal(&self, id: &str) -> Result<JsValue, JsValue> {
         value(&self.data.reveal(id))
     }

@@ -695,6 +695,41 @@ impl CatalogData {
         Ok(SearchPage { total, items })
     }
 
+    pub fn search_structures(
+        &self,
+        query: &str,
+        language: &str,
+        limit: usize,
+        ids: &[String],
+    ) -> SearchPage<'_> {
+        let ids: HashSet<_> = ids.iter().map(String::as_str).collect();
+        let in_scope = |i: &usize| ids.contains(self.structures[*i].source_id.as_str());
+        let matches: Vec<_> = if query.trim().is_empty() {
+            self.alphabetical[usize::from(language == "en")]
+                .iter()
+                .copied()
+                .filter(in_scope)
+                .collect()
+        } else {
+            ranked_matches(
+                query,
+                self.order
+                    .iter()
+                    .copied()
+                    .filter(in_scope)
+                    .map(|i| (&self.entries[i], i)),
+            )
+        };
+        SearchPage {
+            total: matches.len(),
+            items: matches
+                .into_iter()
+                .take(limit)
+                .map(|i| SearchRow::Structure(self.row(i)))
+                .collect(),
+        }
+    }
+
     pub fn reveal(&self, id: &str) -> Vec<(String, usize)> {
         let mut target = self
             .reveal_targets

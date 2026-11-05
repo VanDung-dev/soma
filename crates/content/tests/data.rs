@@ -99,6 +99,21 @@ fn scoped_search_uses_catalog_names_before_any_models_load() {
 }
 
 #[test]
+fn scoped_part_search_returns_only_allowed_meshes() {
+    let mut data = CatalogData::from_json(SOURCE).unwrap();
+    data.ingest("collection:baf3076d0495a617", METADATA)
+        .unwrap();
+    data.finish("vi").unwrap();
+    let ids = ["za:8e8f88fe40d45d19".to_owned()];
+    for query in ["xuong tran", "Frontal bone", "Os frontale", ""] {
+        let page = data.search_structures(query, "vi", 20, &ids);
+        assert_eq!(page.total, 1);
+        assert_eq!(structure_id(&page.items[0]), ids[0]);
+    }
+    assert_eq!(data.search_structures("Femur", "en", 20, &ids).total, 0);
+}
+
+#[test]
 fn openstax_related_readings_prefer_specific_collections_and_inherit_group_context() {
     let mut data = CatalogData::from_json(SOURCE).unwrap();
     let root = data
