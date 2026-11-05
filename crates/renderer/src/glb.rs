@@ -20,23 +20,30 @@ impl Default for Surface {
     }
 }
 
+pub fn read_glb(bytes: &[u8]) -> Result<gltf::Gltf, String> {
+    let mut decoded = Vec::new();
+    let bytes = if bytes.starts_with(b"glTF") {
+        bytes
+    } else {
+        let limit = 256 * 1024 * 1024;
+        brotli_decompressor::Decompressor::new(bytes, 4096)
+            .take(limit + 1)
+            .read_to_end(&mut decoded)
+            .map_err(|e| format!("Invalid Brotli model: {e}"))?;
+        if decoded.len() as u64 > limit {
+            return Err("Decompressed model exceeds 256 MiB".into());
+        }
+        &decoded
+    };
+    gltf::Gltf::from_slice(bytes).map_err(|e| e.to_string())
+}
+
 impl Scene {
     pub fn from_glb(bytes: &[u8], expected: &[String]) -> Result<Self, String> {
-        let mut decoded = Vec::new();
-        let bytes = if bytes.starts_with(b"glTF") {
-            bytes
-        } else {
-            let limit = 128 * 1024 * 1024;
-            brotli_decompressor::Decompressor::new(bytes, 4096)
-                .take(limit + 1)
-                .read_to_end(&mut decoded)
-                .map_err(|e| format!("Invalid Brotli model: {e}"))?;
-            if decoded.len() as u64 > limit {
-                return Err("Decompressed model exceeds 128 MiB".into());
-            }
-            &decoded
-        };
-        let gltf = gltf::Gltf::from_slice(bytes).map_err(|e| e.to_string())?;
+        Self::from_gltf(&read_glb(bytes)?, expected)
+    }
+
+    pub fn from_gltf(gltf: &gltf::Gltf, expected: &[String]) -> Result<Self, String> {
         let blob = gltf.blob.as_deref().ok_or("GLB has no binary buffer")?;
         // shortcut: static, untextured GLB packages; extend the loader when assets gain textures or animation.
         if gltf
