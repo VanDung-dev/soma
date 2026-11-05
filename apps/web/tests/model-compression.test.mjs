@@ -1,3 +1,4 @@
+import { bundle, modelBytes } from './model.fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
@@ -16,18 +17,19 @@ test('Brotli rejects an invalid block switch', () => {
 
 test('model storage keeps only compressed GLBs and serves their bytes without HTTP decoding', async () => {
   const directory = new URL('../public/models/z-anatomy/', import.meta.url);
-  const manifest = JSON.parse(await readFile(new URL('manifest.json', directory)));
+  const storedBytes = modelBytes();
   const files = await readdir(directory);
-  assert.equal(files.filter(file => file.endsWith('.glb.br')).length, 9);
+  assert.equal(files.filter(file => file.endsWith('.glb.br')).length, 1);
+  assert.deepEqual(files.filter(file => file.endsWith('.json')), ['z-anatomy.json']);
   assert(!files.some(file => file.endsWith('.glb')));
-  const stored = manifest.models.reduce((sum, model) => sum + model.bytes, 0);
-  const decoded = manifest.models.reduce((sum, model) => sum + model.uncompressed_bytes, 0);
+  const stored = storedBytes.length;
+  const decoded = brotliDecompressSync(storedBytes).length;
   assert(stored < decoded * 0.52);
   const server = createWebServer(fileURLToPath(directory));
   try {
     await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
     const base = `http://127.0.0.1:${server.address().port}`;
-    const model = manifest.models[0];
+    const model = { file: 'z-anatomy.glb.br', bytes: storedBytes.length };
     const bytes = await readFile(new URL(model.file, directory));
     for (const encoding of ['br', 'identity']) {
       const response = await fetch(`${base}/${model.file}`, { headers: { 'Accept-Encoding': encoding } });

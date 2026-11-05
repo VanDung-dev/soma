@@ -1,7 +1,8 @@
+import { bundle } from './model.fixture.mjs';
 import { initCatalogWasm } from './catalog.fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { createServer } from 'vite';
 
 const parseJsonl = text => text.split('\n').filter(Boolean).map(line => JSON.parse(line));
@@ -24,9 +25,7 @@ test('bilingual names preserve source identity and have safe, explicit fallbacks
     const catalog = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
     const glossary = JSON.parse(await readFile(new URL('../../../content/anatomy-terminology.json', import.meta.url)));
     const sources = new Set([...inventory.map(x => x.name), ...catalog.targets.map(x => x.source_name)]);
-    const directory = new URL('../public/models/z-anatomy/', import.meta.url);
-    for (const file of (await readdir(directory)).filter(file => file.endsWith('.json') && file !== 'manifest.json')) {
-      const metadata = JSON.parse(await readFile(new URL(file, directory)));
+    for (const metadata of Object.values(bundle.metadata)) {
       for (const part of metadata.structures) for (const name of part.collections) sources.add(name);
     }
     assert.equal(glossary.schema_version, 1);

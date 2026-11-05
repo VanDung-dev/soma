@@ -11,7 +11,7 @@ export async function checkFocusTree() {
   assert(document.querySelector('.model-canvas').getAttribute('aria-busy') === 'false' && !document.querySelector('.model-error'),
     'Wait for model loading to finish before checking focus');
   const wait = () => new Promise(resolve => setTimeout(resolve, 180));
-  const root = catalog.targets.find(t => t.model?.path.endsWith('skeletal-system.glb.br'));
+  const root = catalog.targets.find(t => t.source_name === '1: Skeletal system');
   const branch = catalog.targets.find(t => t.source_name === 'Cranium');
   const otherBranch = catalog.targets.find(t => t.source_name === 'Appendicular skeleton');
   const row = target => document.querySelector(`[data-target-id="${target.id}"] > .tree-row`);
@@ -101,7 +101,7 @@ export async function checkFocusTree() {
         && lastViewer.visible_count() === expected.size && row(system).querySelector('input').checked,
         `System focus must match its checkbox: ${system.title}`);
       if (system === root) {
-        const joints = catalog.targets.find(t => t.model?.path.endsWith('joints.glb.br'));
+        const joints = catalog.targets.find(t => t.source_name === '3: Joints');
         assert(!row(joints).querySelector('input').checked && !row(joints).querySelector('input').indeterminate,
           'Skeletal focus must not enable any joints');
       }
