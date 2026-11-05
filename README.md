@@ -116,7 +116,20 @@ Open **Lessons** and create a draft. Insert text, 3D observation or structure
 identification from the outline. Write in the center and use Settings to arrange
 the selected section or choose its anatomy and answer choices. A lesson can use
 one model from the Soma anatomy catalog. The editor shows the selected 3D area
-while you work. Preview runs the lesson as a learner sees it.
+while you work. After selecting an anatomy system, choose visible structures in 
+Settings to combine groups or toggle individual parts using the Anatomy tree. Each 
+3D section saves its own visible set, including in exported lessons. Select a part 
+to see its names, isolate it, or return to the lesson region.
+
+While editing, use the Anatomy mouse controls to rotate, pan, zoom, Shift-drag
+select, hold left to detach and move, or hold right to hide. Hiding updates the
+section's visible structures. The shared explosion slider supports automatic
+separation; restore manually moved parts with the restore button or T before
+using it. Camera, offsets and explosion are temporary editing state and reset
+when changing sections.
+
+Preview runs the lesson as a learner sees it. In identification
+exercises, part names in the 3D viewer become available after a correct answer.
 Use the library search to find drafts by title or description. A draft opens at
 `/lessons/<id>/edit`, which reloads the saved draft in the same profile.
 Drafts autosave in the current browser profile or desktop WebView. Export a
@@ -125,7 +138,9 @@ completed draft as `.jsoma` to back it up or import it on another device.
 A JSoma v1 lesson is a ZIP with `manifest.json` and `content.json`. The manifest
 records the format version, kind and SHA-256 of the content. The editor keeps
 lesson and step IDs stable across edits. The model root, step targets and
-identification choices reference Soma catalog IDs. Practice answers are checked
+identification choices reference Soma catalog IDs. Optional step `visibleIds`
+lists the exact source structure IDs in a custom scene; existing lessons use the
+step target membership when this field is absent. Practice answers are checked
 on the device.
 
 ## Wikipedia proxy
