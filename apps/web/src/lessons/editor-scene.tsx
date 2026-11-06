@@ -10,10 +10,12 @@ import { PopoverPanel } from "../popover-panel";
 import { useLanguage } from "../i18n";
 import { useLessonViewer } from "./viewer";
 import { LessonStructureTools } from "./structure-tools";
+import type { SceneView } from "../anatomy/viewer/contracts";
 
 type SceneProps = {
   modelId: string; targetId: string; sectionId: string; frame: HTMLElement; controls: HTMLElement; inactive: boolean;
   visibleIds?: string[]; onChangeScene: (ids: string[]) => void;
+  view?: SceneView; canSave: boolean; onSaveView: (view: SceneView, ids: string[]) => void;
 };
 
 export function EditorScene(props: SceneProps) {
@@ -40,7 +42,7 @@ export function EditorScene(props: SceneProps) {
     </p>, props.frame);
 }
 
-function Scene({ catalog, modelId, targetId, sectionId, frame, controls, inactive, visibleIds, onChangeScene }: SceneProps & { catalog: Catalog }) {
+function Scene({ catalog, modelId, targetId, sectionId, frame, controls, inactive, visibleIds, view, canSave, onSaveView, onChangeScene }: SceneProps & { catalog: Catalog }) {
   const { language, t } = useLanguage();
   const ids = useMemo(() => visibleIds ?? catalog.members(targetId), [catalog, targetId, visibleIds]);
   const { host, orientation, showAxes, session, state, hold, snapTarget } = useLessonViewer(catalog, modelId, undefined, frame,
@@ -54,11 +56,8 @@ function Scene({ catalog, modelId, targetId, sectionId, frame, controls, inactiv
   const snapPart = useMemo(() => catalog.detail(snapTarget), [catalog, snapTarget, state.structureIds]);
   const separated = !!state.movingId || !!state.separatedIds.size;
   useEffect(() => {
-    if (ready) session.overview();
-  }, [ready, session, sectionId]);
-  useEffect(() => {
-    if (ready) session.showScene(ids);
-  }, [ready, session, sectionId, ids]);
+    if (ready) session.applyScene(ids, view);
+  }, [ready, session, sectionId, ids, view]);
 
   return createPortal(<div className="lesson-editor-scene" inert={inactive} aria-label={t("viewer.section.label")} role="group">
     <div className="model-canvas" ref={host} aria-busy={state.building && !state.error} />
@@ -68,6 +67,11 @@ function Scene({ catalog, modelId, targetId, sectionId, frame, controls, inactiv
     </svg>}
     {createPortal(<div className="lesson-editor-hud">
       <ExplodeControls value={state.explosionAmount} disabled={!ready || separated} locked={separated} onChange={session.changeExplosion} />
+      <button className="lesson-button lesson-primary" aria-label={t("lessons.saveView")} disabled={!ready || separated || !canSave} onClick={() => {
+        const view = session.captureView();
+        if (view) onSaveView(view, [...state.visibleIds]);
+      }}><span className="lesson-action-full">{t("lessons.saveView")}</span><span className="lesson-action-short">{t("lessons.saveViewShort")}</span></button>
+      <span className="lesson-view-status" role="status">{t(separated ? "lessons.restoreBeforeSave" : view ? "lessons.viewSaved" : "lessons.viewNotSaved")}</span>
     </div>, controls)}
     {createPortal(<>
       {showAxes && <div className="model-orientation"><OrientationAxes ref={orientation} disabled={!ready} onControl={session.control} /></div>}
@@ -96,7 +100,7 @@ function Scene({ catalog, modelId, targetId, sectionId, frame, controls, inactiv
           : <p role="status">{t("viewer.status.loading")}</p>}
       </PopoverPanel>, document.body)}
       <button className={`lesson-button lesson-scene-fit${separated ? " lesson-scene-restore" : ""}`} disabled={!ready}
-        onClick={() => separated ? session.restoreStructure("") : session.showScene(ids)}>{t(separated ? "context.restore" : "lessons.fitScene")}</button>
+        onClick={() => separated ? session.restoreStructure("") : session.applyScene(ids, view)}>{t(separated ? "context.restore" : "lessons.resetStudyScene")}</button>
       <a className="lesson-model-credit" href="/models/z-anatomy/ATTRIBUTION.md" target="_blank" rel="noreferrer"
         aria-label={t("credit.link")}>Z-Anatomy</a>
     </>, frame)}

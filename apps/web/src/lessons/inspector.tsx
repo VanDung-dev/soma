@@ -6,12 +6,6 @@ import type { Language } from "../i18n";
 import { lessonText } from "./contract";
 import type { Lesson, LessonStep } from "./contract";
 
-export const lessonBlockTools = [
-  { kind: "text", name: "lessons.kind.text", icon: "Aa" },
-  { kind: "observe", name: "lessons.kind.observe", icon: "3D" },
-  { kind: "identify_structure", name: "lessons.kind.identify", icon: "?" },
-] as const;
-
 export function LessonInspector({ catalog, lesson, active, scene, index, locale, targets, open, collapsed, onModel, onChange, onMove, onRemove }: {
   catalog: Catalog;
   lesson: Lesson;
@@ -40,22 +34,22 @@ export function LessonInspector({ catalog, lesson, active, scene, index, locale,
         </ul>
       </section>}
       {active && <div className="lesson-inspector-section">
-        <label>{t("lessons.stepType")}
-          <select value={active.kind} onChange={event => {
-            const kind = event.target.value as LessonStep["kind"];
+        <label className="lesson-exercise-toggle">
+          <input type="checkbox" checked={active.kind === "identify_structure"} disabled={!lesson.modelId} onChange={event => {
+            const exercise = event.target.checked;
             const { id, title, instruction } = active;
             const base = { id, title, instruction };
-            const targetId = active.kind === "text" ? lesson.modelId : active.targetId;
-            const visibleIds = active.kind === "text" ? undefined : active.visibleIds;
+            const targetId = active.kind === "text" ? scene?.targetId ?? lesson.modelId : active.targetId;
+            const visibleIds = active.kind === "text" ? scene?.visibleIds : active.visibleIds;
+            const view = active.kind === "text" ? scene?.view : active.view;
             const losesChoices = active.kind === "identify_structure" &&
               (active.choiceIds.length || lessonText(active.explanation, locale));
-            if ((losesChoices || kind === "text" && targetId) && !window.confirm(t("lessons.confirmTypeChange"))) return;
-            onChange(kind === "identify_structure"
-              ? { ...base, kind, targetId, visibleIds, choiceIds: [], answerId: "", explanation: { vi: "", en: "" } }
-              : kind === "observe" ? { ...base, kind, targetId, visibleIds } : { ...base, kind });
-          }}>
-            {lessonBlockTools.map(item => <option key={item.kind} value={item.kind}>{t(item.name)}</option>)}
-          </select>
+            if (losesChoices && !window.confirm(t("lessons.confirmTypeChange"))) return;
+            onChange(exercise
+              ? { ...base, kind: "identify_structure", targetId, visibleIds, view, choiceIds: [], answerId: "", explanation: { vi: "", en: "" } }
+              : { ...base, kind: "observe", targetId, visibleIds, view });
+          }} />
+          {t("lessons.addExercise")}
         </label>
       </div>}
       <section className="lesson-inspector-section">
@@ -68,7 +62,7 @@ export function LessonInspector({ catalog, lesson, active, scene, index, locale,
               <option value={lesson.modelId}>{lesson.modelId}</option>}
           </select>
         </label>
-        {scene && catalog.roots.some(model => model.id === lesson.modelId) && <>
+        {active && scene && catalog.roots.some(model => model.id === lesson.modelId) && <>
           <button className="lesson-button" popoverTarget="lesson-scene-structures">
             {t("lessons.sceneStructures")}
           </button>

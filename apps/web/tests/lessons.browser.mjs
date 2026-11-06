@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { checkLessonReader } from './lesson-reader.browser.mjs';
+import { checkLessonScenes } from './lesson-scenes.browser.mjs';
 
 export async function checkLessons(page) {
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -17,7 +18,7 @@ export async function checkLessons(page) {
 
   await page.getByLabel('Tên bài học (VI)').fill('Bài kiểm thử');
   await page.getByRole('button', { name: 'Hiện bảng Mục lục', exact: true }).click();
-  await page.getByRole('button', { name: 'Đoạn nội dung', exact: true }).click();
+  await page.getByRole('button', { name: 'Thêm bước học', exact: true }).click();
   await page.getByLabel('Tên mục (VI)').fill('Đọc phần mở đầu');
   await page.getByLabel('Nội dung hướng dẫn (VI)').fill('Quan sát phần mô tả.');
   await page.getByRole('button', { name: 'Xem trước' }).click();
@@ -40,7 +41,7 @@ export async function checkLessons(page) {
   assert.equal(await page.getByLabel('Tên mục (VI)').inputValue(), 'Đọc phần mở đầu');
 
   await page.getByRole('button', { name: 'Hiện bảng Mục lục', exact: true }).click();
-  await page.getByRole('button', { name: 'Quan sát 3D', exact: true }).click();
+  await page.getByRole('button', { name: 'Thêm bước học', exact: true }).click();
   const incomplete = await page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:' + location.pathname.split('/')[2])));
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   await page.getByRole('button', { name: 'Bước tiếp theo', exact: true }).click();
@@ -84,6 +85,7 @@ export async function checkLessons(page) {
   await page.setViewportSize({ width: 320, height: 700 });
   assert(await page.locator('.lessons-screen').evaluate(element => element.scrollWidth <= element.clientWidth));
   assert(await explode.evaluate(node => node.closest('fieldset').getBoundingClientRect().width <= 320));
+  assert((await frame.locator('.lesson-scene-viewport').boundingBox()).height >= 140, 'Mobile authoring must leave room to inspect the model');
   await page.getByRole('button', { name: 'Hiện bảng Mục lục' }).click();
   await page.getByRole('button', { name: 'Hiện bảng Thiết lập' }).click();
   assert(await page.locator('#lesson-author-outline').isHidden());
@@ -109,13 +111,16 @@ export async function checkLessons(page) {
   const revised = await page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:' + location.pathname.split('/')[2])));
   assert.equal(revised.steps[1].targetId, 'collection:baf3076d0495a617');
   assert.equal(revised.steps[1].visibleIds, undefined);
-  assert.deepEqual(revised.steps[0], saved.steps[0]);
+  assert.equal(revised.steps[0].kind, 'observe');
+  assert.equal(revised.steps[0].targetId, revised.modelId);
+  assert.equal(revised.steps[0].instruction.vi, saved.steps[0].instruction.vi);
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.getByRole('button', { name: 'Hiện bảng Mục lục' }).click();
-  await page.getByRole('button', { name: 'Quan sát 3D', exact: true }).click();
+  await page.getByRole('button', { name: 'Thêm bước học', exact: true }).click();
   const added = await page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:' + location.pathname.split('/')[2])));
   assert.equal(added.steps[2].targetId, added.modelId);
   await page.getByRole('button', { name: 'Hiện bảng Thiết lập', exact: true }).click();
   assert(await compose.isEnabled());
   await checkLessonReader(page);
+  await checkLessonScenes(page);
 }

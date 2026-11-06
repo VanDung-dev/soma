@@ -1,7 +1,9 @@
+import type { SceneView } from "../anatomy/viewer/contracts";
+
 export type LessonText = { vi: string; en: string };
 
 type StepContent = { id: string; title: LessonText; instruction: LessonText };
-type LessonScene = { targetId: string; visibleIds?: string[] };
+type LessonScene = { targetId: string; visibleIds?: string[]; view?: SceneView };
 export type LessonStep = StepContent & ({ kind: "text" } | LessonScene & { kind: "observe" } | LessonScene & {
   kind: "identify_structure";
   choiceIds: string[];
@@ -43,6 +45,19 @@ const slug = (value: unknown): value is string =>
 const object = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 const string = (value: unknown): value is string => typeof value === "string";
+const finite = (value: unknown, max: number): value is number =>
+  typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= max;
+function validView(value: unknown) {
+  if (!object(value) || !object(value.camera)
+    || Object.keys(value).some(key => key !== "camera" && key !== "explosion")
+    || Object.keys(value.camera).some(key => !["target", "yaw", "pitch", "distance", "pan"].includes(key))) return false;
+  const camera = value.camera;
+  return finite(value.explosion, 100) && value.explosion >= 0
+    && Array.isArray(camera.target) && camera.target.length === 3 && camera.target.every(value => finite(value, 1e12))
+    && finite(camera.yaw, Math.fround(Math.PI * 2)) && finite(camera.pitch, Math.fround(Math.PI / 2))
+    && finite(camera.distance, 1e12) && Math.fround(camera.distance) > 0
+    && Array.isArray(camera.pan) && camera.pan.length === 2 && camera.pan.every(value => finite(value, 1e6));
+}
 function localized(value: unknown, required: boolean) {
   return object(value) && string(value.vi) && string(value.en) && (!required || !!(value.vi.trim() || value.en.trim()));
 }
@@ -61,6 +76,7 @@ export function readLesson(value: unknown, draft = false): Lesson {
       throw new LessonValidationError("stepText", `${label} needs a title and instructions.`, index + 1);
     }
     if (step.kind !== "text" && (!string(step.targetId) || (!draft && (!value.modelId || !step.targetId))
+      || step.view !== undefined && !validView(step.view)
       || step.visibleIds !== undefined && (!Array.isArray(step.visibleIds) || !step.visibleIds.every(string)
         || new Set(step.visibleIds).size !== step.visibleIds.length))) {
       throw new LessonValidationError("target", `${label} needs a model and a structure.`, index + 1);

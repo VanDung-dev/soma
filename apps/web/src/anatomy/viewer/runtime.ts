@@ -1,7 +1,7 @@
 import type { Catalog, StudyTarget } from "../catalog/types";
 import { getWasm } from "../core";
 import type { AnatomyViewer } from "../../wasm/wasm";
-import type { CameraCommand, StudyViewer, ViewerState, ViewerStatus, Viewport } from "./contracts";
+import type { CameraCommand, SceneView, StudyViewer, ViewerState, ViewerStatus, Viewport } from "./contracts";
 import { bindViewerInput } from "./input";
 import { loadModels } from "./loader";
 import { defaultGraphics, qualityLevels, renderScales } from "./graphics";
@@ -43,6 +43,8 @@ export class ViewerRuntime implements StudyViewer {
     onPick: (id: string) => void;
     onHide: (ids: string[]) => boolean;
     allowSeparation?: boolean;
+    canSeparate?: () => boolean;
+    preserveCameraOnResize?: boolean;
     onFps?: (fps: number) => void;
     onOrientation?: (axes: Float32Array) => void;
     onHold?: (point: { x: number; y: number; action: "hide" | "move" } | null) => void;
@@ -62,7 +64,7 @@ export class ViewerRuntime implements StudyViewer {
       moving: () => this.movingId || this.separatedIds.values().next().value || "",
       movable: id => id === this.movingId || this.separatedIds.has(id),
       joined: id => (this.viewer?.structure_group(id).length ?? 0) > 1,
-      detachable: () => options.allowSeparation !== false && (!this.exploding || this.reassembling),
+      detachable: () => options.allowSeparation !== false && options.canSeparate?.() !== false && (!this.exploding || this.reassembling),
       detach: id => this.setMoving(id) && this.operate(viewer => viewer.detach_structure(id)), onHold: options.onHold,
       beginGroup: id => this.setMoving(id) && this.operate(viewer => viewer.begin_selection_drag()),
       hide: options.onHide,
@@ -200,9 +202,11 @@ export class ViewerRuntime implements StudyViewer {
     this.resizePending = false;
     const { width, height } = this.host.getBoundingClientRect();
     if (width > 0 && height > 0) {
+      const pose = this.options.preserveCameraOnResize && !this.loading ? this.viewer!.camera_pose() : undefined;
       const [renderWidth, renderHeight] = this.renderSize(width, height);
       if (this.canvas.width !== renderWidth || this.canvas.height !== renderHeight) this.viewer!.resize(renderWidth, renderHeight);
       this.viewer!.reframe(...this.options.viewport());
+      if (pose) this.viewer!.set_camera_pose(pose);
     }
   }
 
@@ -319,6 +323,31 @@ export class ViewerRuntime implements StudyViewer {
       viewer.clear_selection();
       viewer.change_visibility(ids, shown, this.animationTime());
     });
+  }
+
+  captureView(): SceneView | undefined {
+    if (this.movingId || this.separatedIds.size) return undefined;
+    let view: SceneView | undefined;
+    this.operate(viewer => { view = viewer.capture_view() as SceneView; });
+    return view;
+  }
+
+  applyScene(ids: string[], view?: SceneView) {
+    const reassembling = this.exploding && !view?.explosion && !this.motion.matches;
+    const success = this.operate(viewer => viewer.apply_scene(ids, view, this.animationTime()));
+    if (success) {
+      this.exploding = !!view?.explosion || reassembling;
+      this.reassembling = reassembling;
+      this.restoration = undefined;
+      this.movingId = "";
+      this.snapTarget = "";
+      this.options.onSnap?.("");
+      this.options.onHold?.(null);
+      this.separatedIds.clear();
+      this.canvas.dataset.moving = "false";
+      this.publishSeparation();
+    }
+    return success;
   }
 
   focus(ids: string[], folder: boolean, reveal: boolean) {

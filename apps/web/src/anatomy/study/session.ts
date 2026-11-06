@@ -1,5 +1,5 @@
 import type { Catalog } from "../catalog/types";
-import type { CameraCommand, StudyViewer, ViewerState } from "../viewer/contracts";
+import type { CameraCommand, SceneView, StudyViewer, ViewerState } from "../viewer/contracts";
 
 export interface StudyState extends ViewerState {
   canGoBack: boolean;
@@ -132,6 +132,19 @@ export class StudySession {
     if (!success) return false;
     this.update({ visibleIds: new Set(ids), readingId: "", readerExpanded: false, targetId: undefined, focusedIds: ids });
     this.retargetExplosion();
+    return true;
+  };
+
+  captureView = () => {
+    const view = this.viewer?.captureView();
+    return view ? { ...view, explosion: this.state.explosionAmount } : undefined;
+  };
+
+  applyScene = (ids: string[], view?: SceneView) => {
+    if (new Set(ids).size !== ids.length || !ids.every(id => this.state.structureIds.includes(id))) return false;
+    if (!this.viewer?.applyScene(ids, view)) return false;
+    this.update({ visibleIds: new Set(ids), readingId: "", readerExpanded: false, targetId: undefined,
+      focusedIds: ids, explosionAmount: view?.explosion ?? 0 });
     return true;
   };
 

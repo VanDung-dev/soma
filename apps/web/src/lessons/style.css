@@ -137,7 +137,15 @@
 .lesson-block-icon { display: inline-grid; flex: 0 0 26px; place-items: center; width: 26px; height: 26px; border-radius: var(--row-radius); color: var(--muted-dark); background: var(--control-hover); font-size: 11px; font-weight: 700; }
 .lesson-author-tools { padding-top: 10px; margin-top: 8px; border-top: 1px solid var(--line); }
 .lesson-author-tools h2 { margin: 0 0 5px 6px; font: 700 13px var(--font-ui); }
-.lesson-tool > span:last-child { margin-left: auto; color: var(--accent); font-size: 17px; }
+.lesson-tool { color: var(--accent); font-weight: 650; }
+.lesson-editor-hud { flex-wrap: wrap; padding: 0 10px 10px; }
+.lesson-editor-hud .explode-control { flex: 1 1 140px; }
+.lesson-editor-hud .lesson-button { min-height: 36px; font-size: 12px; }
+.lesson-view-status { flex-basis: 100%; color: var(--muted); font-size: 11px; text-align: center; }
+.lesson-player-explode { position: absolute; z-index: 2; bottom: 52px; left: 10px; right: 10px; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; pointer-events: none; }
+.lesson-player-explode > * { pointer-events: auto; }
+.lesson-fields .lesson-exercise-toggle { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.lesson-exercise-toggle input { accent-color: var(--accent); }
 .lesson-author-inspector .information-content { gap: 0; }
 .lesson-inspector-section { display: grid; gap: 8px; padding: 12px 0; border-top: 1px solid var(--line); }
 .lesson-inspector-section:first-child { padding-top: 0; border-top: 0; }
@@ -166,11 +174,12 @@
 }
 
 @media (max-width: 900px) {
-  .lesson-author-center { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(180px, 2fr) minmax(0, 3fr); }
-  .lesson-author-center:has(.lesson-author-alerts) { grid-template-rows: auto minmax(150px, 2fr) minmax(0, 3fr); }
+  .lesson-author-center { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(260px, 1fr) minmax(0, 1fr); }
+  .lesson-author-center:has(.lesson-author-alerts) { grid-template-rows: auto minmax(240px, 1fr) minmax(0, 1fr); }
 }
 
 @media (max-width: 600px) {
+  .lesson-editor-hud .explode-label > span { min-height: 15px; }
   .lesson-structure-tools { inset: 10px 10px 48px; width: auto; max-height: none; grid-template-rows: auto auto minmax(0, 1fr) auto; overflow: visible; }
   .lesson-structure-tools > :first-child, .lesson-pick-hint { max-width: calc(100% - 82px); }
   .lesson-part-card { grid-row: 4; display: flex; align-items: center; gap: 6px; padding: 8px; border-radius: calc(var(--inner-radius) + 8px); }

@@ -82,6 +82,8 @@ test('study commands share folder visibility policy independently of UI selectio
     const viewer = {
       select: id => { calls.push(['select', id]); return succeeds; },
       changeVisibility: () => succeeds,
+      captureView: () => ({ camera: { target: [0, 0, 0], yaw: 0.5, pitch: 0, distance: 2, pan: [0, 0] }, explosion: 30.000002 }),
+      applyScene: (...args) => { calls.push(['scene', ...args]); return succeeds; },
       focus: (...args) => { calls.push(['focus', ...args]); return succeeds; },
       setExplosion: (...args) => { calls.push(['explode', ...args]); return succeeds; },
       retargetExplosion: (...args) => { calls.push(['retarget', ...args]); },
@@ -135,6 +137,19 @@ test('study commands share folder visibility policy independently of UI selectio
     succeeds = true;
     assert(session.showScene([]));
     assert.equal(session.getSnapshot().visibleIds.size, 0, 'An explicitly empty draft scene stays empty');
+    session.changeExplosion(30);
+    const savedView = session.captureView();
+    assert.equal(savedView.explosion, 30, 'Capture keeps the exact authored slider value across the f32 boundary');
+    assert(session.applyScene([ids[0]], savedView));
+    assert.equal(session.getSnapshot().explosionAmount, 30);
+    assert.deepEqual([...session.getSnapshot().visibleIds], [ids[0]]);
+    const authored = session.getSnapshot();
+    assert.equal(session.applyScene(['missing'], savedView), false);
+    assert.equal(session.applyScene([ids[0], ids[0]], savedView), false);
+    succeeds = false;
+    assert.equal(session.applyScene([ids[1]], savedView), false);
+    assert.equal(session.getSnapshot(), authored, 'Unavailable scenes and failed viewer commands must not commit study state');
+    succeeds = true;
     unsubscribe();
     const otherSession = new StudySession(await createCatalogFixture(server, catalog));
     otherSession.connect(viewer); otherSession.updateViewer({ structureIds, building: false });

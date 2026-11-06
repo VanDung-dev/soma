@@ -6,9 +6,10 @@ import { LineIcon } from "../icons";
 import { LessonValidationError, lessonSceneStep, lessonText, readLesson, validateLessonTargets } from "./contract";
 import type { Lesson, LessonStep, LessonText } from "./contract";
 import { EditorScene } from "./editor-scene";
-import { LessonInspector, lessonBlockTools as tools } from "./inspector";
+import { LessonInspector } from "./inspector";
 import { exportLesson, newLessonId } from "./source";
 import { lessonTargets } from "./targets";
+import type { SceneView } from "../anatomy/viewer/contracts";
 
 export const emptyText = { vi: "", en: "" };
 type Panel = "outline" | "inspector";
@@ -60,11 +61,25 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
     update({ steps: lesson.steps.map(step => step.id === value.id ? value : step) });
   }
 
+  function updateScene(visibleIds: string[], view: SceneView | undefined = scene?.view) {
+    if (!active) return;
+    const patch = { targetId: sceneTargetId, visibleIds, view };
+    updateActive(active.kind === "identify_structure" ? { ...active, ...patch }
+      : { ...active, kind: "observe", ...patch });
+  }
+
   function changeModel(modelId: string) {
     if (lesson.modelId === modelId) return;
     if (lesson.modelId && lesson.steps.some(step => step.kind !== "text" && (step.targetId || step.visibleIds))
       && !window.confirm(t("lessons.confirmSceneReset"))) return;
-    update({ modelId, steps: lesson.steps.map(step => step.kind === "text" ? step : { ...step, targetId: modelId, visibleIds: undefined }) });
+    update({ modelId, steps: lesson.steps.map(step => {
+      if (!modelId && step.kind !== "identify_structure") {
+        return { id: step.id, title: step.title, instruction: step.instruction, kind: "text" };
+      }
+      const patch = { targetId: modelId, visibleIds: undefined, view: undefined };
+      return step.kind === "identify_structure" ? { ...step, ...patch, choiceIds: [], answerId: "" }
+        : { ...step, kind: "observe", ...patch };
+    }) });
   }
 
   function openInspector() {
@@ -85,11 +100,11 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
     setPanel(undefined);
   }
 
-  function add(kind: LessonStep["kind"]) {
+  function add() {
     const base = { id: newLessonId(), title: emptyText, instruction: emptyText };
-    const step: LessonStep = kind === "identify_structure" ? {
-      ...base, kind, targetId: lesson.modelId, choiceIds: [], answerId: "", explanation: emptyText,
-    } : kind === "observe" ? { ...base, kind, targetId: lesson.modelId } : { ...base, kind };
+    const step: LessonStep = lesson.modelId
+      ? { ...base, kind: "observe", targetId: scene?.targetId ?? lesson.modelId, visibleIds: scene?.visibleIds, view: scene?.view }
+      : { ...base, kind: "text" };
     const insertion = active ? index + 1 : lesson.steps.length;
     update({ steps: [...lesson.steps.slice(0, insertion), step, ...lesson.steps.slice(insertion)] });
     select(step.id);
@@ -125,7 +140,6 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
     }
   }
 
-  const tool = tools.find(item => item.kind === active?.kind);
   const title = active?.title ?? lesson.title;
   const body = active?.instruction ?? lesson.summary;
   const sceneTargetId = scene && targets.some(target => target.id === scene.targetId) ? scene.targetId : lesson.modelId;
@@ -147,8 +161,9 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
         closePanel();
       }
     }}>
-    {renderScene && sceneFrame && sceneControls && <EditorScene modelId={lesson.modelId} targetId={sceneTargetId} sectionId={scene.id}
-      visibleIds={scene.visibleIds} onChangeScene={visibleIds => updateActive({ ...scene, targetId: sceneTargetId, visibleIds })}
+    {renderScene && sceneFrame && sceneControls && <EditorScene modelId={lesson.modelId} targetId={sceneTargetId}
+      visibleIds={scene.visibleIds} view={scene.view} sectionId={active?.id ?? scene.id}
+      canSave={!!active} onSaveView={(view, ids) => updateScene(ids, view)} onChangeScene={ids => updateScene(ids)}
       frame={sceneFrame} controls={sceneControls} inactive={panelOverCanvas} />}
     <header className="app-menu-bar lesson-author-bar">
       <div className="app-menu-history">
@@ -184,20 +199,19 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
         </button>
         {lesson.steps.length > 0 && <ol className="lesson-outline-list">
           {lesson.steps.map((step, i) => {
-            const item = tools.find(option => option.kind === step.kind)!;
             return <li key={step.id}><button className="lesson-outline-row"
               aria-current={step.id === active?.id ? "true" : undefined} onClick={() => select(step.id)}>
               <span className="lesson-block-icon" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
-              <span><strong>{lessonText(step.title, language) || t(item.name)}</strong><small>{t(item.name)}</small></span>
+              <span><strong>{lessonText(step.title, language) || t("lessons.untitledSection")}</strong>
+                {step.kind === "identify_structure" && <small>{t("lessons.kind.identify")}</small>}</span>
             </button></li>;
           })}
         </ol>}
         <div className="lesson-author-tools">
-          <h2>{t("lessons.addContent")}</h2>
-          {tools.map(item => <button key={item.kind} className="lesson-outline-row lesson-tool" onClick={() => add(item.kind)}>
-            <span className="lesson-block-icon" aria-hidden="true">{item.icon}</span>
-            <span>{t(item.name)}</span><span aria-hidden="true">+</span>
-          </button>)}
+          <button className="lesson-outline-row lesson-tool" onClick={add}>
+            <span className="lesson-block-icon" aria-hidden="true">+</span>
+            <span>{t("lessons.addStep")}</span>
+          </button>
         </div>
       </div>
     </nav>
@@ -221,7 +235,7 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
         inert={panelOverCanvas} aria-label={t("lessons.writing")}>
         <div className="information-content">
           <div className="lesson-document-meta">
-            <span>{tool ? t(tool.name) : t("lessons.details")}</span>
+            <span>{t(active ? "lessons.learningStep" : "lessons.details")}</span>
             <div className="lesson-languages" role="group" aria-label={t("lessons.writingLanguage")}>
               {(["vi", "en"] as const).map(value => <button key={value} type="button" aria-pressed={editorLanguage === value}
                 aria-label={value === "vi" ? "Tiếng Việt" : "English"} onClick={() => setLocale(value)}>{value.toUpperCase()}</button>)}

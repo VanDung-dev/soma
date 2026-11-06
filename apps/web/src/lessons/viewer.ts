@@ -9,19 +9,19 @@ import { ViewerRuntime } from "../anatomy/viewer/runtime";
 import { shortcutAction } from "../shortcuts";
 
 export function useLessonViewer(catalog: Catalog, modelId: string, onPick?: (id: string) => void, frame?: HTMLElement,
-  onEditVisibility?: (hiddenIds: string[]) => void) {
+  onEditVisibility?: (hiddenIds: string[]) => void, allowSeparation = true) {
   const host = useRef<HTMLDivElement>(null);
   const orientation = useRef<OrientationAxesHandle>(null);
   const [graphics] = useState(readGraphicsSettings);
   const [hold, setHold] = useState<{ x: number; y: number; action: "hide" | "move" } | null>(null);
   const [snapTarget, setSnapTarget] = useState("");
-  const editable = !!onEditVisibility;
+  const canSeparate = useEffectEvent(() => allowSeparation);
   const session = useMemo(() => new StudySession(catalog), [catalog, modelId]);
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
   useCameraKeys(!modelId || state.building || state.error, session.control, host);
   const hide = useEffectEvent((ids: string[]) => {
-    if (!onEditVisibility || !session.changeVisibility(ids, false)) return false;
-    onEditVisibility(ids);
+    if (!allowSeparation || !session.changeVisibility(ids, false)) return false;
+    onEditVisibility?.(ids);
     return true;
   });
 
@@ -39,13 +39,14 @@ export function useLessonViewer(catalog: Catalog, modelId: string, onPick?: (id:
       onState: session.updateViewer,
       onPick: id => { session.pick(id); onPick?.(id); },
       onHide: ids => hide(ids),
-      onHold: editable ? setHold : undefined,
-      onSnap: editable ? setSnapTarget : undefined,
+      onHold: setHold,
+      onSnap: setSnapTarget,
       onOrientation: graphics.showAxes ? axes => orientation.current?.update(axes) : undefined,
-      allowSeparation: editable,
+      canSeparate,
+      preserveCameraOnResize: true,
     });
     const keyDown = (event: KeyboardEvent) => {
-      if (editable && shortcutAction(event) === "restore") {
+      if (shortcutAction(event) === "restore") {
         event.preventDefault();
         session.restoreStructure("");
       }
@@ -55,7 +56,7 @@ export function useLessonViewer(catalog: Catalog, modelId: string, onPick?: (id:
     viewer.setGraphics(graphics);
     void viewer.start(catalog, [root]);
     return () => { canvasHost.removeEventListener("keydown", keyDown); session.disconnect(viewer); viewer.dispose(); };
-  }, [catalog, editable, frame, graphics, modelId, onPick, session]);
+  }, [catalog, frame, graphics, modelId, onPick, session]);
 
   return { host, orientation, showAxes: graphics.showAxes, session, state, hold, snapTarget };
 }

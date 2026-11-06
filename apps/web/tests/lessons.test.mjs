@@ -7,6 +7,23 @@ import { packLesson, unpackLesson } from '../src/lessons/jsoma.ts';
 const text = en => ({ vi: '', en });
 const draft = { id: 'lesson-test', version: 1, title: text(''), summary: text(''), modelId: '', steps: [] };
 
+test('authored views survive JSoma export and reject invalid camera and explosion values', () => {
+  const view = { camera: { target: [1, 2, 3], yaw: 1.2, pitch: -0.3, distance: 4, pan: [0.1, -0.2] }, explosion: 30 };
+  const lesson = { ...draft, title: text('Scenes'), modelId: 'model', steps: [
+    { id: 'view', kind: 'observe', title: text('Side view'), instruction: text('Rotate and explore'), targetId: 'model', visibleIds: ['1'], view },
+  ] };
+  assert.deepEqual(readLesson(unpackLesson(packLesson(readLesson(lesson)))), lesson);
+  const manifest = JSON.parse(new TextDecoder().decode(unzipSync(packLesson(lesson))['manifest.json']));
+  assert.equal(manifest.formatVersion, 2);
+  for (const invalid of [null, {}, { ...view, extra: true }, { ...view, explosion: -1 }, { ...view, explosion: 101 }, { ...view, explosion: NaN },
+    ...[{ yaw: Infinity }, { pitch: Math.PI }, { distance: 0 }, { distance: 1e-50 }, { target: [1, 2] }, { target: [0, NaN, 1] }, { pan: [0] }, { extra: true }].map(change => ({ ...view, camera: { ...view.camera, ...change } }))]) {
+    for (const isDraft of [true, false]) assert.throws(() => readLesson({ ...lesson, steps: [{ ...lesson.steps[0], view: invalid }] }, isDraft), /needs a model/);
+  }
+  const legacy = { ...lesson, steps: [{ ...lesson.steps[0], view: undefined }] };
+  assert.equal(JSON.parse(new TextDecoder().decode(unzipSync(packLesson(legacy))['manifest.json'])).formatVersion, 1);
+  assert.deepEqual(readLesson(unpackLesson(packLesson(legacy))), JSON.parse(JSON.stringify(legacy)));
+});
+
 test('reading sections inherit the preceding scene with a stable initial fallback', () => {
   const intro = { id: 'intro', kind: 'text' };
   const skull = { id: 'skull', kind: 'observe', targetId: 'skull', visibleIds: ['1', '2'] };

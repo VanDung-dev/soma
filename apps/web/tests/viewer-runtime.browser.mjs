@@ -51,6 +51,23 @@ export async function checkViewerRuntime() {
     assert(first.session.changeVisibility(ids, false), 'The first runtime must accept visibility commands');
     assert(first.session.getSnapshot().visibleIds.size === 0 && second.session.getSnapshot().visibleIds.size === ids.length,
       'A command in one session must not affect the other');
+    assert(first.session.applyScene(ids), 'Lesson scenes restore their own visibility');
+    const initialView = first.session.captureView();
+    first.session.control([{ kind: 'rotate', x: 0.7, y: -0.2 }, { kind: 'zoom', factor: 0.8 }, { kind: 'pan', x: 0.1, y: -0.1 }]);
+    first.session.changeExplosion(30);
+    const savedView = first.session.captureView();
+    assert(savedView.explosion === 30 && savedView.camera.yaw !== initialView.camera.yaw, 'Capture preserves authored camera and exact explosion level');
+    assert(first.session.applyScene(ids, savedView), 'Apply an authored view');
+    const restoredView = first.session.captureView();
+    assert(Math.abs(savedView.camera.distance - restoredView.camera.distance) < 1e-4
+      && savedView.camera.yaw === restoredView.camera.yaw, 'Restoring the view must preserve zoom and orientation');
+    first.session.applyScene(ids, initialView);
+    first.session.applyScene(ids, savedView);
+    first.session.applyScene(ids, initialView);
+    first.session.control([{ kind: 'rotate', x: 0.2, y: 0 }]);
+    const interrupted = first.session.captureView();
+    assert(Math.abs(interrupted.camera.yaw - initialView.camera.yaw) > 0.01, 'Manual input cancels the pending authored camera transition');
+    assert(interrupted.explosion === 0, 'Rapid step changes retain the latest explosion state');
     first.runtime.dispose();
     assert(!first.host.querySelector('canvas') && !first.session.control([{ kind: 'reset' }]),
       'Disposed runtimes must release their canvas and reject commands');
@@ -66,7 +83,8 @@ export async function checkViewerRuntime() {
     await preparing.runtime.start(preparing.catalog, [root, catalog.roots.find(t => t !== root)]);
     assert(preparing.updatesAtCancellation() !== undefined && preparing.updates() === preparing.updatesAtCancellation()
       && !preparing.host.querySelector('canvas'), 'Cancellation between worker batches must stop preparation and late updates');
-    return { independentHosts: true, independentSessions: true, disposal: true, cancelledStartup: true, cancelledPreparation: true };
+    return { independentHosts: true, independentSessions: true, authoredViews: true, rapidScenes: true, manualCameraInterrupt: true,
+      disposal: true, cancelledStartup: true, cancelledPreparation: true };
   } finally {
     clearTimeout(timeout); catalog.free();
     for (const f of fixtures) { f.session.disconnect(f.runtime); f.runtime.dispose(); f.catalog.free(); f.host.remove(); }

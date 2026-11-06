@@ -8,6 +8,7 @@ import { PopoverPanel } from "../popover-panel";
 import type { Lesson, LessonStep, LessonValidationError } from "./contract";
 import { lessonPreviewIssues, lessonSceneStep, lessonText, validateLessonTargets } from "./contract";
 import { useLessonViewer } from "./viewer";
+import { ExplodeControls } from "../anatomy/explode-controls";
 import { LessonStructureTools } from "./structure-tools";
 
 export function LessonPlayer({ lesson, catalog, onBack, preview = false }: { lesson: Lesson; catalog: Catalog; onBack: () => void; preview?: boolean }) {
@@ -26,7 +27,9 @@ export function LessonPlayer({ lesson, catalog, onBack, preview = false }: { les
     setSelection(id ? { source: "model", id } : undefined);
     setIncorrect(false);
   }, []);
-  const { host, orientation, showAxes, session, state } = useLessonViewer(catalog, usesModel ? lesson.modelId : "", pick);
+  const currentStep = lesson.steps[index];
+  const { host, orientation, showAxes, session, state, hold } = useLessonViewer(catalog, usesModel ? lesson.modelId : "", pick,
+    undefined, undefined, currentStep?.kind !== "identify_structure");
   const [passed, setPassed] = useState<ReadonlySet<string>>(() => new Set());
   const [failed, setFailed] = useState(false);
   const [validated, setValidated] = useState(!usesModel);
@@ -49,7 +52,8 @@ export function LessonPlayer({ lesson, catalog, onBack, preview = false }: { les
   const ready = validated && !state.error && !failed;
   const modelMissing = preview && !catalog.roots.some(root => root.id === lesson.modelId);
   const boundary = lesson.steps.findIndex(item => item.kind === "identify_structure" && !passed.has(item.id) && !issues.has(item.id));
-  const showNames = scene && (scene.kind !== "identify_structure" || passed.has(scene.id));
+  const showNames = !!scene && (!exercise || solved);
+  const separated = !!state.movingId || !!state.separatedIds.size;
   const choice = exercise && selection && (selection.source === "choice" ? selection.id
     : exercise.choiceIds.find(id => catalog.members(id).includes(selection.id)));
 
@@ -64,8 +68,8 @@ export function LessonPlayer({ lesson, catalog, onBack, preview = false }: { les
   }, [catalog, lesson, preview, state.building, state.error, state.structureIds]);
 
   useEffect(() => {
-    if (ready && scene && !session.showScene(preview && !sceneUsable ? [] : sceneIds)) setFailed(true);
-  }, [ready, scene, sceneUsable, preview, session, sceneIds]);
+    if (ready && scene && !session.applyScene(preview && !sceneUsable ? [] : sceneIds, sceneUsable ? scene.view : undefined)) setFailed(true);
+  }, [ready, scene, sceneUsable, preview, session, sceneIds, index, complete]);
 
   useEffect(() => {
     if (reader.current) reader.current.scrollTop = 0;
@@ -99,14 +103,21 @@ export function LessonPlayer({ lesson, catalog, onBack, preview = false }: { les
     <div className="lesson-workspace" data-model={usesModel} data-model-collapsed={modelCollapsed}>
       {usesModel && <section className="lesson-model" id={modelId} aria-label={t("viewer.section.label")}>
         <div className="lesson-model-canvas model-canvas" ref={host} aria-busy={!modelMissing && state.building && !state.error && !failed} />
+        {hold && <svg key={hold.action} className="model-hold-progress" data-action={hold.action} style={{ left: hold.x, top: hold.y }} viewBox="0 0 40 40" aria-hidden="true">
+          <circle cx="20" cy="20" r="16" /><circle className="model-hold-fill" cx="20" cy="20" r="16" pathLength="100" />
+        </svg>}
         {showAxes && <div className="model-orientation"><OrientationAxes ref={orientation} disabled={!ready} onControl={session.control} /></div>}
         {modelMissing ? <p className="lesson-model-message model-status" role="status">{t("lessons.validation.target", { step: index + 1 })}</p>
           : failed ? <p className="lesson-model-message model-status model-error" role="alert">{t("lessons.targetError")}</p>
           : (state.building || state.error) && <ViewerStatusNotice className="lesson-model-message" state={state} totalSystems={1} />}
         {preview && !state.building && !state.error && !sceneUsable && <p className="lesson-model-message model-status" role="status">{t("lessons.targetError")}</p>}
         {ready && sceneUsable && showNames && <LessonStructureTools key={scene.id} catalog={catalog} session={session} state={state} ids={sceneIds} />}
+        {ready && sceneUsable && !exercise && <div className="lesson-player-explode">
+          <ExplodeControls value={state.explosionAmount} disabled={separated} locked={separated} onChange={session.changeExplosion} />
+          {separated && <button className="lesson-button" onClick={() => session.restoreStructure("")}>{t("context.restore")}</button>}
+        </div>}
         <button className="lesson-button lesson-player-reset" disabled={!ready || !sceneUsable} onClick={() => {
-          if (!session.showScene(sceneIds)) return;
+          if (!session.applyScene(sceneIds, scene?.view)) return;
           setSelection(undefined);
           setIncorrect(false);
         }}>{t("lessons.resetStudyScene")}</button>
