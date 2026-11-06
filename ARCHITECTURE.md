@@ -75,6 +75,9 @@ Camera → MediaPipe worker → Rust HandGestureController → StudySession.cont
 - Hand controls pause on hidden/unfocused pages and cannot move the camera during separation.
 - Manual separation and automatic explosion are mutually exclusive; restoration runs in Rust.
 - New study screens reuse the session/runtime and supply their own viewport geometry.
+- Lessons apply authored scenes through `StudySession.applyScene`; Rust validates and restores
+visibility, camera pose and explosion. Camera poses adapt to the host viewport. Learner controls 
+change only the active session; saving an editor scene explicitly updates lesson data.
 
 ## Validation
 

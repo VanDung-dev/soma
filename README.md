@@ -112,21 +112,24 @@ Blender exports use its bundled Python.
 
 ## Lessons
 
-Open **Lessons** and create a draft. Insert text, 3D observation or structure
-identification from the outline. Write in the center and use Settings to arrange
-the selected section or choose its anatomy and answer choices. A lesson can use
-one model from the Soma anatomy catalog. The editor shows the selected 3D area
-while you work. After selecting an anatomy system, choose visible structures in 
-Settings to combine groups or toggle individual parts using the Anatomy tree. Each 
-3D section saves its own visible set, including in exported lessons. Select a part 
-to see its names, isolate it, or return to the lesson region.
+Open **Lessons** and create a draft. Use **Add learning step** in the outline,
+then write the step's title and explanation on the right. Choose one shared
+anatomy model in Settings. Each step combines its content and a 3D scene; a new
+step starts from the preceding authored scene. Enable an identification question
+in the step's Settings to add answer choices. Lessons without a model remain
+text-only. After selecting a model, use **Choose visible structures** to combine
+groups or toggle individual parts using the Anatomy tree.
 
 While editing, use the Anatomy mouse controls to rotate, pan, zoom, Shift-drag
 select, hold left to detach and move, or hold right to hide. Hiding updates the
 section's visible structures. The shared explosion slider supports automatic
 separation; restore manually moved parts with the restore button or T before
-using it. Camera, offsets and explosion are temporary editing state and reset
-when changing sections.
+using it. Rotate, pan, zoom and adjust explosion, then press **Save step scene**
+to store the camera, explosion and current visible set. Visibility changes also
+autosave from the structure tree and hide gesture. Camera and explosion changes
+stay temporary until explicitly saved. Manual offsets are not stored: restore
+manually moved parts before saving. **Reset step scene** reapplies the authored
+view. Source structure IDs and lesson/step IDs remain stable.
 
 Preview runs the lesson as a learner sees it. In identification
 exercises, part names in the 3D viewer become available after a correct answer.
@@ -135,24 +138,31 @@ on the right. The editor uses the same model-left/content-right layout, with
 outline and settings drawers. Draft preview opens even when sections are
 unfinished, shows missing settings, and permits skipping unfinished exercises;
 export still requires a fully valid lesson. Preview placeholders never modify
-the saved draft. Reading sections inherit the preceding 3D section, with the first
-3D section as the initial scene. The outline supports direct navigation up to
-the first unanswered exercise. Reset lesson scene returns to the authored
-structures. On small screens the model sits above the text and can be collapsed.
-Text-only lessons use the full reading area. This layout uses the existing JSoma
-contract without adding a separate default-scene field.
+the saved draft. Changing steps applies their authored views with camera and
+explosion transitions; manual camera input cancels the camera transition and
+reduced motion applies the destination immediately. Learners can rotate, pan,
+zoom, separate and hide parts during observation without changing the saved
+lesson. Identification questions retain rotation and zoom but disable separation,
+hiding and the explosion slider. The outline supports direct navigation up to
+the first unanswered exercise. On small screens the model sits above the text
+and can be collapsed. Text-only lessons use the full reading area. Legacy reading
+sections inherit the preceding 3D section, with the first 3D section as the initial
+scene. Saving a scene for a legacy reading section gives that step its own scene.
 Use the library search to find drafts by title or description. A draft opens at
 `/lessons/<id>/edit`, which reloads the saved draft in the same profile.
 Drafts autosave in the current browser profile or desktop WebView. Export a
 completed draft as `.jsoma` to back it up or import it on another device.
 
-A JSoma v1 lesson is a ZIP with `manifest.json` and `content.json`. The manifest
+A JSoma lesson is a ZIP with `manifest.json` and `content.json`. The manifest
 records the format version, kind and SHA-256 of the content. The editor keeps
 lesson and step IDs stable across edits. The model root, step targets and
 identification choices reference Soma catalog IDs. Optional step `visibleIds`
 lists the exact source structure IDs in a custom scene; existing lessons use the
-step target membership when this field is absent. Practice answers are checked
-on the device.
+step target membership when this field is absent. Optional step `view` stores a
+viewport-adapted camera pose and explosion level. Exports with authored views use
+JSoma format v2 so older apps reject them rather than silently discard the views;
+lessons without views still export as v1. This app imports both versions.
+Practice answers are checked on the device.
 
 ## Wikipedia proxy
 
