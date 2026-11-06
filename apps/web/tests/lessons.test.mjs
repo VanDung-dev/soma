@@ -1,27 +1,35 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { unzipSync, zipSync } from 'fflate';
 import { lessonPreviewIssues, lessonSceneStep, lessonText, readLesson, validateLessonTargets } from '../src/lessons/contract.ts';
-import { packLesson, unpackLesson } from '../src/lessons/jsoma.ts';
 
 const text = en => ({ vi: '', en });
 const draft = { id: 'lesson-test', version: 1, title: text(''), summary: text(''), modelId: '', steps: [] };
 
-test('authored views survive JSoma export and reject invalid camera and explosion values', () => {
+test('rich lesson JSON keeps locale markers while legacy text remains unchanged', () => {
+  const instruction = { vi: '<p><strong>Quan sát</strong> kỹ.</p>', en: 'Literal <b>text</b>', html: ['vi'] };
+  const lesson = { ...draft, title: text('Rich content'), steps: [
+    { id: 'read', kind: 'text', title: text('Read'), instruction },
+  ] };
+  assert.deepEqual(readLesson(JSON.parse(JSON.stringify(lesson))), lesson);
+  for (const html of [true, 'vi', ['fr'], ['vi', 'vi'], [1]]) {
+    assert.throws(() => readLesson({ ...lesson, steps: [{ ...lesson.steps[0], instruction: { ...instruction, html } }] }, true));
+  }
+  assert.throws(() => readLesson({ ...lesson, steps: [{ ...lesson.steps[0], instruction: { vi: '<p><br>&nbsp;</p>', en: '', html: ['vi'] } }] }), /needs a title/);
+  assert.equal(readLesson(lesson).steps[0].instruction.en, 'Literal <b>text</b>');
+});
+
+test('authored views survive JSON serialization and reject invalid camera and explosion values', () => {
   const view = { camera: { target: [1, 2, 3], yaw: 1.2, pitch: -0.3, distance: 4, pan: [0.1, -0.2] }, explosion: 30 };
   const lesson = { ...draft, title: text('Scenes'), modelId: 'model', steps: [
     { id: 'view', kind: 'observe', title: text('Side view'), instruction: text('Rotate and explore'), targetId: 'model', visibleIds: ['1'], view },
   ] };
-  assert.deepEqual(readLesson(unpackLesson(packLesson(readLesson(lesson)))), lesson);
-  const manifest = JSON.parse(new TextDecoder().decode(unzipSync(packLesson(lesson))['manifest.json']));
-  assert.equal(manifest.formatVersion, 2);
+  assert.deepEqual(readLesson(JSON.parse(JSON.stringify(lesson))), lesson);
   for (const invalid of [null, {}, { ...view, extra: true }, { ...view, explosion: -1 }, { ...view, explosion: 101 }, { ...view, explosion: NaN },
     ...[{ yaw: Infinity }, { pitch: Math.PI }, { distance: 0 }, { distance: 1e-50 }, { target: [1, 2] }, { target: [0, NaN, 1] }, { pan: [0] }, { extra: true }].map(change => ({ ...view, camera: { ...view.camera, ...change } }))]) {
     for (const isDraft of [true, false]) assert.throws(() => readLesson({ ...lesson, steps: [{ ...lesson.steps[0], view: invalid }] }, isDraft), /needs a model/);
   }
   const legacy = { ...lesson, steps: [{ ...lesson.steps[0], view: undefined }] };
-  assert.equal(JSON.parse(new TextDecoder().decode(unzipSync(packLesson(legacy))['manifest.json'])).formatVersion, 1);
-  assert.deepEqual(readLesson(unpackLesson(packLesson(legacy))), JSON.parse(JSON.stringify(legacy)));
+  assert.deepEqual(readLesson(JSON.parse(JSON.stringify(legacy))), JSON.parse(JSON.stringify(legacy)));
 });
 
 test('reading sections inherit the preceding scene with a stable initial fallback', () => {
@@ -55,7 +63,7 @@ test('draft preview identifies unfinished sections without changing content or e
   assert.deepEqual([...lessonPreviewIssues(draft, [], () => [])], []);
 });
 
-test('incomplete drafts can be saved and only complete lessons can be shared', () => {
+test('draft validation preserves unfinished lessons while complete validation requires content', () => {
   assert.deepEqual(readLesson(draft, true), draft);
   assert.throws(() => readLesson(draft), /title and at least one step/);
   const lesson = {
@@ -63,12 +71,9 @@ test('incomplete drafts can be saved and only complete lessons can be shared', (
     steps: [{ id: 'read', kind: 'text', title: text('Overview'), instruction: text('Read the notes.') }],
   };
   assert.equal(lessonText(lesson.title, 'vi'), 'Anatomy notes');
-  const bytes = packLesson(readLesson(lesson));
-  assert.deepEqual(readLesson(unpackLesson(bytes)), lesson);
+  assert.deepEqual(readLesson(JSON.parse(JSON.stringify(lesson))), lesson);
   validateLessonTargets(lesson, [], () => []);
-  const files = unzipSync(bytes);
-  files['content.json'][0] ^= 1;
-  assert.throws(() => unpackLesson(zipSync(files)), /checksum mismatch/);
+
 });
 
 test('an exercise must have distinct selectable structures inside its visible target', () => {
@@ -94,7 +99,7 @@ test('custom scenes persist exact model members and bound exercise choices', () 
   const validate = value => validateLessonTargets(value, ['1', '2', 'jaw'], id => members[id] ?? []);
   validate(readLesson(lesson));
   assert.throws(() => validate({ ...lesson, steps: [{ ...lesson.steps[0], targetId: 'otherModel' }] }), /unavailable structure/);
-  assert.deepEqual(readLesson(unpackLesson(packLesson(lesson))), lesson);
+  assert.deepEqual(readLesson(JSON.parse(JSON.stringify(lesson))), lesson);
   for (const visibleIds of [null, '1', [1], ['1', '1']]) {
     assert.throws(() => readLesson({ ...lesson, steps: [{ ...lesson.steps[0], visibleIds }] }), /needs a model/);
   }

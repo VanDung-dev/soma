@@ -1,8 +1,11 @@
-import { cp } from "node:fs/promises";
-import { join } from "node:path";
+import { cp, readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import { wikipediaProxyPlugin } from "./scripts/wikipedia-proxy.mjs";
+
+const require = createRequire(import.meta.url);
 
 export default defineConfig(({ mode }) => {
   const desktop = mode === "desktop";
@@ -11,6 +14,18 @@ export default defineConfig(({ mode }) => {
     base: "/",
     plugins: [
       wikipediaProxyPlugin,
+      {
+        name: "soma-editor-notices",
+        async generateBundle() {
+          for (const [fileName, path] of [
+            ["licenses/NOTICE.txt", fileURLToPath(new URL("../../NOTICE", import.meta.url))],
+            ["licenses/tinymce.md", require.resolve("tinymce/license.md")],
+            ["licenses/dompurify.txt", join(dirname(require.resolve("dompurify")), "../LICENSE")],
+          ] as const) {
+            this.emitFile({ type: "asset", fileName, source: await readFile(path, "utf8") });
+          }
+        },
+      },
       desktop && {
         name: "soma-desktop-public-assets",
         apply: "build",

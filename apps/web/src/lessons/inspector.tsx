@@ -6,26 +6,22 @@ import type { Language } from "../i18n";
 import { lessonText } from "./contract";
 import type { Lesson, LessonStep } from "./contract";
 
-export function LessonInspector({ catalog, lesson, active, scene, index, locale, targets, open, collapsed, onModel, onChange, onMove, onRemove }: {
+export function LessonInspector({ catalog, lesson, active, scene, locale, targets, open, onModel, onChange }: {
   catalog: Catalog;
   lesson: Lesson;
   active?: LessonStep;
   scene?: Exclude<LessonStep, { kind: "text" }>;
-  index: number;
   locale: Language;
   targets: StudyTarget[];
   open: boolean;
-  collapsed: boolean;
   onModel: (id: string) => void;
   onChange: (step: LessonStep) => void;
-  onMove: (offset: number) => void;
-  onRemove: () => void;
 }) {
   const { language, t } = useLanguage();
-  return <aside className="information-panel lesson-author-inspector" id="lesson-author-inspector"
-    data-open={open} data-collapsed={collapsed} inert={!open} tabIndex={-1} aria-label={t("lessons.settings")}>
-    <header className="information-heading"><h2>{t("lessons.settings")}</h2></header>
-    <div className="information-content lesson-fields">
+  return <aside className="lesson-author-inspector" id="lesson-author-inspector"
+    hidden={!open} aria-label={t("lessons.settings")}>
+    <h2>{t("lessons.settings")}</h2>
+    <div className="lesson-fields">
       {!active && <section className="lesson-inspector-section">
         <h3>{t("lessons.required")}</h3>
         <ul className="lesson-requirements">
@@ -72,14 +68,6 @@ export function LessonInspector({ catalog, lesson, active, scene, index, locale,
       </section>
       {active?.kind === "identify_structure" && <ExerciseFields catalog={catalog} targets={targets} step={active} locale={locale}
         onChange={onChange} />}
-      {active && <section className="lesson-inspector-section">
-        <h3>{t("lessons.arrange")}</h3>
-        <div className="lesson-inspector-actions">
-          <button className="lesson-button" disabled={index === 0} onClick={() => onMove(-1)}>{t("lessons.moveUp")}</button>
-          <button className="lesson-button" disabled={index === lesson.steps.length - 1} onClick={() => onMove(1)}>{t("lessons.moveDown")}</button>
-        </div>
-        <button className="lesson-button lesson-remove-block" onClick={onRemove}>{t("lessons.removeStep")}</button>
-      </section>}
     </div>
   </aside>;
 }

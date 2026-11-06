@@ -94,9 +94,9 @@
     "lessons.validation.choices": {"vi": "Thêm ít nhất hai phương án và đánh dấu đáp án đúng ở bước {step}.", "en": "Add at least two choices and mark the correct answer in step {step}."},
     "lessons.validation.scope": {"vi": "Cấu trúc ở bước {step} không có trong mô hình đã chọn.", "en": "The structure in step {step} is unavailable in the selected model."},
     "lessons.validation.overlap": {"vi": "Các phương án ở bước {step} phải nằm trong vùng hiển thị và không chồng lấn.", "en": "The choices in step {step} must be visible and cannot overlap."},
-    "lessons.exportError": {"vi": "Không thể xuất gói .jsoma.", "en": "Could not export the .jsoma package."},
-    "lessons.export": {"vi": "Xuất .jsoma", "en": "Export .jsoma"},
-    "lessons.import": {"vi": "Nhập .jsoma", "en": "Import .jsoma"},
+    "lessons.exportError": {"vi": "Không thể xuất gói .json.", "en": "Could not export the .json package."},
+    "lessons.export": {"vi": "Xuất .json", "en": "Export .json"},
+    "lessons.import": {"vi": "Nhập .json", "en": "Import .json"},
     "lessons.importError": {"vi": "Không thể nhập gói. Tệp có thể bị lỗi hoặc bài đã có trong thư viện.", "en": "Could not import the package. The file may be invalid or the lesson may already be in the library."},
     "lessons.remove": {"vi": "Xóa bài học", "en": "Delete lesson"},
     "lessons.confirmRemove": {"vi": "Xóa bản nháp này khỏi thiết bị?", "en": "Delete this draft from this device?"},
@@ -297,6 +297,13 @@
     "lessons.saveViewShort": {"vi":"Lưu cảnh","en":"Save scene"},
     "lessons.viewSaved": {"vi":"Đã có cảnh riêng. Bấm Lưu để cập nhật sau khi xoay, zoom hoặc tách.","en":"Step scene saved. Save again after rotating, zooming or exploding."},
     "lessons.viewNotSaved": {"vi":"Xoay, zoom hoặc tách, rồi lưu cảnh cho bước này.","en":"Rotate, zoom or explode, then save this step’s scene."},
-    "lessons.restoreBeforeSave": {"vi":"Khôi phục các phần kéo rời trước khi lưu cảnh.","en":"Restore manually moved parts before saving the scene."}
+    "lessons.restoreBeforeSave": {"vi":"Khôi phục các phần kéo rời trước khi lưu cảnh.","en":"Restore manually moved parts before saving the scene."},
+    "lessons.stepMoved": {"vi":"Đã chuyển “{name}” đến vị trí {position}.","en":"Moved “{name}” to position {position}."},
+    "lessons.dragStep": {"vi":"Kéo để sắp xếp “{name}”","en":"Drag to reorder “{name}”"},
+    "lessons.dragInstructions": {"vi":"Kéo tay nắm để đổi thứ tự. Bàn phím: Space để nhấc mục, phím mũi tên để di chuyển, Space để thả, Escape để hủy.","en":"Drag the handle to reorder. Keyboard: Space to pick up, arrow keys to move, Space to drop, Escape to cancel."},
+    "lessons.dragPosition": {"vi":"Vị trí thả {position} / {total}.","en":"Drop position {position} of {total}."},
+    "lessons.loadingEditor": {"vi":"Đang mở trình soạn thảo…","en":"Loading editor…"},
+    "lessons.richEditorError": {"vi":"Không mở được trình soạn thảo. Nội dung đã lưu vẫn được giữ; tải lại trang để thử lại.","en":"The editor could not load. Saved content is preserved; reload to try again."},
+    "lessons.confirmReplace": {"vi":"Bài học “{name}” đã tồn tại. Thay bản đang lưu bằng file JSON này?","en":"The lesson “{name}” already exists. Replace the saved draft with this JSON file?"}
   }
 }

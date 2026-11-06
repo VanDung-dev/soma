@@ -1,3 +1,4 @@
+import { lessonBody } from './lesson-editor-tools.mjs';
 import assert from 'node:assert/strict';
 
 export async function checkLessonScenes(page) {
@@ -8,14 +9,12 @@ export async function checkLessonScenes(page) {
   await page.getByLabel('Tên bài học (VI)').fill('Bài học cảnh 3D');
   const url = page.url();
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:' + location.pathname.split('/')[2])));
-  await page.getByRole('button', { name: 'Hiện bảng Thiết lập', exact: true }).click();
   await page.getByLabel('Mô hình 3D của bài học').selectOption('collection:cc46df69f8495544');
   const add = async (title, instruction) => {
-    await page.getByRole('button', { name: 'Hiện bảng Mục lục', exact: true }).click();
     assert.equal(await page.getByRole('button', { name: 'Quan sát 3D', exact: true }).count(), 0);
-    await page.getByRole('button', { name: 'Thêm bước học', exact: true }).click();
+    await page.locator('#lesson-author-writing').getByRole('button', { name: 'Thêm bước học', exact: true }).click();
     await page.getByLabel('Tên mục (VI)').fill(title);
-    await page.getByLabel('Nội dung hướng dẫn (VI)').fill(instruction);
+    await lessonBody(page).fill(instruction);
   };
   await add('Mặt bên', 'Xoay và tách để quan sát mặt bên.');
   const frame = page.locator('.lesson-scene-region');
@@ -46,8 +45,8 @@ export async function checkLessonScenes(page) {
   assert.notDeepEqual(lesson.steps[1].view, first.view);
   await page.reload();
   await frame.locator('.model-canvas[aria-busy="false"]').waitFor();
-  await page.getByRole('button', { name: 'Hiện bảng Mục lục', exact: true }).click();
-  await page.locator('#lesson-author-outline').getByRole('button', { name: /Mặt bên/ }).click();
+  if (await page.locator('#lesson-author-outline').isHidden()) await page.locator('#lesson-toggle-outline').click();
+  await page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: 'Mặt bên' }).click();
   assert.equal(await slider.inputValue(), '30');
   await frame.getByRole('button', { name: 'Về cảnh của bước', exact: true }).click();
   await frame.getByRole('button', { name: 'Lưu cảnh cho bước', exact: true }).click();
@@ -82,7 +81,6 @@ export async function checkLessonScenes(page) {
   assert(await playerSlider.isVisible());
   await page.setViewportSize({ width: 1440, height: 900 });
   await player.locator('.lesson-player-header button').first().click();
-  await page.getByRole('button', { name: 'Hiện bảng Thiết lập', exact: true }).click();
   const question = page.getByRole('checkbox', { name: 'Thêm câu hỏi nhận diện vào bước này' });
   await question.check();
   assert.equal((await saved()).steps[0].kind, 'identify_structure');

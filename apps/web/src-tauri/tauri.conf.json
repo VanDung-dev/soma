@@ -24,7 +24,7 @@
       "preventOverflow": true
     }],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self'; connect-src 'self' ipc: http://ipc.localhost asset: http://asset.localhost; img-src 'self' data:; frame-src 'self' https:",
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost asset: http://asset.localhost; img-src 'self' data:; frame-src 'self' https:",
       "assetProtocol": {
         "enable": true,
         "scope": ["$RESOURCE/models/**/*"]

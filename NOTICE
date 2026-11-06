@@ -12,3 +12,15 @@ Dependencies retain their own licenses.
 Material Line Icons (line-md)
 Copyright 2020 Vjacheslav Trushkin. Licensed under the MIT License.
 https://github.com/cyberalien/line-md/blob/main/license.txt
+
+TinyMCE 8.10.1
+Copyright (c) 2025 Ephox Corporation DBA Tiny Technologies, Inc.
+Bundled self-hosted editor configured for GNU GPL Version 2 or later.
+https://www.tiny.cloud/docs/tinymce/latest/license-key/
+The TinyMCE license applies to TinyMCE and its distribution obligations;
+it does not replace LICENSE for Soma's original source files.
+
+DOMPurify
+Copyright (c) 2015 Mario Heiderich.
+Used under the Apache License, Version 2.0.
+https://github.com/cure53/DOMPurify/blob/main/LICENSE

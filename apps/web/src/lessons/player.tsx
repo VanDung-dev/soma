@@ -4,12 +4,13 @@ import { OrientationAxes } from "../anatomy/orientation-axes";
 import { ViewerStatusNotice } from "../anatomy/viewer-status";
 import { useLanguage } from "../i18n";
 import { LineIcon } from "../icons";
-import { PopoverPanel } from "../popover-panel";
 import type { Lesson, LessonStep, LessonValidationError } from "./contract";
 import { lessonPreviewIssues, lessonSceneStep, lessonText, validateLessonTargets } from "./contract";
 import { useLessonViewer } from "./viewer";
 import { ExplodeControls } from "../anatomy/explode-controls";
 import { LessonStructureTools } from "./structure-tools";
+import { useLessonPanel } from "./panels";
+import { lessonHtml, lessonPlainText } from "./rich-text";
 
 export function LessonPlayer({ lesson, catalog, onBack, preview = false }: { lesson: Lesson; catalog: Catalog; onBack: () => void; preview?: boolean }) {
   const { language, t } = useLanguage();
@@ -18,6 +19,7 @@ export function LessonPlayer({ lesson, catalog, onBack, preview = false }: { les
   const feedback = useRef<HTMLParagraphElement>(null);
   const reader = useRef<HTMLDivElement>(null);
   const outlineId = useId();
+  const [outlineOpen, setOutlineOpen] = useLessonPanel("readerOutline", false);
   const modelId = useId();
   const [modelCollapsed, setModelCollapsed] = useState(false);
   const [index, setIndex] = useState(0);
@@ -81,7 +83,6 @@ export function LessonPlayer({ lesson, catalog, onBack, preview = false }: { les
     setSelection(undefined);
     setIncorrect(false);
     setComplete(false);
-    if (lesson.steps[next]?.kind !== "text") setModelCollapsed(false);
     setIndex(next);
     if (!next) heading.current?.focus();
   }
@@ -98,9 +99,27 @@ export function LessonPlayer({ lesson, catalog, onBack, preview = false }: { les
       {usesModel && <button className="controls-info lesson-player-model-toggle" aria-controls={modelId} aria-expanded={!modelCollapsed}
         aria-label={t(modelCollapsed ? "lessons.showModel" : "lessons.hideModel")} title={t(modelCollapsed ? "lessons.showModel" : "lessons.hideModel")}
         onClick={() => setModelCollapsed(value => !value)}><LineIcon name="sidebar" size={18} /></button>}
-      <button className="lesson-button" popoverTarget={outlineId}>{t("lessons.outline")}</button>
+      <button className="lesson-button" aria-controls={outlineId} aria-expanded={outlineOpen} onClick={() => setOutlineOpen()}>{t("lessons.outline")}</button>
     </header>
-    <div className="lesson-workspace" data-model={usesModel} data-model-collapsed={modelCollapsed}>
+    <div className="lesson-player-body" data-outline={outlineOpen}>
+      <nav id={outlineId} className="lesson-reader-outline workspace-panel-surface" hidden={!outlineOpen} aria-label={t("lessons.outline")}>
+        <div className="lesson-outline-heading"><h2>{t("lessons.outline")}</h2>
+          <button className="controls-info" aria-label={t("lessons.closeOutline")} onClick={() => {
+            setOutlineOpen(false);
+            document.querySelector<HTMLButtonElement>(`[aria-controls="${outlineId}"]`)?.focus();
+          }}><LineIcon name="close-small" /></button>
+        </div>
+        <ol className="lesson-outline-list">
+          {lesson.steps.map((item, i) => <li key={item.id}>
+            <button className="lesson-outline-row" aria-current={!complete && i === index ? "true" : undefined}
+              disabled={boundary >= 0 && i > boundary} onClick={() => move(i)}>
+              <span className="lesson-block-icon" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
+              <span>{lessonText(item.title, language) || t("lessons.untitledSection")}</span>
+            </button>
+          </li>)}
+        </ol>
+      </nav>
+      <div className="lesson-workspace" data-model={usesModel} data-model-collapsed={modelCollapsed}>
       {usesModel && <section className="lesson-model" id={modelId} aria-label={t("viewer.section.label")}>
         <div className="lesson-model-canvas model-canvas" ref={host} aria-busy={!modelMissing && state.building && !state.error && !failed} />
         {hold && <svg key={hold.action} className="model-hold-progress" data-action={hold.action} style={{ left: hold.x, top: hold.y }} viewBox="0 0 40 40" aria-hidden="true">
@@ -133,7 +152,9 @@ export function LessonPlayer({ lesson, catalog, onBack, preview = false }: { les
         {lesson.steps.length > 0 && <p className="lesson-step-number">{t("lessons.step", { current: index + 1, total: lesson.steps.length })}</p>}
         <h2 id="lesson-step-title" ref={heading} tabIndex={-1}>{lessonText(step.title, language) || t(lesson.steps.length ? "lessons.untitledSection" : "lessons.addContent")}</h2>
         {issue && <p className="model-status lesson-preview-issue" role="status">{t(`lessons.validation.${issue.reason}`, { step: issue.step })}</p>}
-        <p className="lesson-instructions">{lessonText(step.instruction, language) || t("lessons.previewNoContent")}</p>
+        {lessonPlainText(step.instruction, language)
+          ? <div className="lesson-instructions lesson-rich-content" dangerouslySetInnerHTML={{ __html: lessonHtml(step.instruction, language) }} />
+          : <p className="lesson-instructions">{t("lessons.previewNoContent")}</p>}
         {!lesson.steps.length && <button className="lesson-button lesson-primary" onClick={onBack}>{t("lessons.continueEditing")}</button>}
         {exercise && <fieldset className="lesson-choices" disabled={!ready || solved || !!issue}>
           <legend>{t("lessons.choose")}</legend>
@@ -171,17 +192,6 @@ export function LessonPlayer({ lesson, catalog, onBack, preview = false }: { les
         </div>}
       </section>
     </div>
-    <PopoverPanel id={outlineId} className="lesson-reader-outline" title={t("lessons.outline")}
-      closeLabel={t("lessons.closeOutline")}>
-      <ol className="lesson-outline-list">
-        {lesson.steps.map((item, i) => <li key={item.id}>
-          <button className="lesson-outline-row" aria-current={!complete && i === index ? "true" : undefined}
-            disabled={boundary >= 0 && i > boundary} popoverTarget={outlineId} popoverTargetAction="hide" onClick={() => move(i)}>
-            <span className="lesson-block-icon" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
-            <span>{lessonText(item.title, language) || t("lessons.untitledSection")}</span>
-          </button>
-        </li>)}
-      </ol>
-    </PopoverPanel>
+    </div>
   </div>;
 }

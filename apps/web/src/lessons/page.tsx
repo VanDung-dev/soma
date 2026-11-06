@@ -10,6 +10,7 @@ import { LessonPlayer } from "./player";
 import { lessonEditPath } from "./routes";
 import { importLesson, listLessons, newLessonId, removeLesson, saveLesson } from "./source";
 import "./style.css";
+import { lessonPlainText } from "./rich-text";
 
 const searchable = (value: string) => value.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replaceAll("đ", "d");
 
@@ -33,7 +34,7 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
   const editing = !!editId;
   const terms = searchable(query).trim().split(/\s+/).filter(Boolean);
   const matching = editing || !terms.length ? lessons : lessons.filter(lesson => {
-    const content = searchable([lesson.title.vi, lesson.title.en, lesson.summary.vi, lesson.summary.en,
+    const content = searchable([lesson.title.vi, lesson.title.en, lessonPlainText(lesson.summary, "vi"), lessonPlainText(lesson.summary, "en"),
       lessonText(lesson.title, language) || t("lessons.untitled")].join(" "));
     return terms.every(term => content.includes(term));
   });
@@ -64,8 +65,10 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
   async function importFile(file: File) {
     try {
       const lesson = await importLesson(file);
-      saveLesson(lesson);
-      setLessons(current => [...current, lesson]);
+      const previous = lessons.find(item => item.id === lesson.id);
+      if (previous && !window.confirm(t("lessons.confirmReplace", { name: lessonText(previous.title, language) || t("lessons.untitled") }))) return;
+      saveLesson(lesson, previous);
+      setLessons(current => previous ? current.map(item => item.id === lesson.id ? lesson : item) : [...current, lesson]);
       setError(undefined);
     } catch (cause) {
       console.error("Lesson import failed", cause);
@@ -108,7 +111,7 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
       <div className="lesson-library-actions">
         <button className="lesson-button lesson-primary" disabled={loading} onClick={create}>{t("lessons.create")}</button>
         <label className="lesson-import">{t("lessons.import")}
-          <input type="file" accept=".jsoma" disabled={loading} onChange={event => {
+          <input type="file" accept=".json,application/json" disabled={loading} onChange={event => {
             const file = event.target.files?.[0];
             event.target.value = "";
             if (file) void importFile(file);
@@ -125,7 +128,7 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
           : <ul className="lesson-library">
             {matching.map(lesson => <li className="lesson-card" key={lesson.id}>
               <h2>{lessonText(lesson.title, language) || t("lessons.untitled")}</h2>
-              {lessonText(lesson.summary, language) && <p>{lessonText(lesson.summary, language)}</p>}
+              {lessonPlainText(lesson.summary, language) && <p>{lessonPlainText(lesson.summary, language)}</p>}
               <div className="lesson-actions">
                 <button className="lesson-button lesson-primary" onClick={() => {
                   setError(pending?.id === lesson.id ? "save" : undefined);

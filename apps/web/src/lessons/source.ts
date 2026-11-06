@@ -1,6 +1,5 @@
 import { readLesson } from "./contract";
 import type { Lesson } from "./contract";
-import { packLesson, unpackLesson } from "./jsoma";
 
 const prefix = "soma.lesson:";
 
@@ -31,16 +30,18 @@ export function newLessonId() {
 }
 
 export async function importLesson(file: File) {
-  if (file.size > 512 * 1024) throw new Error("Invalid JSoma archive size");
-  return readLesson(unpackLesson(new Uint8Array(await file.arrayBuffer())));
+  if (file.size > 512 * 1024) throw new Error("Lesson JSON exceeds 512 KiB");
+  return readLesson(JSON.parse(await file.text()), true);
 }
 
 export function exportLesson(lesson: Lesson) {
-  const bytes = packLesson(lesson);
-  const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: "application/zip" }));
+  readLesson(lesson, true);
+  const file = new Blob([JSON.stringify(lesson, null, 2) + "\n"], { type: "application/json" });
+  if (file.size > 512 * 1024) throw new Error("Lesson JSON exceeds 512 KiB");
+  const url = URL.createObjectURL(file);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${lesson.id}.jsoma`;
+  link.download = `${lesson.id}.json`;
   link.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

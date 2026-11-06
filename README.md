@@ -120,6 +120,27 @@ in the step's Settings to add answer choices. Lessons without a model remain
 text-only. After selecting a model, use **Choose visible structures** to combine
 groups or toggle individual parts using the Anatomy tree.
 
+On desktop, the editor opens with a docked outline and settings below the writing
+fields. Selecting or adding a step keeps both visible and leaves the model usable.
+Drag each outline item's handle to reorder with mouse or touch; hold near the
+scrolling area's edge to move through long outlines. With keyboard focus on the
+handle, Space picks up/drops the item, arrows move it, Home/End choose the first/last
+position, and Escape cancels without saving. Previous/next and Add learning step are also available
+above the writing fields. The outline's Add button stays outside its scrolling list.
+Outline and settings can be hidden independently; their preferences survive
+preview, reopening and reload when browser storage is available. On small screens,
+an open outline takes a compact area above the model and writing workspace.
+
+The content field uses [TinyMCE Community self-hosted](https://www.tiny.cloud/get-tiny/self-hosted/), bundled from the `tinymce` npm package, with headings,
+emphasis, lists, links and tables. No Tiny Cloud API key or remote editor assets
+are needed. Vietnamese and English content are saved independently; existing
+plain text keeps its literal meaning when edited or read. Rich HTML is filtered
+with DOMPurify in the editor and player; scripts, styles, images, embedded frames
+and unsafe link protocols are excluded. Editor resources load only when editing.
+TinyMCE is configured for GPLv2+; dependencies retain their own licenses (NOTICE).
+Builds include their notices under `licenses/`. Desktop allows inline styles for
+TinyMCE's UI; its script and network source restrictions remain in effect.
+
 While editing, use the Anatomy mouse controls to rotate, pan, zoom, Shift-drag
 select, hold left to detach and move, or hold right to hide. Hiding updates the
 section's visible structures. The shared explosion slider supports automatic
@@ -134,10 +155,12 @@ view. Source structure IDs and lesson/step IDs remain stable.
 Preview runs the lesson as a learner sees it. In identification
 exercises, part names in the 3D viewer become available after a correct answer.
 The learner keeps one 3D viewer on the left and independently scrolling content
-on the right. The editor uses the same model-left/content-right layout, with
-outline and settings drawers. Draft preview opens even when sections are
-unfinished, shows missing settings, and permits skipping unfinished exercises;
-export still requires a fully valid lesson. Preview placeholders never modify
+on the right. The learner outline is a docked panel: it stays open while selecting
+steps or interacting with the model, until explicitly closed. Its visibility
+preference is independent of the editor. Collapsing the model on mobile also
+remains in effect when changing steps. Draft preview opens even when sections are
+unfinished, shows missing settings, and permits skipping unfinished exercises.
+JSON import/export also permits unfinished drafts for testing. Preview placeholders never modify
 the saved draft. Changing steps applies their authored views with camera and
 explosion transitions; manual camera input cancels the camera transition and
 reduced motion applies the destination immediately. Learners can rotate, pan,
@@ -151,18 +174,19 @@ scene. Saving a scene for a legacy reading section gives that step its own scene
 Use the library search to find drafts by title or description. A draft opens at
 `/lessons/<id>/edit`, which reloads the saved draft in the same profile.
 Drafts autosave in the current browser profile or desktop WebView. Export a
-completed draft as `.jsoma` to back it up or import it on another device.
+draft as `.json` to back it up or edit it directly while testing. Exports contain
+the lesson object as indented UTF-8 JSON, without an archive, manifest or checksum.
+Importing an existing lesson ID asks before replacing that draft and retains the
+check against simultaneous changes from another tab. Files are limited to 512 KiB.
+JSoma packaging is deferred; this version only imports and exports JSON files.
 
-A JSoma lesson is a ZIP with `manifest.json` and `content.json`. The manifest
-records the format version, kind and SHA-256 of the content. The editor keeps
-lesson and step IDs stable across edits. The model root, step targets and
-identification choices reference Soma catalog IDs. Optional step `visibleIds`
-lists the exact source structure IDs in a custom scene; existing lessons use the
-step target membership when this field is absent. Optional step `view` stores a
-viewport-adapted camera pose and explosion level. Exports with authored views use
-JSoma format v2 so older apps reject them rather than silently discard the views;
-lessons without views still export as v1. This app imports both versions.
-Practice answers are checked on the device.
+The editor keeps lesson and step IDs stable across edits. Model roots, step targets
+and identification choices reference Soma catalog IDs. Optional step `visibleIds`
+lists exact source structure IDs; when absent, the step uses its target membership.
+Optional `view` stores a viewport-adapted camera pose and explosion level. Localized
+text fields retain `vi` and `en` strings; optional `html: ["vi", "en"]` marks only the
+locales containing rich HTML. An absent marker means plain text. Practice answers
+are checked on the device.
 
 ## Wikipedia proxy
 

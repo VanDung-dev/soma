@@ -39,8 +39,9 @@ export async function checkLessonReader(page) {
   assert(await page.getByRole('button', { name: 'Bước tiếp theo', exact: true }).isVisible());
 
   const jump = async title => {
-    await page.getByRole('button', { name: 'Mục lục', exact: true }).click();
-    await page.locator('.lesson-reader-outline:popover-open').getByRole('button', { name: title, exact: true }).click();
+    if (await page.locator('.lesson-reader-outline').isHidden()) await page.getByRole('button', { name: 'Mục lục', exact: true }).click();
+    await page.locator('.lesson-reader-outline').getByRole('button', { name: title, exact: true }).click();
+    assert(await page.locator('.lesson-reader-outline').isVisible(), 'Choosing a step must keep the outline open');
     await page.getByRole('heading', { name: title, exact: true }).waitFor();
   };
   const sceneCount = async () => {
@@ -60,9 +61,7 @@ export async function checkLessonReader(page) {
   assert(await canvasUnchanged());
   await jump('Nhận diện');
   await model.getByRole('button', { name: 'Tìm bộ phận trong bài', exact: true }).waitFor({ state: 'hidden' });
-  await page.getByRole('button', { name: 'Mục lục', exact: true }).click();
-  assert(await page.locator('.lesson-reader-outline:popover-open').getByRole('button', { name: 'Tổng kết', exact: true }).isDisabled());
-  await page.keyboard.press('Escape');
+  assert(await page.locator('.lesson-reader-outline').getByRole('button', { name: 'Tổng kết', exact: true }).isDisabled());
   const choices = page.locator('.lesson-step input[type=radio]');
   await choices.nth(1).check();
   await page.getByRole('button', { name: 'Kiểm tra đáp án', exact: true }).click();
@@ -72,6 +71,7 @@ export async function checkLessonReader(page) {
   await model.getByRole('button', { name: 'Tìm bộ phận trong bài', exact: true }).waitFor();
   await jump('Tổng kết');
   assert(await canvasUnchanged());
+  await page.getByRole('button', { name: 'Đóng mục lục', exact: true }).click();
   await page.setViewportSize({ width: 320, height: 700 });
   assert(await page.locator('.lessons-screen').evaluate(node => node.scrollWidth <= node.clientWidth));
   const expandedReader = await page.locator('.lesson-step').boundingBox();
@@ -100,7 +100,8 @@ export async function checkLessonReader(page) {
   await page.getByRole('button', { name: 'Bước tiếp theo', exact: true }).click();
   await page.getByRole('heading', { name: 'Tổng kết', exact: true }).waitFor();
   await page.locator('.lesson-player-header button').first().click();
-  await page.getByRole('button', { name: 'Xuất .jsoma', exact: true }).click();
-  await page.getByRole('alert').filter({ hasText: 'Thêm ít nhất hai phương án' }).waitFor();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Xuất .json', exact: true }).click();
+  assert((await download).suggestedFilename().endsWith('.json'), 'Unfinished drafts can be exported as editable JSON for testing');
   assert.deepEqual(await page.evaluate(id => JSON.parse(localStorage.getItem('soma.lesson:' + id)), unfinished.id), unfinished);
 }

@@ -1,6 +1,6 @@
 import type { SceneView } from "../anatomy/viewer/contracts";
 
-export type LessonText = { vi: string; en: string };
+export type LessonText = { vi: string; en: string; html?: ("vi" | "en")[] };
 
 type StepContent = { id: string; title: LessonText; instruction: LessonText };
 type LessonScene = { targetId: string; visibleIds?: string[]; view?: SceneView };
@@ -31,7 +31,7 @@ export class LessonValidationError extends Error {
   }
 }
 
-export function lessonText(value: LessonText, language: keyof LessonText) {
+export function lessonText(value: LessonText, language: "vi" | "en") {
   return value[language].trim() || value[language === "vi" ? "en" : "vi"].trim();
 }
 
@@ -59,7 +59,14 @@ function validView(value: unknown) {
     && Array.isArray(camera.pan) && camera.pan.length === 2 && camera.pan.every(value => finite(value, 1e6));
 }
 function localized(value: unknown, required: boolean) {
-  return object(value) && string(value.vi) && string(value.en) && (!required || !!(value.vi.trim() || value.en.trim()));
+  if (!object(value) || !string(value.vi) || !string(value.en)) return false;
+  if (value.html !== undefined && (!Array.isArray(value.html) || value.html.some(locale => locale !== "vi" && locale !== "en")
+    || new Set(value.html).size !== value.html.length)) return false;
+  return !required || ["vi", "en"].some(locale => {
+    const text = value[locale] as string;
+    return (Array.isArray(value.html) && value.html.includes(locale)
+      ? text.replace(/<[^>]*>/g, "").replace(/&nbsp;|&#160;|&#x0*a0;|\u00a0/gi, " ") : text).trim();
+  });
 }
 
 export function readLesson(value: unknown, draft = false): Lesson {
