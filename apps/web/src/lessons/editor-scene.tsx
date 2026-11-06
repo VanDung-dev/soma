@@ -60,7 +60,7 @@ function Scene({ catalog, modelId, targetId, sectionId, frame, controls, inactiv
     if (ready) session.showScene(ids);
   }, [ready, session, sectionId, ids]);
 
-  return <div className="lesson-editor-scene" inert={inactive} aria-label={t("viewer.section.label")} role="group">
+  return createPortal(<div className="lesson-editor-scene" inert={inactive} aria-label={t("viewer.section.label")} role="group">
     <div className="model-canvas" ref={host} aria-busy={state.building && !state.error} />
     {hold && <svg key={hold.action} className="model-hold-progress" data-action={hold.action} style={{ left: hold.x, top: hold.y }} viewBox="0 0 40 40" aria-hidden="true">
       <circle cx="20" cy="20" r="16" />
@@ -100,5 +100,5 @@ function Scene({ catalog, modelId, targetId, sectionId, frame, controls, inactiv
       <a className="lesson-model-credit" href="/models/z-anatomy/ATTRIBUTION.md" target="_blank" rel="noreferrer"
         aria-label={t("credit.link")}>Z-Anatomy</a>
     </>, frame)}
-  </div>;
+  </div>, frame);
 }

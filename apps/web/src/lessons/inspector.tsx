@@ -12,10 +12,11 @@ export const lessonBlockTools = [
   { kind: "identify_structure", name: "lessons.kind.identify", icon: "?" },
 ] as const;
 
-export function LessonInspector({ catalog, lesson, active, index, locale, targets, open, collapsed, onModel, onChange, onMove, onRemove }: {
+export function LessonInspector({ catalog, lesson, active, scene, index, locale, targets, open, collapsed, onModel, onChange, onMove, onRemove }: {
   catalog: Catalog;
   lesson: Lesson;
   active?: LessonStep;
+  scene?: Exclude<LessonStep, { kind: "text" }>;
   index: number;
   locale: Language;
   targets: StudyTarget[];
@@ -57,7 +58,7 @@ export function LessonInspector({ catalog, lesson, active, index, locale, target
           </select>
         </label>
       </div>}
-      {(!active || active.kind !== "text") && <section className="lesson-inspector-section">
+      <section className="lesson-inspector-section">
         <h3>{t("viewer.section.label")}</h3>
         <label>{t("lessons.model")}
           <select value={lesson.modelId} onChange={event => onModel(event.target.value)}>
@@ -67,14 +68,14 @@ export function LessonInspector({ catalog, lesson, active, index, locale, target
               <option value={lesson.modelId}>{lesson.modelId}</option>}
           </select>
         </label>
-        {active && catalog.roots.some(model => model.id === lesson.modelId) && <>
+        {scene && catalog.roots.some(model => model.id === lesson.modelId) && <>
           <button className="lesson-button" popoverTarget="lesson-scene-structures">
             {t("lessons.sceneStructures")}
           </button>
-          <p>{active.visibleIds ? t("lessons.sceneCount", { count: active.visibleIds.length }) : t("lessons.composeSceneHint")}</p>
+          <p>{scene.visibleIds ? t("lessons.sceneCount", { count: scene.visibleIds.length }) : t("lessons.composeSceneHint")}</p>
         </>}
         <p>{t("lessons.sharedModel")}</p>
-      </section>}
+      </section>
       {active?.kind === "identify_structure" && <ExerciseFields catalog={catalog} targets={targets} step={active} locale={locale}
         onChange={onChange} />}
       {active && <section className="lesson-inspector-section">

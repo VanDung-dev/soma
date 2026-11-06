@@ -85,14 +85,10 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
     }
   }
 
-  return <main className="lessons-screen" data-editor={!!draft && !preview}>
+  return <main className="lessons-screen" data-editor={!!draft && !preview} data-player={!!draft && preview}>
     {draft ? <>
-      {preview && <>
-        <button className="lesson-button" onClick={() => setPreview(false)}>{t("lessons.backEditor")}</button>
-        <h1 ref={title} tabIndex={-1}>{lessonText(draft.title, language)}</h1>
-      </>}
       <WithLessonCatalog key={`${draft.id}/${preview ? "preview" : "editor"}`}>{catalog => preview
-        ? <LessonPlayer lesson={draft} catalog={catalog} />
+        ? <LessonPlayer lesson={draft} catalog={catalog} preview onBack={() => setPreview(false)} />
         : <LessonEditor catalog={catalog} lesson={draft} selected={selected} onSelect={setSelected}
           saveFailed={error === "save"} onChange={update} onPreview={() => setPreview(true)}
           onBack={() => {

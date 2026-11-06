@@ -1,11 +1,42 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { unzipSync, zipSync } from 'fflate';
-import { lessonText, readLesson, validateLessonTargets } from '../src/lessons/contract.ts';
+import { lessonPreviewIssues, lessonSceneStep, lessonText, readLesson, validateLessonTargets } from '../src/lessons/contract.ts';
 import { packLesson, unpackLesson } from '../src/lessons/jsoma.ts';
 
 const text = en => ({ vi: '', en });
 const draft = { id: 'lesson-test', version: 1, title: text(''), summary: text(''), modelId: '', steps: [] };
+
+test('reading sections inherit the preceding scene with a stable initial fallback', () => {
+  const intro = { id: 'intro', kind: 'text' };
+  const skull = { id: 'skull', kind: 'observe', targetId: 'skull', visibleIds: ['1', '2'] };
+  const notes = { id: 'notes', kind: 'text' };
+  const quiz = { id: 'quiz', kind: 'identify_structure', targetId: 'jaw' };
+  const summary = { id: 'summary', kind: 'text' };
+  const lesson = { ...draft, steps: [intro, skull, notes, quiz, summary] };
+  assert.equal(lessonSceneStep(lesson, 0), skull);
+  assert.equal(lessonSceneStep(lesson, 4), quiz);
+  assert.equal(lessonSceneStep(lesson, 2), skull, 'Jumping back must not inherit the last visited quiz');
+  assert.equal(lessonSceneStep(lesson, 1), skull);
+  assert.equal(lessonSceneStep({ ...draft, steps: [intro, notes] }, 1), undefined);
+});
+
+test('draft preview identifies unfinished sections without changing content or export validation', () => {
+  const lesson = { ...draft, title: text('Draft'), steps: [
+    { id: 'read', kind: 'text', title: text('Read'), instruction: text('Notes') },
+    { id: 'observe', kind: 'observe', title: text(''), instruction: text(''), targetId: '' },
+    { id: 'quiz', kind: 'identify_structure', title: text('Quiz'), instruction: text('Pick'), targetId: '', choiceIds: [], answerId: '', explanation: text('') },
+  ] };
+  const original = structuredClone(lesson);
+  const issues = lessonPreviewIssues(lesson, [], () => []);
+  assert.equal(issues.has('read'), false);
+  assert.equal(issues.get('observe').reason, 'stepText');
+  assert.equal(issues.get('observe').step, 2);
+  assert.equal(issues.get('quiz').reason, 'target');
+  assert.deepEqual(lesson, original);
+  assert.throws(() => readLesson(lesson), /needs a title and instructions/);
+  assert.deepEqual([...lessonPreviewIssues(draft, [], () => [])], []);
+});
 
 test('incomplete drafts can be saved and only complete lessons can be shared', () => {
   assert.deepEqual(readLesson(draft, true), draft);

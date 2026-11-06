@@ -33,6 +33,11 @@ export function lessonText(value: LessonText, language: keyof LessonText) {
   return value[language].trim() || value[language === "vi" ? "en" : "vi"].trim();
 }
 
+export function lessonSceneStep(lesson: Lesson, index: number) {
+  return lesson.steps.slice(0, index + 1).reverse().find(step => step.kind !== "text")
+    ?? lesson.steps.find(step => step.kind !== "text");
+}
+
 const slug = (value: unknown): value is string =>
   typeof value === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
 const object = (value: unknown): value is Record<string, unknown> =>
@@ -90,4 +95,19 @@ export function validateLessonTargets(lesson: Lesson, structureIds: readonly str
       choice.forEach(id => choices.add(id));
     }
   }
+}
+
+export function lessonPreviewIssues(lesson: Lesson, structureIds: readonly string[], members: (id: string) => readonly string[]) {
+  const issues = new Map<string, LessonValidationError>();
+  lesson.steps.forEach((step, index) => {
+    try {
+      const section = { ...lesson, steps: [step] };
+      readLesson(section);
+      validateLessonTargets(section, structureIds, members);
+    } catch (cause) {
+      if (!(cause instanceof LessonValidationError)) throw cause;
+      issues.set(step.id, new LessonValidationError(cause.reason, cause.message, cause.step ? index + 1 : 0));
+    }
+  });
+  return issues;
 }

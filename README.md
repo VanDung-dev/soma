@@ -130,6 +130,17 @@ when changing sections.
 
 Preview runs the lesson as a learner sees it. In identification
 exercises, part names in the 3D viewer become available after a correct answer.
+The learner keeps one 3D viewer on the left and independently scrolling content
+on the right. The editor uses the same model-left/content-right layout, with
+outline and settings drawers. Draft preview opens even when sections are
+unfinished, shows missing settings, and permits skipping unfinished exercises;
+export still requires a fully valid lesson. Preview placeholders never modify
+the saved draft. Reading sections inherit the preceding 3D section, with the first
+3D section as the initial scene. The outline supports direct navigation up to
+the first unanswered exercise. Reset lesson scene returns to the authored
+structures. On small screens the model sits above the text and can be collapsed.
+Text-only lessons use the full reading area. This layout uses the existing JSoma
+contract without adding a separate default-scene field.
 Use the library search to find drafts by title or description. A draft opens at
 `/lessons/<id>/edit`, which reloads the saved draft in the same profile.
 Drafts autosave in the current browser profile or desktop WebView. Export a

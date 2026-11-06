@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Catalog } from "../anatomy/catalog/types";
-import { desktopPanelQuery } from "../anatomy/viewer/layout";
 import { useLanguage } from "../i18n";
 import type { Language } from "../i18n";
 import { LineIcon } from "../icons";
-import { LessonValidationError, lessonText, readLesson, validateLessonTargets } from "./contract";
+import { LessonValidationError, lessonSceneStep, lessonText, readLesson, validateLessonTargets } from "./contract";
 import type { Lesson, LessonStep, LessonText } from "./contract";
 import { EditorScene } from "./editor-scene";
 import { LessonInspector, lessonBlockTools as tools } from "./inspector";
@@ -27,34 +26,24 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
   const { language, t } = useLanguage();
   const [locale, setLocale] = useState<Language>();
   const [error, setError] = useState("");
-  const [desktop, setDesktop] = useState(() => window.matchMedia(desktopPanelQuery).matches);
-  const [collapsed, setCollapsed] = useState({ outline: false, inspector: false });
-  const [mobilePanel, setMobilePanel] = useState<Panel>();
-  const [writingOpen, setWritingOpen] = useState(true);
+  const [panel, setPanel] = useState<Panel>();
   const [sceneFrame, setSceneFrame] = useState<HTMLDivElement | null>(null);
   const [sceneControls, setSceneControls] = useState<HTMLDivElement | null>(null);
   const editorLanguage = locale ?? language;
   const index = lesson.steps.findIndex(step => step.id === selected);
   const active = lesson.steps[index];
-  const sceneStep = !!active && active.kind !== "text";
-  const outlineOpen = desktop ? !collapsed.outline : mobilePanel === "outline";
-  const inspectorOpen = desktop ? !collapsed.inspector : mobilePanel === "inspector";
-  const panelOverCanvas = !desktop && !!mobilePanel;
+  const scene = lessonSceneStep(lesson, Math.max(0, index));
+  const outlineOpen = panel === "outline";
+  const inspectorOpen = panel === "inspector";
+  const panelOverCanvas = !!panel;
   const targets = useMemo(() => lessonTargets(catalog, lesson.modelId), [catalog, lesson.modelId]);
   const heading = useRef<HTMLHeadingElement>(null);
   const titleField = useRef<HTMLInputElement>(null);
   const focusAdded = useRef<string | null>(null);
   useEffect(() => { heading.current?.focus(); }, []);
   useEffect(() => {
-    const query = window.matchMedia(desktopPanelQuery);
-    const sync = () => { setDesktop(query.matches); setMobilePanel(undefined); };
-    query.addEventListener("change", sync);
-    sync();
-    return () => query.removeEventListener("change", sync);
-  }, []);
-  useEffect(() => {
-    if (!desktop && mobilePanel) document.getElementById(`lesson-author-${mobilePanel}`)?.focus({ preventScroll: true });
-  }, [desktop, mobilePanel]);
+    if (panel) document.getElementById(`lesson-author-${panel}`)?.focus({ preventScroll: true });
+  }, [panel]);
   useEffect(() => {
     if (focusAdded.current && focusAdded.current === selected) {
       focusAdded.current = null;
@@ -79,24 +68,21 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
   }
 
   function openInspector() {
-    if (desktop) setCollapsed(value => ({ ...value, inspector: false }));
-    else setMobilePanel("inspector");
+    setPanel("inspector");
   }
 
   function select(id?: string) {
-    setMobilePanel(undefined);
-    setWritingOpen(true);
+    setPanel(undefined);
     onSelect(id);
   }
 
   function togglePanel(panel: Panel) {
-    if (desktop) setCollapsed(value => ({ ...value, [panel]: !value[panel] }));
-    else setMobilePanel(value => value === panel ? undefined : panel);
+    setPanel(value => value === panel ? undefined : panel);
   }
 
-  function closeMobilePanel() {
-    document.getElementById(`lesson-toggle-${mobilePanel}`)?.focus({ preventScroll: true });
-    setMobilePanel(undefined);
+  function closePanel() {
+    document.getElementById(`lesson-toggle-${panel}`)?.focus({ preventScroll: true });
+    setPanel(undefined);
   }
 
   function add(kind: LessonStep["kind"]) {
@@ -107,8 +93,7 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
     const insertion = active ? index + 1 : lesson.steps.length;
     update({ steps: [...lesson.steps.slice(0, insertion), step, ...lesson.steps.slice(insertion)] });
     select(step.id);
-    if (kind !== "text") openInspector();
-    if (desktop || kind === "text") focusAdded.current = step.id;
+    focusAdded.current = step.id;
   }
 
   function move(offset: number) {
@@ -124,13 +109,13 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
     select((steps[index] ?? steps[index - 1])?.id);
   }
 
-  function useLesson(action: () => void) {
+  function exportDraft() {
     try {
       readLesson(lesson);
       const root = catalog.roots.find(item => item.id === lesson.modelId);
       validateLessonTargets(lesson, root ? catalog.members(root.id) : [], id => catalog.members(id));
       setError("");
-      action();
+      exportLesson(lesson);
     } catch (cause) {
       if (cause instanceof LessonValidationError) {
         select(cause.step ? lesson.steps[cause.step - 1]?.id : undefined);
@@ -143,25 +128,27 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
   const tool = tools.find(item => item.kind === active?.kind);
   const title = active?.title ?? lesson.title;
   const body = active?.instruction ?? lesson.summary;
-  const sceneTargetId = sceneStep && targets.some(target => target.id === active.targetId) ? active.targetId : lesson.modelId;
-  const renderScene = sceneStep && catalog.roots.some(model => model.id === lesson.modelId);
+  const sceneTargetId = scene && targets.some(target => target.id === scene.targetId) ? scene.targetId : lesson.modelId;
+  const hasModel = catalog.roots.some(model => model.id === lesson.modelId);
+  const renderScene = !!scene && hasModel;
   const panelToggle = (panel: Panel, name: string, expanded: boolean) => {
     const label = t(expanded ? "panels.hide" : "panels.show", { name });
-    return <button type="button" id={`lesson-toggle-${panel}`} className="controls-info sidebar-toggle" aria-expanded={expanded}
+    return <button type="button" id={`lesson-toggle-${panel}`} className="lesson-button lesson-panel-toggle" aria-expanded={expanded}
       aria-controls={`lesson-author-${panel}`} aria-label={label} title={label} onClick={() => togglePanel(panel)}>
       <LineIcon name="sidebar" size={18} />
+      <span className="lesson-action-full">{name}</span>
     </button>;
   };
 
-  return <div className="lesson-editor study-shell" data-outline={outlineOpen} data-inspector={inspectorOpen} data-scene={sceneStep}
+  return <div className="lesson-editor study-shell" data-outline={outlineOpen} data-inspector={inspectorOpen}
     onKeyDown={event => {
-      if (panelOverCanvas && event.key === "Escape" && !event.defaultPrevented && !event.nativeEvent.isComposing) {
+      if (panelOverCanvas && event.key === "Escape" && !event.defaultPrevented && !event.nativeEvent.isComposing && !document.querySelector(":popover-open")) {
         event.preventDefault();
-        closeMobilePanel();
+        closePanel();
       }
     }}>
-    {renderScene && sceneFrame && sceneControls && <EditorScene modelId={lesson.modelId} targetId={sceneTargetId} sectionId={active.id}
-      visibleIds={active.visibleIds} onChangeScene={visibleIds => updateActive({ ...active, targetId: sceneTargetId, visibleIds })}
+    {renderScene && sceneFrame && sceneControls && <EditorScene modelId={lesson.modelId} targetId={sceneTargetId} sectionId={scene.id}
+      visibleIds={scene.visibleIds} onChangeScene={visibleIds => updateActive({ ...scene, targetId: sceneTargetId, visibleIds })}
       frame={sceneFrame} controls={sceneControls} inactive={panelOverCanvas} />}
     <header className="app-menu-bar lesson-author-bar">
       <div className="app-menu-history">
@@ -176,24 +163,19 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
           : <span>{t("lessons.saved")}</span>}
       </div>
       <div className="app-menu-actions lesson-author-actions">
-        {sceneStep && <button className="controls-info lesson-writer-toggle" aria-controls="lesson-author-writing"
-          aria-label={t("lessons.writing")} title={t("lessons.writing")} aria-expanded={writingOpen} onClick={() => {
-            setWritingOpen(panelOverCanvas || !writingOpen);
-            setMobilePanel(undefined);
-          }}><LineIcon name="sidebar" size={18} /></button>}
-        <button className="lesson-button" aria-label={t("lessons.export")} onClick={() => useLesson(() => exportLesson(lesson))}>
+        <button className="lesson-button" aria-label={t("lessons.export")} onClick={exportDraft}>
           <span className="lesson-action-full">{t("lessons.export")}</span><span className="lesson-action-short">{t("lessons.exportShort")}</span>
         </button>
-        <button className="lesson-button lesson-primary" aria-label={t("lessons.preview")} onClick={() => useLesson(onPreview)}>
+        <button className="lesson-button lesson-primary" aria-label={t("lessons.preview")} onClick={onPreview}>
           <span className="lesson-action-full">{t("lessons.preview")}</span><span className="lesson-action-short">{t("lessons.previewShort")}</span>
         </button>
         {panelToggle("inspector", t("lessons.settings"), inspectorOpen)}
       </div>
     </header>
-    {panelOverCanvas && <button className="lesson-panel-scrim" onClick={closeMobilePanel}
-      aria-label={t("panels.hide", { name: t(mobilePanel === "outline" ? "lessons.outline" : "lessons.settings") })} />}
+    {panelOverCanvas && <button className="lesson-panel-scrim" onClick={closePanel}
+      aria-label={t("panels.hide", { name: t(panel === "outline" ? "lessons.outline" : "lessons.settings") })} />}
     <nav className="catalog-panel lesson-author-outline" id="lesson-author-outline" data-open={outlineOpen}
-      data-collapsed={collapsed.outline} inert={!outlineOpen} tabIndex={-1} aria-label={t("lessons.outline")}>
+      data-collapsed={!outlineOpen} inert={!outlineOpen} tabIndex={-1} aria-label={t("lessons.outline")}>
       <div className="catalog-heading"><h2>{t("lessons.outline")}</h2></div>
       <div className="catalog-tree">
         <button className="lesson-outline-row" aria-current={!active ? "true" : undefined} onClick={() => select()}>
@@ -220,23 +202,23 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
       </div>
     </nav>
 
-    <div className="lesson-author-center" inert={panelOverCanvas}>
-      <div className="lesson-author-alerts">
+    <div className="lesson-author-center">
+      {(saveFailed || error) && <div className="lesson-author-alerts">
         {saveFailed && <p className="model-status model-error" role="alert">{t("lessons.saveError")}</p>}
         {error && <p className="model-status model-error" role="alert">{error}</p>}
-      </div>
-      {sceneStep && <div className="lesson-scene-region">
+      </div>}
+      <div className="lesson-scene-region lesson-model" inert={panelOverCanvas}>
         <div className="lesson-scene-viewport" ref={setSceneFrame}>
         {!renderScene && <div className="lesson-scene-placeholder workspace-panel-surface">
           <span className="lesson-block-icon" aria-hidden="true">3D</span>
-          <p>{t("lessons.scenePlaceholder")}</p>
-          <button className="lesson-button" onClick={openInspector}>{t("lessons.settings")}</button>
+          <p>{t(hasModel ? "lessons.addSceneHint" : "lessons.scenePlaceholder")}</p>
+          <button className="lesson-button" onClick={() => hasModel ? setPanel("outline") : openInspector()}>{t(hasModel ? "lessons.addContent" : "lessons.settings")}</button>
         </div>}
         </div>
         {renderScene && <div className="lesson-scene-controls" ref={setSceneControls} />}
-      </div>}
+      </div>
       <section className="lesson-author-document workspace-panel-surface" id="lesson-author-writing"
-        hidden={sceneStep && !writingOpen} aria-label={t("lessons.writing")}>
+        inert={panelOverCanvas} aria-label={t("lessons.writing")}>
         <div className="information-content">
           <div className="lesson-document-meta">
             <span>{tool ? t(tool.name) : t("lessons.details")}</span>
@@ -255,7 +237,7 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
             }} />
           <label className="sr-only" htmlFor="lesson-write-body">{t(active ? "lessons.instruction" : "lessons.summary")} ({editorLanguage.toUpperCase()})</label>
           <textarea id="lesson-write-body" className="lesson-write-body" value={body[editorLanguage]} lang={editorLanguage}
-            rows={sceneStep ? 2 : active?.kind === "text" ? 9 : 4} placeholder={t(active?.kind === "identify_structure" ? "lessons.writeQuestion"
+            rows={12} placeholder={t(active?.kind === "identify_structure" ? "lessons.writeQuestion"
               : active ? "lessons.writeContent" : "lessons.writeSummary")}
             onChange={event => {
               const value: LessonText = { ...body, [editorLanguage]: event.target.value };
@@ -267,8 +249,8 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
       </section>
     </div>
 
-    <LessonInspector catalog={catalog} lesson={lesson} active={active} index={index} locale={editorLanguage} targets={targets}
-      open={inspectorOpen} collapsed={collapsed.inspector}
+    <LessonInspector catalog={catalog} lesson={lesson} active={active} scene={scene} index={index} locale={editorLanguage} targets={targets}
+      open={inspectorOpen} collapsed={!inspectorOpen}
       onModel={changeModel} onChange={updateActive} onMove={move} onRemove={remove} />
   </div>;
 }

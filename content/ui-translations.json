@@ -279,6 +279,16 @@
     "lessons.composeSceneHint": {"vi":"Bật/tắt nhiều nhóm hoặc từng bộ phận để tạo mô hình riêng cho mục này.","en":"Show or hide groups and individual parts to compose this section’s scene."},
     "lessons.sceneCount": {"vi":"{count} cấu trúc trong mục này","en":"{count} structures in this section"},
     "lessons.resetScene": {"vi":"Về nhóm ban đầu","en":"Reset to original group"},
-    "lessons.confirmSceneReset": {"vi":"Đổi hệ giải phẫu sẽ đặt lại cấu trúc hiển thị của các mục 3D. Tiếp tục?","en":"Changing the anatomy system will reset the visible structures of all 3D sections. Continue?"}
+    "lessons.confirmSceneReset": {"vi":"Đổi hệ giải phẫu sẽ đặt lại cấu trúc hiển thị của các mục 3D. Tiếp tục?","en":"Changing the anatomy system will reset the visible structures of all 3D sections. Continue?"},
+    "lessons.showModel": {"vi":"Hiện mô hình 3D","en":"Show 3D model"},
+    "lessons.hideModel": {"vi":"Thu gọn mô hình 3D","en":"Collapse 3D model"},
+    "lessons.resetStudyScene": {"vi":"Về cảnh bài học","en":"Reset lesson scene"},
+    "lessons.closeOutline": {"vi":"Đóng mục lục","en":"Close lesson outline"},
+    "lessons.review": {"vi":"Xem lại bài học","en":"Review lesson"},
+    "lessons.draftPreview": {"vi":"Xem trước bản nháp","en":"Draft preview"},
+    "lessons.untitledSection": {"vi":"Mục chưa đặt tên","en":"Untitled section"},
+    "lessons.previewNoContent": {"vi":"Nội dung của mục sẽ xuất hiện ở đây khi bạn soạn bài.","en":"This section’s content will appear here as you write."},
+    "lessons.continueEditing": {"vi":"Tiếp tục soạn bài","en":"Continue editing"},
+    "lessons.addSceneHint": {"vi":"Thêm mục Quan sát 3D hoặc Nhận diện cấu trúc để thiết lập cảnh của bài.","en":"Add a 3D observation or identification section to configure the lesson scene."}
   }
 }
