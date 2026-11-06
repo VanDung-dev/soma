@@ -2,6 +2,63 @@ use glam::Vec3;
 use renderer::{Bounds, Camera};
 
 #[test]
+fn saved_camera_poses_restore_rotation_zoom_and_pan_across_viewports() {
+    let bounds = Bounds {
+        min: Vec3::splat(-2.0),
+        max: Vec3::splat(2.0),
+    };
+    let frame = [0.04, 0.04, 0.92, 0.92];
+    let mut camera = Camera::new(bounds);
+    camera.resize(700, 800);
+    camera.focus(bounds, frame).unwrap();
+    camera.rotate(-0.8, 0.4).unwrap();
+    camera.zoom_at(0.3, 0.6, 0.7).unwrap();
+    camera.pan(0.1, -0.2).unwrap();
+    let pose = camera.pose();
+    let matrix = camera.matrix();
+    let encoded = serde_json::to_string(&pose).unwrap();
+    let decoded = serde_json::from_str(&encoded).unwrap();
+    camera.reset();
+    camera.apply_pose(&decoded).unwrap();
+    assert!(matrix.abs_diff_eq(camera.matrix(), 1e-5));
+    camera.resize(320, 240);
+    camera.reframe(frame).unwrap();
+    camera.apply_pose(&decoded).unwrap();
+    let restored = camera.pose();
+    assert_eq!(pose.target, restored.target);
+    assert_eq!(pose.yaw, restored.yaw);
+    assert_eq!(pose.pitch, restored.pitch);
+    assert!((pose.distance - restored.distance).abs() < 1e-5);
+    assert_eq!(pose.pan, restored.pan);
+    assert!(camera.matrix().is_finite());
+}
+
+#[test]
+fn invalid_saved_camera_poses_leave_the_camera_unchanged() {
+    let mut camera = Camera::new(Bounds {
+        min: Vec3::splat(-1.0),
+        max: Vec3::splat(1.0),
+    });
+    let before = camera.matrix();
+    for value in [f32::NAN, f32::INFINITY, -1.0, 0.0, 1e20] {
+        let mut pose = camera.pose();
+        pose.distance = value;
+        assert!(camera.apply_pose(&pose).is_err());
+        assert_eq!(camera.matrix(), before);
+    }
+    let mut pose = camera.pose();
+    pose.pan[1] = f32::NAN;
+    assert!(camera.apply_pose(&pose).is_err());
+    pose = camera.pose();
+    pose.pitch = std::f32::consts::PI;
+    assert!(camera.apply_pose(&pose).is_err());
+    pose = camera.pose();
+    pose.target.x = f32::INFINITY;
+    assert!(camera.apply_pose(&pose).is_err());
+    assert_eq!(camera.matrix(), before);
+}
+
+#[test]
 fn startup_focus_and_reset_share_the_frontal_orientation() {
     let bounds = Bounds {
         min: Vec3::splat(-1.0),

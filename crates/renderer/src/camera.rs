@@ -1,5 +1,35 @@
 use crate::Bounds;
 use glam::{Mat3, Mat4, Vec3};
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CameraPose {
+    pub target: Vec3,
+    pub yaw: f32,
+    pub pitch: f32,
+    pub distance: f32,
+    pub pan: [f32; 2],
+}
+
+impl CameraPose {
+    pub fn validate(&self) -> Result<(), String> {
+        if !self.target.is_finite()
+            || self.target.abs().max_element() > 1e12
+            || !self.yaw.is_finite()
+            || self.yaw.abs() > std::f32::consts::TAU
+            || !self.pitch.is_finite()
+            || self.pitch.abs() > std::f32::consts::FRAC_PI_2
+            || !self.distance.is_finite()
+            || self.distance <= 0.0
+            || self.distance > 1e12
+            || self.pan.iter().any(|v| !v.is_finite() || v.abs() > 1e6)
+        {
+            return Err("Invalid camera pose".into());
+        }
+        Ok(())
+    }
+}
 
 #[derive(Clone)]
 pub struct Camera {
@@ -17,6 +47,29 @@ pub struct Camera {
 }
 
 impl Camera {
+    pub fn pose(&self) -> CameraPose {
+        let [_, _, width, height] = self.frame.unwrap_or([0.0, 0.0, 1.0, 1.0]);
+        CameraPose {
+            target: self.target,
+            yaw: self.yaw.rem_euclid(std::f32::consts::TAU),
+            pitch: self.pitch,
+            distance: self.distance * height.min(width * self.aspect),
+            pan: [self.pan_offset.x / width, self.pan_offset.y / height],
+        }
+    }
+
+    pub fn apply_pose(&mut self, pose: &CameraPose) -> Result<(), String> {
+        pose.validate()?;
+        let [_, _, width, height] = self.frame.unwrap_or([0.0, 0.0, 1.0, 1.0]);
+        self.target = pose.target;
+        self.yaw = pose.yaw;
+        self.pitch = pose.pitch;
+        self.distance = pose.distance / height.min(width * self.aspect);
+        self.pan_offset = Vec3::new(pose.pan[0] * width, pose.pan[1] * height, 0.0);
+        self.radius = self.radius.max(self.distance / 4.0);
+        Ok(())
+    }
+
     pub fn new(bounds: Bounds) -> Self {
         let mut camera = Self {
             target: bounds.center(),
