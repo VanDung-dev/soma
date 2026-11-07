@@ -2,7 +2,7 @@ use serde::{Serialize, de::DeserializeOwned};
 use std::collections::{HashMap, HashSet};
 use wasm_bindgen::prelude::*;
 
-fn value<T: Serialize>(data: &T) -> Result<JsValue, JsValue> {
+pub(crate) fn value<T: Serialize>(data: &T) -> Result<JsValue, JsValue> {
     data.serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
         .map_err(|e| JsValue::from_str(&e.to_string()))
 }
