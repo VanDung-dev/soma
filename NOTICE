@@ -9,6 +9,17 @@ source licenses. See apps/web/public/models/z-anatomy/ATTRIBUTION.md.
 Source-derived app icons retain those terms. See apps/web/public/icons/ATTRIBUTION.md.
 Dependencies retain their own licenses.
 
+Rust Brotli 9.1.1
+Copyright (c) 2009, 2010, 2013-2016 by the Brotli Authors.
+Copyright (c) 2016 Dropbox, Inc.
+Bundled lesson archive compression/decompression uses MIT and BSD-3-Clause code.
+License texts are included in licenses/brotli.txt.
+
+Rust lesson content processing
+Image decoding, HTML tokenization and SHA-256 use image, html5ever, sha2 and
+their dependencies. Copyright and license texts are included in
+licenses/lesson-content.txt and bundled with the application.
+
 Material Line Icons (line-md)
 Copyright 2020 Vjacheslav Trushkin. Licensed under the MIT License.
 https://github.com/cyberalien/line-md/blob/main/license.txt

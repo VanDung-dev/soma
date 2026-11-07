@@ -4,8 +4,8 @@
 
 | Location | Responsibility |
 | --- | --- |
-| `crates/core` | Shared catalog schema and validation; library name: `catalog` |
-| `crates/content` | Catalog/metadata JSON, terminology, reference links, search and tree snapshots; independent content WASM output |
+| `crates/core` | Shared catalog and lesson schema/validation; library name: `catalog` |
+| `crates/content` | Catalog/metadata, search, snapshots, lesson packages and image validation; independent content WASM output |
 | `crates/renderer` | Geometry, camera, gestures, animation, separation and snapping |
 | `crates/wasm` | Viewer/gesture bindings, WebGL resources and rendering; no dependency on content |
 | `apps/web/src-tauri` | Desktop host and native catalog command |
@@ -78,6 +78,17 @@ Camera → MediaPipe worker → Rust HandGestureController → StudySession.cont
 - Lessons apply authored scenes through `StudySession.applyScene`; Rust validates and restores
 visibility, camera pose and explosion. Camera poses adapt to the host viewport. Learner controls 
 change only the active session; saving an editor scene explicitly updates lesson data.
+- Lesson JSON uses localStorage with optimistic replacement checks; binary images use
+IndexedDB under immutable content-hash paths. Rich HTML is sanitized before display;
+blob URLs are scoped to an opened lesson and revoked on disposal. Rust core owns
+lesson schema, scenes, target/choice validation, image references and filenames.
+Rust content owns USTAR, Brotli, package manifests, image decoding/hashes and limits;
+the worker calls its WASM bindings. TypeScript handles UI, DOM sanitization, browser
+storage, file dialogs and binary transfer. The `.lesson.br` package contains
+manifest metadata, lesson JSON and referenced images. Filename defaults to the
+localized title; identity remains inside lesson JSON. Import validation precedes
+draft replacement; legacy `.soma.br`/JSON remain readable. Model assets and TinyMCE's
+runtime stay in the application.
 
 ## Validation
 

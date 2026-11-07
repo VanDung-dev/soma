@@ -132,11 +132,14 @@ preview, reopening and reload when browser storage is available. On small screen
 an open outline takes a compact area above the model and writing workspace.
 
 The content field uses [TinyMCE Community self-hosted](https://www.tiny.cloud/get-tiny/self-hosted/), bundled from the `tinymce` npm package, with headings,
-emphasis, lists, links and tables. No Tiny Cloud API key or remote editor assets
+emphasis, lists, links, tables and local images. The image button opens TinyMCE's
+image dialog; use **Browse files** beside Source to choose a PNG, JPEG or WebP.
+Images are stored on the device, without uploading to a server. No Tiny Cloud API key or remote editor assets
 are needed. Vietnamese and English content are saved independently; existing
 plain text keeps its literal meaning when edited or read. Rich HTML is filtered
-with DOMPurify in the editor and player; scripts, styles, images, embedded frames
-and unsafe link protocols are excluded. Editor resources load only when editing.
+with DOMPurify in the editor and player; scripts, styles, remote images, embedded frames
+and unsafe link protocols are excluded. Pasting image data and image drag/drop are
+not enabled. Editor resources load only when editing.
 TinyMCE is configured for GPLv2+; dependencies retain their own licenses (NOTICE).
 Builds include their notices under `licenses/`. Desktop allows inline styles for
 TinyMCE's UI; its script and network source restrictions remain in effect.
@@ -160,7 +163,7 @@ steps or interacting with the model, until explicitly closed. Its visibility
 preference is independent of the editor. Collapsing the model on mobile also
 remains in effect when changing steps. Draft preview opens even when sections are
 unfinished, shows missing settings, and permits skipping unfinished exercises.
-JSON import/export also permits unfinished drafts for testing. Preview placeholders never modify
+Package import/export also permits unfinished drafts for testing. Preview placeholders never modify
 the saved draft. Changing steps applies their authored views with camera and
 explosion transitions; manual camera input cancels the camera transition and
 reduced motion applies the destination immediately. Learners can rotate, pan,
@@ -173,12 +176,46 @@ sections inherit the preceding 3D section, with the first 3D section as the init
 scene. Saving a scene for a legacy reading section gives that step its own scene.
 Use the library search to find drafts by title or description. A draft opens at
 `/lessons/<id>/edit`, which reloads the saved draft in the same profile.
-Drafts autosave in the current browser profile or desktop WebView. Export a
-draft as `.json` to back it up or edit it directly while testing. Exports contain
-the lesson object as indented UTF-8 JSON, without an archive, manifest or checksum.
-Importing an existing lesson ID asks before replacing that draft and retains the
-check against simultaneous changes from another tab. Files are limited to 512 KiB.
-JSoma packaging is deferred; this version only imports and exports JSON files.
+Draft text autosaves in localStorage in the current browser profile or desktop
+WebView; binary images use IndexedDB. Export a draft as `<lesson title>.lesson.br`
+to back up or share its content and images offline. The filename uses the current
+interface language with the other title as fallback; unsafe filename characters
+are replaced. Untitled drafts receive a readable default name. The stable lesson
+ID stays inside `lesson.json`, so renaming a file does not change its identity.
+This experimental format is a USTAR archive compressed with Brotli, containing
+`manifest.json` (`format: "soma-lesson"`, `version: 1`),
+the raw lesson object in `lesson.json`, and the referenced `images/<sha256>.<ext>`
+files. TinyMCE HTML stays in the lesson's localized fields; the editor library and
+3D models are supplied by the app. Opening a package requires the referenced
+model catalog to be available in Soma.
+
+Rust owns the lesson schema, authored-view checks, target/choice validation,
+scene inheritance, image references, filename generation, TAR/Brotli, manifest
+validation, image decoding, SHA-256 and resource limits. Package and image work
+run in a worker using the content WASM module, independently of the viewer WASM.
+TypeScript handles the browser UI, TinyMCE/DOMPurify, storage and binary transfer.
+Temporary
+blob URLs are used only for display; saved HTML retains package paths. Exports
+include only referenced images. Unused images stay with a draft to support undo;
+deleting the draft also removes its stored images. A failed cleanup can leave
+unused image bytes on the device, without affecting the exported package.
+Import checks the archive paths, regular-file types, duplicate entries, header
+checksums, image hashes and decoded formats before replacement. Limits are 64 MiB
+for the compressed file and expanded archive, 2 MiB for lesson JSON, 128 images,
+and 8 MiB / 16 megapixels / 8192 pixels per side for each image. Animated WebP and
+SVG are excluded. Brotli can reduce JSON/HTML well; savings on already compressed
+images depend on the source image.
+
+Legacy `.soma.br` packages remain importable; new exports use `.lesson.br` and a
+lesson-specific manifest, leaving other package types available for future Games.
+Legacy `.json` imports remain available for text-only lessons and unfinished
+drafts. The native picker shows all files to avoid platform filtering of the
+custom `.lesson.br` extension; Rust validates the filename and contents.
+JSON files that reference missing images are rejected. Importing an
+existing lesson ID asks before replacing that draft and retains the check against
+simultaneous changes from another tab. Browser storage is not a backup: export
+important drafts before clearing app/site data. The separate JSoma design remains
+deferred.
 
 The editor keeps lesson and step IDs stable across edits. Model roots, step targets
 and identification choices reference Soma catalog IDs. Optional step `visibleIds`
