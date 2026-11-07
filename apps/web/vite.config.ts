@@ -21,6 +21,7 @@ export default defineConfig(({ mode }) => {
             ["licenses/NOTICE.txt", fileURLToPath(new URL("../../NOTICE", import.meta.url))],
             ["licenses/brotli.txt", fileURLToPath(new URL("../../licenses/brotli.txt", import.meta.url))],
             ["licenses/lesson-content.txt", fileURLToPath(new URL("../../licenses/lesson-content.txt", import.meta.url))],
+            ["licenses/squoosh.txt", fileURLToPath(new URL("../../licenses/squoosh.txt", import.meta.url))],
             ["licenses/tinymce.md", require.resolve("tinymce/license.md")],
             ["licenses/dompurify.txt", join(dirname(require.resolve("dompurify")), "../LICENSE")],
           ] as const) {

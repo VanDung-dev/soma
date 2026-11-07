@@ -16,8 +16,6 @@ export async function checkLessonImages(page) {
   const id = new URL(page.url()).pathname.split('/')[2];
   const saved = () => page.evaluate(id => JSON.parse(localStorage.getItem('soma.lesson:' + id)), id);
   const image = await readFile(new URL('../public/home/anatomy.png', import.meta.url));
-  const hash = createHash('sha256').update(image).digest('hex');
-  const path = `images/${hash}.png`;
   const insert = async upload => {
     await lessonBody(page).press('ControlOrMeta+End');
     await page.getByRole('button', { name: 'Insert/edit image', exact: true }).click();
@@ -27,15 +25,47 @@ export async function checkLessonImages(page) {
     await page.waitForFunction(input => input.value.startsWith('blob:'), await dialog.getByRole('combobox', { name: 'Source', exact: true }).elementHandle());
     await dialog.getByRole('textbox', { name: 'Alternative description', exact: true }).fill('Mô hình giải phẫu');
     await dialog.getByRole('button', { name: 'Save', exact: true }).click();
-    await lessonBody(page).locator('img').last().evaluate(img => img.decode());
+    await page.waitForFunction(() => {
+      const images = document.querySelector('#lesson-write-body_ifr')?.contentDocument?.querySelectorAll('img');
+      const last = images?.[images.length - 1];
+      return last?.complete && last.naturalWidth > 0;
+    });
   };
   await insert({ name: 'anatomy.png', mimeType: 'image/png', buffer: image });
+  const storedImage = Buffer.from(await lessonBody(page).locator('img').last().evaluate(async img =>
+    [...new Uint8Array(await (await fetch(img.src)).arrayBuffer())]));
+  assert(storedImage.length < image.length, 'Squoosh must reduce the uploaded PNG');
+  const hash = createHash('sha256').update(storedImage).digest('hex');
+  const path = `images/${hash}.webp`;
+  assert(await lessonBody(page).locator('img').last().evaluate(async (img, base64) => {
+    const original = await createImageBitmap(new Blob([Uint8Array.from(atob(base64), char => char.charCodeAt(0))]));
+    try {
+      if (img.naturalWidth !== original.width || img.naturalHeight !== original.height) return false;
+      const canvas = document.createElement('canvas'); canvas.width = original.width; canvas.height = original.height;
+      const context = canvas.getContext('2d', { willReadFrequently: true }); context.drawImage(original, 0, 0);
+      const before = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      context.clearRect(0, 0, canvas.width, canvas.height); context.drawImage(img, 0, 0);
+      return context.getImageData(0, 0, canvas.width, canvas.height).data.every((value, index) => {
+        const alpha = before[index - index % 4 + 3];
+        return index % 4 === 3 || alpha === 255 ? value === before[index] : Math.abs(value - before[index]) <= Math.ceil(255 / alpha);
+      });
+    } finally { original.close(); }
+  }, image.toString('base64')), 'PNG preserves dimensions, alpha and opaque pixels; translucent colors stay within one premultiplied rounding level');
   const formats = await page.evaluate(() => {
     const canvas = document.createElement('canvas'); canvas.width = 160; canvas.height = 90;
     const ctx = canvas.getContext('2d'); ctx.fillStyle = '#5d8875'; ctx.fillRect(0, 0, 160, 90);
     return ['image/jpeg', 'image/webp'].map(type => ({ type, value: canvas.toDataURL(type).split(',')[1] }));
   });
-  for (const format of formats) await insert({ name: format.type === 'image/jpeg' ? 'test.jpg' : 'test.webp', mimeType: format.type, buffer: Buffer.from(format.value, 'base64') });
+  for (const format of formats) {
+    const bytes = Buffer.from(format.value, 'base64');
+    await insert({ name: format.type === 'image/jpeg' ? 'test.jpg' : 'test.webp', mimeType: format.type, buffer: bytes });
+    const stored = Buffer.from(await lessonBody(page).locator('img').last().evaluate(async img =>
+      [...new Uint8Array(await (await fetch(img.src)).arrayBuffer())]));
+    if (format.type === 'image/jpeg') {
+      assert(stored.length < bytes.length, 'JPEG upload is compressed');
+      assert.equal(stored.toString('ascii', 8, 12), 'WEBP');
+    } else assert.deepEqual(stored, bytes, 'Existing WebP is not recompressed');
+  }
   assert.equal(await lessonBody(page).locator('img').count(), 3);
   const original = await saved();
   assert(original.steps[0].instruction.vi.includes(path));
@@ -65,7 +95,7 @@ export async function checkLessonImages(page) {
   const compressed = await readFile(await download.path());
   const tar = brotliDecompressSync(compressed);
   const files = unpackLessonTar(tar);
-  assert.deepEqual(Buffer.from(files.get(path)), image);
+  assert.deepEqual(Buffer.from(files.get(path)), storedImage);
   assert.deepEqual(JSON.parse(new TextDecoder().decode(files.get('lesson.json'))), original);
   assert.deepEqual(JSON.parse(new TextDecoder().decode(files.get('manifest.json'))), { format: 'soma-lesson', version: 1 });
   assert.equal([...files.keys()].filter(path => path.startsWith('images/')).length, 3);
@@ -119,5 +149,5 @@ export async function checkLessonImages(page) {
     await lessonBody(imported).locator('img').evaluateAll(images => Promise.all(images.map(img => img.decode())));
     assert.equal(await lessonBody(imported).locator('img').count(), 3, 'A fresh profile needs only the package');
   } finally { await fresh.close(); }
-  console.log('Image package round trip', JSON.stringify({ tarBytes: tar.length, brotliBytes: compressed.length, imageBytes: image.length }));
+  console.log('Image package round trip', JSON.stringify({ tarBytes: tar.length, brotliBytes: compressed.length, originalImageBytes: image.length, storedImageBytes: storedImage.length }));
 }

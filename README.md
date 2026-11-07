@@ -134,6 +134,14 @@ an open outline takes a compact area above the model and writing workspace.
 The content field uses [TinyMCE Community self-hosted](https://www.tiny.cloud/get-tiny/self-hosted/), bundled from the `tinymce` npm package, with headings,
 emphasis, lists, links, tables and local images. The image button opens TinyMCE's
 image dialog; use **Browse files** beside Source to choose a PNG, JPEG or WebP.
+Before storage, a worker uses Squoosh's bundled WebP encoder to compress new
+images at their original resolution. PNG uses lossless compression, including
+transparency; JPEG uses quality 85. The encoded image is used only when smaller
+than the original. Existing WebP and animated PNG files stay unchanged, as do
+images already stored or imported in lesson packages. Browsers without worker
+canvas/image decoding keep the original. The selected codec is vendored in
+`apps/web/src/lessons/codecs/webp/`; the separate `squoosh-dev/` checkout is not
+needed for development or builds.
 Images are stored on the device, without uploading to a server. No Tiny Cloud API key or remote editor assets
 are needed. Vietnamese and English content are saved independently; existing
 plain text keeps its literal meaning when edited or read. Rich HTML is filtered

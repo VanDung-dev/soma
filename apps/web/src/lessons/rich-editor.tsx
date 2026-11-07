@@ -55,9 +55,10 @@ export default function RichEditor({ value, language, label, onChange }: {
         input.onchange = () => {
           const file = input.files?.[0];
           if (!file) return;
+          instance?.setProgressState(true);
           void addImage(file).then(url => { if (!disposed) callback(url, { alt: file.name }); }, error => {
             if (!disposed) instance?.notificationManager.open({ text: `${t("lessons.imageAddError")} ${String(error)}`, type: "error" });
-          });
+          }).finally(() => { if (!disposed) instance?.setProgressState(false); });
         };
         input.click();
       },

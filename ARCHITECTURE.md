@@ -83,7 +83,10 @@ IndexedDB under immutable content-hash paths. Rich HTML is sanitized before disp
 blob URLs are scoped to an opened lesson and revoked on disposal. Rust core owns
 lesson schema, scenes, target/choice validation, image references and filenames.
 Rust content owns USTAR, Brotli, package manifests, image decoding/hashes and limits;
-the worker calls its WASM bindings. TypeScript handles UI, DOM sanitization, browser
+the worker calls its WASM bindings. New image uploads use the bundled Squoosh WebP
+encoder in that worker, after Rust validates the original and before Rust validates
+and hashes the smaller result. Package import/export preserves image bytes.
+TypeScript handles UI, DOM sanitization, browser
 storage, file dialogs and binary transfer. The `.lesson.br` package contains
 manifest metadata, lesson JSON and referenced images. Filename defaults to the
 localized title; identity remains inside lesson JSON. Import validation precedes

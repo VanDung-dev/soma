@@ -1,5 +1,6 @@
 import init, { LessonPackage, lesson_image_info } from "../content/content";
 import type { LessonJob, LessonResult } from "./archive";
+import { compressLessonImage } from "./compress-image";
 
 self.onmessage = async ({ data }: MessageEvent<LessonJob>) => {
   let pack: LessonPackage | undefined;
@@ -7,7 +8,9 @@ self.onmessage = async ({ data }: MessageEvent<LessonJob>) => {
     await init();
     let result: LessonResult;
     if (data.operation === "image") {
-      result = { image: lesson_image_info(data.bytes), bytes: data.bytes };
+      const original = lesson_image_info(data.bytes);
+      const bytes = await compressLessonImage(data.bytes, original.mime);
+      result = { image: bytes === data.bytes ? original : lesson_image_info(bytes), bytes };
     } else if (data.operation === "open") {
       pack = LessonPackage.open(data.name, data.bytes);
       result = { json: pack.lesson_json(), images: (pack.image_paths() as string[]).map(path => [path, pack!.image_bytes(path) as Uint8Array<ArrayBuffer>, pack!.image_mime(path)]) };

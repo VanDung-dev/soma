@@ -9,6 +9,12 @@ source licenses. See apps/web/public/models/z-anatomy/ATTRIBUTION.md.
 Source-derived app icons retain those terms. See apps/web/public/icons/ATTRIBUTION.md.
 Dependencies retain their own licenses.
 
+Squoosh WebP encoder
+Copyright 2020 Google Inc. Licensed under Apache-2.0.
+libwebp copyright (c) 2010 Google Inc. Licensed under BSD-3-Clause.
+Selected encoder assets and options come from GoogleChromeLabs/squoosh.
+License texts are included in licenses/squoosh.txt.
+
 Rust Brotli 9.1.1
 Copyright (c) 2009, 2010, 2013-2016 by the Brotli Authors.
 Copyright (c) 2016 Dropbox, Inc.
