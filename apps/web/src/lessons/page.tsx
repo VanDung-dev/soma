@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { getCatalog } from "../anatomy/core";
+import { getCatalog, getContent } from "../anatomy/core";
 import type { Catalog } from "../anatomy/catalog/types";
 import { useLanguage } from "../i18n";
 import { lessonText } from "./contract";
@@ -11,6 +11,8 @@ import { lessonEditPath } from "./routes";
 import { importLesson, listLessons, newLessonId, removeLesson, saveLesson } from "./source";
 import "./style.css";
 import { lessonPlainText } from "./rich-text";
+import { LessonImageProvider } from "./image-context";
+import { storeLessonImages } from "./images";
 
 const searchable = (value: string) => value.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replaceAll("đ", "d");
 
@@ -22,13 +24,16 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
   const [preview, setPreview] = useState(false);
   const [error, setError] = useState<"load" | "save" | "import">();
   const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
   const [query, setQuery] = useState("");
   const title = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
-    try { setLessons(listLessons()); }
-    catch (cause) { console.error("Lesson library failed", cause); setError("load"); }
-    finally { setLoading(false); }
+    let active = true;
+    void getContent().then(() => { if (active) setLessons(listLessons()); })
+      .catch(cause => { if (active) { console.error("Lesson library failed", cause); setError("load"); } })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, []);
   const draft = pending?.id === editId ? pending : lessons.find(item => item.id === editId);
   const editing = !!editId;
@@ -63,17 +68,19 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
   }
 
   async function importFile(file: File) {
+    setImporting(true);
     try {
-      const lesson = await importLesson(file);
+      const { lesson, images } = await importLesson(file);
       const previous = lessons.find(item => item.id === lesson.id);
       if (previous && !window.confirm(t("lessons.confirmReplace", { name: lessonText(previous.title, language) || t("lessons.untitled") }))) return;
+      if (images.size) await storeLessonImages(lesson.id, images);
       saveLesson(lesson, previous);
       setLessons(current => previous ? current.map(item => item.id === lesson.id ? lesson : item) : [...current, lesson]);
       setError(undefined);
     } catch (cause) {
       console.error("Lesson import failed", cause);
       setError("import");
-    }
+    } finally { setImporting(false); }
   }
 
   function remove(lesson: Lesson) {
@@ -90,6 +97,7 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
 
   return <main className="lessons-screen" data-editor={!!draft && !preview} data-player={!!draft && preview}>
     {draft ? <>
+      <LessonImageProvider key={draft.id} lesson={draft}>
       <WithLessonCatalog key={`${draft.id}/${preview ? "preview" : "editor"}`}>{catalog => preview
         ? <LessonPlayer lesson={draft} catalog={catalog} preview onBack={() => setPreview(false)} />
         : <LessonEditor catalog={catalog} lesson={draft} selected={selected} onSelect={setSelected}
@@ -101,6 +109,7 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
             navigate("/lessons");
           }} />}
       </WithLessonCatalog>
+      </LessonImageProvider>
     </> : editId ? <>
       <h1 ref={title} tabIndex={-1}>{t("module.lessons")}</h1>
       <p role={loading ? "status" : "alert"}>{t(loading ? "lessons.loading" : error === "load" ? "lessons.indexError" : "lessons.notFound")}</p>
@@ -111,13 +120,14 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
       <div className="lesson-library-actions">
         <button className="lesson-button lesson-primary" disabled={loading} onClick={create}>{t("lessons.create")}</button>
         <label className="lesson-import">{t("lessons.import")}
-          <input type="file" accept=".json,application/json" disabled={loading} onChange={event => {
+          <input type="file" disabled={loading || importing} onChange={event => {
             const file = event.target.files?.[0];
             event.target.value = "";
             if (file) void importFile(file);
           }} />
         </label>
       </div>
+      {importing && <p role="status">{t("lessons.importing")}</p>}
       <label className="lesson-library-search">
         <span>{t("lessons.searchLessons")}</span>
         <input type="search" value={query} onChange={event => setQuery(event.target.value)} />

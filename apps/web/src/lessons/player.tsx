@@ -11,9 +11,11 @@ import { ExplodeControls } from "../anatomy/explode-controls";
 import { LessonStructureTools } from "./structure-tools";
 import { useLessonPanel } from "./panels";
 import { lessonHtml, lessonPlainText } from "./rich-text";
+import { useLessonImages } from "./image-context";
 
 export function LessonPlayer({ lesson, catalog, onBack, preview = false }: { lesson: Lesson; catalog: Catalog; onBack: () => void; preview?: boolean }) {
   const { language, t } = useLanguage();
+  const images = useLessonImages();
   const usesModel = lesson.steps.some(step => step.kind !== "text");
   const heading = useRef<HTMLHeadingElement>(null);
   const feedback = useRef<HTMLParagraphElement>(null);
@@ -50,6 +52,7 @@ export function LessonPlayer({ lesson, catalog, onBack, preview = false }: { les
     } catch { return false; }
   }, [catalog, lesson, scene]);
   const exercise = step.kind === "identify_structure" ? step : undefined;
+  const instruction = lessonHtml(step.instruction, language, images.urls);
   const solved = passed.has(step.id);
   const ready = validated && !state.error && !failed;
   const modelMissing = preview && !catalog.roots.some(root => root.id === lesson.modelId);
@@ -152,8 +155,8 @@ export function LessonPlayer({ lesson, catalog, onBack, preview = false }: { les
         {lesson.steps.length > 0 && <p className="lesson-step-number">{t("lessons.step", { current: index + 1, total: lesson.steps.length })}</p>}
         <h2 id="lesson-step-title" ref={heading} tabIndex={-1}>{lessonText(step.title, language) || t(lesson.steps.length ? "lessons.untitledSection" : "lessons.addContent")}</h2>
         {issue && <p className="model-status lesson-preview-issue" role="status">{t(`lessons.validation.${issue.reason}`, { step: issue.step })}</p>}
-        {lessonPlainText(step.instruction, language)
-          ? <div className="lesson-instructions lesson-rich-content" dangerouslySetInnerHTML={{ __html: lessonHtml(step.instruction, language) }} />
+        {lessonPlainText(step.instruction, language) || instruction.includes("<img ")
+          ? <div className="lesson-instructions lesson-rich-content" dangerouslySetInnerHTML={{ __html: instruction }} />
           : <p className="lesson-instructions">{t("lessons.previewNoContent")}</p>}
         {!lesson.steps.length && <button className="lesson-button lesson-primary" onClick={onBack}>{t("lessons.continueEditing")}</button>}
         {exercise && <fieldset className="lesson-choices" disabled={!ready || solved || !!issue}>

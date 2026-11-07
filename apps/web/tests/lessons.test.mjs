@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import './lesson-wasm.fixture.mjs';
 import { lessonPreviewIssues, lessonSceneStep, lessonText, readLesson, validateLessonTargets } from '../src/lessons/contract.ts';
 
 const text = en => ({ vi: '', en });
@@ -16,6 +17,9 @@ test('rich lesson JSON keeps locale markers while legacy text remains unchanged'
   }
   assert.throws(() => readLesson({ ...lesson, steps: [{ ...lesson.steps[0], instruction: { vi: '<p><br>&nbsp;</p>', en: '', html: ['vi'] } }] }), /needs a title/);
   assert.equal(readLesson(lesson).steps[0].instruction.en, 'Literal <b>text</b>');
+  assert.doesNotThrow(() => readLesson({ ...lesson, steps: [{ ...lesson.steps[0], instruction: {
+    vi: '<p><img src="images/' + 'a'.repeat(64) + '.png" alt=""></p>', en: '', html: ['vi'],
+  } }] }));
 });
 
 test('authored views survive JSON serialization and reject invalid camera and explosion values', () => {

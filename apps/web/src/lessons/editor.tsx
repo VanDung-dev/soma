@@ -30,6 +30,7 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
   const { language, t } = useLanguage();
   const [locale, setLocale] = useState<Language>();
   const [error, setError] = useState("");
+  const [exporting, setExporting] = useState(false);
   const [outlineOpen, setOutlineOpen] = useLessonPanel("editorOutline", window.matchMedia("(min-width: 901px)").matches);
   const [inspectorOpen, setInspectorOpen] = useLessonPanel("editorSettings", true);
   const [orderStatus, setOrderStatus] = useState("");
@@ -117,18 +118,19 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
     select((steps[index] ?? steps[index - 1])?.id);
   }
 
-  function exportDraft() {
+  async function exportDraft() {
+    setExporting(true);
     try {
       readLesson(lesson, true);
       setError("");
-      exportLesson(lesson);
+      await exportLesson(lesson, language);
     } catch (cause) {
       if (cause instanceof LessonValidationError) {
         select(cause.step ? lesson.steps[cause.step - 1]?.id : undefined);
         if (["target", "scope", "choices", "overlap"].includes(cause.reason)) openInspector();
         setError(t(`lessons.validation.${cause.reason}`, { step: cause.step }));
       } else setError(t("lessons.exportError"));
-    }
+    } finally { setExporting(false); }
   }
 
   const title = active?.title ?? lesson.title;
@@ -163,7 +165,7 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
           : <span>{t("lessons.saved")}</span>}
       </div>
       <div className="app-menu-actions lesson-author-actions">
-        <button className="lesson-button" aria-label={t("lessons.export")} onClick={exportDraft}>
+        <button className="lesson-button" aria-label={t("lessons.export")} disabled={exporting} aria-busy={exporting} onClick={() => void exportDraft()}>
           <span className="lesson-action-full">{t("lessons.export")}</span><span className="lesson-action-short">{t("lessons.exportShort")}</span>
         </button>
         <button className="lesson-button lesson-primary" aria-label={t("lessons.preview")} onClick={onPreview}>

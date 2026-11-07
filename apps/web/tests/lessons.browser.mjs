@@ -5,6 +5,7 @@ import { checkLessonScenes } from './lesson-scenes.browser.mjs';
 import { checkLessonEditorLayout } from './lesson-editor-layout.browser.mjs';
 import { checkLessonRichText } from './lesson-rich-text.browser.mjs';
 import { checkLessonOutlineTouch } from './lesson-outline-touch.browser.mjs';
+import { checkLessonImages } from './lesson-images.browser.mjs';
 
 export async function checkLessons(page) {
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -127,4 +128,5 @@ export async function checkLessons(page) {
   await checkLessonEditorLayout(page);
   await checkLessonRichText(page);
   await checkLessonOutlineTouch(page);
+  await checkLessonImages(page);
 }

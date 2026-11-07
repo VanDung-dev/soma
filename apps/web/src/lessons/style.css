@@ -149,6 +149,7 @@
 .lesson-rich-content table { border-collapse: collapse; width: 100%; }
 .lesson-rich-content :is(td,th) { border: 1px solid var(--line-strong); padding: 6px; }
 .lesson-rich-content a { color: var(--accent); }
+.lesson-rich-content img { max-width: 100%; height: auto; }
 .lesson-author-outline[hidden], .lesson-author-inspector[hidden], .lesson-reader-outline[hidden] { display: none; }
 .lesson-document-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 13px; }
 .lesson-languages { display: flex; gap: 4px; }

@@ -101,7 +101,7 @@ export async function checkLessonReader(page) {
   await page.getByRole('heading', { name: 'Tổng kết', exact: true }).waitFor();
   await page.locator('.lesson-player-header button').first().click();
   const download = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Xuất .json', exact: true }).click();
-  assert((await download).suggestedFilename().endsWith('.json'), 'Unfinished drafts can be exported as editable JSON for testing');
+  await page.getByRole('button', { name: 'Xuất .lesson.br', exact: true }).click();
+  assert((await download).suggestedFilename().endsWith('.lesson.br'), 'Unfinished drafts can be exported as portable packages for testing');
   assert.deepEqual(await page.evaluate(id => JSON.parse(localStorage.getItem('soma.lesson:' + id)), unfinished.id), unfinished);
 }

@@ -6,6 +6,7 @@ import "tinymce/models/dom";
 import "tinymce/plugins/lists";
 import "tinymce/plugins/link";
 import "tinymce/plugins/table";
+import "tinymce/plugins/image";
 import "tinymce/skins/ui/oxide/skin.js";
 import "tinymce/skins/ui/oxide/content.js";
 import "tinymce/skins/ui/oxide-dark/skin.js";
@@ -14,18 +15,22 @@ import type { Editor } from "tinymce";
 import type { LessonText } from "./contract";
 import type { Language } from "../i18n";
 import { useLanguage } from "../i18n";
-import { editorHtml, lessonElements, sanitizeLessonHtml } from "./rich-text";
+import { editorHtml, lessonElements, resolveLessonImages, sanitizeLessonHtml } from "./rich-text";
+import { useLessonImages } from "./image-context";
 
 export default function RichEditor({ value, language, label, onChange }: {
   value: LessonText; language: Language; label: string; onChange: (value: LessonText) => void;
 }) {
   const { t } = useLanguage();
+  const images = useLessonImages();
   const target = useRef<HTMLTextAreaElement>(null);
   const [failed, setFailed] = useState(false);
   const [mode, setMode] = useState(document.documentElement.dataset.theme);
-  const content = useEffectEvent(() => editorHtml(value, language));
-  const change = useEffectEvent((html: string) => onChange({ ...value, [language]: sanitizeLessonHtml(html),
+  const content = useEffectEvent(() => editorHtml(value, language, images.urls));
+  const change = useEffectEvent((html: string) => onChange({ ...value, [language]: sanitizeLessonHtml(html, images.urls),
     html: [...new Set([...(value.html ?? []), language])] }));
+  const addImage = useEffectEvent((blob: Blob) => images.add(blob));
+  const safeContent = useEffectEvent((html: string) => resolveLessonImages(sanitizeLessonHtml(html, images.urls), images.urls));
   useEffect(() => {
     const observer = new MutationObserver(() => setMode(document.documentElement.dataset.theme));
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
@@ -39,13 +44,28 @@ export default function RichEditor({ value, language, label, onChange }: {
     void tinymce.init({
       target: target.current!, license_key: "gpl", skin: mode === "dark" ? "oxide-dark" : "oxide",
       content_css: false, promotion: false, menubar: false, height: 300, min_height: 220,
-      plugins: "lists link table", toolbar: "undo redo | blocks | bold italic underline | bullist numlist | link table | removeformat",
+      plugins: "lists link table image", toolbar: "undo redo | image | bold italic underline | blocks | bullist numlist | link table | removeformat",
       toolbar_mode: "sliding", block_formats: "Paragraph=p;Heading 2=h2;Heading 3=h3;Heading 4=h4",
       valid_elements: lessonElements, entity_encoding: "raw", paste_data_images: false,
+      convert_urls: false, automatic_uploads: false, image_uploadtab: false, file_picker_types: "image",
+      images_file_types: "jpg,jpeg,png,webp",
+      file_picker_callback(callback) {
+        const input = document.createElement("input");
+        input.type = "file"; input.accept = "image/png,image/jpeg,image/webp";
+        input.onchange = () => {
+          const file = input.files?.[0];
+          if (!file) return;
+          void addImage(file).then(url => { if (!disposed) callback(url, { alt: file.name }); }, error => {
+            if (!disposed) instance?.notificationManager.open({ text: `${t("lessons.imageAddError")} ${String(error)}`, type: "error" });
+          });
+        };
+        input.click();
+      },
       browser_spellcheck: true, iframe_aria_text: label,
-      content_style: `body{font:14px/1.6 system-ui;margin:12px;color:${palette.getPropertyValue("--text")};background:${palette.getPropertyValue("--surface")}}p{margin:0 0 12px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #888;padding:6px}a{color:${palette.getPropertyValue("--accent")}}`,
+      content_style: `body{font:14px/1.6 system-ui;margin:12px;color:${palette.getPropertyValue("--text")};background:${palette.getPropertyValue("--surface")}}p{margin:0 0 12px}img{max-width:100%;height:auto}table{border-collapse:collapse;width:100%}td,th{border:1px solid #888;padding:6px}a{color:${palette.getPropertyValue("--accent")}}`,
       setup(editor) {
         instance = editor;
+        editor.on("BeforeSetContent", event => { event.content = safeContent(event.content); });
         editor.on("init", () => {
           if (disposed) { editor.remove(); return; }
           editor.setContent(content());
@@ -59,7 +79,7 @@ export default function RichEditor({ value, language, label, onChange }: {
     return () => { disposed = true; instance?.remove(); };
   }, [mode, label]);
   return <div className="lesson-rich-editor">
-    <textarea id="lesson-write-body" className="lesson-write-body" rows={9} ref={target} readOnly aria-label={label} defaultValue={editorHtml(value, language)} />
+    <textarea id="lesson-write-body" className="lesson-write-body" rows={9} ref={target} readOnly aria-label={label} defaultValue={editorHtml(value, language, images.urls)} />
     {failed && <p role="alert">{t("lessons.richEditorError")}</p>}
   </div>;
 }

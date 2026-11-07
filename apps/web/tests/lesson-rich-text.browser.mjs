@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { brotliDecompressSync } from 'node:zlib';
+import { unpackLessonTar } from './lesson-package.fixture.mjs';
 import { lessonBody } from './lesson-editor-tools.mjs';
 
 export async function checkLessonRichText(page) {
@@ -31,10 +33,11 @@ export async function checkLessonRichText(page) {
   await page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: 'Định dạng' }).click();
   assert.equal(await lessonBody(page).locator('strong').textContent(), 'Quan sát mô hình');
   const downloaded = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Xuất .json', exact: true }).click();
+  await page.getByRole('button', { name: 'Xuất .lesson.br', exact: true }).click();
   const download = await downloaded;
-  assert.equal(download.suggestedFilename(), id + '.json');
-  const json = await readFile(await download.path(), 'utf8');
+  assert.equal(download.suggestedFilename(), 'Nội dung định dạng.lesson.br');
+  const files = unpackLessonTar(brotliDecompressSync(await readFile(await download.path())));
+  const json = new TextDecoder().decode(files.get('lesson.json'));
   assert(json.includes('\n  "id":'), 'Export should be readable, indented JSON');
   const exported = JSON.parse(json);
   assert.deepEqual(exported, await saved());

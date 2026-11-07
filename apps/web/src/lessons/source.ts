@@ -1,5 +1,10 @@
 import { readLesson } from "./contract";
 import type { Lesson } from "./contract";
+import { lessonJob } from "./archive";
+import { validate_lesson_file } from "../content/content.js";
+import { getContent } from "../anatomy/core";
+import { loadLessonImages, removeLessonImages } from "./images";
+import type { LessonImages } from "./images";
 
 const prefix = "soma.lesson:";
 
@@ -23,6 +28,7 @@ export function removeLesson(lesson: Lesson) {
   const key = prefix + lesson.id;
   if (localStorage.getItem(key) !== JSON.stringify(lesson)) throw new Error("The lesson changed in another tab.");
   localStorage.removeItem(key);
+  void removeLessonImages(lesson.id, () => localStorage.getItem(key) === null).catch(error => console.error("Lesson image cleanup failed", error));
 }
 
 export function newLessonId() {
@@ -30,18 +36,21 @@ export function newLessonId() {
 }
 
 export async function importLesson(file: File) {
-  if (file.size > 512 * 1024) throw new Error("Lesson JSON exceeds 512 KiB");
-  return readLesson(JSON.parse(await file.text()), true);
+  await getContent();
+  validate_lesson_file(file.name, file.size);
+  const result = await lessonJob({ operation: "open", name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) });
+  const images: LessonImages = new Map(result.images!.map(([path, bytes, mime]) => [path, new Blob([bytes], { type: mime })]));
+  return { lesson: JSON.parse(result.json!) as Lesson, images };
 }
 
-export function exportLesson(lesson: Lesson) {
-  readLesson(lesson, true);
-  const file = new Blob([JSON.stringify(lesson, null, 2) + "\n"], { type: "application/json" });
-  if (file.size > 512 * 1024) throw new Error("Lesson JSON exceeds 512 KiB");
-  const url = URL.createObjectURL(file);
+export async function exportLesson(lesson: Lesson, language: string) {
+  const images = await loadLessonImages(lesson.id);
+  const result = await lessonJob({ operation: "export", json: JSON.stringify(lesson), language,
+    images: await Promise.all([...images].map(async ([path, blob]): Promise<[string, Uint8Array<ArrayBuffer>]> => [path, new Uint8Array(await blob.arrayBuffer())])) });
+  const url = URL.createObjectURL(new Blob([result.bytes!], { type: "application/octet-stream" }));
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${lesson.id}.json`;
+  link.download = result.name!;
   link.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

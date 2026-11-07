@@ -1,16 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createServer } from 'vite';
+import { LessonPackage, validate_lesson_file } from './lesson-wasm.fixture.mjs';
 
-test('lesson files import raw editable JSON, including drafts, while rejecting malformed or oversized files', async () => {
-  const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
-  try {
-    const { importLesson } = await server.ssrLoadModule('/src/lessons/source.ts');
-    const draft = { id: 'draft-json', version: 1, title: { vi: '', en: '' }, summary: { vi: '', en: '' }, modelId: '', steps: [] };
-    assert.deepEqual(await importLesson(new File([JSON.stringify(draft, null, 2)], 'lesson.json')), draft);
-    for (const content of ['{', 'null', '{}', JSON.stringify({ ...draft, steps: [{ kind: 'unsupported' }] })]) {
-      await assert.rejects(() => importLesson(new File([content], 'lesson.json')));
-    }
-    await assert.rejects(() => importLesson(new File([' '.repeat(512 * 1024 + 1)], 'large.json')), /512 KiB/);
-  } finally { await server.close(); }
+const encoder = new TextEncoder();
+test('Rust imports raw editable JSON drafts and rejects malformed or oversized files', () => {
+  const draft = { id: 'draft-json', version: 1, title: { vi: '', en: '' }, summary: { vi: '', en: '' }, modelId: '', steps: [] };
+  const pack = LessonPackage.open('lesson.json', encoder.encode(JSON.stringify(draft)));
+  try { assert.deepEqual(JSON.parse(pack.lesson_json()), draft); }
+  finally { pack.free(); }
+  assert.throws(() => validate_lesson_file('lesson.txt', 1), /Invalid .lesson.br file/);
+  for (const json of ['{', 'null', '{}', JSON.stringify({ ...draft, steps: [{ kind: 'unsupported' }] })]) {
+    assert.throws(() => LessonPackage.open('lesson.json', encoder.encode(json)));
+  }
+  assert.throws(() => validate_lesson_file('large.json', 2 * 1024 * 1024 + 1), /2 MiB/);
+  for (const size of [5 * 1024 ** 3, Infinity, NaN, -1, 1.5]) assert.throws(() => validate_lesson_file('large.lesson.br', size));
 });
