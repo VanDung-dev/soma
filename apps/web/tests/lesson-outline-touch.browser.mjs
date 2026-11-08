@@ -20,6 +20,7 @@ export async function checkLessonOutlineTouch(page) {
     await mobile.goto(origin + '/lessons/' + lesson.id + '/edit');
     const outline = mobile.locator('#lesson-author-outline');
     await outline.waitFor();
+    await outline.locator('[data-lesson-step="touch-0"] .lesson-outline-row').click();
     await lessonBody(mobile).waitFor();
     await mobile.evaluate(()=>document.fonts.ready);
     const cdp = await context.newCDPSession(mobile);

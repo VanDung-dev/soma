@@ -3,8 +3,8 @@ import type { SceneView } from "../anatomy/viewer/contracts";
 
 export type LessonText = { vi: string; en: string; html?: ("vi" | "en")[] };
 
-type StepContent = { id: string; title: LessonText; instruction: LessonText };
-type LessonScene = { targetId: string; visibleIds?: string[]; view?: SceneView };
+type StepContent = { id: string; title: LessonText; instruction: LessonText; showModel?: boolean };
+export type LessonScene = { targetId: string; visibleIds?: string[]; view?: SceneView };
 export type LessonStep = StepContent & ({ kind: "text" } | LessonScene & { kind: "observe" } | LessonScene & {
   kind: "identify_structure";
   choiceIds: string[];
@@ -16,7 +16,9 @@ export type Lesson = {
   version: number;
   title: LessonText;
   summary: LessonText;
+  cover?: string;
   modelId: string;
+  scene?: LessonScene;
   steps: LessonStep[];
 };
 

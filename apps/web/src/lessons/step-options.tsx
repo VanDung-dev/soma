@@ -1,40 +1,33 @@
 import { useMemo } from "react";
 import type { Catalog, StudyTarget } from "../anatomy/catalog/types";
-import { StructureSearch } from "../anatomy/structure-search";
 import { useLanguage } from "../i18n";
 import type { Language } from "../i18n";
 import { lessonText } from "./contract";
-import type { Lesson, LessonStep } from "./contract";
+import type { Lesson, LessonScene, LessonStep } from "./contract";
 
-export function LessonInspector({ catalog, lesson, active, scene, locale, targets, open, onModel, onChange }: {
+export function LessonStepOptions({ catalog, lesson, active, scene, locale, targets, onChange }: {
   catalog: Catalog;
   lesson: Lesson;
-  active?: LessonStep;
-  scene?: Exclude<LessonStep, { kind: "text" }>;
+  active: LessonStep;
+  scene?: LessonScene;
   locale: Language;
   targets: StudyTarget[];
-  open: boolean;
-  onModel: (id: string) => void;
   onChange: (step: LessonStep) => void;
 }) {
-  const { language, t } = useLanguage();
-  return <aside className="lesson-author-inspector" id="lesson-author-inspector"
-    hidden={!open} aria-label={t("lessons.settings")}>
-    <h2>{t("lessons.settings")}</h2>
+  const { t } = useLanguage();
+  return <section className="lesson-step-options" aria-label={t("lessons.stepOptions")}>
     <div className="lesson-fields">
-      {!active && <section className="lesson-inspector-section">
-        <h3>{t("lessons.required")}</h3>
-        <ul className="lesson-requirements">
-          <li data-complete={!!lessonText(lesson.title, locale)}>{t("lessons.requireTitle")}</li>
-          <li data-complete={lesson.steps.length > 0}>{t("lessons.requireBlock")}</li>
-        </ul>
-      </section>}
-      {active && <div className="lesson-inspector-section">
+      <label className="lesson-exercise-toggle">
+        <input type="checkbox" checked={active.showModel !== false} disabled={active.kind === "identify_structure"}
+          onChange={event => onChange({ ...active, showModel: event.target.checked })} />
+        {t("lessons.stepShowModel")}
+      </label>
+      <div className="lesson-inspector-section">
         <label className="lesson-exercise-toggle">
-          <input type="checkbox" checked={active.kind === "identify_structure"} disabled={!lesson.modelId} onChange={event => {
+          <input type="checkbox" checked={active.kind === "identify_structure"} disabled={!lesson.modelId || active.showModel === false} onChange={event => {
             const exercise = event.target.checked;
             const { id, title, instruction } = active;
-            const base = { id, title, instruction };
+            const base = { id, title, instruction, showModel: active.showModel };
             const targetId = active.kind === "text" ? scene?.targetId ?? lesson.modelId : active.targetId;
             const visibleIds = active.kind === "text" ? scene?.visibleIds : active.visibleIds;
             const view = active.kind === "text" ? scene?.view : active.view;
@@ -47,29 +40,11 @@ export function LessonInspector({ catalog, lesson, active, scene, locale, target
           }} />
           {t("lessons.addExercise")}
         </label>
-      </div>}
-      <section className="lesson-inspector-section">
-        <h3>{t("viewer.section.label")}</h3>
-        <label>{t("lessons.model")}
-          <select value={lesson.modelId} onChange={event => onModel(event.target.value)}>
-            <option value="">{t("lessons.noModel")}</option>
-            {catalog.roots.map(model => <option key={model.id} value={model.id}>{model.names[language]}</option>)}
-            {lesson.modelId && !catalog.roots.some(model => model.id === lesson.modelId) &&
-              <option value={lesson.modelId}>{lesson.modelId}</option>}
-          </select>
-        </label>
-        {active && scene && catalog.roots.some(model => model.id === lesson.modelId) && <>
-          <button className="lesson-button" popoverTarget="lesson-scene-structures">
-            {t("lessons.sceneStructures")}
-          </button>
-          <p>{scene.visibleIds ? t("lessons.sceneCount", { count: scene.visibleIds.length }) : t("lessons.composeSceneHint")}</p>
-        </>}
-        <p>{t("lessons.sharedModel")}</p>
-      </section>
+      </div>
       {active?.kind === "identify_structure" && <ExerciseFields catalog={catalog} targets={targets} step={active} locale={locale}
         onChange={onChange} />}
     </div>
-  </aside>;
+  </section>;
 }
 
 function ExerciseFields({ catalog, targets, step, locale, onChange }: {
@@ -103,8 +78,14 @@ function ExerciseFields({ catalog, targets, step, locale, onChange }: {
         })}>{t("lessons.removeChoice")}</button>
       </div>)}
     </fieldset>}
-    <StructureSearch catalog={catalog} targetIds={available} disabled={!available.length} label={t("lessons.addChoice")}
-      onSelect={id => onChange({ ...step, choiceIds: [...step.choiceIds, id] })} />
+    <label>{t("lessons.addChoice")}
+      <select value="" disabled={!available.length} onChange={event => {
+        if (event.target.value) onChange({ ...step, choiceIds: [...step.choiceIds, event.target.value] });
+      }}>
+        <option value="">{t("lessons.addChoice")}</option>
+        {available.map(id => <option key={id} value={id}>{catalog.target(id)?.names[language] ?? id}</option>)}
+      </select>
+    </label>
     <label>{t("lessons.explanation")} ({locale.toUpperCase()})
       <textarea lang={locale} value={step.explanation[locale]} onChange={event => onChange({
         ...step, explanation: { ...step.explanation, [locale]: event.target.value },

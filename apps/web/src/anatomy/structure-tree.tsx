@@ -6,6 +6,7 @@ import { LineIcon } from "../icons";
 interface TreeProps {
   catalog: Catalog;
   rootId?: string;
+  rootIds?: readonly string[];
   visibleIds: ReadonlySet<string>;
   selected: string;
   targetId?: string;
@@ -68,7 +69,7 @@ export const StructureTree = memo(function StructureTree(props: TreeProps) {
     if (element && window.matchMedia("(min-width: 901px)").matches) element.scrollIntoView({ block: "nearest" });
   }, [props.reveal]);
   return <nav aria-label={t("tree.navigation.label")}><ul className="structure-tree">
-    {rows.filter(folder => !props.rootId || folder.target.id === props.rootId).map(folder => <Folder key={folder.target.id} folder={folder} props={props} open={open} grow={grow} toggle={toggle} revealRow={revealRow} revealTarget={path[0]?.[0]} />)}
+    {rows.filter(folder => props.rootIds ? props.rootIds.includes(folder.target.id) : !props.rootId || folder.target.id === props.rootId).map(folder => <Folder key={folder.target.id} folder={folder} props={props} open={open} grow={grow} toggle={toggle} revealRow={revealRow} revealTarget={path[0]?.[0]} />)}
   </ul></nav>;
 });
 

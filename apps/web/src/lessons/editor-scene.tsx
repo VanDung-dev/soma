@@ -1,22 +1,25 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import type { Ref } from "react";
 import { createPortal } from "react-dom";
 import { getCatalog } from "../anatomy/core";
 import type { Catalog } from "../anatomy/catalog/types";
 import { OrientationAxes } from "../anatomy/orientation-axes";
 import { ViewerStatusNotice } from "../anatomy/viewer-status";
-import { StructureTree } from "../anatomy/structure-tree";
 import { ExplodeControls } from "../anatomy/explode-controls";
-import { PopoverPanel } from "../popover-panel";
 import { useLanguage } from "../i18n";
 import { useLessonViewer } from "./viewer";
 import { LessonStructureTools } from "./structure-tools";
 import type { SceneView } from "../anatomy/viewer/contracts";
 
 type SceneProps = {
-  modelId: string; targetId: string; sectionId: string; frame: HTMLElement; controls: HTMLElement; inactive: boolean;
+  modelIds: string[]; targetId: string; sectionId: string; frame: HTMLElement; controls: HTMLElement; inactive: boolean;
   visibleIds?: string[]; onChangeScene: (ids: string[]) => void;
-  view?: SceneView; canSave: boolean; onSaveView: (view: SceneView, ids: string[]) => void;
+  view?: SceneView; onSaveView: (view: SceneView, ids: string[]) => void;
+  sceneRef?: Ref<EditorSceneHandle>;
+  revealPart?: { id: string; target?: boolean };
 };
+
+export type EditorSceneHandle = { capture: () => { view: SceneView; visibleIds: string[] } | undefined };
 
 export function EditorScene(props: SceneProps) {
   const { t } = useLanguage();
@@ -42,22 +45,33 @@ export function EditorScene(props: SceneProps) {
     </p>, props.frame);
 }
 
-function Scene({ catalog, modelId, targetId, sectionId, frame, controls, inactive, visibleIds, view, canSave, onSaveView, onChangeScene }: SceneProps & { catalog: Catalog }) {
+function Scene({ catalog, modelIds, targetId, sectionId, frame, controls, inactive, visibleIds, view, onSaveView, onChangeScene, sceneRef, revealPart }: SceneProps & { catalog: Catalog }) {
   const { language, t } = useLanguage();
   const ids = useMemo(() => visibleIds ?? catalog.members(targetId), [catalog, targetId, visibleIds]);
-  const { host, orientation, showAxes, session, state, hold, snapTarget } = useLessonViewer(catalog, modelId, undefined, frame,
+  const { host, orientation, showAxes, session, state, hold, snapTarget } = useLessonViewer(catalog, modelIds, undefined, frame,
     hiddenIds => {
       const hidden = new Set(hiddenIds);
       onChangeScene(ids.filter(id => !hidden.has(id)));
     });
   const ready = !state.building && !state.error;
-  const shown = useMemo(() => new Set(ids), [ids]);
-  const reveal = useMemo(() => ({ id: targetId }), [targetId]);
   const snapPart = useMemo(() => catalog.detail(snapTarget), [catalog, snapTarget, state.structureIds]);
   const separated = !!state.movingId || !!state.separatedIds.size;
+  const revealedPart = useRef<{ id: string; target?: boolean }>(undefined);
+  useImperativeHandle(sceneRef, () => ({ capture: () => {
+    if (!ready || separated) return;
+    const view = session.captureView();
+    if (view) return { view, visibleIds: [...state.visibleIds] };
+  } }), [ready, separated, session, state.visibleIds]);
   useEffect(() => {
     if (ready) session.applyScene(ids, view);
   }, [ready, session, sectionId, ids, view]);
+  useEffect(() => {
+    if (ready && revealPart && revealedPart.current !== revealPart && (revealPart.target || ids.includes(revealPart.id))) {
+      if (revealPart.target) session.browseTarget(revealPart.id);
+      else session.browseStructure(revealPart.id);
+      revealedPart.current = revealPart;
+    }
+  }, [ready, session, ids, revealPart]);
 
   return createPortal(<div className="lesson-editor-scene" inert={inactive} aria-label={t("viewer.section.label")} role="group">
     <div className="model-canvas" ref={host} aria-busy={state.building && !state.error} />
@@ -65,40 +79,22 @@ function Scene({ catalog, modelId, targetId, sectionId, frame, controls, inactiv
       <circle cx="20" cy="20" r="16" />
       <circle className="model-hold-fill" cx="20" cy="20" r="16" pathLength="100" />
     </svg>}
-    {createPortal(<div className="lesson-editor-hud">
+    {createPortal(<>
       <ExplodeControls value={state.explosionAmount} disabled={!ready || separated} locked={separated} onChange={session.changeExplosion} />
-      <button className="lesson-button lesson-primary" aria-label={t("lessons.saveView")} disabled={!ready || separated || !canSave} onClick={() => {
+      <button className="lesson-button lesson-primary" aria-label={t("lessons.saveView")} disabled={!ready || separated} onClick={() => {
         const view = session.captureView();
         if (view) onSaveView(view, [...state.visibleIds]);
       }}><span className="lesson-action-full">{t("lessons.saveView")}</span><span className="lesson-action-short">{t("lessons.saveViewShort")}</span></button>
       <span className="lesson-view-status" role="status">{t(separated ? "lessons.restoreBeforeSave" : view ? "lessons.viewSaved" : "lessons.viewNotSaved")}</span>
-    </div>, controls)}
+    </>, controls)}
     {createPortal(<>
       {showAxes && <div className="model-orientation"><OrientationAxes ref={orientation} disabled={!ready} onControl={session.control} /></div>}
-      {!ready && <ViewerStatusNotice className="lesson-model-message" state={state} totalSystems={1} />}
-      {ready && <LessonStructureTools key={sectionId} catalog={catalog} session={session} state={state} ids={ids} />}
+      {!ready && <ViewerStatusNotice className="lesson-model-message" state={state} totalSystems={modelIds.length} />}
+      {ready && <LessonStructureTools key={sectionId} catalog={catalog} session={session} state={state} ids={ids} searchable={false} />}
       <div className="lesson-scene-feedback">
         {snapPart && <p className="model-status model-snap-hint" role="status">{t("viewer.snapHint", { name: snapPart.names[language] })}</p>}
         {separated && <p className="model-status separation-status" role="status">{t("context.dragHint")}</p>}
       </div>
-      {createPortal(<PopoverPanel key={sectionId} id="lesson-scene-structures" className="lesson-scene-structures" contentClassName="catalog-tree lesson-scene-tree"
-        title={t("lessons.sceneStructures")} closeLabel={t("lessons.closeSceneStructures")}>
-        <p>{t("lessons.composeSceneHint")}</p>
-        <div className="lesson-inspector-actions">
-          <button className="lesson-button" disabled={!ready} onClick={() => onChangeScene(catalog.members(modelId))}>{t("catalog.showAll")}</button>
-          <button className="lesson-button" disabled={!ready} onClick={() => onChangeScene([])}>{t("catalog.hideAll")}</button>
-          <button className="lesson-button" disabled={!ready} onClick={() => onChangeScene(catalog.members(targetId))}>{t("lessons.resetScene")}</button>
-        </div>
-        <p role="status">{t("lessons.sceneCount", { count: ids.length })}</p>
-        {ready ? <StructureTree catalog={catalog} rootId={modelId} visibleIds={shown} selected={state.readingId}
-          targetId={state.targetId} reveal={reveal} disabled={!ready} onVisibility={(members, visible) => {
-            const next = new Set(ids);
-            members.forEach(id => { if (visible) next.add(id); else next.delete(id); });
-            onChangeScene([...next]);
-          }} onSelect={session.browseStructure} onTarget={session.browseTarget}
-          onFocus={(members, target) => onChangeScene(target ? catalog.members(target) : members)} />
-          : <p role="status">{t("viewer.status.loading")}</p>}
-      </PopoverPanel>, document.body)}
       <button className={`lesson-button lesson-scene-fit${separated ? " lesson-scene-restore" : ""}`} disabled={!ready}
         onClick={() => separated ? session.restoreStructure("") : session.applyScene(ids, view)}>{t(separated ? "context.restore" : "lessons.resetStudyScene")}</button>
       <a className="lesson-model-credit" href="/models/z-anatomy/ATTRIBUTION.md" target="_blank" rel="noreferrer"

@@ -12,11 +12,14 @@ import { LessonStructureTools } from "./structure-tools";
 import { useLessonPanel } from "./panels";
 import { lessonHtml, lessonPlainText } from "./rich-text";
 import { useLessonImages } from "./image-context";
+import { lessonModels } from "./targets";
 
-export function LessonPlayer({ lesson, catalog, onBack, preview = false }: { lesson: Lesson; catalog: Catalog; onBack: () => void; preview?: boolean }) {
+export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false }: { lesson: Lesson; catalog: Catalog; onBack: () => void; onEdit?: () => void; preview?: boolean }) {
   const { language, t } = useLanguage();
   const images = useLessonImages();
-  const usesModel = lesson.steps.some(step => step.kind !== "text");
+  const usesModel = lesson.steps.some(step => step.kind !== "text") && lesson.steps.some(step => step.showModel !== false);
+  const modelIds = useMemo(() => lessonModels(catalog, lesson), [catalog, lesson]);
+  const modelMembers = useMemo(() => [...new Set(modelIds.flatMap(id => catalog.members(id)))], [catalog, modelIds]);
   const heading = useRef<HTMLHeadingElement>(null);
   const feedback = useRef<HTMLParagraphElement>(null);
   const reader = useRef<HTMLDivElement>(null);
@@ -24,6 +27,7 @@ export function LessonPlayer({ lesson, catalog, onBack, preview = false }: { les
   const [outlineOpen, setOutlineOpen] = useLessonPanel("readerOutline", false);
   const modelId = useId();
   const [modelCollapsed, setModelCollapsed] = useState(false);
+  const [modelTools, setModelTools] = useState<HTMLDivElement | null>(null);
   const [index, setIndex] = useState(0);
   const [selection, setSelection] = useState<{ source: "model" | "choice"; id: string }>();
   const [incorrect, setIncorrect] = useState(false);
@@ -32,30 +36,31 @@ export function LessonPlayer({ lesson, catalog, onBack, preview = false }: { les
     setIncorrect(false);
   }, []);
   const currentStep = lesson.steps[index];
-  const { host, orientation, showAxes, session, state, hold } = useLessonViewer(catalog, usesModel ? lesson.modelId : "", pick,
+  const { host, orientation, showAxes, session, state, hold } = useLessonViewer(catalog, usesModel ? modelIds : "", pick,
     undefined, undefined, currentStep?.kind !== "identify_structure");
   const [passed, setPassed] = useState<ReadonlySet<string>>(() => new Set());
   const [failed, setFailed] = useState(false);
   const [validated, setValidated] = useState(!usesModel);
   const [complete, setComplete] = useState(false);
   const step: LessonStep = lesson.steps[index] ?? { id: "preview-empty", kind: "text", title: { vi: "", en: "" }, instruction: { vi: "", en: "" } };
-  const issues = useMemo(() => preview ? lessonPreviewIssues(lesson, catalog.members(lesson.modelId), id => catalog.members(id))
-    : new Map<string, LessonValidationError>(), [catalog, lesson, preview]);
+  const issues = useMemo(() => preview ? lessonPreviewIssues(lesson, modelMembers, id => catalog.members(id))
+    : new Map<string, LessonValidationError>(), [catalog, lesson, preview, modelMembers]);
   const issue = issues.get(step.id);
   const scene = useMemo(() => lessonSceneStep(lesson, complete ? 0 : index), [complete, index, lesson]);
+  const showStepModel = usesModel && !!scene;
   const sceneIds = useMemo(() => scene ? scene.visibleIds ?? catalog.members(scene.targetId) : [], [catalog, scene]);
   const sceneUsable = useMemo(() => {
     if (!scene) return false;
     try {
-      validateLessonTargets({ ...lesson, steps: [{ ...scene, kind: "observe" }] }, catalog.members(lesson.modelId), id => catalog.members(id));
+      validateLessonTargets({ ...lesson, steps: [{ ...scene, kind: "observe" }] }, modelMembers, id => catalog.members(id));
       return true;
     } catch { return false; }
-  }, [catalog, lesson, scene]);
+  }, [catalog, lesson, scene, modelMembers]);
   const exercise = step.kind === "identify_structure" ? step : undefined;
   const instruction = lessonHtml(step.instruction, language, images.urls);
   const solved = passed.has(step.id);
   const ready = validated && !state.error && !failed;
-  const modelMissing = preview && !catalog.roots.some(root => root.id === lesson.modelId);
+  const modelMissing = preview && modelIds.some(id => !catalog.roots.some(root => root.id === id));
   const boundary = lesson.steps.findIndex(item => item.kind === "identify_structure" && !passed.has(item.id) && !issues.has(item.id));
   const showNames = !!scene && (!exercise || solved);
   const separated = !!state.movingId || !!state.separatedIds.size;
@@ -91,18 +96,28 @@ export function LessonPlayer({ lesson, catalog, onBack, preview = false }: { les
   }
 
   return <div className="lesson-player">
-    <header className="lesson-player-header workspace-panel-surface">
-      <button className="controls-info" onClick={onBack} aria-label={t("lessons.backEditor")} title={t("lessons.backEditor")}>
-        <LineIcon name="arrow-small-left" size={18} />
-      </button>
+    <header className="app-menu-bar lesson-player-header">
+      <div className="app-menu-history">
+        <button className="controls-info" onClick={onBack} aria-label={t("lessons.library")} title={t("lessons.library")}>
+          <LineIcon name="arrow-small-left" size={18} />
+        </button>
+        <button className="lesson-button lesson-panel-toggle" aria-label={t("lessons.outline")} title={t("lessons.outline")}
+          aria-controls={outlineId} aria-expanded={outlineOpen} onClick={() => setOutlineOpen()}>
+          <LineIcon name="sidebar" size={18} /><span className="lesson-action-full">{t("lessons.outline")}</span>
+        </button>
+      </div>
       <div className="lesson-player-heading">
         <h1>{lessonText(lesson.title, language) || t("lessons.untitled")}</h1>
         <span>{preview && `${t("lessons.draftPreview")} · `}{lesson.steps.length ? t(complete ? "lessons.completed" : "lessons.step", { current: index + 1, total: lesson.steps.length }) : t("lessons.addContent")}</span>
       </div>
-      {usesModel && <button className="controls-info lesson-player-model-toggle" aria-controls={modelId} aria-expanded={!modelCollapsed}
+      <div className="app-menu-actions">
+      {showStepModel && <button className="controls-info lesson-player-model-toggle" aria-controls={modelId} aria-expanded={!modelCollapsed}
         aria-label={t(modelCollapsed ? "lessons.showModel" : "lessons.hideModel")} title={t(modelCollapsed ? "lessons.showModel" : "lessons.hideModel")}
         onClick={() => setModelCollapsed(value => !value)}><LineIcon name="sidebar" size={18} /></button>}
-      <button className="lesson-button" aria-controls={outlineId} aria-expanded={outlineOpen} onClick={() => setOutlineOpen()}>{t("lessons.outline")}</button>
+      {onEdit && <button className="lesson-button lesson-primary" onClick={onEdit} aria-label={t("lessons.backEditor")}>
+        <span className="lesson-action-full">{t("lessons.edit")}</span><span className="lesson-action-short">{t("lessons.editShort")}</span>
+      </button>}
+      </div>
     </header>
     <div className="lesson-player-body" data-outline={outlineOpen}>
       <nav id={outlineId} className="lesson-reader-outline workspace-panel-surface" hidden={!outlineOpen} aria-label={t("lessons.outline")}>
@@ -122,8 +137,8 @@ export function LessonPlayer({ lesson, catalog, onBack, preview = false }: { les
           </li>)}
         </ol>
       </nav>
-      <div className="lesson-workspace" data-model={usesModel} data-model-collapsed={modelCollapsed}>
-      {usesModel && <section className="lesson-model" id={modelId} aria-label={t("viewer.section.label")}>
+      <div className="lesson-workspace" data-model={showStepModel} data-model-collapsed={modelCollapsed}>
+      {usesModel && <section className="lesson-model" id={modelId} hidden={!showStepModel} aria-label={t("viewer.section.label")}>
         <div className="lesson-model-canvas model-canvas" ref={host} aria-busy={!modelMissing && state.building && !state.error && !failed} />
         {hold && <svg key={hold.action} className="model-hold-progress" data-action={hold.action} style={{ left: hold.x, top: hold.y }} viewBox="0 0 40 40" aria-hidden="true">
           <circle cx="20" cy="20" r="16" /><circle className="model-hold-fill" cx="20" cy="20" r="16" pathLength="100" />
@@ -131,13 +146,15 @@ export function LessonPlayer({ lesson, catalog, onBack, preview = false }: { les
         {showAxes && <div className="model-orientation"><OrientationAxes ref={orientation} disabled={!ready} onControl={session.control} /></div>}
         {modelMissing ? <p className="lesson-model-message model-status" role="status">{t("lessons.validation.target", { step: index + 1 })}</p>
           : failed ? <p className="lesson-model-message model-status model-error" role="alert">{t("lessons.targetError")}</p>
-          : (state.building || state.error) && <ViewerStatusNotice className="lesson-model-message" state={state} totalSystems={1} />}
-        {preview && !state.building && !state.error && !sceneUsable && <p className="lesson-model-message model-status" role="status">{t("lessons.targetError")}</p>}
-        {ready && sceneUsable && showNames && <LessonStructureTools key={scene.id} catalog={catalog} session={session} state={state} ids={sceneIds} />}
+          : (state.building || state.error) && <ViewerStatusNotice className="lesson-model-message" state={state} totalSystems={modelIds.length} />}
+        {preview && showStepModel && !state.building && !state.error && !sceneUsable && <p className="lesson-model-message model-status" role="status">{t("lessons.targetError")}</p>}
+        {ready && sceneUsable && showNames && <LessonStructureTools key={scene.id} catalog={catalog} session={session} state={state} ids={sceneIds} detailsHost={modelTools} />}
+        <div className="lesson-player-tools" ref={setModelTools}>
         {ready && sceneUsable && !exercise && <div className="lesson-player-explode">
           <ExplodeControls value={state.explosionAmount} disabled={separated} locked={separated} onChange={session.changeExplosion} />
           {separated && <button className="lesson-button" onClick={() => session.restoreStructure("")}>{t("context.restore")}</button>}
         </div>}
+        </div>
         <button className="lesson-button lesson-player-reset" disabled={!ready || !sceneUsable} onClick={() => {
           if (!session.applyScene(sceneIds, scene?.view)) return;
           setSelection(undefined);
@@ -158,7 +175,7 @@ export function LessonPlayer({ lesson, catalog, onBack, preview = false }: { les
         {lessonPlainText(step.instruction, language) || instruction.includes("<img ")
           ? <div className="lesson-instructions lesson-rich-content" dangerouslySetInnerHTML={{ __html: instruction }} />
           : <p className="lesson-instructions">{t("lessons.previewNoContent")}</p>}
-        {!lesson.steps.length && <button className="lesson-button lesson-primary" onClick={onBack}>{t("lessons.continueEditing")}</button>}
+        {!lesson.steps.length && <button className="lesson-button lesson-primary" onClick={onEdit ?? onBack}>{t("lessons.continueEditing")}</button>}
         {exercise && <fieldset className="lesson-choices" disabled={!ready || solved || !!issue}>
           <legend>{t("lessons.choose")}</legend>
           {exercise.choiceIds.map(id => <label key={id}>
@@ -188,7 +205,7 @@ export function LessonPlayer({ lesson, catalog, onBack, preview = false }: { les
         </div>
         {!complete && lesson.steps.length > 0 && <div className="lesson-actions">
           <button className="lesson-button" disabled={index === 0} onClick={() => move(index - 1)}>{t("lessons.previous")}</button>
-          <button className="lesson-button lesson-primary" disabled={(step.kind !== "text" && !ready && !preview) || (!!exercise && !solved && !issue)} onClick={() => {
+          <button className="lesson-button lesson-primary" disabled={(showStepModel && !ready && !preview) || (!!exercise && !solved && !issue)} onClick={() => {
             if (index + 1 < lesson.steps.length) move(index + 1);
             else setComplete(true);
           }}>{t(index + 1 < lesson.steps.length ? "lessons.next" : "lessons.finish")}</button>

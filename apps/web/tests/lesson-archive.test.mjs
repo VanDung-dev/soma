@@ -12,6 +12,20 @@ const draft = { id: '026317aafa166ceea1b3f9ee775c2c1e', version: 1, title: { vi:
   summary: { vi: '', en: '' }, modelId: '', steps: [{ id: 'read', kind: 'text', title: { vi: '', en: '' },
     instruction: { vi: '<p><img src="' + info.path + '" alt=""></p>', en: '', html: ['vi'] } }] };
 
+test('a cover is a required package resource even without rich text or steps', () => {
+  const lesson = { ...draft, cover: info.path, steps: [] };
+  const pack = new LessonPackage(JSON.stringify(lesson));
+  try {
+    assert.throws(() => pack.export(), /Missing lesson image/);
+    pack.add_image(info.path, image);
+    const files = unpackLessonTar(brotliDecompressSync(pack.export()));
+    assert.deepEqual(files.get(info.path), image);
+    const opened = LessonPackage.open('cover.lesson.br', pack.export());
+    try { assert.deepEqual(JSON.parse(opened.lesson_json()), lesson); }
+    finally { opened.free(); }
+  } finally { pack.free(); }
+});
+
 test('Rust exports title.lesson.br with internal identity and lossless images, readable by independent Brotli/TAR code', () => {
   const pack = new LessonPackage(JSON.stringify(draft));
   try {

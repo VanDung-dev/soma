@@ -6,9 +6,12 @@ import { LineIcon } from "../icons";
 import { LessonValidationError, lessonSceneStep, lessonText, readLesson } from "./contract";
 import type { Lesson, LessonStep, LessonText } from "./contract";
 import { EditorScene } from "./editor-scene";
-import { LessonInspector } from "./inspector";
+import type { EditorSceneHandle } from "./editor-scene";
+import { LessonModelSetup } from "./model-setup";
+import { LessonDetails } from "./details";
+import { LessonStepOptions } from "./step-options";
 import { exportLesson, newLessonId } from "./source";
-import { lessonTargets } from "./targets";
+import { lessonModels, lessonTargets } from "./targets";
 import type { SceneView } from "../anatomy/viewer/contracts";
 import { useLessonPanel } from "./panels";
 import { LessonOutline } from "./outline";
@@ -23,27 +26,34 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
   selected?: string;
   saveFailed: boolean;
   onSelect: (id?: string) => void;
-  onChange: (lesson: Lesson) => void;
+  onChange: (lesson: Lesson) => boolean;
   onPreview: () => void;
   onBack: () => void;
 }) {
   const { language, t } = useLanguage();
   const [locale, setLocale] = useState<Language>();
   const [error, setError] = useState("");
+  const [saveNotice, setSaveNotice] = useState("");
   const [exporting, setExporting] = useState(false);
   const [outlineOpen, setOutlineOpen] = useLessonPanel("editorOutline", window.matchMedia("(min-width: 901px)").matches);
-  const [inspectorOpen, setInspectorOpen] = useLessonPanel("editorSettings", true);
+  const [revealPart, setRevealPart] = useState<{ id: string; target?: boolean }>();
   const [orderStatus, setOrderStatus] = useState("");
   const [sceneFrame, setSceneFrame] = useState<HTMLDivElement | null>(null);
   const [sceneControls, setSceneControls] = useState<HTMLDivElement | null>(null);
   const editorLanguage = locale ?? language;
   const index = lesson.steps.findIndex(step => step.id === selected);
   const active = lesson.steps[index];
-  const scene = lessonSceneStep(lesson, Math.max(0, index));
-  const targets = useMemo(() => lessonTargets(catalog, lesson.modelId), [catalog, lesson.modelId]);
+  const inherited = lessonSceneStep(lesson, Math.max(0, index));
+  const defaultScene = useMemo(() => lesson.scene ?? (lesson.modelId ? { targetId: lesson.modelId } : undefined), [lesson.scene, lesson.modelId]);
+  const scene = active && active.kind !== "text" ? active : inherited ?? defaultScene;
+  const visibleIds = useMemo(() => scene?.visibleIds ?? catalog.members(scene?.targetId ?? ""), [catalog, scene?.visibleIds, scene?.targetId]);
+  const modelIds = lessonModels(catalog, lesson);
+  const modelKey = modelIds.join(",");
+  const targets = useMemo(() => modelKey.split(",").flatMap(id => lessonTargets(catalog, id)), [catalog, modelKey]);
   const heading = useRef<HTMLHeadingElement>(null);
   const titleField = useRef<HTMLInputElement>(null);
   const focusAdded = useRef<string | null>(null);
+  const sceneHandle = useRef<EditorSceneHandle>(null);
   useEffect(() => { heading.current?.focus(); }, []);
   useEffect(() => {
     if (focusAdded.current && focusAdded.current === selected) {
@@ -54,27 +64,29 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
 
   function update(patch: Partial<Lesson>) {
     setError("");
-    onChange({ ...lesson, ...patch });
+    setSaveNotice("");
+    return onChange({ ...lesson, ...patch });
   }
 
   function updateActive(value: LessonStep) {
-    update({ steps: lesson.steps.map(step => step.id === value.id ? value : step) });
+    return update({ steps: lesson.steps.map(step => step.id === value.id ? value : step) });
   }
 
   function updateScene(visibleIds: string[], view: SceneView | undefined = scene?.view) {
-    if (!active) return;
     const patch = { targetId: sceneTargetId, visibleIds, view };
-    updateActive(active.kind === "identify_structure" ? { ...active, ...patch }
+    if (!active) return update({ scene: patch });
+    return updateActive(active.kind === "identify_structure" ? { ...active, ...patch }
       : { ...active, kind: "observe", ...patch });
   }
 
   function changeModel(modelId: string) {
     if (lesson.modelId === modelId) return;
-    if (lesson.modelId && lesson.steps.some(step => step.kind !== "text" && (step.targetId || step.visibleIds))
+    if (lesson.modelId && (lesson.scene?.view || lesson.scene?.visibleIds?.length
+      || lesson.steps.some(step => step.kind !== "text" && (step.targetId || step.visibleIds)))
       && !window.confirm(t("lessons.confirmSceneReset"))) return;
-    update({ modelId, steps: lesson.steps.map(step => {
+    update({ modelId, scene: undefined, steps: lesson.steps.map(step => {
       if (!modelId && step.kind !== "identify_structure") {
-        return { id: step.id, title: step.title, instruction: step.instruction, kind: "text" };
+        return { id: step.id, title: step.title, instruction: step.instruction, showModel: step.showModel, kind: "text" };
       }
       const patch = { targetId: modelId, visibleIds: undefined, view: undefined };
       return step.kind === "identify_structure" ? { ...step, ...patch, choiceIds: [], answerId: "" }
@@ -82,17 +94,40 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
     }) });
   }
 
-  function openInspector() {
-    setInspectorOpen(true);
-    requestAnimationFrame(() => document.getElementById("lesson-author-inspector")?.scrollIntoView({ block: "nearest" }));
+  function addStructures(ids: string[], partId?: string) {
+    setRevealPart(partId ? { id: partId } : undefined);
+    const modelId = lesson.modelId || catalog.roots.find(root => {
+      const members = new Set(catalog.members(root.id));
+      return ids.some(id => members.has(id));
+    })?.id;
+    if (!modelId) { setError(t("lessons.targetError")); return; }
+    const patch = { targetId: sceneTargetId || modelId, view: scene?.view,
+      visibleIds: [...new Set([...(scene?.visibleIds ?? catalog.members(sceneTargetId)), ...ids])] };
+    update({ modelId,
+      steps: lesson.steps.map(step => {
+        if (lesson.modelId && step.id !== active?.id) return step;
+        return step.kind === "identify_structure" ? { ...step, ...patch } : { ...step, kind: "observe", ...patch };
+      }) });
   }
 
   function select(id?: string) {
+    setSaveNotice("");
+    setError("");
+    setRevealPart(undefined);
     onSelect(id);
   }
 
+  function save() {
+    if (showModel && hasModel) {
+      const snapshot = sceneHandle.current?.capture();
+      if (!snapshot) { setSaveNotice(""); setError(t("lessons.sceneSaveUnavailable")); return; }
+      if (!updateScene(snapshot.visibleIds, snapshot.view)) return;
+    } else if (!update({})) return;
+    setSaveNotice(t(active ? "lessons.stepSaved" : "lessons.detailsSaved"));
+  }
+
   function add() {
-    const base = { id: newLessonId(), title: emptyText, instruction: emptyText };
+    const base = { id: newLessonId(), title: emptyText, instruction: emptyText, showModel: active?.showModel };
     const step: LessonStep = lesson.modelId
       ? { ...base, kind: "observe", targetId: scene?.targetId ?? lesson.modelId, visibleIds: scene?.visibleIds, view: scene?.view }
       : { ...base, kind: "text" };
@@ -127,7 +162,6 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
     } catch (cause) {
       if (cause instanceof LessonValidationError) {
         select(cause.step ? lesson.steps[cause.step - 1]?.id : undefined);
-        if (["target", "scope", "choices", "overlap"].includes(cause.reason)) openInspector();
         setError(t(`lessons.validation.${cause.reason}`, { step: cause.step }));
       } else setError(t("lessons.exportError"));
     } finally { setExporting(false); }
@@ -137,8 +171,9 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
   const body = active?.instruction ?? lesson.summary;
   const sceneTargetId = scene && targets.some(target => target.id === scene.targetId) ? scene.targetId : lesson.modelId;
   const hasModel = catalog.roots.some(model => model.id === lesson.modelId);
-  const renderScene = !!scene && hasModel;
-  const panelToggle = (panel: "outline" | "inspector", name: string, expanded: boolean, toggle: () => void) => {
+  const showModel = !!active && active.showModel !== false;
+  const renderScene = showModel && hasModel;
+  const panelToggle = (panel: "outline", name: string, expanded: boolean, toggle: () => void) => {
     const label = t(expanded ? "panels.hide" : "panels.show", { name });
     return <button type="button" id={`lesson-toggle-${panel}`} className="lesson-button lesson-panel-toggle" aria-expanded={expanded}
       aria-controls={`lesson-author-${panel}`} aria-label={label} title={label} onClick={toggle}>
@@ -147,10 +182,11 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
     </button>;
   };
 
-  return <div className="lesson-editor study-shell" data-outline={outlineOpen} data-inspector={inspectorOpen}>
-    {renderScene && sceneFrame && sceneControls && <EditorScene modelId={lesson.modelId} targetId={sceneTargetId}
-      visibleIds={scene.visibleIds} view={scene.view} sectionId={active?.id ?? scene.id}
-      canSave={!!active} onSaveView={(view, ids) => updateScene(ids, view)} onChangeScene={ids => updateScene(ids)}
+  return <div className="lesson-editor study-shell" data-outline={outlineOpen}>
+    {renderScene && sceneFrame && sceneControls && <EditorScene modelIds={modelIds} targetId={sceneTargetId}
+      visibleIds={scene?.visibleIds} view={scene?.view} sectionId={active?.id ?? lesson.id} sceneRef={sceneHandle}
+      revealPart={revealPart}
+      onSaveView={(view, ids) => updateScene(ids, view)} onChangeScene={ids => updateScene(ids)}
       frame={sceneFrame} controls={sceneControls} inactive={false} />}
     <header className="app-menu-bar lesson-author-bar">
       <div className="app-menu-history">
@@ -162,7 +198,7 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
       <div className="lesson-author-heading">
         <h1 className="app-menu-title" ref={heading} tabIndex={-1}>{lessonText(lesson.title, language) || t("lessons.editor")}</h1>
         {saveFailed ? <button className="lesson-save-retry" onClick={() => onChange(lesson)} title={t("lessons.saveError")}>{t("lessons.retry")}</button>
-          : <span>{t("lessons.saved")}</span>}
+          : <span>{t(showModel && hasModel ? "lessons.contentSaved" : "lessons.saved")}</span>}
       </div>
       <div className="app-menu-actions lesson-author-actions">
         <button className="lesson-button" aria-label={t("lessons.export")} disabled={exporting} aria-busy={exporting} onClick={() => void exportDraft()}>
@@ -171,7 +207,6 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
         <button className="lesson-button lesson-primary" aria-label={t("lessons.preview")} onClick={onPreview}>
           <span className="lesson-action-full">{t("lessons.preview")}</span><span className="lesson-action-short">{t("lessons.previewShort")}</span>
         </button>
-        {panelToggle("inspector", t("lessons.settings"), inspectorOpen, () => setInspectorOpen())}
       </div>
     </header>
     <div className="lesson-author-workspace" data-outline={outlineOpen}>
@@ -194,29 +229,37 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
     </nav>
     <p className="sr-only" role="status">{orderStatus}</p>
 
-    <div className="lesson-author-center">
+    <div className="lesson-author-center" data-model={showModel}>
       {(saveFailed || error) && <div className="lesson-author-alerts">
         {saveFailed && <p className="model-status model-error" role="alert">{t("lessons.saveError")}</p>}
         {error && <p className="model-status model-error" role="alert">{error}</p>}
       </div>}
-      <div className="lesson-scene-region lesson-model">
+      {showModel && <div className="lesson-scene-region lesson-model" onPointerDownCapture={() => setSaveNotice("")}
+        onWheelCapture={() => setSaveNotice("")} onKeyDownCapture={() => setSaveNotice("")}>
         <div className="lesson-scene-viewport" ref={setSceneFrame}>
         {!renderScene && <div className="lesson-scene-placeholder workspace-panel-surface">
           <span className="lesson-block-icon" aria-hidden="true">3D</span>
-          <p>{t(hasModel ? "lessons.addSceneHint" : "lessons.scenePlaceholder")}</p>
-          <button className="lesson-button" onClick={() => hasModel ? add() : openInspector()}>{t(hasModel ? "lessons.addStep" : "lessons.settings")}</button>
+          <p>{t("lessons.scenePlaceholder")}</p>
         </div>}
         </div>
-        {renderScene && <div className="lesson-scene-controls" ref={setSceneControls} />}
-      </div>
+        <div className="lesson-editor-hud">
+          <LessonModelSetup catalog={catalog} modelId={lesson.modelId} modelIds={modelIds} targetId={sceneTargetId}
+            visibleIds={visibleIds} selectedPart={revealPart?.id} onSelectPart={(id, target) => setRevealPart({ id, target })}
+            onModel={changeModel} onChoose={addStructures}
+            onChangeScene={ids => lesson.modelId ? updateScene(ids) : addStructures(ids)} />
+          {renderScene && <div className="lesson-scene-controls" ref={setSceneControls} />}
+        </div>
+      </div>}
       <section className="lesson-author-document workspace-panel-surface" id="lesson-author-writing"
         aria-label={t("lessons.writing")}>
         <div className="lesson-editor-stepbar">
           <button className="controls-info" disabled={index <= 0} onClick={() => select(lesson.steps[index - 1]?.id)} aria-label={t("lessons.previous")}><LineIcon name="arrow-small-left" /></button>
           <span>{active ? t("lessons.step", { current: index + 1, total: lesson.steps.length }) : t("lessons.details")}</span>
           <button className="controls-info" disabled={index < 0 || index >= lesson.steps.length - 1} onClick={() => select(lesson.steps[index + 1]?.id)} aria-label={t("lessons.next")}><LineIcon name="arrow-small-right" /></button>
-          <button className="lesson-button lesson-primary" onClick={add}>{t("lessons.addStep")}</button>
+          <button className="lesson-button lesson-primary" onClick={save}>{t(active ? "lessons.saveStep" : "lessons.saveDetails")}</button>
+          <button className="lesson-button" onClick={add}>{t("lessons.addStep")}</button>
         </div>
+        <p className="lesson-save-status" role="status">{saveFailed ? t("lessons.saveError") : saveNotice}</p>
         <div className="information-content">
           <div className="lesson-document-meta">
             <span>{t(active ? "lessons.learningStep" : "lessons.details")}</span>
@@ -225,7 +268,7 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
                 aria-label={value === "vi" ? "Tiếng Việt" : "English"} onClick={() => setLocale(value)}>{value.toUpperCase()}</button>)}
             </div>
           </div>
-          <label className="sr-only" htmlFor="lesson-write-title">{t(active ? "lessons.stepTitle" : "lessons.title")} ({editorLanguage.toUpperCase()})</label>
+          <label className={active ? "sr-only" : "lesson-details-label"} htmlFor="lesson-write-title">{t(active ? "lessons.stepTitle" : "lessons.title")} ({editorLanguage.toUpperCase()})</label>
           <input id="lesson-write-title" className="lesson-write-title" ref={titleField} value={title[editorLanguage]}
             placeholder={t(active ? "lessons.stepTitle" : "lessons.title")} lang={editorLanguage}
             onChange={event => {
@@ -233,20 +276,20 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
               if (active) updateActive({ ...active, title: value });
               else update({ title: value });
             }} />
-          <Suspense fallback={<p role="status">{t("lessons.loadingEditor")}</p>}>
+          {active ? <Suspense fallback={<p role="status">{t("lessons.loadingEditor")}</p>}>
             <RichEditor key={`${active?.id ?? lesson.id}/${editorLanguage}`} value={body} language={editorLanguage}
               label={`${t(active ? "lessons.instruction" : "lessons.summary")} (${editorLanguage.toUpperCase()})`}
               onChange={(value: LessonText) => {
                 if (active) updateActive({ ...active, instruction: value });
                 else update({ summary: value });
               }} />
-          </Suspense>
+          </Suspense> : <LessonDetails lesson={lesson} language={editorLanguage} onChange={update} />}
           {!active && !lesson.steps.length && <p className="lesson-document-hint">{t("lessons.firstBlock")}</p>}
           {active && <div className="lesson-step-management">
             <button className="lesson-button lesson-remove-block" onClick={remove}>{t("lessons.removeStep")}</button>
           </div>}
-          <LessonInspector catalog={catalog} lesson={lesson} active={active} scene={scene} locale={editorLanguage} targets={targets}
-            open={inspectorOpen} onModel={changeModel} onChange={updateActive} />
+          {active && <LessonStepOptions catalog={catalog} lesson={lesson} active={active} scene={scene} locale={editorLanguage} targets={targets}
+            onChange={updateActive} />}
         </div>
       </section>
     </div>

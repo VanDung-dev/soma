@@ -13,6 +13,7 @@ import "./style.css";
 import { lessonPlainText } from "./rich-text";
 import { LessonImageProvider } from "./image-context";
 import { storeLessonImages } from "./images";
+import { LessonCover } from "./cover";
 
 const searchable = (value: string) => value.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replaceAll("đ", "d");
 
@@ -27,6 +28,7 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
   const [importing, setImporting] = useState(false);
   const [query, setQuery] = useState("");
   const title = useRef<HTMLHeadingElement>(null);
+  const lastSaved = useRef<Lesson>(undefined);
 
   useEffect(() => {
     let active = true;
@@ -47,17 +49,20 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
   useEffect(() => { title.current?.focus(); }, [editing, preview]);
 
   function update(next: Lesson) {
-    const previous = lessons.find(lesson => lesson.id === next.id);
+    const previous = lastSaved.current?.id === next.id ? lastSaved.current : lessons.find(lesson => lesson.id === next.id);
     const revised = previous ? { ...next, version: previous.version + 1 } : next;
     try {
       saveLesson(revised, previous);
+      lastSaved.current = revised;
       setLessons(current => previous ? current.map(lesson => lesson.id === revised.id ? revised : lesson) : [...current, revised]);
       setPending(undefined);
       setError(undefined);
+      return true;
     } catch (cause) {
       console.error("Lesson draft save failed", cause);
       setPending(revised);
       setError("save");
+      return false;
     }
   }
 
@@ -75,6 +80,7 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
       if (previous && !window.confirm(t("lessons.confirmReplace", { name: lessonText(previous.title, language) || t("lessons.untitled") }))) return;
       if (images.size) await storeLessonImages(lesson.id, images);
       saveLesson(lesson, previous);
+      lastSaved.current = lesson;
       setLessons(current => previous ? current.map(item => item.id === lesson.id ? lesson : item) : [...current, lesson]);
       setError(undefined);
     } catch (cause) {
@@ -87,6 +93,7 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
     if (!window.confirm(t("lessons.confirmRemove"))) return;
     try {
       removeLesson(lesson);
+      if (lastSaved.current?.id === lesson.id) lastSaved.current = undefined;
       setLessons(current => current.filter(item => item.id !== lesson.id));
       setError(undefined);
     } catch (cause) {
@@ -95,19 +102,22 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
     }
   }
 
+  function leave() {
+    if (error === "save" && !window.confirm(t("lessons.confirmDiscard"))) return;
+    setPending(undefined);
+    setError(undefined);
+    setPreview(false);
+    navigate("/lessons");
+  }
+
   return <main className="lessons-screen" data-editor={!!draft && !preview} data-player={!!draft && preview}>
     {draft ? <>
       <LessonImageProvider key={draft.id} lesson={draft}>
       <WithLessonCatalog key={`${draft.id}/${preview ? "preview" : "editor"}`}>{catalog => preview
-        ? <LessonPlayer lesson={draft} catalog={catalog} preview onBack={() => setPreview(false)} />
+        ? <LessonPlayer lesson={draft} catalog={catalog} preview onBack={leave} onEdit={() => setPreview(false)} />
         : <LessonEditor catalog={catalog} lesson={draft} selected={selected} onSelect={setSelected}
           saveFailed={error === "save"} onChange={update} onPreview={() => setPreview(true)}
-          onBack={() => {
-            if (error === "save" && !window.confirm(t("lessons.confirmDiscard"))) return;
-            setPending(undefined);
-            setError(undefined);
-            navigate("/lessons");
-          }} />}
+          onBack={leave} />}
       </WithLessonCatalog>
       </LessonImageProvider>
     </> : editId ? <>
@@ -137,6 +147,7 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
         : !matching.length ? <p role="status">{t(lessons.length ? "lessons.noLessonMatches" : "lessons.empty")}</p>
           : <ul className="lesson-library">
             {matching.map(lesson => <li className="lesson-card" key={lesson.id}>
+              {lesson.cover && <LessonCover lesson={lesson} />}
               <h2>{lessonText(lesson.title, language) || t("lessons.untitled")}</h2>
               {lessonPlainText(lesson.summary, language) && <p>{lessonPlainText(lesson.summary, language)}</p>}
               <div className="lesson-actions">

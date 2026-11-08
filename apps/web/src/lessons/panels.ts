@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export function useLessonPanel(name: "editorOutline" | "editorSettings" | "readerOutline", initial: boolean) {
+export function useLessonPanel(name: "editorOutline" | "readerOutline", initial: boolean) {
   const key = `soma.lessons.panel:${name}`;
   const [open, setOpen] = useState(() => {
     try {

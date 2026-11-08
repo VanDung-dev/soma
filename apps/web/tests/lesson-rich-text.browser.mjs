@@ -28,7 +28,7 @@ export async function checkLessonRichText(page) {
   assert.equal(await lessonBody(page).locator('strong').textContent(), 'Quan sát mô hình');
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   assert.equal(await page.locator('.lesson-rich-content strong').textContent(), 'Quan sát mô hình');
-  await page.locator('.lesson-player-header button').first().click();
+  await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
   await page.reload();
   await page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: 'Định dạng' }).click();
   assert.equal(await lessonBody(page).locator('strong').textContent(), 'Quan sát mô hình');

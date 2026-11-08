@@ -35,6 +35,17 @@ export async function loadLessonImages(id: string) {
   } finally { db.close(); }
 }
 
+export async function loadLessonImage(id: string, path: string) {
+  const db = await database();
+  try {
+    return await new Promise<Blob | undefined>((resolve, reject) => {
+      const request = db.transaction("images").objectStore("images").get([id, path]);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  } finally { db.close(); }
+}
+
 export async function storeLessonImages(id: string, images: LessonImages) {
   const db = await database();
   try {

@@ -1,10 +1,38 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import './lesson-wasm.fixture.mjs';
+import { LessonPackage } from './lesson-wasm.fixture.mjs';
 import { lessonPreviewIssues, lessonSceneStep, lessonText, readLesson, validateLessonTargets } from '../src/lessons/contract.ts';
+import { lessonModels } from '../src/lessons/targets.ts';
 
 const text = en => ({ vi: '', en });
 const draft = { id: 'lesson-test', version: 1, title: text(''), summary: text(''), modelId: '', steps: [] };
+
+test('lesson models include every system needed by setup and authored scenes without duplicating shared parts', () => {
+  const catalog = { roots: [{ id: 'bones' }, { id: 'muscles' }, { id: 'joints' }],
+    members: id => ({ bones: ['jaw'], muscles: ['masseter'], joints: ['jaw', 'joint'], head: ['jaw', 'masseter'] })[id] ?? [] };
+  const lesson = { ...draft, modelId: 'bones', scene: { targetId: 'head' } };
+  assert.deepEqual(lessonModels(catalog, lesson), ['bones', 'muscles']);
+  assert.deepEqual(lessonModels(catalog, { ...lesson, steps: [{ kind: 'observe', targetId: 'joints', visibleIds: ['joint'] }] }), ['bones', 'muscles', 'joints']);
+  assert.deepEqual(lessonModels(catalog, { ...lesson, scene: { targetId: 'bones', visibleIds: [] } }), ['bones']);
+  assert.deepEqual(lessonModels(catalog, draft), []);
+});
+
+test('lesson setup preserves its scene before any steps exist and validates scene data', () => {
+  const scene = { targetId: 'model', visibleIds: ['1'], view: {
+    camera: { target: [0, 0, 0], yaw: 0, pitch: 0, distance: 4, pan: [0, 0] }, explosion: 20,
+  } };
+  const lesson = { ...draft, modelId: 'model', scene };
+  assert.deepEqual(readLesson(JSON.parse(JSON.stringify(lesson)), true), lesson);
+  const pack = new LessonPackage(JSON.stringify(lesson));
+  try {
+    const imported = LessonPackage.open('setup.lesson.br', pack.export());
+    try { assert.deepEqual(JSON.parse(imported.lesson_json()), lesson); }
+    finally { imported.free(); }
+  } finally { pack.free(); }
+  for (const invalid of [null, {}, { ...scene, visibleIds: ['1', '1'] }, { ...scene, view: { ...scene.view, explosion: 101 } }]) {
+    assert.throws(() => readLesson({ ...lesson, scene: invalid }, true));
+  }
+});
 
 test('rich lesson JSON keeps locale markers while legacy text remains unchanged', () => {
   const instruction = { vi: '<p><strong>Quan sát</strong> kỹ.</p>', en: 'Literal <b>text</b>', html: ['vi'] };
@@ -48,6 +76,30 @@ test('reading sections inherit the preceding scene with a stable initial fallbac
   assert.equal(lessonSceneStep(lesson, 2), skull, 'Jumping back must not inherit the last visited quiz');
   assert.equal(lessonSceneStep(lesson, 1), skull);
   assert.equal(lessonSceneStep({ ...draft, steps: [intro, notes] }, 1), undefined);
+});
+
+test('step visibility hides only the requested scene and retains its authored data', () => {
+  const scene = { id: 'first', kind: 'observe', title: text('Read'), instruction: text('Notes'), targetId: 'model', visibleIds: ['1'] };
+  const hidden = { ...scene, id: 'hidden', showModel: false };
+  const lesson = { ...draft, modelId: 'model', steps: [scene, hidden, { ...scene, id: 'last' }] };
+  assert.deepEqual(readLesson(lesson, true), lesson);
+  assert.equal(lessonSceneStep(lesson, 0), scene);
+  assert.equal(lessonSceneStep(lesson, 1), undefined);
+  assert.equal(lessonSceneStep(lesson, 2), lesson.steps[2]);
+  assert.deepEqual(hidden.visibleIds, ['1']);
+  const textOnly = { ...lesson, title: text('Text lesson'), modelId: '', steps: [{ ...hidden, targetId: '', visibleIds: [] }] };
+  assert.doesNotThrow(() => readLesson(textOnly));
+  assert.doesNotThrow(() => validateLessonTargets(textOnly, [], () => []));
+  for (const showModel of [null, 'false', 0]) assert.throws(() => readLesson({ ...lesson, steps: [{ ...scene, showModel }] }, true));
+  assert.throws(() => readLesson({ ...lesson, steps: [{ ...hidden, kind: 'identify_structure', choiceIds: [], answerId: '', explanation: text('') }] }, true));
+});
+
+test('cover paths are validated independently of the plain summary', () => {
+  const cover = 'images/' + 'a'.repeat(64) + '.webp';
+  assert.deepEqual(readLesson({ ...draft, cover }, true).cover, cover);
+  for (const invalid of [null, '', 'https://example.com/a.png', '../cover.png', 'images/x.svg']) {
+    assert.throws(() => readLesson({ ...draft, cover: invalid }, true));
+  }
 });
 
 test('draft preview identifies unfinished sections without changing content or export validation', () => {

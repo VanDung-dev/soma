@@ -99,7 +99,7 @@ export async function checkLessonReader(page) {
   await page.getByRole('status').filter({ hasText: 'Thêm ít nhất hai phương án' }).waitFor();
   await page.getByRole('button', { name: 'Bước tiếp theo', exact: true }).click();
   await page.getByRole('heading', { name: 'Tổng kết', exact: true }).waitFor();
-  await page.locator('.lesson-player-header button').first().click();
+  await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Xuất .lesson.br', exact: true }).click();
   assert((await download).suggestedFilename().endsWith('.lesson.br'), 'Unfinished drafts can be exported as portable packages for testing');

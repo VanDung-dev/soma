@@ -12,21 +12,22 @@ export async function checkLessonEditorLayout(page) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.evaluate(lesson => {
     localStorage.setItem('soma.lesson:' + lesson.id, JSON.stringify(lesson));
-    for (const name of ['editorOutline', 'editorSettings', 'readerOutline']) localStorage.removeItem('soma.lessons.panel:' + name);
+    for (const name of ['editorOutline', 'readerOutline']) localStorage.removeItem('soma.lessons.panel:' + name);
   }, lesson);
   await page.goto('/lessons/' + lesson.id + '/edit');
   const outline = page.locator('#lesson-author-outline');
-  const settings = page.locator('#lesson-author-inspector');
+  const settings = page.locator('.lesson-step-options');
   const document = page.locator('#lesson-author-writing');
   const model = page.locator('.lesson-scene-region');
   const saved = () => page.evaluate(id => JSON.parse(localStorage.getItem('soma.lesson:' + id)), lesson.id);
   const choose = name => outline.locator('.lesson-outline-row').filter({ hasText: name }).click();
   await page.getByLabel('Tên bài học (VI)').waitFor();
   assert(await outline.isVisible());
-  assert(await settings.isVisible());
+  assert.equal(await settings.count(), 0);
+  assert.equal(await model.count(), 0, 'Lesson details have no 3D workspace');
+  await choose('Một');
   await model.locator('.model-canvas[aria-busy="false"]').waitFor();
   await page.evaluate(() => { window.editorCanvas = document.querySelector('.lesson-scene-region canvas'); });
-  await choose('Một');
   await lessonBody(page).fill('Đã sửa nội dung Một');
   await choose('Hai');
   assert(await outline.isVisible());
@@ -62,19 +63,17 @@ export async function checkLessonEditorLayout(page) {
   assert(await settings.isVisible());
   assert(await page.evaluate(() => window.editorCanvas === document.querySelector('.lesson-scene-region canvas')));
   await page.locator('#lesson-toggle-outline').click();
-  await page.locator('#lesson-toggle-inspector').click();
   await page.reload();
   await page.getByLabel('Tên bài học (VI)').waitFor();
   assert(await outline.isHidden());
-  assert(await settings.isHidden());
+  assert.equal(await settings.count(), 0);
   await document.getByRole('button', { name: 'Thêm bước học', exact: true }).click();
   assert.equal((await saved()).steps.length, 4, 'Adding a step must not require opening the outline');
   assert(await outline.isHidden());
-  assert(await settings.isHidden());
+  assert(await settings.isVisible());
   await page.getByLabel('Tên mục (VI)').fill('Bốn');
   await lessonBody(page).fill('Nội dung Bốn');
   await page.locator('#lesson-toggle-outline').click();
-  await page.locator('#lesson-toggle-inspector').click();
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   const readerOutline = page.locator('.lesson-reader-outline');
   const readerToggle = page.getByRole('button', { name: 'Mục lục', exact: true });
@@ -83,7 +82,7 @@ export async function checkLessonEditorLayout(page) {
   assert(await readerOutline.isVisible());
   await page.getByRole('button', { name: 'Bước tiếp theo', exact: true }).click();
   assert(await readerOutline.isVisible());
-  await page.locator('.lesson-player-header button').first().click();
+  await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
   await page.getByLabel('Tên mục (VI)').waitFor();
   assert(await outline.isVisible());
   assert(await settings.isVisible());
@@ -100,7 +99,7 @@ export async function checkLessonEditorLayout(page) {
   await readerToggle.click();
   assert(await readerOutline.isVisible());
   assert(await page.locator('.lessons-screen').evaluate(node => node.scrollWidth <= node.clientWidth));
-  await page.locator('.lesson-player-header button').first().click();
+  await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
   await page.getByLabel('Tên mục (VI)').waitFor();
   assert(await outline.isVisible());
   assert((await outline.locator('.catalog-tree').boundingBox()).height >= 70, 'Mobile outline needs usable space for selecting steps');
@@ -122,7 +121,7 @@ export async function checkLessonEditorLayout(page) {
   await page.locator('#lesson-toggle-outline').click();
   assert(await outline.isVisible(), 'Panel toggles remain usable when preference storage is blocked');
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
-  await page.locator('.lesson-player-header button').first().click();
+  await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
   await page.getByLabel('Tên mục (VI)').waitFor();
   assert(await settings.isVisible(), 'Blocked panel storage must fall back to accessible inline settings');
 }

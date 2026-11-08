@@ -1,4 +1,4 @@
-import { lessonBody } from './lesson-editor-tools.mjs';
+import { lessonBody, selectLessonModel } from './lesson-editor-tools.mjs';
 import assert from 'node:assert/strict';
 import { checkLessonReader } from './lesson-reader.browser.mjs';
 import { checkLessonScenes } from './lesson-scenes.browser.mjs';
@@ -6,6 +6,7 @@ import { checkLessonEditorLayout } from './lesson-editor-layout.browser.mjs';
 import { checkLessonRichText } from './lesson-rich-text.browser.mjs';
 import { checkLessonOutlineTouch } from './lesson-outline-touch.browser.mjs';
 import { checkLessonImages } from './lesson-images.browser.mjs';
+import { checkLessonEditorExperience } from './lesson-editor-experience.browser.mjs';
 
 export async function checkLessons(page) {
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -49,16 +50,15 @@ export async function checkLessons(page) {
   await page.getByRole('button', { name: 'Bước tiếp theo', exact: true }).click();
   await page.getByRole('heading', { name: 'Mục chưa đặt tên', exact: true }).waitFor();
   assert(await page.getByRole('button', { name: 'Hoàn thành', exact: true }).isEnabled());
-  await page.locator('.lesson-player-header button').first().click();
+  await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
   assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:' + location.pathname.split('/')[2]))), incomplete);
-  const compose = page.getByRole('button', { name: 'Chọn cấu trúc hiển thị', exact: true });
-  assert.equal(await compose.count(), 0);
-  assert.equal(await page.locator('#lesson-author-inspector .structure-search-field').count(), 0);
-  await page.getByLabel('Mô hình 3D của bài học').selectOption('collection:cc46df69f8495544');
+  const compose = page.getByRole('button', { name: 'Thiết lập 3D', exact: true });
+  assert.equal(await page.locator('#lesson-author-inspector').count(), 0);
+  await selectLessonModel(page, 'collection:cc46df69f8495544');
   assert(await compose.isEnabled());
   await compose.click();
-  const scene = page.locator('#lesson-scene-structures:popover-open');
-  const modelCount = Number(await scene.locator('.structure-tree > li > .tree-row .tree-count span').first().textContent());
+  const scene = page.locator('#lesson-model-settings:popover-open');
+  const modelCount = Number(await scene.locator('.structure-tree > li[data-target-id="collection:cc46df69f8495544"] > .tree-row .tree-count span').first().textContent());
   await page.keyboard.press('Escape');
   const search = page.locator('.structure-search-popover:popover-open');
   const frame = page.locator('.lesson-scene-region');
@@ -69,9 +69,9 @@ export async function checkLessons(page) {
   assert.equal(await explode.inputValue(), '100');
   await explode.press('Home');
   assert.equal(await explode.inputValue(), '0');
-  await frame.getByRole('button', { name: 'Tìm bộ phận trong bài' }).click();
-  await search.getByRole('option').first().waitFor();
-  await search.getByRole('combobox').press('Enter');
+  await frame.getByRole('button', { name: 'Tìm và thêm cấu trúc 3D' }).click();
+  await search.getByRole('combobox').fill('optic nerve');
+  await search.locator('[role="option"][data-structure-id]').first().click();
   const part = frame.getByRole('region', { name: 'Thông tin bộ phận' });
   await part.getByRole('heading').waitFor();
   await part.getByRole('button', { name: 'Xem riêng bộ phận' }).click();
@@ -83,7 +83,7 @@ export async function checkLessons(page) {
   assert((await frame.evaluate(node => node.clientWidth)) > width);
   await page.locator('#lesson-toggle-outline').click();
   assert(await page.locator('#lesson-author-outline').isVisible());
-  assert(await page.locator('#lesson-author-inspector').isVisible());
+  assert(await page.locator('.lesson-step-options').isVisible());
   await page.locator('#lesson-toggle-outline').click();
 
   await page.setViewportSize({ width: 320, height: 700 });
@@ -91,9 +91,9 @@ export async function checkLessons(page) {
   assert(await explode.evaluate(node => node.closest('fieldset').getBoundingClientRect().width <= 320));
   assert((await frame.locator('.lesson-scene-viewport').boundingBox()).height >= 140, 'Mobile authoring must leave room to inspect the model');
   assert(await page.locator('#lesson-author-outline').isHidden());
-  assert(await page.locator('#lesson-author-inspector').isVisible());
+  assert(await page.locator('.lesson-step-options').isVisible());
   await compose.click();
-  assert.equal(await scene.locator('.structure-tree > li').count(), 1);
+  assert.equal(await scene.locator('.structure-tree > li').count(), 9);
   assert(await scene.evaluate(node => node.scrollWidth <= node.clientWidth));
   await scene.getByRole('button', { name: 'Ẩn tất cả', exact: true }).click();
   await scene.getByRole('status').filter({ hasText: '0 cấu trúc' }).waitFor();
@@ -106,11 +106,13 @@ export async function checkLessons(page) {
   assert(await compose.evaluate(node => node === document.activeElement));
 
   const model = page.getByLabel('Mô hình 3D của bài học');
+  await page.locator('.lesson-model-toolbar > button[popovertarget="lesson-model-settings"]').click();
   page.once('dialog', dialog => dialog.dismiss());
   await model.selectOption('collection:baf3076d0495a617');
   assert.equal(await model.inputValue(), 'collection:cc46df69f8495544');
   page.once('dialog', dialog => dialog.accept());
   await model.selectOption('collection:baf3076d0495a617');
+  await page.getByRole('button', { name: 'Đóng thiết lập 3D', exact: true }).click();
   const revised = await page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:' + location.pathname.split('/')[2])));
   assert.equal(revised.steps[1].targetId, 'collection:baf3076d0495a617');
   assert.equal(revised.steps[1].visibleIds, undefined);
@@ -123,10 +125,9 @@ export async function checkLessons(page) {
   const added = await page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:' + location.pathname.split('/')[2])));
   assert.equal(added.steps[2].targetId, added.modelId);
   assert(await compose.isEnabled());
-  await checkLessonReader(page);
-  await checkLessonScenes(page);
-  await checkLessonEditorLayout(page);
-  await checkLessonRichText(page);
-  await checkLessonOutlineTouch(page);
-  await checkLessonImages(page);
+  for (const check of [checkLessonReader, checkLessonScenes, checkLessonEditorLayout, checkLessonRichText,
+    checkLessonOutlineTouch, checkLessonEditorExperience, checkLessonImages]) {
+    console.log(check.name);
+    await check(page);
+  }
 }

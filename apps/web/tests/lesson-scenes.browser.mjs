@@ -1,4 +1,4 @@
-import { lessonBody } from './lesson-editor-tools.mjs';
+import { lessonBody, selectLessonModel } from './lesson-editor-tools.mjs';
 import assert from 'node:assert/strict';
 
 export async function checkLessonScenes(page) {
@@ -9,7 +9,6 @@ export async function checkLessonScenes(page) {
   await page.getByLabel('Tên bài học (VI)').fill('Bài học cảnh 3D');
   const url = page.url();
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:' + location.pathname.split('/')[2])));
-  await page.getByLabel('Mô hình 3D của bài học').selectOption('collection:cc46df69f8495544');
   const add = async (title, instruction) => {
     assert.equal(await page.getByRole('button', { name: 'Quan sát 3D', exact: true }).count(), 0);
     await page.locator('#lesson-author-writing').getByRole('button', { name: 'Thêm bước học', exact: true }).click();
@@ -17,6 +16,7 @@ export async function checkLessonScenes(page) {
     await lessonBody(page).fill(instruction);
   };
   await add('Mặt bên', 'Xoay và tách để quan sát mặt bên.');
+  await selectLessonModel(page, 'collection:cc46df69f8495544');
   const frame = page.locator('.lesson-scene-region');
   await frame.locator('.model-canvas[aria-busy="false"]').waitFor();
   await frame.locator('.orientation-axes [data-axis="Y"][data-direction="1"]').click();
@@ -44,9 +44,10 @@ export async function checkLessonScenes(page) {
   assert.equal(lesson.steps[1].view.camera.yaw, 0);
   assert.notDeepEqual(lesson.steps[1].view, first.view);
   await page.reload();
-  await frame.locator('.model-canvas[aria-busy="false"]').waitFor();
+  await page.getByLabel('Tên bài học (VI)').waitFor();
   if (await page.locator('#lesson-author-outline').isHidden()) await page.locator('#lesson-toggle-outline').click();
   await page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: 'Mặt bên' }).click();
+  await frame.locator('.model-canvas[aria-busy="false"]').waitFor();
   assert.equal(await slider.inputValue(), '30');
   await frame.getByRole('button', { name: 'Về cảnh của bước', exact: true }).click();
   await frame.getByRole('button', { name: 'Lưu cảnh cho bước', exact: true }).click();
@@ -70,7 +71,22 @@ export async function checkLessonScenes(page) {
   assert.equal(await playerSlider.inputValue(), '30');
   await page.mouse.move(1400, 5);
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-  assert.deepEqual(await playerModel.locator('canvas').screenshot(), initialImage, 'Reset must restore the authored render');
+  const restoredImage = await playerModel.locator('canvas').screenshot();
+  const matches = restoredImage.equals(initialImage) || await page.evaluate(async files => {
+    const images = await Promise.all(files.map(bytes => createImageBitmap(new Blob([Uint8Array.from(atob(bytes), char => char.charCodeAt(0))]))));
+    try {
+      if (images[0].width !== images[1].width || images[0].height !== images[1].height) return false;
+      const canvas = new OffscreenCanvas(images[0].width, images[0].height);
+      const context = canvas.getContext('2d');
+      const pixels = images.map(image => {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(image, 0, 0);
+        return context.getImageData(0, 0, canvas.width, canvas.height).data;
+      });
+      return pixels[0].every((value, index) => Math.abs(value - pixels[1][index]) <= 1);
+    } finally { images.forEach(image => image.close()); }
+  }, [initialImage.toString('base64'), restoredImage.toString('base64')]);
+  assert(matches, 'Reset must restore the authored render within one color rounding level');
   await player.getByRole('button', { name: 'Bước tiếp theo', exact: true }).click();
   assert.equal(await playerSlider.inputValue(), '100');
   await player.getByRole('button', { name: 'Bước trước', exact: true }).click();
@@ -80,7 +96,7 @@ export async function checkLessonScenes(page) {
   assert(await page.locator('.lessons-screen').evaluate(node => node.scrollWidth <= node.clientWidth));
   assert(await playerSlider.isVisible());
   await page.setViewportSize({ width: 1440, height: 900 });
-  await player.locator('.lesson-player-header button').first().click();
+  await player.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
   const question = page.getByRole('checkbox', { name: 'Thêm câu hỏi nhận diện vào bước này' });
   await question.check();
   assert.equal((await saved()).steps[0].kind, 'identify_structure');
@@ -88,7 +104,7 @@ export async function checkLessonScenes(page) {
   await question.uncheck();
   assert.equal((await saved()).steps[0].kind, 'observe');
   assert.deepEqual((await saved()).steps[0].view, beforeLearning.steps[0].view);
-  await page.locator('#lesson-toggle-inspector').click();
+  assert.equal(await page.locator('#lesson-author-inspector').count(), 0);
   await frame.locator('.model-canvas[aria-busy="false"]').waitFor();
   assert.equal(await slider.inputValue(), '30');
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();

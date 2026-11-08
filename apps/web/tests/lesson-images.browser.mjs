@@ -87,7 +87,7 @@ export async function checkLessonImages(page) {
   assert(await page.locator('.lessons-screen').evaluate(node => node.scrollWidth <= node.clientWidth));
   assert(await rendered.evaluateAll(images => images.every(img => img.getBoundingClientRect().width <= img.parentElement.clientWidth)));
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.locator('.lesson-player-header button').first().click();
+  await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
   const downloadEvent = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Xuất .lesson.br', exact: true }).click();
   const download = await downloadEvent;

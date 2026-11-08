@@ -10,9 +10,10 @@ function Magnifier() {
   </svg>;
 }
 
-export const StructureSearch = memo(function StructureSearch({ catalog, disabled, onSelect, targetIds, structureIds, label, value }: {
+export const StructureSearch = memo(function StructureSearch({ catalog, disabled, onSelect, targetIds, structureIds, label, value, compact = false }: {
   catalog: Catalog; disabled: boolean; onSelect: (id: string) => void;
   targetIds?: readonly string[]; structureIds?: readonly string[]; label?: string; value?: string;
+  compact?: boolean;
 }) {
   const id = useId();
   const { language, t } = useLanguage();
@@ -105,10 +106,10 @@ export const StructureSearch = memo(function StructureSearch({ catalog, disabled
       </form>
     </section>;
   return <>
-    <button ref={trigger} className="structure-search-field" data-labeled={!!label || undefined}
+    <button ref={trigger} className="structure-search-field" data-labeled={!!label && !compact || undefined}
       type="button" disabled={disabled} popoverTarget={id}
       aria-label={value ? `${label ?? t("search.submit")} · ${value}` : label ?? t("search.submit")}
-      title={label ?? t("search.submit")}><Magnifier />{label && <span>{value ?? label}</span>}</button>
+      title={label ?? t("search.submit")}><Magnifier />{label && !compact && <span>{value ?? label}</span>}</button>
     {typeof document === "undefined" ? dialog : createPortal(dialog, document.body)}
   </>;
 });

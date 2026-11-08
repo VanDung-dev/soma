@@ -8,17 +8,18 @@ import { viewportInFrame } from "../anatomy/viewer/layout";
 import { ViewerRuntime } from "../anatomy/viewer/runtime";
 import { shortcutAction } from "../shortcuts";
 
-export function useLessonViewer(catalog: Catalog, modelId: string, onPick?: (id: string) => void, frame?: HTMLElement,
+export function useLessonViewer(catalog: Catalog, modelId: string | readonly string[], onPick?: (id: string) => void, frame?: HTMLElement,
   onEditVisibility?: (hiddenIds: string[]) => void, allowSeparation = true) {
   const host = useRef<HTMLDivElement>(null);
   const orientation = useRef<OrientationAxesHandle>(null);
   const [graphics] = useState(readGraphicsSettings);
   const [hold, setHold] = useState<{ x: number; y: number; action: "hide" | "move" } | null>(null);
   const [snapTarget, setSnapTarget] = useState("");
+  const modelKey = typeof modelId === "string" ? modelId : modelId.join(",");
   const canSeparate = useEffectEvent(() => allowSeparation);
-  const session = useMemo(() => new StudySession(catalog), [catalog, modelId]);
+  const session = useMemo(() => new StudySession(catalog), [catalog, modelKey]);
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
-  useCameraKeys(!modelId || state.building || state.error, session.control, host);
+  useCameraKeys(!modelKey || state.building || state.error, session.control, host);
   const hide = useEffectEvent((ids: string[]) => {
     if (!allowSeparation || !session.changeVisibility(ids, false)) return false;
     onEditVisibility?.(ids);
@@ -26,9 +27,10 @@ export function useLessonViewer(catalog: Catalog, modelId: string, onPick?: (id:
   });
 
   useEffect(() => {
-    if (!modelId || !host.current) return;
-    const root = catalog.roots.find(root => root.id === modelId);
-    if (!root) {
+    if (!modelKey || !host.current) return;
+    const ids = modelKey.split(",");
+    const roots = catalog.roots.filter(root => ids.includes(root.id));
+    if (roots.length !== ids.length) {
       session.updateViewer({ error: true, building: false, status: "loadError" });
       return;
     }
@@ -54,9 +56,9 @@ export function useLessonViewer(catalog: Catalog, modelId: string, onPick?: (id:
     canvasHost.addEventListener("keydown", keyDown);
     session.connect(viewer);
     viewer.setGraphics(graphics);
-    void viewer.start(catalog, [root]);
+    void viewer.start(catalog, roots);
     return () => { canvasHost.removeEventListener("keydown", keyDown); session.disconnect(viewer); viewer.dispose(); };
-  }, [catalog, frame, graphics, modelId, onPick, session]);
+  }, [catalog, frame, graphics, modelKey, onPick, session]);
 
   return { host, orientation, showAxes: graphics.showAxes, session, state, hold, snapTarget };
 }
