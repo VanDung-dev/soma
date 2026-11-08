@@ -164,6 +164,12 @@ fn strings(value: &Value) -> bool {
     })
 }
 
+fn scene(value: &Value) -> bool {
+    value["targetId"].is_string()
+        && value.get("view").is_none_or(view)
+        && value.get("visibleIds").is_none_or(strings)
+}
+
 pub fn validate(lesson: &Value, draft: bool) -> Result<(), ValidationError> {
     if !lesson.is_object()
         || !slug(&lesson["id"])
@@ -172,7 +178,11 @@ pub fn validate(lesson: &Value, draft: bool) -> Result<(), ValidationError> {
             .is_some_and(|version| (1..=9_007_199_254_740_991).contains(&version))
         || !localized(&lesson["title"], !draft)
         || !localized(&lesson["summary"], false)
+        || lesson
+            .get("cover")
+            .is_some_and(|cover| !cover.as_str().is_some_and(image_path))
         || !lesson["modelId"].is_string()
+        || lesson.get("scene").is_some_and(|value| !scene(value))
         || !lesson["steps"].is_array()
         || !draft && lesson["steps"].as_array().is_none_or(Vec::is_empty)
     {
@@ -190,6 +200,9 @@ pub fn validate(lesson: &Value, draft: bool) -> Result<(), ValidationError> {
             || !ids.insert(step["id"].as_str().unwrap())
             || !localized(&step["title"], !draft)
             || !localized(&step["instruction"], !draft)
+            || step
+                .get("showModel")
+                .is_some_and(|value| !value.is_boolean())
         {
             return Err(error(
                 "stepText",
@@ -198,15 +211,22 @@ pub fn validate(lesson: &Value, draft: bool) -> Result<(), ValidationError> {
             ));
         }
         if step["kind"] != "text"
-            && (!step["targetId"].is_string()
-                || !draft && (lesson["modelId"] == "" || step["targetId"] == "")
-                || step.get("view").is_some_and(|value| !view(value))
-                || step.get("visibleIds").is_some_and(|value| !strings(value)))
+            && (!scene(step)
+                || !draft
+                    && step["showModel"] != false
+                    && (lesson["modelId"] == "" || step["targetId"] == ""))
         {
             return Err(error(
                 "target",
                 number,
                 format!("Step {number} needs a model and a structure."),
+            ));
+        }
+        if step["kind"] == "identify_structure" && step["showModel"] == false {
+            return Err(error(
+                "target",
+                number,
+                "Identification needs a visible model.",
             ));
         }
         if step["kind"] != "text"
@@ -248,7 +268,7 @@ pub fn validate_targets(
     let model: HashSet<_> = ids.iter().collect();
     let empty = Vec::new();
     for (index, step) in lesson["steps"].as_array().into_iter().flatten().enumerate() {
-        if step["kind"] == "text" {
+        if step["kind"] == "text" || step["showModel"] == false {
             continue;
         }
         let target = members
@@ -332,6 +352,12 @@ pub fn preview_issues(
 
 pub fn scene_index(lesson: &Value, index: usize) -> Option<usize> {
     let steps = lesson["steps"].as_array()?;
+    if steps
+        .get(index)
+        .is_some_and(|step| step["showModel"] == false)
+    {
+        return None;
+    }
     let scene = |(_, step): &(usize, &Value)| step["kind"] != "text";
     steps
         .iter()
@@ -351,6 +377,9 @@ pub fn image_paths(lesson: &Value) -> BTreeSet<String> {
         }
     }
     let mut paths = BTreeSet::new();
+    if let Some(cover) = lesson["cover"].as_str().filter(|path| image_path(path)) {
+        paths.insert(cover.to_owned());
+    }
     for text in texts {
         for locale in text["html"]
             .as_array()
