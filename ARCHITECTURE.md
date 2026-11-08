@@ -78,9 +78,14 @@ Camera → MediaPipe worker → Rust HandGestureController → StudySession.cont
 - Lessons apply authored scenes through `StudySession.applyScene`; Rust validates and restores
 visibility, camera pose and explosion. Camera poses adapt to the host viewport. Learner controls 
 change only the active session; saving an editor scene explicitly updates lesson data.
+The legacy optional lesson-level `scene` remains a fallback. Per-step `showModel`
+controls authored visibility without deleting the scene. Lessons derive
+the required source systems from authored structure IDs and load them through the shared runtime.
 - Lesson JSON uses localStorage with optimistic replacement checks; binary images use
 IndexedDB under immutable content-hash paths. Rich HTML is sanitized before display;
-blob URLs are scoped to an opened lesson and revoked on disposal. Rust core owns
+blob URLs are scoped to an opened lesson or library cover and revoked on disposal.
+Lesson details use plain text and an optional `cover` image reference; covers share
+the existing image storage, validation and package resource contract. Rust core owns
 lesson schema, scenes, target/choice validation, image references and filenames.
 Rust content owns USTAR, Brotli, package manifests, image decoding/hashes and limits;
 the worker calls its WASM bindings. New image uploads use the bundled Squoosh WebP

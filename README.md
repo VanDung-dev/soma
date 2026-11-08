@@ -112,26 +112,34 @@ Blender exports use its bundled Python.
 
 ## Lessons
 
-Open **Lessons** and create a draft. Use **Add learning step** in the outline,
-then write the step's title and explanation on the right. Choose one shared
-anatomy model in Settings. Each step combines its content and a 3D scene; a new
-step starts from the preceding authored scene. Enable an identification question
-in the step's Settings to add answer choices. Lessons without a model remain
-text-only. After selecting a model, use **Choose visible structures** to combine
-groups or toggle individual parts using the Anatomy tree.
+Open **Lessons** and create a draft. **Lesson details** contains a title, a plain
+short description and an optional cover image for the library card. It has no 3D
+viewer or rich-text editor. Covers use the same local image storage, validation,
+compression and package resources as content images.
 
-On desktop, the editor opens with a docked outline and settings below the writing
-fields. Selecting or adding a step keeps both visible and leaves the model usable.
+Use **Add learning step** in the outline, then write the step's title and explanation
+on the right. Use **Find and add 3D structures** in the model HUD to choose a part or group directly; Soma selects its
+anatomy systems automatically, including groups and scenes spanning several systems.
+**3D settings** in that HUD combines system selection, the structure tree and
+show/hide/reset actions. The editor has one structure search; choosing an existing
+part also opens its information bar along the bottom of the canvas. Each step has
+a **Show the 3D model in this step** option. Hiding it preserves the authored scene,
+and the learner gets the full reading area for that step. Identification questions
+require a visible model. New steps inherit the preceding scene and visibility.
+Enable an identification question in the step options to add answer choices.
+
+On desktop, the editor opens with a docked outline and step options below the writing
+fields. Selecting or adding a step keeps the outline visible and leaves the model usable.
 Drag each outline item's handle to reorder with mouse or touch; hold near the
 scrolling area's edge to move through long outlines. With keyboard focus on the
 handle, Space picks up/drops the item, arrows move it, Home/End choose the first/last
 position, and Escape cancels without saving. Previous/next and Add learning step are also available
 above the writing fields. The outline's Add button stays outside its scrolling list.
-Outline and settings can be hidden independently; their preferences survive
-preview, reopening and reload when browser storage is available. On small screens,
+The outline can be hidden; its preference survives preview, reopening and reload
+when browser storage is available. On small screens,
 an open outline takes a compact area above the model and writing workspace.
 
-The content field uses [TinyMCE Community self-hosted](https://www.tiny.cloud/get-tiny/self-hosted/), bundled from the `tinymce` npm package, with headings,
+The step content field uses [TinyMCE Community self-hosted](https://www.tiny.cloud/get-tiny/self-hosted/), bundled from the `tinymce` npm package, with headings,
 emphasis, lists, links, tables and local images. The image button opens TinyMCE's
 image dialog; use **Browse files** beside Source to choose a PNG, JPEG or WebP.
 Before storage, a worker uses Squoosh's bundled WebP encoder to compress new
@@ -156,8 +164,11 @@ While editing, use the Anatomy mouse controls to rotate, pan, zoom, Shift-drag
 select, hold left to detach and move, or hold right to hide. Hiding updates the
 section's visible structures. The shared explosion slider supports automatic
 separation; restore manually moved parts with the restore button or T before
-using it. Rotate, pan, zoom and adjust explosion, then press **Save step scene**
-to store the camera, explosion and current visible set. Visibility changes also
+using it. Rotate, pan, zoom and adjust explosion, then press **Save step** above the
+writing fields to save the content, camera, explosion and current visible set.
+Successful saves show a confirmation; failed saves keep the draft open with an error.
+**Save details** saves the title, short description and cover reference.
+**Save step scene** in the model pane saves just the scene. Visibility changes also
 autosave from the structure tree and hide gesture. Camera and explosion changes
 stay temporary until explicitly saved. Manual offsets are not stored: restore
 manually moved parts before saving. **Reset step scene** reapplies the authored
@@ -165,6 +176,10 @@ view. Source structure IDs and lesson/step IDs remain stable.
 
 Preview runs the lesson as a learner sees it. In identification
 exercises, part names in the 3D viewer become available after a correct answer.
+Both editor and preview exit to the lesson library. Preview has a separate **Edit**
+button to return to the active editor, an outline toggle on the left and a centered
+lesson heading. Structure search uses a magnifier button in both modes. In preview,
+part information sits above the explosion slider in the same controls stack.
 The learner keeps one 3D viewer on the left and independently scrolling content
 on the right. The learner outline is a docked panel: it stays open while selecting
 steps or interacting with the model, until explicitly closed. Its visibility
@@ -228,7 +243,11 @@ deferred.
 The editor keeps lesson and step IDs stable across edits. Model roots, step targets
 and identification choices reference Soma catalog IDs. Optional step `visibleIds`
 lists exact source structure IDs; when absent, the step uses its target membership.
-Optional `view` stores a viewport-adapted camera pose and explosion level. Localized
+Optional `view` stores a viewport-adapted camera pose and explosion level. An optional
+legacy lesson-level `scene` remains readable as a scene fallback. Optional `cover`
+references a packaged image, and each step's optional `showModel` controls whether
+its 3D pane appears. Required model
+systems are derived from the saved source structure IDs. Localized
 text fields retain `vi` and `en` strings; optional `html: ["vi", "en"]` marks only the
 locales containing rich HTML. An absent marker means plain text. Practice answers
 are checked on the device.
