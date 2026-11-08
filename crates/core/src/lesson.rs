@@ -170,6 +170,42 @@ fn scene(value: &Value) -> bool {
         && value.get("visibleIds").is_none_or(strings)
 }
 
+fn questions_enabled(step: &Value) -> bool {
+    step["mode"] != "content"
+        && (step["mode"] == "questions"
+            || step["mode"] == "content_questions"
+            || step["kind"] == "identify_structure"
+            || step["questions"]
+                .as_array()
+                .is_some_and(|questions| !questions.is_empty()))
+}
+
+fn questions(value: &Value, required: bool) -> bool {
+    let Some(questions) = value.as_array() else {
+        return false;
+    };
+    let mut ids = HashSet::new();
+    (!required || !questions.is_empty())
+        && questions.iter().all(|question| {
+            let mut choices = HashSet::new();
+            slug(&question["id"])
+                && ids.insert(question["id"].as_str().unwrap())
+                && localized(&question["prompt"], required)
+                && localized(&question["explanation"], false)
+                && question["answerId"].is_string()
+                && question["choices"].as_array().is_some_and(|items| {
+                    (!required || items.len() >= 2)
+                        && items.iter().all(|choice| {
+                            choice["id"]
+                                .as_str()
+                                .is_some_and(|id| !id.is_empty() && choices.insert(id))
+                                && localized(&choice["text"], required)
+                        })
+                        && (!required || choices.contains(question["answerId"].as_str().unwrap()))
+                })
+        })
+}
+
 pub fn validate(lesson: &Value, draft: bool) -> Result<(), ValidationError> {
     if !lesson.is_object()
         || !slug(&lesson["id"])
@@ -199,7 +235,13 @@ pub fn validate(lesson: &Value, draft: bool) -> Result<(), ValidationError> {
             || !slug(&step["id"])
             || !ids.insert(step["id"].as_str().unwrap())
             || !localized(&step["title"], !draft)
-            || !localized(&step["instruction"], !draft)
+            || !localized(&step["instruction"], !draft && step["mode"] != "questions")
+            || step.get("mode").is_some_and(|mode| {
+                !matches!(
+                    mode.as_str(),
+                    Some("content" | "questions" | "content_questions")
+                )
+            })
             || step
                 .get("showModel")
                 .is_some_and(|value| !value.is_boolean())
@@ -208,6 +250,20 @@ pub fn validate(lesson: &Value, draft: bool) -> Result<(), ValidationError> {
                 "stepText",
                 number,
                 format!("Step {number} needs a title and instructions."),
+            ));
+        }
+        if step
+            .get("questions")
+            .is_some_and(|value| !questions(value, !draft && questions_enabled(step)))
+            || !draft
+                && questions_enabled(step)
+                && step["kind"] != "identify_structure"
+                && step.get("questions").is_none()
+        {
+            return Err(error(
+                "choices",
+                number,
+                format!("Step {number} needs complete questions, choices and correct answers."),
             ));
         }
         if step["kind"] != "text"
@@ -374,6 +430,12 @@ pub fn image_paths(lesson: &Value) -> BTreeSet<String> {
         texts.extend([&step["title"], &step["instruction"]]);
         if step["kind"] == "identify_structure" {
             texts.push(&step["explanation"]);
+        }
+        for question in step["questions"].as_array().into_iter().flatten() {
+            texts.extend([&question["prompt"], &question["explanation"]]);
+            for choice in question["choices"].as_array().into_iter().flatten() {
+                texts.push(&choice["text"]);
+            }
         }
     }
     let mut paths = BTreeSet::new();

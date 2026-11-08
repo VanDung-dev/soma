@@ -81,6 +81,12 @@ change only the active session; saving an editor scene explicitly updates lesson
 The legacy optional lesson-level `scene` remains a fallback. Per-step `showModel`
 controls authored visibility without deleting the scene. Lessons derive
 the required source systems from authored structure IDs and load them through the shared runtime.
+The player and author preview share camera-only input: authored visibility and
+explosion remain locked. Per-step `mode` selects content, questions or both without
+deleting inactive data. `questions` stores localized prompts, choices and explanations
+with stable IDs. Rust validates all question shapes and the completeness of active
+questions; the player requires all active questions to pass. Legacy identification
+steps adapt to one question and retain their scene when edited into the new format.
 - Lesson JSON uses localStorage with optimistic replacement checks; binary images use
 IndexedDB under immutable content-hash paths. Rich HTML is sanitized before display;
 blob URLs are scoped to an opened lesson or library cover and revoked on disposal.
@@ -90,7 +96,9 @@ lesson schema, scenes, target/choice validation, image references and filenames.
 Rust content owns USTAR, Brotli, package manifests, image decoding/hashes and limits;
 the worker calls its WASM bindings. New image uploads use the bundled Squoosh WebP
 encoder in that worker, after Rust validates the original and before Rust validates
-and hashes the smaller result. Package import/export preserves image bytes.
+and hashes the smaller result. Worker progress events report compression without
+settling the image job; the UI also reports reading and storage stages. Package
+import/export preserves image bytes, including resources in inactive question content.
 TypeScript handles UI, DOM sanitization, browser
 storage, file dialogs and binary transfer. The `.lesson.br` package contains
 manifest metadata, lesson JSON and referenced images. Filename defaults to the

@@ -7,6 +7,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
   operate: (action: (viewer: AnatomyViewer) => void, redraw?: boolean) => boolean;
   redraw: () => void;
   pick: (id: string) => void;
+  selectable?: () => boolean;
   moving?: () => string;
   movable?: (id: string) => boolean;
   joined?: (id: string) => boolean;
@@ -57,14 +58,14 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     else dragged = true;
     pointers.set(event.pointerId, point);
     if (box) cancelBox();
-    if (event.button === 0 && event.shiftKey && pointers.size === 1) {
+    if (event.button === 0 && event.shiftKey && pointers.size === 1 && options.selectable?.() !== false) {
       event.preventDefault(); cancelDrag();
       box = { pointerId: event.pointerId, start: point, end: point };
       options.onBox?.(boxRect());
       return;
     }
     const id = options.moving?.();
-    if ((event.button === 0 || event.button === 2) && !event.shiftKey && pointers.size === 1) {
+    if ((event.button === 0 || event.button === 2) && !event.shiftKey && pointers.size === 1 && options.selectable?.() !== false) {
       const position = pickPosition(event);
       options.operate(viewer => {
         const before = viewer.selected_id();
@@ -106,7 +107,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     } else if (drag) cancelDrag();
   };
   const pick = (event: PointerEvent, read = false) => {
-    if (!options.enabled()) return;
+    if (!options.enabled() || options.selectable?.() === false) return;
     const [x, y] = pickPosition(event);
     if (x >= 0 && y >= 0 && x < canvas.width && y < canvas.height) options.operate(renderer => {
       const before = renderer.selected_id();

@@ -1,11 +1,47 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { LessonPackage } from './lesson-wasm.fixture.mjs';
-import { lessonPreviewIssues, lessonSceneStep, lessonText, readLesson, validateLessonTargets } from '../src/lessons/contract.ts';
+import { lessonMode, lessonQuestions, updateLessonQuestions, lessonPreviewIssues, lessonSceneStep, lessonText, readLesson, validateLessonTargets } from '../src/lessons/contract.ts';
 import { lessonModels } from '../src/lessons/targets.ts';
 
 const text = en => ({ vi: '', en });
 const draft = { id: 'lesson-test', version: 1, title: text(''), summary: text(''), modelId: '', steps: [] };
+
+test('multiple questions validate active modes and preserve inactive drafts and legacy answers', () => {
+  const question = { id: 'question-one', prompt: text('Which part?'), choices: [
+    { id: 'a', text: text('First') }, { id: 'b', text: text('Second') },
+  ], answerId: 'b', explanation: text('Because it is second.') };
+  const step = { id: 'quiz', kind: 'text', title: text('Quiz'), instruction: text(''), mode: 'questions', questions: [question, { ...question, id: 'question-two' }] };
+  const lesson = { ...draft, title: text('Practice'), steps: [step] };
+  assert.deepEqual(readLesson(lesson), lesson, 'Question-only steps need no instructions or model');
+  const pack = new LessonPackage(JSON.stringify(lesson));
+  try {
+    const reopened = LessonPackage.open('questions.lesson.br', pack.export());
+    try { assert.deepEqual(JSON.parse(reopened.lesson_json()), lesson); } finally { reopened.free(); }
+  } finally { pack.free(); }
+  for (const questions of [[], [question, question], [{ ...question, prompt: text('') }], [{ ...question, choices: question.choices.slice(0, 1) }],
+    [{ ...question, choices: [question.choices[0], question.choices[0]] }], [{ ...question, answerId: 'missing' }], [{ ...question, choices: [{ ...question.choices[0], text: text('') }, question.choices[1]] }]]) {
+    assert.throws(() => readLesson({ ...lesson, steps: [{ ...step, questions }] }));
+  }
+  assert.doesNotThrow(() => readLesson({ ...lesson, steps: [{ ...step, questions: [{ ...question, prompt: text(''), choices: [], answerId: '' }] }] }, true));
+  for (const questions of [[question, question], [{ ...question, choices: [question.choices[0], question.choices[0]] }]]) {
+    assert.throws(() => readLesson({ ...lesson, steps: [{ ...step, questions }] }, true));
+  }
+  for (const mode of ['both', null, false]) assert.throws(() => readLesson({ ...lesson, steps: [{ ...step, mode }] }, true));
+  assert.throws(() => readLesson({ ...lesson, steps: [{ ...step, mode: 'content_questions' }] }), /instructions/);
+  const inactive = { ...step, mode: 'content', instruction: text('Read'), questions: [{ ...question, prompt: text(''), choices: [], answerId: '' }] };
+  assert.deepEqual(readLesson({ ...lesson, steps: [inactive] }).steps[0], inactive);
+  const legacy = { ...step, kind: 'identify_structure', mode: undefined, questions: undefined, targetId: 'scene',
+    choiceIds: ['a', 'b'], answerId: 'b', explanation: question.explanation };
+  assert.equal(lessonMode(legacy), 'content_questions');
+  const adapted = lessonQuestions(legacy, id => text(id));
+  assert.equal(adapted[0].answerId, 'b');
+  assert.deepEqual(adapted[0].choices.map(choice => choice.id), legacy.choiceIds);
+  const converted = updateLessonQuestions(legacy, 'content', adapted);
+  assert.equal(converted.kind, 'observe');
+  assert.deepEqual(updateLessonQuestions(converted, 'questions', adapted).questions, adapted);
+  assert.equal(converted.targetId, legacy.targetId);
+});
 
 test('lesson models include every system needed by setup and authored scenes without duplicating shared parts', () => {
   const catalog = { roots: [{ id: 'bones' }, { id: 'muscles' }, { id: 'joints' }],

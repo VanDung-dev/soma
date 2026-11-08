@@ -3,13 +3,14 @@ import type { Catalog } from "../anatomy/catalog/types";
 import { useLanguage } from "../i18n";
 import type { Language } from "../i18n";
 import { LineIcon } from "../icons";
-import { LessonValidationError, lessonSceneStep, lessonText, readLesson } from "./contract";
+import { LessonValidationError, lessonMode, lessonQuestions, lessonSceneStep, lessonText, readLesson, updateLessonQuestions } from "./contract";
 import type { Lesson, LessonStep, LessonText } from "./contract";
 import { EditorScene } from "./editor-scene";
 import type { EditorSceneHandle } from "./editor-scene";
 import { LessonModelSetup } from "./model-setup";
 import { LessonDetails } from "./details";
 import { LessonStepOptions } from "./step-options";
+import { LessonQuestionEditor } from "./question-editor";
 import { exportLesson, newLessonId } from "./source";
 import { lessonModels, lessonTargets } from "./targets";
 import type { SceneView } from "../anatomy/viewer/contracts";
@@ -86,7 +87,8 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
       && !window.confirm(t("lessons.confirmSceneReset"))) return;
     update({ modelId, scene: undefined, steps: lesson.steps.map(step => {
       if (!modelId && step.kind !== "identify_structure") {
-        return { id: step.id, title: step.title, instruction: step.instruction, showModel: step.showModel, kind: "text" };
+        return { id: step.id, title: step.title, instruction: step.instruction, showModel: step.showModel,
+          mode: step.mode, questions: step.questions, kind: "text" };
       }
       const patch = { targetId: modelId, visibleIds: undefined, view: undefined };
       return step.kind === "identify_structure" ? { ...step, ...patch, choiceIds: [], answerId: "" }
@@ -276,20 +278,22 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
               if (active) updateActive({ ...active, title: value });
               else update({ title: value });
             }} />
-          {active ? <Suspense fallback={<p role="status">{t("lessons.loadingEditor")}</p>}>
+          {active && <LessonStepOptions catalog={catalog} active={active} onChange={updateActive} />}
+          {active && lessonMode(active) !== "questions" ? <Suspense fallback={<p role="status">{t("lessons.loadingEditor")}</p>}>
             <RichEditor key={`${active?.id ?? lesson.id}/${editorLanguage}`} value={body} language={editorLanguage}
               label={`${t(active ? "lessons.instruction" : "lessons.summary")} (${editorLanguage.toUpperCase()})`}
               onChange={(value: LessonText) => {
                 if (active) updateActive({ ...active, instruction: value });
                 else update({ summary: value });
               }} />
-          </Suspense> : <LessonDetails lesson={lesson} language={editorLanguage} onChange={update} />}
+          </Suspense> : !active && <LessonDetails lesson={lesson} language={editorLanguage} onChange={update} />}
+          {active && lessonMode(active) !== "content" && <LessonQuestionEditor
+            questions={lessonQuestions(active, id => catalog.target(id)?.names)} locale={editorLanguage}
+            onChange={questions => updateActive(updateLessonQuestions(active, lessonMode(active), questions))} />}
           {!active && !lesson.steps.length && <p className="lesson-document-hint">{t("lessons.firstBlock")}</p>}
           {active && <div className="lesson-step-management">
             <button className="lesson-button lesson-remove-block" onClick={remove}>{t("lessons.removeStep")}</button>
           </div>}
-          {active && <LessonStepOptions catalog={catalog} lesson={lesson} active={active} scene={scene} locale={editorLanguage} targets={targets}
-            onChange={updateActive} />}
         </div>
       </section>
     </div>

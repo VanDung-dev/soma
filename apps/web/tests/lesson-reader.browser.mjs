@@ -25,7 +25,7 @@ export async function checkLessonReader(page) {
   const model = page.locator('.lesson-model');
   const reader = page.locator('.lesson-reader-body');
   await model.locator('.model-canvas[aria-busy="false"]').waitFor();
-  await model.getByRole('button', { name: 'Tìm bộ phận trong bài', exact: true }).waitFor();
+  assert.equal(await model.locator('.structure-search-field, .explode-control').count(), 0);
   await page.evaluate(() => { window.lessonReaderCanvas = document.querySelector('.lesson-model canvas'); });
   const canvasUnchanged = () => page.evaluate(() => window.lessonReaderCanvas === document.querySelector('.lesson-model canvas'));
   const original = await model.boundingBox();
@@ -44,23 +44,11 @@ export async function checkLessonReader(page) {
     assert(await page.locator('.lesson-reader-outline').isVisible(), 'Choosing a step must keep the outline open');
     await page.getByRole('heading', { name: title, exact: true }).waitFor();
   };
-  const sceneCount = async () => {
-    await model.getByRole('button', { name: 'Tìm bộ phận trong bài', exact: true }).click();
-    const search = page.locator('.structure-search-popover:popover-open');
-    const status = await search.getByRole('status').textContent();
-    await search.getByRole('combobox').press('Escape');
-    return status;
-  };
-  const initialScene = await sceneCount();
   await jump('Đọc về cầu não');
-  const ponsScene = await sceneCount();
-  assert.notEqual(ponsScene, initialScene);
   await jump('Đọc về thân não');
-  assert.equal(await sceneCount(), initialScene);
   assert(await model.isVisible());
   assert(await canvasUnchanged());
   await jump('Nhận diện');
-  await model.getByRole('button', { name: 'Tìm bộ phận trong bài', exact: true }).waitFor({ state: 'hidden' });
   assert(await page.locator('.lesson-reader-outline').getByRole('button', { name: 'Tổng kết', exact: true }).isDisabled());
   const choices = page.locator('.lesson-step input[type=radio]');
   await choices.nth(1).check();
@@ -68,7 +56,7 @@ export async function checkLessonReader(page) {
   assert(await page.getByRole('button', { name: 'Bước tiếp theo', exact: true }).isDisabled());
   await choices.first().check();
   await page.getByRole('button', { name: 'Kiểm tra đáp án', exact: true }).click();
-  await model.getByRole('button', { name: 'Tìm bộ phận trong bài', exact: true }).waitFor();
+  assert(await page.getByRole('button', { name: 'Bước tiếp theo', exact: true }).isEnabled());
   await jump('Tổng kết');
   assert(await canvasUnchanged());
   await page.getByRole('button', { name: 'Đóng mục lục', exact: true }).click();
@@ -96,9 +84,8 @@ export async function checkLessonReader(page) {
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   await page.getByRole('heading', { name: 'Nhận diện', exact: true }).waitFor();
   assert(await page.getByRole('button', { name: 'Kiểm tra đáp án', exact: true }).isDisabled());
-  await page.getByRole('status').filter({ hasText: 'Thêm ít nhất hai phương án' }).waitFor();
-  await page.getByRole('button', { name: 'Bước tiếp theo', exact: true }).click();
-  await page.getByRole('heading', { name: 'Tổng kết', exact: true }).waitFor();
+  await page.getByRole('status').filter({ hasText: 'thêm ít nhất hai phương án' }).waitFor();
+  assert(await page.getByRole('button', { name: 'Bước tiếp theo', exact: true }).isDisabled(), 'Preview follows the same completion requirements as student learning');
   await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Xuất .lesson.br', exact: true }).click();

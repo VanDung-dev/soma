@@ -44,6 +44,7 @@ export class ViewerRuntime implements StudyViewer {
     onHide: (ids: string[]) => boolean;
     allowSeparation?: boolean;
     canSeparate?: () => boolean;
+    canSelect?: () => boolean;
     preserveCameraOnResize?: boolean;
     onFps?: (fps: number) => void;
     onOrientation?: (axes: Float32Array) => void;
@@ -61,6 +62,7 @@ export class ViewerRuntime implements StudyViewer {
       enabled: () => !this.loading && !this.animating && !this.restoration && !this.failed,
       operate: this.operate, redraw: this.scheduleRender,
       pick: options.onPick,
+      selectable: options.canSelect,
       moving: () => this.movingId || this.separatedIds.values().next().value || "",
       movable: id => id === this.movingId || this.separatedIds.has(id),
       joined: id => (this.viewer?.structure_group(id).length ?? 0) > 1,

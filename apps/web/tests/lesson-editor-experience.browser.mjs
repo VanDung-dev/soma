@@ -87,7 +87,6 @@ export async function checkLessonEditorExperience(page) {
   assert.equal(await page.locator('.lesson-author-alerts').count(), 0);
   const slider = frame.getByRole('slider', { name: 'Mức độ tách', exact: true });
   await slider.focus(); await slider.press('End');
-  const editorExplode = await slider.locator('..').boundingBox();
   await writing.getByRole('button', { name: 'Lưu bước', exact: true }).click();
   await writing.getByRole('status').filter({ hasText: 'Đã lưu bước' }).waitFor();
   assert.equal(await part.count(), 0, 'Saving must not reopen dismissed part information');
@@ -117,26 +116,12 @@ export async function checkLessonEditorExperience(page) {
   assert(Math.abs(headingBounds.x + headingBounds.width / 2 - headerBounds.x - headerBounds.width / 2) <= 1, 'The preview heading is centered');
   const outlineBounds = await player.getByRole('button', { name: 'Mục lục', exact: true }).boundingBox();
   assert(outlineBounds.x + outlineBounds.width <= headingBounds.x, 'The outline toggle sits to the left of the title');
-  const previewExplode = await player.locator('.explode-control').boundingBox();
-  assert.equal(previewExplode.width, editorExplode.width);
-  assert.equal(previewExplode.height, editorExplode.height, 'Editing and preview use the same explosion-control proportions');
-  await player.getByRole('button', { name: 'Tìm bộ phận trong bài', exact: true }).click();
-  assert.equal((await player.locator('.structure-search-field').textContent()).trim(), '');
-  await search.getByRole('option').first().click();
-  const previewPart = await player.locator('.lesson-part-card').boundingBox();
-  assert(previewPart.y + previewPart.height <= previewExplode.y, 'Part information stays above the explosion control');
+  assert.equal(await player.locator('.explode-control, .structure-search-field, .lesson-part-card').count(), 0, 'Student preview has only camera controls');
   for (const width of [320, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-    const partBounds = await player.locator('.lesson-part-card').boundingBox();
-    const explodeBounds = await player.locator('.explode-control').boundingBox();
-    assert(partBounds.y + partBounds.height <= explodeBounds.y, `Part information stays above explosion controls at ${width}px`);
-    const header = await player.locator('.lesson-player-header').boundingBox();
-    const title = await player.locator('.lesson-player-heading').boundingBox();
-    assert(Math.abs(title.x + title.width / 2 - header.x - header.width / 2) <= 1);
+    await checkLessonHeader(page, '.lesson-player-header', '.lesson-player-heading');
     assert(await player.evaluate(node => node.scrollWidth <= node.clientWidth));
   }
-  await player.getByRole('button', { name: 'Đóng thông tin bộ phận', exact: true }).click();
   const viewer = await player.locator('canvas').elementHandle();
   assert(await player.locator('.lesson-model').isVisible());
   await player.getByRole('button', { name: 'Bước tiếp theo', exact: true }).click();
@@ -153,6 +138,7 @@ export async function checkLessonEditorExperience(page) {
     await page.setViewportSize({ width, height: 900 });
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     assert(await page.locator('.lessons-screen').evaluate(node => node.scrollWidth <= node.clientWidth));
+    await checkLessonHeader(page, '.lesson-author-bar', '.lesson-author-heading');
     assert.equal(await page.locator('.structure-search-field').count(), 1);
     assert((await frame.locator('.lesson-scene-viewport').boundingBox()).height >= 140);
   }
@@ -216,4 +202,26 @@ export async function checkLessonEditorExperience(page) {
   await writing.getByRole('button', { name: 'Lưu bước', exact: true }).click();
   assert.deepEqual(await saved(), external);
   assert(await page.locator('.lesson-author-alerts').isVisible());
+}
+
+export async function checkLessonHeader(page, selector, headingSelector) {
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const geometry = await page.locator(selector).evaluate((header, headingSelector) => {
+    const box = header.getBoundingClientRect();
+    const title = header.querySelector(headingSelector).getBoundingClientRect();
+    return { height: box.height, radius: getComputedStyle(header).borderRadius,
+      center: title.x + title.width / 2 - box.x - box.width / 2,
+      buttons: [...header.querySelectorAll('.lesson-button, .controls-info')].filter(button => button.getBoundingClientRect().width).map(button => {
+        const child = button.getBoundingClientRect();
+        return { height: child.height, radius: getComputedStyle(button).borderRadius, inset: Math.min(child.x - box.x, box.right - child.right) };
+      }) };
+  }, headingSelector);
+  assert.equal(geometry.height, 48);
+  assert.equal(geometry.radius, '24px');
+  assert(Math.abs(geometry.center) <= 1, 'The title is centered between equal side columns');
+  for (const button of geometry.buttons) {
+    assert.equal(button.height, 28);
+    assert.equal(button.radius, '14px');
+    assert(button.inset >= 9.5, 'Toolbar controls respect the outer 10px inset');
+  }
 }

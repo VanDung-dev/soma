@@ -17,6 +17,7 @@ import type { Language } from "../i18n";
 import { useLanguage } from "../i18n";
 import { editorHtml, lessonElements, resolveLessonImages, sanitizeLessonHtml } from "./rich-text";
 import { useLessonImages } from "./image-context";
+import type { LessonImageStage } from "./archive";
 
 export default function RichEditor({ value, language, label, onChange }: {
   value: LessonText; language: Language; label: string; onChange: (value: LessonText) => void;
@@ -25,11 +26,12 @@ export default function RichEditor({ value, language, label, onChange }: {
   const images = useLessonImages();
   const target = useRef<HTMLTextAreaElement>(null);
   const [failed, setFailed] = useState(false);
+  const [imageStage, setImageStage] = useState<LessonImageStage>();
   const [mode, setMode] = useState(document.documentElement.dataset.theme);
   const content = useEffectEvent(() => editorHtml(value, language, images.urls));
   const change = useEffectEvent((html: string) => onChange({ ...value, [language]: sanitizeLessonHtml(html, images.urls),
     html: [...new Set([...(value.html ?? []), language])] }));
-  const addImage = useEffectEvent((blob: Blob) => images.add(blob));
+  const addImage = useEffectEvent((blob: Blob, onProgress: (stage: LessonImageStage) => void) => images.add(blob, onProgress));
   const safeContent = useEffectEvent((html: string) => resolveLessonImages(sanitizeLessonHtml(html, images.urls), images.urls));
   useEffect(() => {
     const observer = new MutationObserver(() => setMode(document.documentElement.dataset.theme));
@@ -39,7 +41,9 @@ export default function RichEditor({ value, language, label, onChange }: {
   useEffect(() => {
     let disposed = false;
     let instance: Editor | undefined;
+    let dialog: { block: (message: string) => void; unblock: () => void } | undefined;
     setFailed(false);
+    setImageStage(undefined);
     const palette = getComputedStyle(document.documentElement);
     void tinymce.init({
       target: target.current!, license_key: "gpl", skin: mode === "dark" ? "oxide-dark" : "oxide",
@@ -56,9 +60,16 @@ export default function RichEditor({ value, language, label, onChange }: {
           const file = input.files?.[0];
           if (!file) return;
           instance?.setProgressState(true);
-          void addImage(file).then(url => { if (!disposed) callback(url, { alt: file.name }); }, error => {
+          setImageStage("preparing");
+          const currentDialog = dialog;
+          currentDialog?.block(t("lessons.image.preparing"));
+          void addImage(file, stage => {
+            if (!disposed) { setImageStage(stage); if (dialog === currentDialog) currentDialog?.block(t(`lessons.image.${stage}`)); }
+          }).then(url => { if (!disposed && dialog === currentDialog) callback(url, { alt: file.name }); }, error => {
             if (!disposed) instance?.notificationManager.open({ text: `${t("lessons.imageAddError")} ${String(error)}`, type: "error" });
-          }).finally(() => { if (!disposed) instance?.setProgressState(false); });
+          }).finally(() => {
+            if (!disposed) { instance?.setProgressState(false); setImageStage(undefined); if (dialog === currentDialog) currentDialog?.unblock(); }
+          });
         };
         input.click();
       },
@@ -66,6 +77,8 @@ export default function RichEditor({ value, language, label, onChange }: {
       content_style: `body{font:14px/1.6 system-ui;margin:12px;color:${palette.getPropertyValue("--text")};background:${palette.getPropertyValue("--surface")}}p{margin:0 0 12px}img{max-width:100%;height:auto}table{border-collapse:collapse;width:100%}td,th{border:1px solid #888;padding:6px}a{color:${palette.getPropertyValue("--accent")}}`,
       setup(editor) {
         instance = editor;
+        editor.on("OpenWindow", event => { dialog = event.dialog; });
+        editor.on("CloseWindow", event => { if (dialog === event.dialog) dialog = undefined; });
         editor.on("BeforeSetContent", event => { event.content = safeContent(event.content); });
         editor.on("init", () => {
           if (disposed) { editor.remove(); return; }
@@ -82,5 +95,6 @@ export default function RichEditor({ value, language, label, onChange }: {
   return <div className="lesson-rich-editor">
     <textarea id="lesson-write-body" className="lesson-write-body" rows={9} ref={target} readOnly aria-label={label} defaultValue={editorHtml(value, language, images.urls)} />
     {failed && <p role="alert">{t("lessons.richEditorError")}</p>}
+    {imageStage && <div className="lesson-image-progress" role="status"><progress aria-label={t(`lessons.image.${imageStage}`)} /><span>{t(`lessons.image.${imageStage}`)}</span></div>}
   </div>;
 }

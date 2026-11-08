@@ -4,6 +4,7 @@ import { useLanguage } from "../i18n";
 import type { Lesson } from "./contract";
 import { useLessonImages } from "./image-context";
 import { lessonPlainText } from "./rich-text";
+import type { LessonImageStage } from "./archive";
 
 export function LessonDetails({ lesson, language, onChange }: {
   lesson: Lesson;
@@ -13,6 +14,7 @@ export function LessonDetails({ lesson, language, onChange }: {
   const { t } = useLanguage();
   const images = useLessonImages();
   const [uploading, setUploading] = useState(false);
+  const [stage, setStage] = useState<LessonImageStage>("preparing");
   const [failed, setFailed] = useState(false);
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
@@ -35,8 +37,8 @@ export function LessonDetails({ lesson, language, onChange }: {
           const file = event.target.files?.[0];
           event.target.value = "";
           if (!file) return;
-          setUploading(true); setFailed(false);
-          void images.add(file).then(url => {
+          setUploading(true); setFailed(false); setStage("preparing");
+          void images.add(file, value => { if (active.current) setStage(value); }).then(url => {
             if (!active.current) return;
             const path = [...images.urls].find(([, value]) => value === url)?.[0];
             if (!path) throw new Error("Lesson cover was not stored");
@@ -46,7 +48,7 @@ export function LessonDetails({ lesson, language, onChange }: {
         }} />
       </label>
       {lesson.cover && <button className="lesson-button" disabled={uploading} onClick={() => onChange({ cover: undefined })}>{t("lessons.removeCover")}</button>}
-      {uploading && <p role="status">{t("lessons.savingCover")}</p>}
+      {uploading && <div className="lesson-image-progress" role="status"><progress aria-label={t(`lessons.image.${stage}`)} /><span>{t(`lessons.image.${stage}`)}</span></div>}
       {failed && <p role="alert">{t("lessons.imageAddError")}</p>}
     </div>
   </div>;

@@ -5,8 +5,9 @@ import { useLanguage } from "../i18n";
 import { checkImageCollection, loadLessonImages, readLessonImage, storeLessonImages } from "./images";
 import { lessonImagePaths } from "./rich-text";
 import { validate_lesson_resources } from "../content/content.js";
+import type { LessonImageStage } from "./archive";
 
-type ImageContext = { urls: Map<string, string>; add: (blob: Blob) => Promise<string> };
+type ImageContext = { urls: Map<string, string>; add: (blob: Blob, onProgress?: (stage: LessonImageStage) => void) => Promise<string> };
 const context = createContext<ImageContext | null>(null);
 
 export function useLessonImages() {
@@ -33,9 +34,11 @@ export function LessonImageProvider({ lesson, children }: { lesson: Lesson; chil
       validate_lesson_resources(JSON.stringify(lesson), [...images.keys()]);
       if (!active) return;
       for (const [path, blob] of images) current.set(path, URL.createObjectURL(blob));
-      add.current = async blob => {
-        const image = await readLessonImage(blob);
+      add.current = async (blob, onProgress) => {
+        onProgress?.("preparing");
+        const image = await readLessonImage(blob, onProgress);
         if (!active) throw new Error("Lesson editor closed");
+        onProgress?.("saving");
         const stored = await loadLessonImages(lesson.id);
         stored.set(image.path, image.blob);
         checkImageCollection(stored);
@@ -50,5 +53,5 @@ export function LessonImageProvider({ lesson, children }: { lesson: Lesson; chil
   }, [lesson.id, attempt]);
   if (failed) return <div role="alert"><p>{t("lessons.imageLoadError")}</p><button className="lesson-button" onClick={() => setAttempt(value => value + 1)}>{t("lessons.retry")}</button></div>;
   if (!ready) return <p role="status">{t("lessons.loading")}</p>;
-  return <context.Provider value={{ urls: urls.current, add: blob => add.current(blob) }}>{children}</context.Provider>;
+  return <context.Provider value={{ urls: urls.current, add: (blob, onProgress) => add.current(blob, onProgress) }}>{children}</context.Provider>;
 }

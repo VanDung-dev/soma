@@ -1,5 +1,6 @@
 import * as content from "../content/content.js";
 import { lessonJob } from "./archive";
+import type { LessonImageStage } from "./archive";
 
 export type LessonImages = Map<string, Blob>;
 
@@ -76,9 +77,9 @@ export async function removeLessonImages(id: string, canRemove: () => boolean) {
   } finally { db.close(); }
 }
 
-export async function readLessonImage(blob: Blob) {
+export async function readLessonImage(blob: Blob, onProgress?: (stage: LessonImageStage) => void) {
   content.validate_lesson_image_size(blob.size);
-  const result = await lessonJob({ operation: "image", bytes: new Uint8Array(await blob.arrayBuffer()) });
+  const result = await lessonJob({ operation: "image", bytes: new Uint8Array(await blob.arrayBuffer()) }, onProgress);
   return { path: result.image!.path, blob: new Blob([result.bytes!], { type: result.image!.mime }) };
 }
 

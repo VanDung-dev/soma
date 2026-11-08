@@ -2,8 +2,16 @@ import * as content from "../content/content.js";
 import type { SceneView } from "../anatomy/viewer/contracts";
 
 export type LessonText = { vi: string; en: string; html?: ("vi" | "en")[] };
+export type LessonMode = "content" | "questions" | "content_questions";
+export type LessonQuestion = {
+  id: string;
+  prompt: LessonText;
+  choices: { id: string; text: LessonText }[];
+  answerId: string;
+  explanation: LessonText;
+};
 
-type StepContent = { id: string; title: LessonText; instruction: LessonText; showModel?: boolean };
+type StepContent = { id: string; title: LessonText; instruction: LessonText; showModel?: boolean; mode?: LessonMode; questions?: LessonQuestion[] };
 export type LessonScene = { targetId: string; visibleIds?: string[]; view?: SceneView };
 export type LessonStep = StepContent & ({ kind: "text" } | LessonScene & { kind: "observe" } | LessonScene & {
   kind: "identify_structure";
@@ -36,6 +44,22 @@ export class LessonValidationError extends Error {
 
 export function lessonText(value: LessonText, language: "vi" | "en") {
   return value[language].trim() || value[language === "vi" ? "en" : "vi"].trim();
+}
+
+export function lessonMode(step: LessonStep): LessonMode {
+  return step.mode ?? (step.kind === "identify_structure" || step.questions?.length ? "content_questions" : "content");
+}
+
+export function lessonQuestions(step: LessonStep, names: (id: string) => { vi: string; en: string } | undefined): LessonQuestion[] {
+  if (step.questions) return step.questions;
+  return step.kind === "identify_structure" ? [{ id: step.id, prompt: step.title, answerId: step.answerId,
+    explanation: step.explanation, choices: step.choiceIds.map(id => ({ id, text: names(id) ?? { vi: id, en: id } })) }] : [];
+}
+
+export function updateLessonQuestions(step: LessonStep, mode: LessonMode, questions: LessonQuestion[]): LessonStep {
+  if (step.kind !== "identify_structure") return { ...step, mode, questions };
+  const { choiceIds, answerId, explanation, ...base } = step;
+  return { ...base, kind: "observe", mode, questions };
 }
 
 export function lessonSceneStep(lesson: Lesson, index: number) {

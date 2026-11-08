@@ -9,6 +9,7 @@ self.onmessage = async ({ data }: MessageEvent<LessonJob>) => {
     let result: LessonResult;
     if (data.operation === "image") {
       const original = lesson_image_info(data.bytes);
+      if (original.mime !== "image/webp") self.postMessage({ progress: "compressing" });
       const bytes = await compressLessonImage(data.bytes, original.mime);
       result = { image: bytes === data.bytes ? original : lesson_image_info(bytes), bytes };
     } else if (data.operation === "open") {

@@ -12,6 +12,27 @@ const draft = { id: '026317aafa166ceea1b3f9ee775c2c1e', version: 1, title: { vi:
   summary: { vi: '', en: '' }, modelId: '', steps: [{ id: 'read', kind: 'text', title: { vi: '', en: '' },
     instruction: { vi: '<p><img src="' + info.path + '" alt=""></p>', en: '', html: ['vi'] } }] };
 
+test('question resources survive inactive modes and are required by portable packages', () => {
+  const empty = { vi: '', en: '' };
+  const rich = draft.steps[0].instruction;
+  for (const field of ['prompt', 'explanation', 'choice']) {
+    const question = { id: 'question', prompt: field === 'prompt' ? rich : empty,
+      explanation: field === 'explanation' ? rich : empty, answerId: '',
+      choices: [{ id: 'a', text: field === 'choice' ? rich : empty }] };
+    const lesson = { ...draft, steps: [{ ...draft.steps[0], instruction: empty, mode: 'content', questions: [question] }] };
+    const pack = new LessonPackage(JSON.stringify(lesson));
+    try {
+      assert.throws(() => pack.export(), /Missing lesson image/);
+      pack.add_image(info.path, image);
+      const imported = LessonPackage.open('questions.lesson.br', pack.export());
+      try {
+        assert.deepEqual(JSON.parse(imported.lesson_json()), lesson);
+        assert.deepEqual(imported.image_bytes(info.path), image);
+      } finally { imported.free(); }
+    } finally { pack.free(); }
+  }
+});
+
 test('a cover is a required package resource even without rich text or steps', () => {
   const lesson = { ...draft, cover: info.path, steps: [] };
   const pack = new LessonPackage(JSON.stringify(lesson));

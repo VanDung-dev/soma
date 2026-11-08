@@ -124,11 +124,14 @@ anatomy systems automatically, including groups and scenes spanning several syst
 show/hide/reset actions. The editor has one structure search; choosing an existing
 part also opens its information bar along the bottom of the canvas. Each step has
 a **Show the 3D model in this step** option. Hiding it preserves the authored scene,
-and the learner gets the full reading area for that step. Identification questions
-require a visible model. New steps inherit the preceding scene and visibility.
-Enable an identification question in the step options to add answer choices.
+and the learner gets the full reading area for that step. New steps inherit the
+preceding scene and visibility. Step options support **Content / No questions**,
+**No content / Questions** and **Content / Questions**. Switching modes retains
+the hidden content and questions. Each step can have several questions, each with
+a prompt, at least two answer choices, one correct answer and an optional explanation.
+Questions can be used without a 3D model. Legacy identification questions remain readable.
 
-On desktop, the editor opens with a docked outline and step options below the writing
+On desktop, the editor opens with a docked outline and step options above the writing
 fields. Selecting or adding a step keeps the outline visible and leaves the model usable.
 Drag each outline item's handle to reorder with mouse or touch; hold near the
 scrolling area's edge to move through long outlines. With keyboard focus on the
@@ -150,6 +153,9 @@ images already stored or imported in lesson packages. Browsers without worker
 canvas/image decoding keep the original. The selected codec is vendored in
 `apps/web/src/lessons/codecs/webp/`; the separate `squoosh-dev/` checkout is not
 needed for development or builds.
+Cover uploads and the image dialog show reading, compression and storage states
+with an indeterminate progress indicator. The image dialog stays blocked until
+processing finishes, and becomes usable again if processing fails.
 Images are stored on the device, without uploading to a server. No Tiny Cloud API key or remote editor assets
 are needed. Vietnamese and English content are saved independently; existing
 plain text keeps its literal meaning when edited or read. Rich HTML is filtered
@@ -174,25 +180,26 @@ stay temporary until explicitly saved. Manual offsets are not stored: restore
 manually moved parts before saving. **Reset step scene** reapplies the authored
 view. Source structure IDs and lesson/step IDs remain stable.
 
-Preview runs the lesson as a learner sees it. In identification
-exercises, part names in the 3D viewer become available after a correct answer.
+Preview runs the same player and completion rules as student learning. Every
+enabled question in a step must be answered correctly before proceeding; incorrect
+answers can be retried and explanations appear after a correct answer.
 Both editor and preview exit to the lesson library. Preview has a separate **Edit**
 button to return to the active editor, an outline toggle on the left and a centered
-lesson heading. Structure search uses a magnifier button in both modes. In preview,
-part information sits above the explosion slider in the same controls stack.
+lesson heading. Both toolbars use equal side columns and the shared nested radii.
+Structure search and the explosion slider are editor-only. The player permits
+rotation, panning, zoom and resetting the authored scene. It does not permit
+structure search, selection, separation, hiding or changing the authored explosion.
 The learner keeps one 3D viewer on the left and independently scrolling content
 on the right. The learner outline is a docked panel: it stays open while selecting
 steps or interacting with the model, until explicitly closed. Its visibility
 preference is independent of the editor. Collapsing the model on mobile also
 remains in effect when changing steps. Draft preview opens even when sections are
-unfinished, shows missing settings, and permits skipping unfinished exercises.
+unfinished and shows missing settings; unfinished steps cannot be skipped.
 Package import/export also permits unfinished drafts for testing. Preview placeholders never modify
 the saved draft. Changing steps applies their authored views with camera and
 explosion transitions; manual camera input cancels the camera transition and
-reduced motion applies the destination immediately. Learners can rotate, pan,
-zoom, separate and hide parts during observation without changing the saved
-lesson. Identification questions retain rotation and zoom but disable separation,
-hiding and the explosion slider. The outline supports direct navigation up to
+reduced motion applies the destination immediately. Learner camera interactions
+never change the saved lesson. The outline supports direct navigation up to
 the first unanswered exercise. On small screens the model sits above the text
 and can be collapsed. Text-only lessons use the full reading area. Legacy reading
 sections inherit the preceding 3D section, with the first 3D section as the initial

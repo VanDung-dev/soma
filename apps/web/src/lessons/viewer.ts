@@ -45,10 +45,11 @@ export function useLessonViewer(catalog: Catalog, modelId: string | readonly str
       onSnap: setSnapTarget,
       onOrientation: graphics.showAxes ? axes => orientation.current?.update(axes) : undefined,
       canSeparate,
+      canSelect: canSeparate,
       preserveCameraOnResize: true,
     });
     const keyDown = (event: KeyboardEvent) => {
-      if (shortcutAction(event) === "restore") {
+      if (canSeparate() && shortcutAction(event) === "restore") {
         event.preventDefault();
         session.restoreStructure("");
       }

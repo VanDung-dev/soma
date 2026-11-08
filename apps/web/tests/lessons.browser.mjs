@@ -7,6 +7,7 @@ import { checkLessonRichText } from './lesson-rich-text.browser.mjs';
 import { checkLessonOutlineTouch } from './lesson-outline-touch.browser.mjs';
 import { checkLessonImages } from './lesson-images.browser.mjs';
 import { checkLessonEditorExperience } from './lesson-editor-experience.browser.mjs';
+import { checkLessonQuestions, checkLessonImageProgress } from './lesson-questions.browser.mjs';
 
 export async function checkLessons(page) {
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -49,7 +50,7 @@ export async function checkLessons(page) {
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   await page.getByRole('button', { name: 'Bước tiếp theo', exact: true }).click();
   await page.getByRole('heading', { name: 'Mục chưa đặt tên', exact: true }).waitFor();
-  assert(await page.getByRole('button', { name: 'Hoàn thành', exact: true }).isEnabled());
+  assert(await page.getByRole('button', { name: 'Hoàn thành', exact: true }).isDisabled(), 'Unfinished drafts can be previewed without bypassing student requirements');
   await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
   assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:' + location.pathname.split('/')[2]))), incomplete);
   const compose = page.getByRole('button', { name: 'Thiết lập 3D', exact: true });
@@ -126,7 +127,7 @@ export async function checkLessons(page) {
   assert.equal(added.steps[2].targetId, added.modelId);
   assert(await compose.isEnabled());
   for (const check of [checkLessonReader, checkLessonScenes, checkLessonEditorLayout, checkLessonRichText,
-    checkLessonOutlineTouch, checkLessonEditorExperience, checkLessonImages]) {
+    checkLessonOutlineTouch, checkLessonEditorExperience, checkLessonQuestions, checkLessonImageProgress, checkLessonImages]) {
     console.log(check.name);
     await check(page);
   }

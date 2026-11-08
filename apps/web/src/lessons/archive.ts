@@ -11,12 +11,15 @@ export type LessonResult = {
   image?: { path: string; mime: string };
 };
 
-export function lessonJob(job: LessonJob) {
+export type LessonImageStage = "preparing" | "compressing" | "saving";
+
+export function lessonJob(job: LessonJob, onProgress?: (stage: LessonImageStage) => void) {
   return new Promise<LessonResult>((resolve, reject) => {
     const worker = new Worker(new URL("./archive-worker.ts", import.meta.url), { type: "module" });
     const finish = () => { clearTimeout(timeout); worker.terminate(); };
     const timeout = window.setTimeout(() => { finish(); reject(new Error("Lesson processing timed out")); }, 60000);
     worker.onmessage = ({ data }) => {
+      if (data.progress === "compressing") { onProgress?.(data.progress); return; }
       finish();
       if (data.error) reject(new Error(data.error));
       else resolve(data.result);
