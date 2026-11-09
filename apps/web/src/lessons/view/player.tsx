@@ -12,9 +12,11 @@ import { useLessonPanel } from "../shared/panels";
 import { lessonHtml, lessonPlainText } from "../shared/rich-text";
 import { useLessonImages } from "../shared/image-context";
 import { lessonModels } from "../shared/targets";
+import { LessonControls, useLessonGraphics } from "../shared/controls";
 
 export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false }: { lesson: Lesson; catalog: Catalog; onBack: () => void; onEdit?: () => void; preview?: boolean }) {
   const { language, t } = useLanguage();
+  const [graphics, setGraphics] = useLessonGraphics();
   const images = useLessonImages();
   const usesModel = lesson.steps.some(step => step.kind !== "text") && lesson.steps.some(step => step.showModel !== false);
   const modelIds = useMemo(() => lessonModels(catalog, lesson), [catalog, lesson]);
@@ -26,7 +28,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
   const modelId = useId();
   const [modelCollapsed, setModelCollapsed] = useState(false);
   const [index, setIndex] = useState(0);
-  const { host, orientation, showAxes, session, state } = useLessonViewer(catalog, usesModel ? modelIds : "", undefined,
+  const { host, orientation, showAxes, fps, session, state } = useLessonViewer(catalog, graphics, usesModel ? modelIds : "", undefined,
     undefined, undefined, false, false);
   const [passed, setPassed] = useState<ReadonlySet<string>>(() => new Set());
   const [failed, setFailed] = useState(false);
@@ -77,7 +79,11 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
   return <div className="lesson-player">
     <header className="app-menu-bar lesson-player-header">
       <div className="app-menu-history">
-        <button className="controls-info" onClick={onBack} aria-label={t("lessons.library")} title={t("lessons.library")}>
+        <button type="button" className="controls-info sidebar-toggle" aria-controls={outlineId} aria-expanded={outlineOpen}
+          aria-label={t(outlineOpen ? "panels.hide" : "panels.show", { name: t("lessons.outline") })}
+          title={t(outlineOpen ? "panels.hide" : "panels.show", { name: t("lessons.outline") })}
+          onClick={() => setOutlineOpen(!outlineOpen)}><LineIcon name="sidebar" size={18} /></button>
+        <button className="controls-info lesson-exit" onClick={onBack} aria-label={t("lessons.library")} title={t("lessons.library")}>
           <LineIcon name="arrow-small-left" size={18} />
           {t("lessons.exit")}
         </button>
@@ -93,6 +99,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
       {onEdit && <button className="lesson-button lesson-primary" onClick={onEdit} aria-label={t("lessons.backEditor")}>
         <span className="lesson-action-full">{t("lessons.edit")}</span><span className="lesson-action-short">{t("lessons.editShort")}</span>
       </button>}
+      <LessonControls graphics={graphics} onGraphicsChange={setGraphics} />
       </div>
     </header>
     <div className="lesson-player-body" data-outline={outlineOpen}>
@@ -120,6 +127,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
             <button className="lesson-button lesson-player-reset" disabled={!ready || !sceneUsable} onClick={() => {
               if (!session.applyScene(sceneIds, scene?.view)) return;
             }}>{t("lessons.resetStudyScene")}</button>
+            {graphics.showFps && <span className="model-fps" aria-label={t("graphics.fps.current", { count: fps })}>{fps} FPS</span>}
             <a className="lesson-model-credit" href="/models/z-anatomy/ATTRIBUTION.md" target="_blank" rel="noreferrer"
               aria-label={t("credit.link")}>Z-Anatomy</a>
           </div>

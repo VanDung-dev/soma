@@ -10,8 +10,10 @@ import { useLanguage } from "../../i18n";
 import { useLessonViewer } from "../shared/viewer";
 import { LessonStructureTools } from "./structure-tools";
 import type { SceneView } from "../../anatomy/viewer/contracts";
+import type { GraphicsSettings } from "../../anatomy/viewer/graphics";
 
 type SceneProps = {
+  graphics: GraphicsSettings;
   modelIds: string[]; targetId: string; sectionId: string; frame: HTMLElement; inactive: boolean; tools: ReactNode;
   visibleIds?: string[]; onChangeScene: (ids: string[]) => void;
   view?: SceneView;
@@ -46,10 +48,10 @@ export function EditorScene(props: SceneProps) {
     </p>, props.frame);
 }
 
-function Scene({ catalog, modelIds, targetId, sectionId, frame, inactive, tools, visibleIds, view, onChangeScene, sceneRef, revealPart, onSceneChange }: SceneProps & { catalog: Catalog }) {
+function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inactive, tools, visibleIds, view, onChangeScene, sceneRef, revealPart, onSceneChange }: SceneProps & { catalog: Catalog }) {
   const { language, t } = useLanguage();
   const ids = useMemo(() => visibleIds ?? catalog.members(targetId), [catalog, targetId, visibleIds]);
-  const { host, orientation, showAxes, session, state, hold, snapTarget } = useLessonViewer(catalog, modelIds, undefined, frame,
+  const { host, orientation, showAxes, fps, session, state, hold, snapTarget } = useLessonViewer(catalog, graphics, modelIds, undefined, frame,
     hiddenIds => {
       const hidden = new Set(hiddenIds);
       onChangeScene(ids.filter(id => !hidden.has(id)));
@@ -85,6 +87,7 @@ function Scene({ catalog, modelIds, targetId, sectionId, frame, inactive, tools,
           session.changeExplosion(amount);
           onSceneChange?.();
         }} />
+        {graphics.showFps && <span className="model-fps" aria-label={t("graphics.fps.current", { count: fps })}>{fps} FPS</span>}
         <a className="lesson-model-credit" href="/models/z-anatomy/ATTRIBUTION.md" target="_blank" rel="noreferrer"
           aria-label={t("credit.link")}>Z-Anatomy</a>
       </div>

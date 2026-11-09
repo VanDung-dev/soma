@@ -211,10 +211,10 @@ dialog.lesson-cover-modal:not([open]) {
 :root[data-theme="dark"] .lesson-button.lesson-danger:not(:disabled):hover { background: rgba(239, 83, 80, 0.18); border-color: #ef5350; color: #ff8a80; }
 .lessons-screen[data-player="true"] { --lesson-outline-width: clamp(210px, 18vw, 260px); padding: var(--panel-inset); overflow: hidden; }
 .lesson-player { display: flex; flex-direction: column; gap: var(--panel-gap); height: 100%; min-height: 0; }
-.lesson-player-header.app-menu-bar, .lesson-author-bar.app-menu-bar { position: static; width: auto; height: var(--reference-diameter); flex-shrink: 0; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr); gap: 8px; padding: 3px 9px; border-radius: var(--panel-radius); }
+.lesson-player-header.app-menu-bar, .lesson-author-bar.app-menu-bar { position: static; width: auto; height: var(--reference-diameter); flex-shrink: 0; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; padding: 3px 9px; border-radius: var(--panel-radius); }
 .lesson-player-header .lesson-button, .lesson-author-bar .lesson-button { display: inline-flex; align-items: center; justify-content: center; min-height: 28px; height: 28px; padding: 3px 10px; border-radius: var(--inner-radius); font-size: 12px; white-space: nowrap; }
 .lesson-player-header .lesson-button svg, .lesson-author-bar .lesson-button svg { width: 14px; height: 14px; }
-.lesson-player-header .controls-info, .lesson-author-bar .controls-info { width: auto; height: 28px; padding: 3px 10px; gap: 4px; font-size: 12px; }
+.lesson-player-header .lesson-exit, .lesson-author-bar .lesson-exit { width: auto; height: 28px; padding: 3px 10px; gap: 4px; font-size: 12px; }
 .lesson-player-heading { min-width: 0; text-align: center; }
 .lesson-player-header h1 { min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 clamp(12px, 1.6vw, 18px)/1.25 var(--font-ui); }
 .lesson-player-heading > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 10px; }
@@ -417,8 +417,6 @@ body:has(.lesson-rich-editor) .tox .tox-dialog__busy-spinner::after { content: a
 .lesson-author-tools { padding-top: 10px; margin-top: 8px; border-top: 1px solid var(--line); }
 .lesson-author-tools h2 { margin: 0 0 5px 6px; font: 700 13px var(--font-ui); }
 .lesson-tool { color: var(--accent); font-weight: 650; }
-.lesson-fields .lesson-exercise-toggle { display: flex; align-items: center; gap: 8px; min-height: 44px; }
-.lesson-exercise-toggle input { accent-color: var(--accent); }
 .lesson-inspector-section { display: grid; gap: 8px; padding: 12px 0; border-top: 1px solid var(--line); }
 .lesson-inspector-section:first-child { padding-top: 0; border-top: 0; }
 .lesson-inspector-section h3, .lesson-inspector-section p { margin: 0; }
@@ -475,7 +473,8 @@ body:has(.lesson-rich-editor) .tox .tox-dialog__busy-spinner::after { content: a
 }
 
 @media (max-width: 600px) {
-  .lesson-player-header.app-menu-bar, .lesson-author-bar.app-menu-bar { grid-template-columns: minmax(76px, 1fr) minmax(0, 2fr) minmax(76px, 1fr); gap: 4px; }
+  .lesson-player-header.app-menu-bar, .lesson-author-bar.app-menu-bar { height: auto; min-height: var(--reference-diameter); grid-template-columns: auto minmax(0, 1fr); gap: 6px; padding-block: 9px; }
+  :is(.lesson-player-header, .lesson-author-bar) > .app-menu-actions { grid-column: 1 / -1; flex-wrap: wrap; }
   :is(.lesson-player-header, .lesson-author-bar) :is(.app-menu-history, .app-menu-actions) { gap: 4px; }
   .lesson-player-header .lesson-button, .lesson-author-bar .lesson-button { padding-inline: 7px; font-size: 11px; }
   .lesson-languages button { padding-inline: 6px; font-size: 10px; }

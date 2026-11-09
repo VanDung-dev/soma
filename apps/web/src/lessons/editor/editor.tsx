@@ -16,6 +16,7 @@ import { lessonSceneModels, lessonTargets } from "../shared/targets";
 import type { SceneView } from "../../anatomy/viewer/contracts";
 import { useLessonPanel } from "../shared/panels";
 import { LessonOutline } from "./outline";
+import { LessonControls, useLessonGraphics } from "../shared/controls";
 
 const RichEditor = lazy(() => import("./rich-editor"));
 
@@ -34,6 +35,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
   onBack: (lesson: Lesson) => void;
 }) {
   const { language, t } = useLanguage();
+  const [graphics, setGraphics] = useLessonGraphics();
   const [draft, setDraft] = useState<Lesson>(lesson);
   const [locale, setLocale] = useState<Language>();
   const [error, setError] = useState("");
@@ -322,7 +324,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
     onChangeScene={ids => hasModel ? updateScene(ids) : addStructures(ids)} />;
 
   return <div className="lesson-editor study-shell" data-outline={outlineOpen}>
-    {renderScene && sceneFrame && <EditorScene modelIds={modelIds} targetId={sceneTargetId}
+    {renderScene && sceneFrame && <EditorScene graphics={graphics} modelIds={modelIds} targetId={sceneTargetId}
       visibleIds={scene?.visibleIds} view={scene?.view} sectionId={active?.id ?? draft.id} sceneRef={sceneHandle}
       revealPart={revealPart}
       onChangeScene={ids => hasModel ? updateScene(ids) : addStructures(ids)}
@@ -330,7 +332,11 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
       frame={sceneFrame} tools={modelSetup} inactive={false} />}
     <header className="app-menu-bar lesson-author-bar">
       <div className="app-menu-history">
-        <button className="controls-info" aria-label={t("lessons.library")} title={t("lessons.library")} onClick={exit}>
+        <button type="button" id="lesson-toggle-outline" className="controls-info sidebar-toggle" aria-controls="lesson-author-outline" aria-expanded={outlineOpen}
+          aria-label={t(outlineOpen ? "panels.hide" : "panels.show", { name: t("lessons.outline") })}
+          title={t(outlineOpen ? "panels.hide" : "panels.show", { name: t("lessons.outline") })}
+          onClick={() => setOutlineOpen(!outlineOpen)}><LineIcon name="sidebar" size={18} /></button>
+        <button className="controls-info lesson-exit" aria-label={t("lessons.library")} title={t("lessons.library")} onClick={exit}>
           <LineIcon name="arrow-small-left" size={18} />
           {t("lessons.exit")}
         </button>
@@ -361,6 +367,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
         <button className="lesson-button lesson-primary" aria-label={t("lessons.preview")} onClick={preview}>
           <span className="lesson-action-full">{t("lessons.preview")}</span><span className="lesson-action-short">{t("lessons.previewShort")}</span>
         </button>
+        <LessonControls graphics={graphics} onGraphicsChange={setGraphics} editing />
       </div>
     </header>
     <div className="lesson-author-workspace" data-outline={outlineOpen}>

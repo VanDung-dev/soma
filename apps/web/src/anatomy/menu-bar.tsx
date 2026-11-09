@@ -3,6 +3,7 @@ import { LineIcon } from "../icons";
 import type { GraphicsSettings } from "./viewer/graphics";
 import { shortcutLabel } from "../shortcuts";
 import { PopoverPanel } from "../popover-panel";
+import { GraphicsControls } from "./graphics-controls";
 import type { ReactNode, RefObject } from "react";
 
 export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForward, helpId, settingsId, graphics, onGraphicsChange, cameraEnabled, cameraActive, onCameraChange,
@@ -82,76 +83,7 @@ export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForw
           })()}
           </div>
         </div>
-        <div className="settings-row">
-          <label htmlFor={`${settingsId}-shadow`}>{t("graphics.shadow.label")}</label>
-          <select id={`${settingsId}-shadow`} className="settings-select" value={graphics.shadowQuality}
-            onChange={event => {
-              const shadowQuality = event.currentTarget.value;
-              if (shadowQuality === "off" || shadowQuality === "low" || shadowQuality === "high") onGraphicsChange({ ...graphics, shadowQuality });
-            }}>
-            <option value="high">{t("graphics.quality.high")}</option>
-            <option value="low">{t("graphics.quality.low")}</option>
-            <option value="off">{t("graphics.quality.off")}</option>
-          </select>
-        </div>
-        <div className="settings-row">
-          <label htmlFor={`${settingsId}-lighting`}>{t("graphics.lighting.label")}</label>
-          <select id={`${settingsId}-lighting`} className="settings-select" value={graphics.lightingQuality}
-            onChange={event => {
-              const lightingQuality = event.currentTarget.value;
-              if (lightingQuality === "low" || lightingQuality === "high") onGraphicsChange({ ...graphics, lightingQuality });
-            }}>
-            <option value="high">{t("graphics.quality.high")}</option>
-            <option value="low">{t("graphics.quality.low")}</option>
-          </select>
-        </div>
-        <div className="settings-row">
-          <label htmlFor={`${settingsId}-model`} title={t("graphics.model.description")}>{t("graphics.model.label")}</label>
-          <select id={`${settingsId}-model`} className="settings-select" value={graphics.modelQuality}
-            onChange={event => {
-              const modelQuality = event.currentTarget.value;
-              if (modelQuality === "low" || modelQuality === "high") onGraphicsChange({ ...graphics, modelQuality });
-            }}>
-            <option value="high">{t("graphics.quality.high")}</option>
-            <option value="low">{t("graphics.quality.low")}</option>
-          </select>
-        </div>
-        <div className="settings-row">
-          <label htmlFor={`${settingsId}-fps`}>{t("graphics.frameRate.label")}</label>
-          <select id={`${settingsId}-fps`} className="settings-select" value={graphics.frameRate}
-            onChange={event => {
-              const frameRate = Number(event.currentTarget.value);
-              if (frameRate === 30 || frameRate === 60 || frameRate === 120) onGraphicsChange({ ...graphics, frameRate });
-            }}>
-            <option value="30">30 FPS</option>
-            <option value="60">60 FPS</option>
-            <option value="120">120 FPS</option>
-          </select>
-        </div>
-        <div className="settings-row">
-          <label htmlFor={`${settingsId}-show-axes`}>{t("graphics.axes.label")}</label>
-          <span className="settings-switch-control">
-            <input id={`${settingsId}-show-axes`} className="settings-switch" type="checkbox" checked={graphics.showAxes}
-              onChange={event => onGraphicsChange({ ...graphics, showAxes: event.currentTarget.checked })} />
-            <span className="camera-mode-switch" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="settings-row">
-          <label htmlFor={`${settingsId}-show-fps`}>{t("graphics.fps.label")}</label>
-          <span className="settings-switch-control">
-            <input id={`${settingsId}-show-fps`} className="settings-switch" type="checkbox" checked={graphics.showFps}
-              onChange={event => onGraphicsChange({ ...graphics, showFps: event.currentTarget.checked })} />
-            <span className="camera-mode-switch" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="settings-row">
-          <label htmlFor={`${settingsId}-grid`}>{t("graphics.grid.label")}</label>
-          <span className="settings-switch-control">
-            <input id={`${settingsId}-grid`} className="settings-switch" type="checkbox" checked={graphics.grid}
-              onChange={event => onGraphicsChange({ ...graphics, grid: event.currentTarget.checked })} />
-            <span className="camera-mode-switch" aria-hidden="true" />
-          </span>
-        </div>
+        <GraphicsControls id={settingsId} graphics={graphics} onChange={onGraphicsChange} />
     </PopoverPanel>
   </header>;
 }
