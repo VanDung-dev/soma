@@ -421,17 +421,17 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
       <section className="lesson-author-document workspace-panel-surface" id="lesson-author-writing"
         aria-label={t("lessons.writing")}>
         <div className="lesson-editor-stepbar">
+          <button className="lesson-button lesson-primary" data-saved={savedStep} disabled={savedStep} onClick={save}>
+            {savedStep ? t("lessons.savedShort") : t(active ? "lessons.saveStep" : "lessons.saveDetails")}
+          </button>
           {active && <span>{t("lessons.step", { current: index + 1, total: draft.steps.length })}</span>}
           <div className="lesson-editor-stepbar-actions">
-            <button className="lesson-button lesson-primary" data-saved={savedStep} disabled={savedStep} onClick={save}>
-              {savedStep ? t("lessons.savedShort") : t(active ? "lessons.saveStep" : "lessons.saveDetails")}
-            </button>
             <button className="lesson-button" onClick={add}>{t("lessons.addStep")}</button>
           </div>
         </div>
         <p className="lesson-save-status sr-only" role="status">{saveFailed ? t("lessons.saveError") : saveNotice}</p>
         <div className="information-content">
-          <label className={active ? "sr-only" : "lesson-details-label"} htmlFor="lesson-write-title">{t(active ? "lessons.stepTitle" : "lessons.title")}{active ? ` (${editorLanguage.toUpperCase()})` : ""}</label>
+          <label className={active ? "sr-only" : "lesson-details-label"} htmlFor="lesson-write-title">{t(active ? "lessons.stepTitle" : "lessons.title")}</label>
           <input id="lesson-write-title" className="lesson-write-title" ref={titleField} value={title[editorLanguage]}
             placeholder={t(active ? "lessons.stepTitle" : "lessons.title")} lang={editorLanguage}
             onChange={event => {
@@ -442,7 +442,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
           {active && <LessonStepOptions catalog={catalog} active={active} onChange={updateActive} />}
           {active && lessonMode(active) !== "questions" ? <Suspense fallback={<p role="status">{t("lessons.loadingEditor")}</p>}>
             <RichEditor key={`${active?.id ?? draft.id}/${editorLanguage}`} value={body} language={editorLanguage}
-              label={`${t(active ? "lessons.instruction" : "lessons.summary")} (${editorLanguage.toUpperCase()})`}
+              label={t(active ? "lessons.instruction" : "lessons.summary")}
               onChange={(value: LessonText) => {
                 if (active) updateActive({ ...active, instruction: value });
                 else updateDraft({ summary: value });

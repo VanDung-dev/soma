@@ -18,7 +18,7 @@ export function LessonQuestionEditor({ questions, locale, onChange }: {
   return <section className="lesson-question-editor lesson-fields" aria-label={t("lessons.questions")}>
     {questions.map((question, index) => <fieldset className="lesson-question" key={question.id}>
       <legend>{t("lessons.questionNumber", { number: index + 1 })}</legend>
-      <label>{t("lessons.questionPrompt")} ({locale.toUpperCase()})
+      <label className="lesson-question-prompt">{t("lessons.questionPrompt")}
         <textarea value={question.prompt[locale]} lang={locale} onChange={event => update({ ...question,
           prompt: { ...question.prompt, [locale]: event.target.value } })} />
       </label>
@@ -28,7 +28,7 @@ export function LessonQuestionEditor({ questions, locale, onChange }: {
           <input type="radio" name={`answer-${question.id}`} checked={question.answerId === choice.id}
             aria-label={t("lessons.markCorrect", { number: choiceIndex + 1 })}
             onChange={() => update({ ...question, answerId: choice.id })} />
-          <input value={choice.text[locale]} lang={locale} aria-label={`${t("lessons.choiceNumber", { number: choiceIndex + 1 })} (${locale.toUpperCase()})`}
+          <input value={choice.text[locale]} lang={locale} aria-label={t("lessons.choiceNumber", { number: choiceIndex + 1 })}
             onChange={event => update({ ...question, choices: question.choices.map(value => value.id === choice.id
               ? { ...value, text: { ...value.text, [locale]: event.target.value } } : value) })} />
           <button className="lesson-button" onClick={() => update({ ...question, choices: question.choices.filter(value => value.id !== choice.id),
@@ -37,7 +37,7 @@ export function LessonQuestionEditor({ questions, locale, onChange }: {
       </fieldset>
       <button className="lesson-button" onClick={() => update({ ...question,
         choices: [...question.choices, { id: newLessonId(), text: { vi: "", en: "" } }] })}>{t("lessons.addAnswer")}</button>
-      <label>{t("lessons.explanation")} ({locale.toUpperCase()})
+      <label className="lesson-question-explanation">{t("lessons.explanation")}
         <textarea value={question.explanation[locale]} lang={locale} onChange={event => update({ ...question,
           explanation: { ...question.explanation, [locale]: event.target.value } })} />
       </label>
