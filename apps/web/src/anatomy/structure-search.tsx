@@ -21,7 +21,7 @@ export const StructureSearch = memo(function StructureSearch({ catalog, disabled
   const popover = useRef<HTMLElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const [limit, setLimit] = useState(20);
   const results = useMemo(() => {
     if (structureIds) return catalog.searchStructures(query, language, limit, structureIds);
@@ -30,7 +30,7 @@ export const StructureSearch = memo(function StructureSearch({ catalog, disabled
   }, [catalog, query, language, limit, disabled, structureIds, targetIds]);
   const shown = results.items;
   const otherLanguage = language === "vi" ? "en" : "vi";
-  const activeId = shown[activeIndex] ? id + "-result-" + activeIndex : undefined;
+  const activeId = activeIndex >= 0 && shown[activeIndex] ? id + "-result-" + activeIndex : undefined;
   useEffect(() => {
     if (activeId) document.getElementById(activeId)?.scrollIntoView({ block: "nearest" });
   }, [activeId, query]);
@@ -48,7 +48,7 @@ export const StructureSearch = memo(function StructureSearch({ catalog, disabled
           input.current?.focus({ preventScroll: true });
           event.currentTarget.querySelector(".structure-search-results")?.scrollTo({ top: 0 });
         }
-        else { setQuery(""); setActiveIndex(0); setLimit(20); }
+        else { setQuery(""); setActiveIndex(-1); setLimit(20); }
       }}>
       <form className="structure-search" role="search" aria-label={t("search.label")} onKeyDown={event => {
         if (event.key === "Escape" && !event.nativeEvent.isComposing) {
@@ -57,19 +57,27 @@ export const StructureSearch = memo(function StructureSearch({ catalog, disabled
         }
       }} onSubmit={event => {
         event.preventDefault();
-        if (!disabled && shown[activeIndex]) choose(shown[activeIndex]);
+        const selected = activeIndex >= 0 ? shown[activeIndex] : (query.trim() ? shown[0] : undefined);
+        if (!disabled && selected) choose(selected);
       }}>
         <div className="structure-search-input">
           <Magnifier />
           <input ref={input} type="search" role="combobox" placeholder={t("search.label")} autoComplete="off"
             aria-label={t("search.label")} aria-expanded={!!shown.length} aria-autocomplete="list"
             aria-controls={id + "-results"} aria-activedescendant={activeId}
-            value={query} disabled={disabled} onChange={event => { setQuery(event.target.value); setActiveIndex(0); setLimit(20); }}
+            value={query} disabled={disabled} onChange={event => {
+              const value = event.target.value;
+              setQuery(value);
+              setActiveIndex(value.trim() ? 0 : -1);
+              setLimit(20);
+            }}
             onKeyDown={event => {
               if (event.nativeEvent.isComposing || !shown.length || !["ArrowDown", "ArrowUp"].includes(event.key)) return;
               event.preventDefault();
               const count = query.trim() ? shown.length : results.total;
-              const next = Math.max(0, Math.min(count - 1, activeIndex + (event.key === "ArrowDown" ? 1 : -1)));
+              const next = activeIndex < 0
+                ? (event.key === "ArrowDown" ? 0 : count - 1)
+                : Math.max(0, Math.min(count - 1, activeIndex + (event.key === "ArrowDown" ? 1 : -1)));
               if (next >= shown.length) setLimit(next + 20);
               setActiveIndex(next);
             }} />

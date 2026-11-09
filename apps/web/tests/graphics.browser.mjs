@@ -19,15 +19,9 @@ export async function checkGraphics() {
   const showFps = popover.querySelector('input[id$="-show-fps"]');
   const showAxes = popover.querySelector('input[id$="-show-axes"]');
   for (const control of [grid, showFps, showAxes]) {
-    const icon = control.nextElementSibling;
-    const border = getComputedStyle(icon.querySelector('path:first-child')).stroke;
-    const mark = getComputedStyle(icon.querySelector('path:nth-child(2)')).stroke;
-    const dark = document.documentElement.dataset.theme === 'dark';
-    const expectedBorder = dark ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)';
-    const expectedMark = dark ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)';
-    assert(getComputedStyle(control).appearance === 'none' && icon.matches('.visibility-checkbox-icon')
-      && border === expectedBorder && mark === expectedMark,
-      'Render settings checkboxes with the shared custom checkbox style');
+    assert(getComputedStyle(control).appearance === 'none' && control.classList.contains('settings-switch')
+      && control.nextElementSibling.classList.contains('camera-mode-switch'),
+      'Render settings switches with the custom switch style');
   }
   const canvas = document.querySelector('.model-canvas canvas'), gl = canvas.getContext('webgl2');
   const original = { quality: quality.value, shadow: shadow.value, lighting: lighting.value, fps: fps.value,
