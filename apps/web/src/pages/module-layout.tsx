@@ -76,7 +76,7 @@ export function ModuleLayout({ children, page, onClick }: { children: ReactNode;
       </nav>
       <div className="module-preferences">
         <button className="page-toggle" onClick={() => setLanguage(language === "vi" ? "en" : "vi")} aria-label={t("language.selector.label")}>{language.toUpperCase()}</button>
-        <button className="page-toggle theme-toggle" data-theme={theme} onClick={() => setTheme(nextTheme)} aria-label={t(`appearance.mode.${nextTheme}`)} title={t(`appearance.mode.${nextTheme}`)}><LineIcon name={themeIcon} size={18} /></button>
+        <button className="page-toggle theme-toggle" data-theme={theme} onClick={() => setTheme(nextTheme)} aria-label={t(`appearance.mode.${nextTheme}`)} title={t(`appearance.mode.${nextTheme}`)}><LineIcon name={themeIcon} size={16} /></button>
       </div>
       {windows && <div className="window-controls">
         <button className="window-control" aria-label={t("window.minimize")} title={t("window.minimize")} onClick={() => { void getCurrentWindow().minimize(); }}><span className="window-control-icon minimize" /></button>
