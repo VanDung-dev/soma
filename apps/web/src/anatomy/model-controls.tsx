@@ -41,7 +41,15 @@ export function ModelControls({ disabled, onControl, helpId, onReplayGuide }: {
             <div><dt>{t("controls.mouse.panGesture")}</dt><dd>{t("controls.mouse.pan")}</dd></div>
             <div><dt>{t("controls.mouse.selectGesture")}</dt><dd>{t("controls.mouse.selectGroup")}</dd></div>
             <div><dt>{t("controls.mouse.click")}</dt><dd>{t("controls.mouse.showInfo")}</dd></div>
-          </dl></section>
+          </dl>
+          <div className="guide-hand-camera">
+            <h3>{t("handCamera.device.label")}</h3>
+            <dl className="guide-mouse">
+              <div><dt>{t("controls.hand.rightPinch")}</dt><dd>{t("controls.group.rotate")}</dd></div>
+              <div><dt>{t("controls.hand.leftPinch")}</dt><dd>{t("controls.mouse.pan")}</dd></div>
+              <div><dt>{t("controls.hand.bothPinch")}</dt><dd>{t("controls.hand.zoom")}</dd></div>
+            </dl>
+          </div></section>
         </div>
   </PopoverPanel>;
 }

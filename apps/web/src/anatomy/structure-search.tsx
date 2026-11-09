@@ -63,7 +63,7 @@ export const StructureSearch = memo(function StructureSearch({ catalog, disabled
           <Magnifier />
           <input ref={input} type="search" role="combobox" placeholder={t("search.label")} autoComplete="off"
             aria-label={t("search.label")} aria-expanded={!!shown.length} aria-autocomplete="list"
-            aria-controls={id + "-results"} aria-describedby={id + "-status"} aria-activedescendant={activeId}
+            aria-controls={id + "-results"} aria-activedescendant={activeId}
             value={query} disabled={disabled} onChange={event => { setQuery(event.target.value); setActiveIndex(0); setLimit(20); }}
             onKeyDown={event => {
               if (event.nativeEvent.isComposing || !shown.length || !["ArrowDown", "ArrowUp"].includes(event.key)) return;
@@ -76,9 +76,6 @@ export const StructureSearch = memo(function StructureSearch({ catalog, disabled
           {(targetIds || structureIds) && <button type="button" className="controls-info structure-search-close" onClick={close}
             aria-label={t("search.close")} title={t("search.close")}><LineIcon name="close-small" size={18} /></button>}
         </div>
-        <p id={id + "-status"} className="search-status" role="status">{query.trim() ? results.total
-          ? t("search.resultCount", { count: results.total }) + (results.total > shown.length ? " · " + t("search.refine") : "")
-          : t("search.noResults") : "A–Z · " + t("search.resultCount", { count: results.total })}</p>
         <ul id={id + "-results"} className="structure-search-results" role="listbox" aria-label={t("search.label")}
           onScroll={event => {
             const list = event.currentTarget;

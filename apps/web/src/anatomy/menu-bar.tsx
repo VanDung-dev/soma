@@ -59,22 +59,27 @@ export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForw
       </button>
       {informationToggle}
     </div>
-    <PopoverPanel id={settingsId} className="settings-popover" contentClassName="settings-content" title={t("app.settings")} closeLabel={t("app.settings.close")}>
+    <PopoverPanel id={settingsId} className="settings-popover" contentClassName="settings-content" title={t("app.settings.title")} closeLabel={t("app.settings.close")}>
         <div className="settings-row">
           <label htmlFor={`${settingsId}-camera`}>{t("handCamera.device.label")}</label>
           <div className="settings-camera-controls">
-          <select id={`${settingsId}-camera`} className="settings-select" value={cameraDeviceId}
-            disabled={cameraDevicesError || !cameraDevices.length}
-            onChange={event => onCameraDeviceChange(event.currentTarget.value)}>
-            <option value="">{t("handCamera.device.default")}</option>
-            {cameraDevices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>
-              {device.label || t("handCamera.device.unnamed", { number: index + 1 })}
-            </option>)}
-          </select>
-          {!cameraEnabled && (cameraAccessPending || cameraDevicesError || !cameraDevices.length || cameraDevices.some(device => !device.label))
-            && <button type="button" className="settings-select" data-camera-access disabled={cameraAccessPending} onClick={onCameraAccessRequest}>
-              {t(cameraAccessPending ? "handCamera.device.requesting" : cameraDevicesError ? "handCamera.device.retry" : "handCamera.device.allow")}
-            </button>}
+          {(() => {
+            const hasCameraAccess = cameraEnabled || (!cameraDevicesError && cameraDevices.length > 0 && cameraDevices.every(device => !!device.label));
+            return <>
+              <select id={`${settingsId}-camera`} className="settings-select" value={cameraDeviceId}
+                disabled={cameraDevicesError || !cameraDevices.length}
+                hidden={!hasCameraAccess}
+                onChange={event => onCameraDeviceChange(event.currentTarget.value)}>
+                <option value="">{t("handCamera.device.default")}</option>
+                {cameraDevices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>
+                  {device.label || t("handCamera.device.unnamed", { number: index + 1 })}
+                </option>)}
+              </select>
+              {!hasCameraAccess && <button type="button" className="settings-select" data-camera-access disabled={cameraAccessPending} onClick={onCameraAccessRequest}>
+                {t(cameraAccessPending ? "handCamera.device.requesting" : cameraDevicesError ? "handCamera.device.retry" : "handCamera.device.allow")}
+              </button>}
+            </>;
+          })()}
           </div>
         </div>
         <div className="settings-row">
@@ -115,13 +120,12 @@ export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForw
           <label htmlFor={`${settingsId}-fps`}>{t("graphics.frameRate.label")}</label>
           <select id={`${settingsId}-fps`} className="settings-select" value={graphics.frameRate}
             onChange={event => {
-              const frameRate = event.currentTarget.value === "display" ? "display" : Number(event.currentTarget.value);
-              if (frameRate === "display" || frameRate === 30 || frameRate === 60 || frameRate === 120) onGraphicsChange({ ...graphics, frameRate });
+              const frameRate = Number(event.currentTarget.value);
+              if (frameRate === 30 || frameRate === 60 || frameRate === 120) onGraphicsChange({ ...graphics, frameRate });
             }}>
             <option value="30">30 FPS</option>
             <option value="60">60 FPS</option>
             <option value="120">120 FPS</option>
-            <option value="display">{t("graphics.frameRate.display")}</option>
           </select>
         </div>
         <div className="settings-row">

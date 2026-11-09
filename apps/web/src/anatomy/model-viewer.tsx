@@ -235,14 +235,14 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       </main>
       <aside id={informationId} ref={informationPanel} className={`information-panel${readerExpanded ? " reader-expanded" : ""}`} data-open={panel === "information"} data-collapsed={collapsedPanels.information} aria-label={t("information.panel.label")}>
         <header className="information-heading" data-structure-id={readingId || undefined}>
-          <div>
+          <div className="information-heading-row">
             <h2>{heading}</h2>
-            {otherHeading && otherHeading !== heading && <p className="international-name" lang={otherLanguage}>{otherHeading}</p>}
+            <button className="reader-expand" aria-expanded={readerExpanded} aria-controls="information-content"
+              onClick={session.toggleReader}>
+              {t(readerExpanded ? "information.collapse" : "information.expand")}
+            </button>
           </div>
-          <button className="reader-expand" aria-expanded={readerExpanded} aria-controls="information-content"
-            onClick={session.toggleReader}>
-            {t(readerExpanded ? "information.collapse" : "information.expand")}
-          </button>
+          {otherHeading && otherHeading !== heading && <p className="international-name" lang={otherLanguage}>{otherHeading}</p>}
         </header>
         <div className="information-content" id="information-content">
           <div className="information-details">
