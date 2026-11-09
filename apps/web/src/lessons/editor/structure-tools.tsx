@@ -1,9 +1,9 @@
 import { useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
-import type { Catalog } from "../anatomy/catalog/types";
-import type { StudySession, StudyState } from "../anatomy/study/session";
-import { StructureSearch } from "../anatomy/structure-search";
-import { useLanguage } from "../i18n";
+import type { Catalog } from "../../anatomy/catalog/types";
+import type { StudySession, StudyState } from "../../anatomy/study/session";
+import { StructureSearch } from "../../anatomy/structure-search";
+import { useLanguage } from "../../i18n";
 
 export function LessonStructureTools({ catalog, session, state, ids, searchable = true, detailsHost }: {
   catalog: Catalog;

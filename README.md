@@ -151,7 +151,7 @@ transparency; JPEG uses quality 85. The encoded image is used only when smaller
 than the original. Existing WebP and animated PNG files stay unchanged, as do
 images already stored or imported in lesson packages. Browsers without worker
 canvas/image decoding keep the original. The selected codec is vendored in
-`apps/web/src/lessons/codecs/webp/`; the separate `squoosh-dev/` checkout is not
+`apps/web/src/lessons/shared/codecs/webp/`; the separate `squoosh-dev/` checkout is not
 needed for development or builds.
 Cover uploads and the image dialog show reading, compression and storage states
 with an indeterminate progress indicator. The image dialog stays blocked until

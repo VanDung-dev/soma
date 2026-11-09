@@ -1,15 +1,15 @@
 import { useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import type { Ref } from "react";
 import { createPortal } from "react-dom";
-import { getCatalog } from "../anatomy/core";
-import type { Catalog } from "../anatomy/catalog/types";
-import { OrientationAxes } from "../anatomy/orientation-axes";
-import { ViewerStatusNotice } from "../anatomy/viewer-status";
-import { ExplodeControls } from "../anatomy/explode-controls";
-import { useLanguage } from "../i18n";
-import { useLessonViewer } from "./viewer";
+import { getCatalog } from "../../anatomy/core";
+import type { Catalog } from "../../anatomy/catalog/types";
+import { OrientationAxes } from "../../anatomy/orientation-axes";
+import { ViewerStatusNotice } from "../../anatomy/viewer-status";
+import { ExplodeControls } from "../../anatomy/explode-controls";
+import { useLanguage } from "../../i18n";
+import { useLessonViewer } from "../shared/viewer";
 import { LessonStructureTools } from "./structure-tools";
-import type { SceneView } from "../anatomy/viewer/contracts";
+import type { SceneView } from "../../anatomy/viewer/contracts";
 
 type SceneProps = {
   modelIds: string[]; targetId: string; sectionId: string; frame: HTMLElement; controls: HTMLElement; inactive: boolean;

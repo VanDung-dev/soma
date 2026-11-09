@@ -12,12 +12,12 @@ import "tinymce/skins/ui/oxide/content.js";
 import "tinymce/skins/ui/oxide-dark/skin.js";
 import "tinymce/skins/ui/oxide-dark/content.js";
 import type { Editor } from "tinymce";
-import type { LessonText } from "./contract";
-import type { Language } from "../i18n";
-import { useLanguage } from "../i18n";
-import { editorHtml, lessonElements, resolveLessonImages, sanitizeLessonHtml } from "./rich-text";
-import { useLessonImages } from "./image-context";
-import type { LessonImageStage } from "./archive";
+import type { LessonText } from "../shared/contract";
+import type { Language } from "../../i18n";
+import { useLanguage } from "../../i18n";
+import { editorHtml, lessonElements, resolveLessonImages, sanitizeLessonHtml } from "../shared/rich-text";
+import { useLessonImages } from "../shared/image-context";
+import type { LessonImageStage } from "../shared/archive";
 
 export default function RichEditor({ value, language, label, onChange }: {
   value: LessonText; language: Language; label: string; onChange: (value: LessonText) => void;

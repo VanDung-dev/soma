@@ -1,11 +1,11 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import type { Language } from "../i18n";
-import { useLanguage } from "../i18n";
-import { LineIcon } from "../icons";
-import type { Lesson, LessonCoverCrop } from "./contract";
-import { useLessonImages } from "./image-context";
-import { lessonPlainText } from "./rich-text";
-import type { LessonImageStage } from "./archive";
+import type { Language } from "../../i18n";
+import { useLanguage } from "../../i18n";
+import { LineIcon } from "../../icons";
+import type { Lesson, LessonCoverCrop } from "../shared/contract";
+import { useLessonImages } from "../shared/image-context";
+import { lessonPlainText } from "../shared/rich-text";
+import type { LessonImageStage } from "../shared/archive";
 import { LessonCoverView, calculateCoverClamps, getCoverDimensions } from "./cover";
 
 export function LessonDetails({ lesson, language, onChange }: {

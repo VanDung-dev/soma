@@ -1,7 +1,7 @@
-import type { Language } from "../i18n";
-import { useLanguage } from "../i18n";
-import type { LessonQuestion } from "./contract";
-import { newLessonId } from "./source";
+import type { Language } from "../../i18n";
+import { useLanguage } from "../../i18n";
+import type { LessonQuestion } from "../shared/contract";
+import { newLessonId } from "../shared/source";
 
 export function newLessonQuestion(): LessonQuestion {
   return { id: newLessonId(), prompt: { vi: "", en: "" }, explanation: { vi: "", en: "" }, answerId: "",

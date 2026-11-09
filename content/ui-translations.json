@@ -33,6 +33,7 @@
     "lessons.indexError": {"vi": "Không thể tải danh sách bài học.", "en": "Could not load the lesson library."},
     "lessons.create": {"vi": "Tạo bài học", "en": "Create lesson"},
     "lessons.editor": {"vi": "Soạn bài học", "en": "Lesson editor"},
+    "lessons.start": {"vi": "Vào học", "en": "Start lesson"},
     "lessons.edit": {"vi": "Chỉnh sửa", "en": "Edit"},
     "lessons.editShort": {"vi":"Sửa","en":"Edit"},
     "lessons.details": {"vi": "Thông tin bài học", "en": "Lesson details"},

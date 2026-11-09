@@ -4,7 +4,7 @@ import { LanguageProvider } from "./i18n";
 import { HomePage } from "./home/page";
 import { GamesPage } from "./games/page";
 import { LessonsPage } from "./lessons/page";
-import { lessonEditId } from "./lessons/routes";
+import { lessonEditId, lessonViewId } from "./lessons/routes";
 import { AnatomyPage } from "./anatomy/page";
 import { ModuleLayout } from "./pages/module-layout";
 import { ThemeProvider } from "./theme";
@@ -21,7 +21,7 @@ function pageAtPath(pathname: string): keyof typeof pages | "lessons" | null {
   if (path === "/games") {
     return "games";
   }
-  if (path === "/lessons" || lessonEditId(pathname)) {
+  if (path === "/lessons" || lessonEditId(pathname) || lessonViewId(pathname)) {
     return "lessons";
   }
   return null;
@@ -63,7 +63,7 @@ function AppRoute() {
     event.currentTarget.querySelector<HTMLAnchorElement>(`.module-nav a[href="/${nextPage}"]`)?.focus({ preventScroll: true });
   };
   return <ModuleLayout page={page} onClick={isTauri() ? navigate : undefined}>
-    {Page ? <Page /> : <LessonsPage editId={lessonEditId(path)} navigate={goTo} />}
+    {Page ? <Page /> : <LessonsPage editId={lessonEditId(path)} viewId={lessonViewId(path)} navigate={goTo} />}
     {documentPath && <SourceDocument key={documentPath} path={documentPath} onClose={() => setDocumentPath(null)} />}
   </ModuleLayout>;
 }

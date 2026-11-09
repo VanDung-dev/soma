@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import type { LessonStep } from "./contract";
-import { lessonText } from "./contract";
-import { useLanguage } from "../i18n";
+import type { LessonStep } from "../shared/contract";
+import { lessonText } from "../shared/contract";
+import { useLanguage } from "../../i18n";
 
 type Drag = { id: string; from: number; to: number; slot: number; pointer?: number; x: number; y: number };
 

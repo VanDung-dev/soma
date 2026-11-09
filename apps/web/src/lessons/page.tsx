@@ -3,21 +3,21 @@ import type { ReactNode } from "react";
 import { getCatalog, getContent } from "../anatomy/core";
 import type { Catalog } from "../anatomy/catalog/types";
 import { useLanguage } from "../i18n";
-import { LessonValidationError, lessonLanguageTag, lessonText, readLesson } from "./contract";
-import type { Lesson } from "./contract";
-import { emptyText, LessonEditor } from "./editor";
-import { LessonPlayer } from "./player";
-import { lessonEditPath } from "./routes";
-import { exportLesson, importLesson, listLessons, newLessonId, removeLesson, saveLesson, LESSON_PREFIX } from "./source";
+import { LessonValidationError, lessonLanguageTag, lessonText, readLesson } from "./shared/contract";
+import type { Lesson } from "./shared/contract";
+import { emptyText, LessonEditor } from "./editor/editor";
+import { LessonPlayer } from "./view/player";
+import { lessonEditPath, lessonViewPath } from "./routes";
+import { exportLesson, importLesson, listLessons, newLessonId, removeLesson, saveLesson, LESSON_PREFIX } from "./shared/source";
 import "./style.css";
-import { lessonPlainText } from "./rich-text";
-import { LessonImageProvider } from "./image-context";
-import { storeLessonImages } from "./images";
-import { LessonCover } from "./cover";
+import { lessonPlainText } from "./shared/rich-text";
+import { LessonImageProvider } from "./shared/image-context";
+import { storeLessonImages } from "./shared/images";
+import { LessonCover } from "./editor/cover";
 
 const searchable = (value: string) => value.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replaceAll("đ", "d");
 
-export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (path: string) => void }) {
+export function LessonsPage({ editId, viewId, navigate }: { editId?: string; viewId?: string; navigate: (path: string) => void }) {
   const { language, t } = useLanguage();
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [pending, setPending] = useState<Lesson>();
@@ -38,21 +38,24 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
-  const draft = pending?.id === editId ? pending : lessons.find(item => item.id === editId);
+
+  const activeId = editId || viewId;
+  const draft = pending?.id === activeId ? pending : lessons.find(item => item.id === activeId);
   const editing = !!editId;
+  const viewing = !!viewId && !editing;
   const terms = searchable(query).trim().split(/\s+/).filter(Boolean);
-  const matching = editing || !terms.length ? lessons : lessons.filter(lesson => {
+  const matching = (editing || viewing) || !terms.length ? lessons : lessons.filter(lesson => {
     const content = searchable([lesson.title.vi, lesson.title.en, lessonPlainText(lesson.summary, "vi"), lessonPlainText(lesson.summary, "en"),
       lessonText(lesson.title, language) || t("lessons.untitled")].join(" "));
     return terms.every(term => content.includes(term));
   });
-  useEffect(() => { setSelected(undefined); setPreview(false); }, [editId]);
-  useEffect(() => { title.current?.focus(); }, [editing, preview]);
+  useEffect(() => { setSelected(undefined); setPreview(false); }, [editId, viewId]);
+  useEffect(() => { title.current?.focus(); }, [editing, viewing, preview]);
 
   // Khi chuyển lesson, reset saved state và load lesson đã lưu từ localStorage
   useEffect(() => {
-    if (editId) {
-      const raw = localStorage.getItem(LESSON_PREFIX + editId);
+    if (activeId) {
+      const raw = localStorage.getItem(LESSON_PREFIX + activeId);
       if (raw) {
         try { setSavedLessonState(JSON.parse(raw) as Lesson); } catch { setSavedLessonState(undefined); }
       } else {
@@ -61,7 +64,7 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
     } else {
       setSavedLessonState(undefined);
     }
-  }, [editId]);
+  }, [activeId]);
 
   function update(next: Lesson) {
     const previous = lastSaved.current?.id === next.id ? lastSaved.current : lessons.find(lesson => lesson.id === next.id);
@@ -140,7 +143,7 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
   }
 
   function leave() {
-    const currentSaved = savedLessonState ?? lessons.find(item => item.id === editId);
+    const currentSaved = savedLessonState ?? lessons.find(item => item.id === activeId);
     const hasUnsaved = pending && (!currentSaved || JSON.stringify(pending) !== JSON.stringify(currentSaved));
     if ((error === "save" || hasUnsaved) && !window.confirm(t("lessons.confirmDiscard"))) return;
     setPending(undefined);
@@ -149,19 +152,21 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
     navigate("/lessons");
   }
 
-  const savedLesson = savedLessonState ?? lessons.find(item => item.id === editId);
+  const savedLesson = savedLessonState ?? lessons.find(item => item.id === activeId);
 
-  return <main className="lessons-screen" data-editor={!!draft && !preview} data-player={!!draft && preview}>
+  return <main className="lessons-screen" data-editor={editing && !preview} data-player={viewing || (editing && preview)}>
     {draft ? <>
       <LessonImageProvider key={draft.id} lesson={draft}>
-      <WithLessonCatalog key={`${draft.id}/${preview ? "preview" : "editor"}`}>{catalog => preview
-        ? <LessonPlayer lesson={draft} catalog={catalog} preview onBack={leave} onEdit={() => setPreview(false)} />
-        : <LessonEditor catalog={catalog} lesson={draft} saved={savedLesson ?? draft} selected={selected} onSelect={setSelected}
-          saveFailed={error === "save"} onChange={update} onDraftChange={setPending} onPreview={() => setPreview(true)}
-          onBack={leave} />}
+      <WithLessonCatalog key={`${draft.id}/${viewing ? "view" : preview ? "preview" : "editor"}`}>{catalog => viewing
+        ? <LessonPlayer lesson={draft} catalog={catalog} preview={false} onBack={leave} />
+        : preview
+          ? <LessonPlayer lesson={draft} catalog={catalog} preview onBack={leave} onEdit={() => setPreview(false)} />
+          : <LessonEditor catalog={catalog} lesson={draft} saved={savedLesson ?? draft} selected={selected} onSelect={setSelected}
+            saveFailed={error === "save"} onChange={update} onDraftChange={setPending} onPreview={() => setPreview(true)}
+            onBack={leave} />}
       </WithLessonCatalog>
       </LessonImageProvider>
-    </> : editId ? <>
+    </> : activeId ? <>
       <h1 ref={title} tabIndex={-1}>{t("module.lessons")}</h1>
       <p role={loading ? "status" : "alert"}>{t(loading ? "lessons.loading" : error === "load" ? "lessons.indexError" : "lessons.notFound")}</p>
       <button className="lesson-button" onClick={() => navigate("/lessons")}>{t("lessons.library")}</button>
@@ -203,6 +208,9 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
                 {lessonPlainText(lesson.summary, language) && <p>{lessonPlainText(lesson.summary, language)}</p>}
                 <div className="lesson-actions">
                   <button className="lesson-button lesson-primary" onClick={() => {
+                    navigate(lessonViewPath(lesson.id));
+                  }}>{t("lessons.start")}</button>
+                  <button className="lesson-button" onClick={() => {
                     setError(pending?.id === lesson.id ? "save" : undefined);
                     navigate(lessonEditPath(lesson.id));
                   }}>{t("lessons.edit")}</button>

@@ -1,7 +1,7 @@
-import type { Catalog } from "../anatomy/catalog/types";
-import { useLanguage } from "../i18n";
-import type { LessonMode, LessonStep } from "./contract";
-import { lessonMode, lessonQuestions, updateLessonQuestions } from "./contract";
+import type { Catalog } from "../../anatomy/catalog/types";
+import { useLanguage } from "../../i18n";
+import type { LessonMode, LessonStep } from "../shared/contract";
+import { lessonMode, lessonQuestions, updateLessonQuestions } from "../shared/contract";
 import { newLessonQuestion } from "./question-editor";
 
 export function LessonStepOptions({ catalog, active, onChange }: {

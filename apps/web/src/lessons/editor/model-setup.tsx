@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Catalog } from "../anatomy/catalog/types";
-import { StructureSearch } from "../anatomy/structure-search";
-import { StructureTree } from "../anatomy/structure-tree";
-import { useLanguage } from "../i18n";
-import { fetchModelAsset } from "../model-assets";
-import { PopoverPanel } from "../popover-panel";
+import type { Catalog } from "../../anatomy/catalog/types";
+import { StructureSearch } from "../../anatomy/structure-search";
+import { StructureTree } from "../../anatomy/structure-tree";
+import { useLanguage } from "../../i18n";
+import { fetchModelAsset } from "../../model-assets";
+import { PopoverPanel } from "../../popover-panel";
 
 export function LessonModelSetup({ catalog, modelId, modelIds, targetId, visibleIds, selectedPart, onModel, onModels, onChoose, onChangeScene, onSelectPart }: {
   catalog: Catalog;
