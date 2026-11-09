@@ -23,7 +23,7 @@ export async function checkLessons(page) {
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:' + location.pathname.split('/')[2])).steps.length), 0);
   await page.getByRole('button', { name: 'Tiếp tục soạn bài', exact: true }).click();
 
-  await page.getByLabel('Tên bài học (VI)').fill('Bài kiểm thử');
+  await page.getByLabel('Tên bài học').fill('Bài kiểm thử');
   await page.locator('#lesson-author-outline').getByRole('button', { name: 'Thêm bước học', exact: true }).click();
   await page.getByLabel('Tên mục (VI)').fill('Đọc phần mở đầu');
   await lessonBody(page).fill('Quan sát phần mô tả.');

@@ -9,7 +9,7 @@ export async function checkLessonImages(page) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/lessons');
   await page.getByRole('button', { name: 'Tạo bài học', exact: true }).click();
-  await page.getByLabel('Tên bài học (VI)').fill('Bài học có ảnh');
+  await page.getByLabel('Tên bài học').fill('Bài học có ảnh');
   await page.locator('#lesson-author-writing').getByRole('button', { name: 'Thêm bước học', exact: true }).click();
   await page.getByLabel('Tên mục (VI)').fill('Quan sát ảnh');
   await lessonBody(page).fill('Hình minh họa được lưu cùng bài học.');

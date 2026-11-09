@@ -18,6 +18,7 @@ type SceneProps = {
   sceneRef?: Ref<EditorSceneHandle>;
   revealPart?: { id: string; target?: boolean };
   saved?: boolean;
+  onSceneChange?: () => void;
 };
 
 export type EditorSceneHandle = { capture: () => { view: SceneView; visibleIds: string[] } | undefined };
@@ -46,7 +47,7 @@ export function EditorScene(props: SceneProps) {
     </p>, props.frame);
 }
 
-function Scene({ catalog, modelIds, targetId, sectionId, frame, controls, inactive, visibleIds, view, onSaveView, onChangeScene, sceneRef, revealPart, saved }: SceneProps & { catalog: Catalog }) {
+function Scene({ catalog, modelIds, targetId, sectionId, frame, controls, inactive, visibleIds, view, onSaveView, onChangeScene, sceneRef, revealPart, saved, onSceneChange }: SceneProps & { catalog: Catalog }) {
   const { language, t } = useLanguage();
   const ids = useMemo(() => visibleIds ?? catalog.members(targetId), [catalog, targetId, visibleIds]);
   const { host, orientation, showAxes, session, state, hold, snapTarget } = useLessonViewer(catalog, modelIds, undefined, frame,
@@ -81,7 +82,10 @@ function Scene({ catalog, modelIds, targetId, sectionId, frame, controls, inacti
       <circle className="model-hold-fill" cx="20" cy="20" r="16" pathLength="100" />
     </svg>}
     {createPortal(<>
-      <ExplodeControls value={state.explosionAmount} disabled={!ready || separated} locked={separated} onChange={session.changeExplosion} />
+      <ExplodeControls value={state.explosionAmount} disabled={!ready || separated} locked={separated} onChange={amount => {
+        session.changeExplosion(amount);
+        onSceneChange?.();
+      }} />
       <button className="lesson-button lesson-primary" data-saved={saved} aria-label={t("lessons.saveView")} disabled={!ready || separated || saved} onClick={() => {
         const view = session.captureView();
         if (view) onSaveView(view, [...state.visibleIds]);

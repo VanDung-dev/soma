@@ -8,7 +8,7 @@ export async function checkLessonRichText(page) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/lessons');
   await page.getByRole('button', { name: 'Tạo bài học', exact: true }).click();
-  await page.getByLabel('Tên bài học (VI)').fill('Nội dung định dạng');
+  await page.getByLabel('Tên bài học').fill('Nội dung định dạng');
   await page.locator('#lesson-author-writing').getByRole('button', { name: 'Thêm bước học', exact: true }).click();
   await page.getByLabel('Tên mục (VI)').fill('Định dạng');
   const id = new URL(page.url()).pathname.split('/')[2];

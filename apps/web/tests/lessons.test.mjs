@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { LessonPackage } from './lesson-wasm.fixture.mjs';
-import { lessonMode, lessonQuestions, updateLessonQuestions, lessonPreviewIssues, lessonSceneStep, lessonText, readLesson, validateLessonTargets } from '../src/lessons/contract.ts';
+import { lessonLanguageTag, lessonMode, lessonQuestions, updateLessonQuestions, lessonPreviewIssues, lessonSceneStep, lessonText, readLesson, validateLessonTargets } from '../src/lessons/contract.ts';
 import { lessonModels } from '../src/lessons/targets.ts';
 
 const text = en => ({ vi: '', en });
@@ -206,4 +206,13 @@ test('custom scenes persist exact model members and bound exercise choices', () 
     choiceIds: ['a', 'b'], answerId: 'b', explanation: text('') }] };
   validate(readLesson(exercise));
   assert.throws(() => validate({ ...exercise, steps: [{ ...exercise.steps[0], visibleIds: ['1', '2'] }] }), /cannot overlap/);
+});
+
+test('lesson language tag identifies single and bilingual configurations', () => {
+  assert.equal(lessonLanguageTag({ ...draft, languages: ['vi'] }), 'vi');
+  assert.equal(lessonLanguageTag({ ...draft, languages: ['en'] }), 'en');
+  assert.equal(lessonLanguageTag({ ...draft, languages: ['vi', 'en'] }), 'vi/en');
+  assert.equal(lessonLanguageTag({ ...draft, title: { vi: 'Bài học', en: '' } }), 'vi');
+  assert.equal(lessonLanguageTag({ ...draft, title: { vi: '', en: 'Lesson' } }), 'en');
+  assert.equal(lessonLanguageTag({ ...draft, title: { vi: 'Bài học', en: 'Lesson' } }), 'vi/en');
 });

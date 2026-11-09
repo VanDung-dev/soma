@@ -21,7 +21,7 @@ export async function checkLessonEditorLayout(page) {
   const model = page.locator('.lesson-scene-region');
   const saved = () => page.evaluate(id => JSON.parse(localStorage.getItem('soma.lesson:' + id)), lesson.id);
   const choose = name => outline.locator('.lesson-outline-row').filter({ hasText: name }).click();
-  await page.getByLabel('Tên bài học (VI)').waitFor();
+  await page.getByLabel('Tên bài học').waitFor();
   assert(await outline.isVisible());
   assert.equal(await settings.count(), 0);
   assert.equal(await model.count(), 0, 'Lesson details have no 3D workspace');
@@ -64,7 +64,7 @@ export async function checkLessonEditorLayout(page) {
   assert(await page.evaluate(() => window.editorCanvas === document.querySelector('.lesson-scene-region canvas')));
   await page.locator('#lesson-toggle-outline').click();
   await page.reload();
-  await page.getByLabel('Tên bài học (VI)').waitFor();
+  await page.getByLabel('Tên bài học').waitFor();
   assert(await outline.isHidden());
   assert.equal(await settings.count(), 0);
   await document.getByRole('button', { name: 'Thêm bước học', exact: true }).click();

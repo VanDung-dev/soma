@@ -6,7 +6,7 @@ export async function checkLessonScenes(page) {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/lessons');
   await page.getByRole('button', { name: 'Tạo bài học', exact: true }).click();
-  await page.getByLabel('Tên bài học (VI)').fill('Bài học cảnh 3D');
+  await page.getByLabel('Tên bài học').fill('Bài học cảnh 3D');
   const url = page.url();
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:' + location.pathname.split('/')[2])));
   const add = async (title, instruction) => {
@@ -44,7 +44,7 @@ export async function checkLessonScenes(page) {
   assert.equal(lesson.steps[1].view.camera.yaw, 0);
   assert.notDeepEqual(lesson.steps[1].view, first.view);
   await page.reload();
-  await page.getByLabel('Tên bài học (VI)').waitFor();
+  await page.getByLabel('Tên bài học').waitFor();
   if (await page.locator('#lesson-author-outline').isHidden()) await page.locator('#lesson-toggle-outline').click();
   await page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: 'Mặt bên' }).click();
   await frame.locator('.model-canvas[aria-busy="false"]').waitFor();

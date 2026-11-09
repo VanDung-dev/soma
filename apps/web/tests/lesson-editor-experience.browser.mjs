@@ -13,8 +13,8 @@ export async function checkLessonEditorExperience(page) {
   const writing = page.locator('#lesson-author-writing');
   const frame = page.locator('.lesson-scene-region');
   assert.equal(await page.locator('.lesson-model, .tox-tinymce, .structure-search-field').count(), 0, 'Lesson details are a simple card form');
-  await page.getByLabel('Tên bài học (VI)').fill('Thông tin và từng bước');
-  await page.getByLabel('Mô tả ngắn (VI)').fill('Mô tả trên thẻ bài học.');
+  await page.getByLabel('Tên bài học').fill('Thông tin và từng bước');
+  await page.getByLabel('Mô tả ngắn').fill('Mô tả trên thẻ bài học.');
   const cover = await readFile(new URL('../public/home/anatomy.png', import.meta.url));
   await page.getByLabel('Ảnh bìa bài học', { exact: true }).setInputFiles({ name: 'cover.png', mimeType: 'image/png', buffer: cover });
   await writing.locator('.lesson-cover').waitFor();
@@ -30,7 +30,7 @@ export async function checkLessonEditorExperience(page) {
   await page.reload();
   await card.locator('img').waitFor();
   await card.getByRole('button', { name: 'Chỉnh sửa', exact: true }).click();
-  assert.equal(await page.getByLabel('Mô tả ngắn (VI)').inputValue(), details.summary.vi);
+  assert.equal(await page.getByLabel('Mô tả ngắn').inputValue(), details.summary.vi);
   assert.equal(await page.locator('.tox-tinymce').count(), 0);
   await writing.getByRole('button', { name: 'Thêm bước học', exact: true }).click();
   await page.getByLabel('Tên mục (VI)').fill('Hai dòng');
@@ -102,7 +102,7 @@ export async function checkLessonEditorExperience(page) {
   assert.equal(hidden.showModel, false);
   assert.deepEqual(hidden.view, first.view, 'Hiding 3D preserves the authored scene');
   await page.reload();
-  await page.getByLabel('Tên bài học (VI)').waitFor();
+  await page.getByLabel('Tên bài học').waitFor();
   assert.equal(await page.locator('.lesson-model, .tox-tinymce').count(), 0);
   if (await page.locator('#lesson-author-outline').isHidden()) await page.locator('#lesson-toggle-outline').click();
   await page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: 'Chỉ nội dung' }).click();
@@ -172,7 +172,7 @@ export async function checkLessonEditorExperience(page) {
     await imported.getByRole('heading', { name: 'Chỉ nội dung', exact: true }).waitFor();
     assert.equal(await imported.locator('.lesson-model, .lesson-preview-issue').count(), 0, 'Hidden-only lessons need no 3D model');
     await imported.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
-    await imported.getByLabel('Tên bài học (VI)').waitFor();
+    await imported.getByLabel('Tên bài học').waitFor();
     await imported.getByRole('button', { name: 'Xem trước', exact: true }).click();
     await imported.getByRole('button', { name: 'Danh sách bài học', exact: true }).click();
     assert.equal(new URL(imported.url()).pathname, '/lessons', 'Preview exit goes to the library');
@@ -192,7 +192,7 @@ export async function checkLessonEditorExperience(page) {
   assert.deepEqual(await saved(), expected);
   assert.equal(await writing.getByRole('status').filter({ hasText: 'Đã lưu bước' }).count(), 0);
   await page.reload();
-  await page.getByLabel('Tên bài học (VI)').waitFor();
+  await page.getByLabel('Tên bài học').waitFor();
   if (await page.locator('#lesson-author-outline').isHidden()) await page.locator('#lesson-toggle-outline').click();
   await page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: 'Chỉ nội dung' }).click();
   await frame.locator('.model-canvas[aria-busy="false"]').waitFor();

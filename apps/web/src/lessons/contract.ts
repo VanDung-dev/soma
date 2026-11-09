@@ -19,16 +19,19 @@ export type LessonStep = StepContent & ({ kind: "text" } | LessonScene & { kind:
   answerId: string;
   explanation: LessonText;
 });
+export type LessonCoverCrop = { zoom: number; x: number; y: number };
 export type Lesson = {
   id: string;
   version: number;
   title: LessonText;
   summary: LessonText;
   cover?: string;
+  coverCrop?: LessonCoverCrop;
   modelId: string;
   modelIds?: string[];
   scene?: LessonScene;
   steps: LessonStep[];
+  languages?: ("vi" | "en")[];
 };
 
 type ValidationReason = "details" | "stepText" | "target" | "choices" | "scope" | "overlap";
@@ -45,6 +48,21 @@ export class LessonValidationError extends Error {
 
 export function lessonText(value: LessonText, language: "vi" | "en") {
   return value[language].trim() || value[language === "vi" ? "en" : "vi"].trim();
+}
+
+export function lessonLanguageTag(lesson: Lesson): "vi" | "en" | "vi/en" {
+  const first = lesson.languages?.[0];
+  if (first && lesson.languages?.length === 1) {
+    return first;
+  }
+  if (lesson.languages && lesson.languages.length >= 2) {
+    return "vi/en";
+  }
+  const hasVi = Boolean(lesson.title.vi?.trim() || lesson.summary.vi?.trim());
+  const hasEn = Boolean(lesson.title.en?.trim() || lesson.summary.en?.trim());
+  if (hasVi && !hasEn) return "vi";
+  if (hasEn && !hasVi) return "en";
+  return "vi/en";
 }
 
 export function lessonMode(step: LessonStep): LessonMode {

@@ -9,7 +9,7 @@ export async function checkLessonQuestions(page) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/lessons');
   await page.getByRole('button', { name: 'Tạo bài học', exact: true }).click();
-  await page.getByLabel('Tên bài học (VI)').fill('Bài học nhiều câu hỏi');
+  await page.getByLabel('Tên bài học').fill('Bài học nhiều câu hỏi');
   const url = page.url();
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:' + location.pathname.split('/')[2])));
   const writing = page.locator('#lesson-author-writing');
@@ -117,7 +117,7 @@ export async function checkLessonImageProgress(page) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/lessons');
   await page.getByRole('button', { name: 'Tạo bài học', exact: true }).click();
-  await page.getByLabel('Tên bài học (VI)').fill('Tiến trình xử lý ảnh');
+  await page.getByLabel('Tên bài học').fill('Tiến trình xử lý ảnh');
   await page.evaluate(() => {
     const OriginalWorker = window.Worker;
     window.releaseLessonImages = [];
