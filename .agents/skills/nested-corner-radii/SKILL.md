@@ -33,14 +33,26 @@ The nested panel surfaces retain 10px padding and the 24px → 14px → 4px radi
 
 `.explode-control` is a standalone panel surface and uses Radius 1.
 
-## Compact toolbar controls
+## Button and control design rules
 
-The top toolbar uses the shared reference diameter and Radius 1 for its frame:
+Standard `<button>` elements and compact interactive controls across the interface follow unified geometry and proportions:
 
-- `.app-menu-bar`: fixed `48px` height and `24px` radius, with a `1px` border. Its controls are inset 10px from the outer edge; CSS uses `3px 9px` padding to account for the border.
-- `.controls-info`: `28px` square icon button with Radius 2 (`14px`), a visible border, and a `14px` icon. Its 14px radius makes the button circular; retain icon-only content at all viewport sizes.
-
-For these named components, Radius 2 overrides the general control-radius guidance above: buttons in `.tree-actions` and `.reader-actions`, plus `.model-status`, use Radius 2 with 10px padding. Other standalone icon buttons and selected part rows keep their control or row radius; `.model-status` uses Radius 2 instead of the pill radius.
+- **Action buttons (`<button>`, links styled as buttons, status chips):**
+  - **Height / min-height:** `28px`
+  - **Corner radius:** Radius 2 (`--inner-radius: 14px`), producing a smooth, fully-rounded pill silhouette (`radius = height / 2`).
+  - **Padding:** `6px 10px` (or `3px 10px` when vertically centered).
+  - **Typography:** `font-size: 12px`.
+- **Icon-only buttons (`<button>` icon targets):**
+  - **Dimensions:** `28px × 28px` square, with Radius 2 (`14px`) rendering a circular button.
+  - **Icon size:** `14px` to `16px`, centered.
+- **Associated inline inputs:**
+  - Single-line text inputs directly paired alongside 28px buttons adopt the same `28px` height, Radius 2 (`14px`), and compact font size for visual harmony.
+- **Concentric corner alignment:**
+  - When a 28px button sits inset `10px` inside a Radius 1 (`24px`) panel or viewport corner, it satisfies the geometric rule:
+    `parent radius (24px) = child radius (14px) + inset (10px)`
+- **Exceptions:**
+  - Layout shells: The top `.app-menu-bar` uses the 48px reference diameter (`--reference-diameter: 48px`) and Radius 1 (`24px`). The page shell `.module-header` uses a compact 40px height to maximize viewport space, with centered 28px controls, navigation links, and toggle buttons conforming to the standard 28px / Radius 2 (`14px`) proportion.
+  - Stacked list/tree rows: Interactive rows within structured trees or lists (`.tree-row`, `.folder-row`) are list items rather than pill buttons; they use Radius 3 (`--detail-radius: 4px`) or `--row-radius`.
 
 The tier rule applies when a bordered child surface sits in a parent corner with a measured inset, such as `.catalog-panel` and `.catalog-tree`, then recursively to a detail surface inside Radius 2. Do not apply it to unrelated controls just because they are inside a panel; the transparent toolbar icon buttons are interaction targets, not nested surfaces.
 
