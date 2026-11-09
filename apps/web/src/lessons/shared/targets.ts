@@ -1,13 +1,12 @@
 import type { Catalog, FolderView, StudyTarget } from "../../anatomy/catalog/types";
-import type { Lesson } from "./contract";
+import type { Lesson, LessonScene } from "./contract";
 
-export function lessonModels(catalog: Catalog, lesson: Lesson): string[] {
+export function lessonSceneModels(catalog: Catalog, lesson: Lesson, scene?: LessonScene): string[] {
+  if (scene?.modelIds !== undefined) return scene.modelIds;
   const initial = lesson.modelIds?.length ? lesson.modelIds : (lesson.modelId ? [lesson.modelId] : []);
-  if (!initial.length) return [];
-  const scenes = [...(lesson.scene ? [lesson.scene] : []), ...lesson.steps.filter(step => step.kind !== "text")];
-  const needed = new Set(scenes.flatMap(scene => scene.visibleIds ?? catalog.members(scene.targetId)));
   const models = [...initial];
-  for (const mid of initial) {
+  const needed = new Set(scene ? scene.visibleIds ?? catalog.members(scene.targetId) : []);
+  for (const mid of models) {
     catalog.members(mid).forEach(id => needed.delete(id));
   }
   for (const root of catalog.roots) {
@@ -18,6 +17,14 @@ export function lessonModels(catalog: Catalog, lesson: Lesson): string[] {
     ids.forEach(id => needed.delete(id));
   }
   return models;
+}
+
+export function lessonModels(catalog: Catalog, lesson: Lesson): string[] {
+  const scenes = [...(lesson.scene ? [lesson.scene] : []), ...lesson.steps.filter(step => step.kind !== "text")];
+  return [...new Set([
+    ...lessonSceneModels(catalog, lesson),
+    ...scenes.flatMap(scene => lessonSceneModels(catalog, lesson, scene)),
+  ])];
 }
 
 export function lessonTargets(catalog: Catalog, modelId: string): StudyTarget[] {

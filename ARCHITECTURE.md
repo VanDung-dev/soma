@@ -76,10 +76,11 @@ Camera → MediaPipe worker → Rust HandGestureController → StudySession.cont
 - Manual separation and automatic explosion are mutually exclusive; restoration runs in Rust.
 - New study screens reuse the session/runtime and supply their own viewport geometry.
 - Lessons apply authored scenes through `StudySession.applyScene`; Rust validates and restores
-visibility, camera pose and explosion. Camera poses adapt to the host viewport. Learner controls 
-change only the active session; saving an editor scene explicitly updates lesson data.
-The legacy optional lesson-level `scene` remains a fallback. Per-step `showModel`
-controls authored visibility without deleting the scene. Lessons derive
+visibility, camera pose and explosion. Camera poses adapt to the host viewport. Learner controls
+change only the active session; the editor saves the selected step's content, `modelIds` and
+scene together. Each visual step owns its model selection and scene. Legacy lesson-level
+`modelId`, `modelIds` and optional `scene` remain fallbacks for older lessons and lesson details.
+Per-step `showModel` controls authored visibility without deleting the scene. Lessons derive
 the required source systems from authored structure IDs and load them through the shared runtime.
 The player and author preview share camera-only input: authored visibility and
 explosion remain locked. Per-step `mode` selects content, questions or both without

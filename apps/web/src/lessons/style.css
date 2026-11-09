@@ -239,6 +239,7 @@ dialog.lesson-cover-modal:not([open]) {
 .lesson-reader-outline .lesson-outline-row:disabled { opacity: .5; cursor: default; }
 .lesson-model-message { position: absolute; z-index: 2; left: 10px; right: 10px; bottom: 46px; }
 .lesson-model-credit { position: absolute; z-index: 2; right: 10px; bottom: 10px; padding: 6px 10px; border-radius: var(--inner-radius); background: var(--panel-bg); color: var(--text); font-size: 12px; }
+.lesson-model-tools .lesson-model-credit { position: static; z-index: auto; margin-left: auto; padding: 6px 10px; border-radius: var(--inner-radius); background: var(--panel-bg); color: var(--text); font-size: 12px; white-space: nowrap; }
 .lesson-model > .model-orientation { z-index: 2; }
 .lesson-structure-tools { position: absolute; z-index: 2; inset: 10px 10px 48px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: none; }
 .lesson-structure-tools > :first-child { max-width: calc(100% - 112px); }
@@ -317,26 +318,32 @@ dialog.lesson-cover-modal:not([open]) {
 .lesson-author-center[data-model="false"] .lesson-author-document { width: min(100%, 860px); justify-self: center; }
 .lesson-author-alerts { display: grid; grid-column: 1 / -1; gap: 4px; }
 .lesson-author-alerts .model-status { justify-self: center; }
-.lesson-scene-region { position: relative; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 8px; width: 100%; min-width: 0; min-height: 0; }
-.lesson-model-toolbar, .lesson-scene-controls { display: contents; }
-.lesson-model-toolbar > .structure-search-field { grid-column: 1; grid-row: 1; }
-.lesson-model-toolbar > .lesson-button { min-height: 28px; padding: 6px 10px; border-radius: var(--inner-radius); font-size: 12px; }
-.lesson-model-search-status { flex-basis: 100%; color: var(--muted); font-size: 12px; }
+.lesson-scene-region { position: relative; display: grid; grid-template-rows: minmax(0, 1fr); width: 100%; min-width: 0; min-height: 0; }
+.lesson-model-toolbar { display: contents; }
+.lesson-model-tools { position: absolute; z-index: 3; right: 0; bottom: 0; left: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; padding: 10px; pointer-events: none; }
+.lesson-model-tools > * { pointer-events: auto; }
+.lesson-model-tools .lesson-button { min-height: 28px; padding: 6px 10px; border-radius: var(--inner-radius); font-size: 12px; }
+.lesson-model-tools .structure-search-field[data-labeled] { min-height: 28px; height: 28px; padding: 3px 10px; border-radius: var(--inner-radius); font-size: 12px; white-space: nowrap; }
+.lesson-model-tools .explode-control { display: flex; flex: 0 1 auto; flex-wrap: nowrap; align-items: center; gap: 10px; width: auto; max-width: none; min-width: 0; height: 28px; padding: 0 10px; }
+.lesson-model-tools .explode-label { display: contents; }
+.lesson-model-tools .explode-label > span { order: 0; display: flex; flex-direction: row; align-items: center; gap: 4px; font-size: 12px; white-space: nowrap; }
+.lesson-model-tools .explode-label output { order: 2; white-space: nowrap; }
+.lesson-model-tools .explode-control input { order: 1; flex: 1 1 140px; width: clamp(80px, 12vw, 180px); min-width: 80px; min-height: 28px; }
+.lesson-model-search-status { flex: 1 0 100%; color: var(--muted); font-size: 12px; }
+.lesson-model-empty > .lesson-model-tools { right: 0; }
 .lesson-scene-viewport { position: relative; min-width: 0; min-height: 0; }
 .lesson-scene-viewport > .model-orientation, .lesson-scene-viewport > :is(button, a) { pointer-events: auto; }
 .lesson-scene-viewport > .model-orientation { z-index: 2; }
-.lesson-editor-hud { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-width: 0; padding: 0 10px 10px; pointer-events: auto; }
-.lesson-model-toolbar > .lesson-button { grid-column: 2; grid-row: 1; justify-self: start; }
-.lesson-scene-controls > .lesson-primary { grid-column: 3; grid-row: 1; }
 .lesson-scene-feedback { position: absolute; left: 10px; right: 10px; bottom: 50px; display: grid; justify-items: center; gap: 4px; }
 .lesson-scene-fit { position: absolute; z-index: 2; left: 10px; bottom: 10px; min-height: 28px; padding: 6px 10px; border-radius: var(--inner-radius); font-size: 12px; }
+.lesson-model-tools .lesson-scene-fit { position: static; z-index: auto; }
+.lesson-model-tools .lesson-player-reset { position: static; z-index: auto; }
 .lesson-author-document { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; padding: var(--panel-padding); pointer-events: auto; }
 .lesson-author-document > .information-content { gap: 8px; }
 .lesson-author-document > .information-content > * { flex-shrink: 0; }
 .lesson-editor-stepbar { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; padding: 0 0 8px; flex-shrink: 0; }
 .lesson-button[data-saved="true"] { color: #1b5e20 !important; background: #a5d6a7 !important; border-color: #66bb6a !important; cursor: default; }
 :root[data-theme="dark"] .lesson-button[data-saved="true"] { color: #e8f5e9 !important; background: #1b5e20 !important; border-color: #4caf50 !important; }
-.lesson-editor-stepbar > .lesson-primary { grid-column: 1; justify-self: start; }
 .lesson-editor-stepbar > span { grid-column: 2; justify-self: center; text-align: center; font-size: 12px; color: var(--muted); }
 .lesson-editor-stepbar-actions { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: 6px; }
 .lesson-editor-stepbar .lesson-button { min-height: 28px; padding: 3px 10px; border-radius: var(--inner-radius); font-size: 12px; }
@@ -381,8 +388,9 @@ body:has(.lesson-rich-editor) .tox .tox-dialog__busy-spinner::after { content: a
 .lesson-author-document :is(#lesson-write-title, .lesson-write-title):focus { background: color-mix(in srgb, var(--selected-bg) 40%, var(--surface)); outline: none; }
 .lesson-author-document :is(#lesson-write-title, .lesson-write-title)::placeholder { color: var(--muted); }
 .lesson-document-hint, .lesson-scene-placeholder p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
-.lesson-scene-placeholder { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: grid; width: min(300px, 100%); max-height: 100%; overflow: auto; justify-items: center; gap: 8px; padding: 12px; text-align: center; pointer-events: auto; }
+.lesson-scene-placeholder { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: grid; width: min(420px, calc(100% - 24px)); max-height: 100%; overflow: auto; justify-items: center; gap: 8px; padding: 12px; text-align: center; pointer-events: auto; }
 .lesson-scene-placeholder .lesson-button { min-height: 34px; font-size: 12px; }
+.lesson-scene-placeholder-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 
 :is(.lesson-author-outline, .lesson-reader-outline) .catalog-heading { margin-bottom: 5px; }
 :is(.lesson-author-outline, .lesson-reader-outline) .catalog-heading h2 { font-size: 17px; }
@@ -398,9 +406,6 @@ body:has(.lesson-rich-editor) .tox .tox-dialog__busy-spinner::after { content: a
 .lesson-author-tools { padding-top: 10px; margin-top: 8px; border-top: 1px solid var(--line); }
 .lesson-author-tools h2 { margin: 0 0 5px 6px; font: 700 13px var(--font-ui); }
 .lesson-tool { color: var(--accent); font-weight: 650; }
-.lesson-editor-hud .explode-control { grid-column: 1 / -1; grid-row: 2; justify-self: center; }
-.lesson-editor-hud .lesson-button { min-height: 28px; padding: 6px 10px; border-radius: var(--inner-radius); font-size: 12px; }
-.lesson-model-search-status { grid-column: 1 / -1; grid-row: 4; }
 .lesson-fields .lesson-exercise-toggle { display: flex; align-items: center; gap: 8px; min-height: 44px; }
 .lesson-exercise-toggle input { accent-color: var(--accent); }
 .lesson-inspector-section { display: grid; gap: 8px; padding: 12px 0; border-top: 1px solid var(--line); }

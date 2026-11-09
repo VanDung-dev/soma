@@ -68,12 +68,14 @@ export function LessonModelSetup({ catalog, modelId, modelIds, targetId, visible
   }, [catalog, attempt]);
 
   return <div className="lesson-model-toolbar">
-    <StructureSearch catalog={catalog} disabled={loading || failed} label={t("lessons.addSceneStructure")} compact
-      onSelect={id => {
-        const ids = catalog.target(id) ? catalog.members(id) : [id];
-        onChoose(ids, catalog.target(id) ? undefined : id);
-      }} />
-    <button className="lesson-button" popoverTarget="lesson-model-settings">{t("lessons.modelSettings")}</button>
+    {modelIds.length > 0 && <>
+      <StructureSearch catalog={catalog} disabled={loading || failed} label={t("search.submit")}
+        onSelect={id => {
+          const ids = catalog.target(id) ? catalog.members(id) : [id];
+          onChoose(ids, catalog.target(id) ? undefined : id);
+        }} />
+      <button className="lesson-button" popoverTarget="lesson-model-settings">{t("lessons.modelSettings")}</button>
+    </>}
     <PopoverPanel id="lesson-model-settings" className="lesson-model-settings" title={t("lessons.modelSettings")} closeLabel={t("lessons.closeModelSettings")}>
       <div className="lesson-fields">
         <div className="lesson-model-systems">

@@ -9,7 +9,7 @@ import { ViewerRuntime } from "../../anatomy/viewer/runtime";
 import { shortcutAction } from "../../shortcuts";
 
 export function useLessonViewer(catalog: Catalog, modelId: string | readonly string[], onPick?: (id: string) => void, frame?: HTMLElement,
-  onEditVisibility?: (hiddenIds: string[]) => void, allowSeparation = true) {
+  onEditVisibility?: (hiddenIds: string[]) => void, allowSeparation = true, animateInitialReconstruction = true) {
   const host = useRef<HTMLDivElement>(null);
   const orientation = useRef<OrientationAxesHandle>(null);
   const [graphics] = useState(readGraphicsSettings);
@@ -47,6 +47,7 @@ export function useLessonViewer(catalog: Catalog, modelId: string | readonly str
       canSeparate,
       canSelect: canSeparate,
       preserveCameraOnResize: true,
+      animateInitialReconstruction,
     });
     const keyDown = (event: KeyboardEvent) => {
       if (canSeparate() && shortcutAction(event) === "restore") {

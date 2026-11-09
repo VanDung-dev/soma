@@ -46,6 +46,7 @@ export class ViewerRuntime implements StudyViewer {
     canSeparate?: () => boolean;
     canSelect?: () => boolean;
     preserveCameraOnResize?: boolean;
+    animateInitialReconstruction?: boolean;
     onFps?: (fps: number) => void;
     onOrientation?: (axes: Float32Array) => void;
     onHold?: (point: { x: number; y: number; action: "hide" | "move" } | null) => void;
@@ -99,16 +100,16 @@ export class ViewerRuntime implements StudyViewer {
       }, (root, json) => catalog.ingestMetadata(root, json));
       // Fit every system before the first frame so reconstruction cannot change the scale.
       const started = performance.now();
+      const animate = !this.motion.matches && this.options.animateInitialReconstruction !== false;
       for await (const prepared of packages) {
         if (this.disposed) return;
-        if (this.viewer) this.viewer.appendPrepared(prepared, started, true);
+        if (this.viewer) this.viewer.appendPrepared(prepared, started, animate);
         else {
           this.viewer = wasm.AnatomyViewer.fromPrepared(this.canvas, prepared);
-          this.viewer.begin_reconstruction(started, true);
+          this.viewer.begin_reconstruction(started, animate);
         }
       }
       if (this.disposed) return;
-      const animate = !this.motion.matches;
       this.viewer!.start_reconstruction(performance.now(), animate);
       this.resizeCanvas();
       this.viewer!.inspect("reset");

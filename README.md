@@ -124,8 +124,9 @@ anatomy systems automatically, including groups and scenes spanning several syst
 show/hide/reset actions. The editor has one structure search; choosing an existing
 part also opens its information bar along the bottom of the canvas. Each step has
 a **Show the 3D model in this step** option. Hiding it preserves the authored scene,
-and the learner gets the full reading area for that step. New steps inherit the
-preceding scene and visibility. Step options support **Content / No questions**,
+and the learner gets the full reading area for that step. New steps start with empty
+content and no model; choose **3D settings** to configure a scene or copy the previous
+step's scene. Step options support **Content / No questions**,
 **No content / Questions** and **Content / Questions**. Switching modes retains
 the hidden content and questions. Each step can have several questions, each with
 a prompt, at least two answer choices, one correct answer and an optional explanation.
@@ -170,15 +171,13 @@ While editing, use the Anatomy mouse controls to rotate, pan, zoom, Shift-drag
 select, hold left to detach and move, or hold right to hide. Hiding updates the
 section's visible structures. The shared explosion slider supports automatic
 separation; restore manually moved parts with the restore button or T before
-using it. Rotate, pan, zoom and adjust explosion, then press **Save step** above the
-writing fields to save the content, camera, explosion and current visible set.
-Successful saves show a confirmation; failed saves keep the draft open with an error.
-**Save details** saves the title, short description and cover reference.
-**Save step scene** in the model pane saves just the scene. Visibility changes also
-autosave from the structure tree and hide gesture. Camera and explosion changes
-stay temporary until explicitly saved. Manual offsets are not stored: restore
-manually moved parts before saving. **Reset step scene** reapplies the authored
-view. Source structure IDs and lesson/step IDs remain stable.
+using it. Each learning step owns its model selection and scene. Rotate, pan, zoom,
+adjust explosion and visibility, then press **Save lesson** in the top bar to save
+the whole lesson, including its details, every step's content, model selection,
+questions and scene. All edits stay in one draft until **Save lesson** is pressed;
+successful saves show a confirmation and failed saves keep the draft open with an error.
+Manual offsets are not stored: restore manually moved parts before saving. **Reset step
+scene** reapplies the authored view. Source structure IDs and lesson/step IDs remain stable.
 
 Preview runs the same player and completion rules as student learning. Every
 enabled question in a step must be answered correctly before proceeding; incorrect
@@ -206,8 +205,9 @@ sections inherit the preceding 3D section, with the first 3D section as the init
 scene. Saving a scene for a legacy reading section gives that step its own scene.
 Use the library search to find drafts by title or description. A draft opens at
 `/lessons/<id>/edit`, which reloads the saved draft in the same profile.
-Draft text autosaves in localStorage in the current browser profile or desktop
-WebView; binary images use IndexedDB. Export a draft as `<lesson title>.lesson.br`
+Saved lesson text is stored in localStorage in the current browser profile or desktop
+WebView; binary images use IndexedDB. Changes remain in the editor draft until **Save
+lesson**. Export a draft as `<lesson title>.lesson.br`
 to back up or share its content and images offline. The filename uses the current
 interface language with the other title as fallback; unsafe filename characters
 are replaced. Untitled drafts receive a readable default name. The stable lesson

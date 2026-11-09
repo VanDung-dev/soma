@@ -27,7 +27,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
   const [modelCollapsed, setModelCollapsed] = useState(false);
   const [index, setIndex] = useState(0);
   const { host, orientation, showAxes, session, state } = useLessonViewer(catalog, usesModel ? modelIds : "", undefined,
-    undefined, undefined, false);
+    undefined, undefined, false, false);
   const [passed, setPassed] = useState<ReadonlySet<string>>(() => new Set());
   const [failed, setFailed] = useState(false);
   const [validated, setValidated] = useState(!usesModel);
@@ -115,17 +115,20 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
       </nav>
       <div className="lesson-workspace" data-model={showStepModel} data-model-collapsed={modelCollapsed}>
       {usesModel && <section className="lesson-model" id={modelId} hidden={!showStepModel} aria-label={t("viewer.section.label")}>
-        <div className="lesson-model-canvas model-canvas" ref={host} aria-busy={!modelMissing && state.building && !state.error && !failed} />
+        <div className="lesson-model-canvas model-canvas" ref={host} aria-busy={!modelMissing && state.building && !state.error && !failed}>
+          <div className="lesson-model-tools">
+            <button className="lesson-button lesson-player-reset" disabled={!ready || !sceneUsable} onClick={() => {
+              if (!session.applyScene(sceneIds, scene?.view)) return;
+            }}>{t("lessons.resetStudyScene")}</button>
+            <a className="lesson-model-credit" href="/models/z-anatomy/ATTRIBUTION.md" target="_blank" rel="noreferrer"
+              aria-label={t("credit.link")}>Z-Anatomy</a>
+          </div>
+        </div>
         {showAxes && <div className="model-orientation"><OrientationAxes ref={orientation} disabled={!ready} onControl={session.control} /></div>}
         {modelMissing ? <p className="lesson-model-message model-status" role="status">{t("lessons.validation.target", { step: index + 1 })}</p>
           : failed ? <p className="lesson-model-message model-status model-error" role="alert">{t("lessons.targetError")}</p>
-          : (state.building || state.error) && <ViewerStatusNotice className="lesson-model-message" state={state} totalSystems={modelIds.length} />}
+          : state.error && <ViewerStatusNotice className="lesson-model-message" state={state} totalSystems={modelIds.length} />}
         {showStepModel && !state.building && !state.error && !sceneUsable && <p className="lesson-model-message model-status" role="status">{t("lessons.targetError")}</p>}
-        <button className="lesson-button lesson-player-reset" disabled={!ready || !sceneUsable} onClick={() => {
-          if (!session.applyScene(sceneIds, scene?.view)) return;
-        }}>{t("lessons.resetStudyScene")}</button>
-        <a className="lesson-model-credit" href="/models/z-anatomy/ATTRIBUTION.md" target="_blank" rel="noreferrer"
-          aria-label={t("credit.link")}>Z-Anatomy</a>
       </section>}
       <section className="lesson-step" aria-labelledby="lesson-step-title">
         <div className="information-content lesson-reader-body" ref={reader}>
@@ -141,12 +144,12 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
           : <p className="lesson-instructions">{t("lessons.previewNoContent")}</p>)}
         {!lesson.steps.length && <button className="lesson-button lesson-primary" onClick={onEdit ?? onBack}>{t("lessons.continueEditing")}</button>}
         </>}
-        <div hidden={complete}><LessonQuestions stepId={step.id} questions={questions} disabled={!!issue || (showStepModel && !ready)}
+        <div hidden={complete}><LessonQuestions stepId={step.id} questions={questions} disabled={!!issue}
           onComplete={() => setPassed(current => new Set([...current, step.id]))} /></div>
         </div>
         {!complete && lesson.steps.length > 0 && <div className="lesson-actions">
           <button className="lesson-button" disabled={index === 0} onClick={() => move(index - 1)}>{t("lessons.previous")}</button>
-          <button className="lesson-button lesson-primary" disabled={!!issue && !preview || (showStepModel && !ready) || (mode !== "content" && !solved && !preview)} onClick={() => {
+          <button className="lesson-button lesson-primary" disabled={!!issue && !preview || (mode !== "content" && !solved && !preview)} onClick={() => {
             if (index + 1 < lesson.steps.length) move(index + 1);
             else setComplete(true);
           }}>{t(index + 1 < lesson.steps.length ? "lessons.next" : "lessons.finish")}</button>

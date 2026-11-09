@@ -142,9 +142,10 @@ export function LessonsPage({ editId, viewId, navigate }: { editId?: string; vie
     }
   }
 
-  function leave() {
+  function leave(currentDraft?: Lesson) {
     const currentSaved = savedLessonState ?? lessons.find(item => item.id === activeId);
-    const hasUnsaved = pending && (!currentSaved || JSON.stringify(pending) !== JSON.stringify(currentSaved));
+    const unsavedDraft = currentDraft ?? pending;
+    const hasUnsaved = unsavedDraft && (!currentSaved || JSON.stringify(unsavedDraft) !== JSON.stringify(currentSaved));
     if ((error === "save" || hasUnsaved) && !window.confirm(t("lessons.confirmDiscard"))) return;
     setPending(undefined);
     setError(undefined);
@@ -162,7 +163,7 @@ export function LessonsPage({ editId, viewId, navigate }: { editId?: string; vie
         : preview
           ? <LessonPlayer lesson={draft} catalog={catalog} preview onBack={leave} onEdit={() => setPreview(false)} />
           : <LessonEditor catalog={catalog} lesson={draft} saved={savedLesson ?? draft} selected={selected} onSelect={setSelected}
-            saveFailed={error === "save"} onChange={update} onDraftChange={setPending} onPreview={() => setPreview(true)}
+            saveFailed={error === "save"} onChange={update} onDraftChange={setPending} onPreview={current => { setPending(current); setPreview(true); }}
             onBack={leave} />}
       </WithLessonCatalog>
       </LessonImageProvider>

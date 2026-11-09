@@ -12,7 +12,7 @@ export type LessonQuestion = {
 };
 
 type StepContent = { id: string; title: LessonText; instruction: LessonText; showModel?: boolean; mode?: LessonMode; questions?: LessonQuestion[] };
-export type LessonScene = { targetId: string; visibleIds?: string[]; view?: SceneView };
+export type LessonScene = { modelIds?: string[]; targetId: string; visibleIds?: string[]; view?: SceneView };
 export type LessonStep = StepContent & ({ kind: "text" } | LessonScene & { kind: "observe" } | LessonScene & {
   kind: "identify_structure";
   choiceIds: string[];
@@ -102,8 +102,11 @@ export function readLesson(value: unknown, draft = false): Lesson {
 }
 
 function membership(lesson: Lesson, members: (id: string) => readonly string[]) {
-  const ids = new Set(lesson.steps.flatMap(step => step.kind === "text" ? [] : [step.targetId,
-    ...(step.kind === "identify_structure" ? step.choiceIds : [])]));
+  const ids = new Set([
+    ...lesson.steps.flatMap(step => step.kind === "text" ? [] : [step.targetId,
+      ...(step.modelIds ?? []), ...(step.kind === "identify_structure" ? step.choiceIds : [])]),
+    ...(lesson.scene?.modelIds ?? []), ...(lesson.modelIds ?? []), lesson.modelId,
+  ]);
   return Object.fromEntries([...ids].map(id => [id, members(id)]));
 }
 

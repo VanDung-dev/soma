@@ -166,6 +166,7 @@ fn strings(value: &Value) -> bool {
 
 fn scene(value: &Value) -> bool {
     value["targetId"].is_string()
+        && value.get("modelIds").is_none_or(strings)
         && value.get("view").is_none_or(view)
         && value.get("visibleIds").is_none_or(strings)
 }
@@ -218,6 +219,7 @@ pub fn validate(lesson: &Value, draft: bool) -> Result<(), ValidationError> {
             .get("cover")
             .is_some_and(|cover| !cover.as_str().is_some_and(image_path))
         || !lesson["modelId"].is_string()
+        || lesson.get("modelIds").is_some_and(|value| !strings(value))
         || lesson.get("scene").is_some_and(|value| !scene(value))
         || !lesson["steps"].is_array()
         || !draft && lesson["steps"].as_array().is_none_or(Vec::is_empty)
@@ -270,7 +272,13 @@ pub fn validate(lesson: &Value, draft: bool) -> Result<(), ValidationError> {
             && (!scene(step)
                 || !draft
                     && step["showModel"] != false
-                    && (lesson["modelId"] == "" || step["targetId"] == ""))
+                    && (step["targetId"] == ""
+                        || if let Some(models) = step.get("modelIds") {
+                            models.as_array().is_none_or(Vec::is_empty)
+                        } else {
+                            lesson["modelId"] == ""
+                                && lesson["modelIds"].as_array().is_none_or(Vec::is_empty)
+                        }))
         {
             return Err(error(
                 "target",
@@ -339,10 +347,18 @@ pub fn validate_targets(
                     .collect()
             })
             .unwrap_or_else(|| target.clone());
+        let assigned = step.get("modelIds").and_then(Value::as_array).map(|models| {
+            models
+                .iter()
+                .filter_map(Value::as_str)
+                .flat_map(|id| members.get(id).unwrap_or(&empty))
+                .collect::<HashSet<_>>()
+        });
+        let available = assigned.as_ref().unwrap_or(&model);
         if target.is_empty()
-            || !target.iter().all(|id| model.contains(id))
+            || !target.iter().all(|id| available.contains(id))
             || scene.is_empty()
-            || !scene.iter().all(|id| model.contains(id))
+            || !scene.iter().all(|id| available.contains(id))
         {
             return Err(error(
                 "scope",
