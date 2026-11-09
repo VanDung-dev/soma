@@ -12,7 +12,7 @@ export async function checkLessonScenes(page) {
   const add = async (title, instruction) => {
     assert.equal(await page.getByRole('button', { name: 'Quan sát 3D', exact: true }).count(), 0);
     await page.locator('#lesson-author-writing').getByRole('button', { name: 'Thêm bước học', exact: true }).click();
-    await page.getByLabel('Tên mục (VI)').fill(title);
+    await page.getByLabel('Tên mục').fill(title);
     await lessonBody(page).fill(instruction);
   };
   await add('Mặt bên', 'Xoay và tách để quan sát mặt bên.');

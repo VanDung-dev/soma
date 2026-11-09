@@ -41,7 +41,7 @@ export async function checkLessonEditorLayout(page) {
   await page.mouse.move(firstRow.x + firstRow.width / 2, firstRow.y + 5, { steps: 10 });
   await page.mouse.up();
   assert.deepEqual((await saved()).steps.map(step => step.id), ['step-1', 'step-0', 'step-2']);
-  assert.equal(await page.getByLabel('Tên mục (VI)').inputValue(), 'Hai', 'Reordering must preserve the active step');
+  assert.equal(await page.getByLabel('Tên mục').inputValue(), 'Hai', 'Reordering must preserve the active step');
   await handle.focus();
   await handle.press('Space');
   await handle.press('End');
@@ -55,9 +55,9 @@ export async function checkLessonEditorLayout(page) {
   await handle.press('Home');
   await handle.press('Escape');
   assert.deepEqual(await saved(), reordered, 'Escape must cancel keyboard reordering');
-  assert.equal(await page.getByLabel('Tên mục (VI)').inputValue(), 'Hai');
+  assert.equal(await page.getByLabel('Tên mục').inputValue(), 'Hai');
   await document.getByRole('button', { name: 'Bước trước', exact: true }).click();
-  assert.equal(await page.getByLabel('Tên mục (VI)').inputValue(), 'Ba');
+  assert.equal(await page.getByLabel('Tên mục').inputValue(), 'Ba');
   await model.locator('.orientation-axes [data-axis="Y"][data-direction="1"]').click();
   assert(await outline.isVisible());
   assert(await settings.isVisible());
@@ -71,7 +71,7 @@ export async function checkLessonEditorLayout(page) {
   assert.equal((await saved()).steps.length, 4, 'Adding a step must not require opening the outline');
   assert(await outline.isHidden());
   assert(await settings.isVisible());
-  await page.getByLabel('Tên mục (VI)').fill('Bốn');
+  await page.getByLabel('Tên mục').fill('Bốn');
   await lessonBody(page).fill('Nội dung Bốn');
   await page.locator('#lesson-toggle-outline').click();
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
@@ -83,7 +83,7 @@ export async function checkLessonEditorLayout(page) {
   await page.getByRole('button', { name: 'Bước tiếp theo', exact: true }).click();
   assert(await readerOutline.isVisible());
   await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
-  await page.getByLabel('Tên mục (VI)').waitFor();
+  await page.getByLabel('Tên mục').waitFor();
   assert(await outline.isVisible());
   assert(await settings.isVisible());
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
@@ -100,7 +100,7 @@ export async function checkLessonEditorLayout(page) {
   assert(await readerOutline.isVisible());
   assert(await page.locator('.lessons-screen').evaluate(node => node.scrollWidth <= node.clientWidth));
   await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
-  await page.getByLabel('Tên mục (VI)').waitFor();
+  await page.getByLabel('Tên mục').waitFor();
   assert(await outline.isVisible());
   assert((await outline.locator('.catalog-tree').boundingBox()).height >= 70, 'Mobile outline needs usable space for selecting steps');
   await choose('Một');
@@ -122,6 +122,6 @@ export async function checkLessonEditorLayout(page) {
   assert(await outline.isVisible(), 'Panel toggles remain usable when preference storage is blocked');
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
-  await page.getByLabel('Tên mục (VI)').waitFor();
+  await page.getByLabel('Tên mục').waitFor();
   assert(await settings.isVisible(), 'Blocked panel storage must fall back to accessible inline settings');
 }

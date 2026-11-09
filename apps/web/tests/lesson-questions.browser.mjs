@@ -14,7 +14,7 @@ export async function checkLessonQuestions(page) {
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:' + location.pathname.split('/')[2])));
   const writing = page.locator('#lesson-author-writing');
   await writing.getByRole('button', { name: 'Thêm bước học', exact: true }).click();
-  await page.getByLabel('Tên mục (VI)').fill('Hai câu hỏi');
+  await page.getByLabel('Tên mục').fill('Hai câu hỏi');
   await page.getByLabel('Hiển thị mô hình 3D ở bước này', { exact: true }).uncheck();
   await lessonBody(page).fill('Nội dung phải còn sau khi chuyển chế độ.');
   const mode = page.getByLabel('Hiển thị trong bước', { exact: true });
@@ -22,14 +22,14 @@ export async function checkLessonQuestions(page) {
   await page.getByRole('button', { name: 'Thêm câu hỏi', exact: true }).click();
   const questions = page.locator('.lesson-question-editor > fieldset');
   for (let i = 0; i < 2; i++) {
-    await questions.nth(i).getByLabel('Đề bài (VI)', { exact: true }).fill(`Đề bài ${i + 1}`);
-    await questions.nth(i).getByLabel('Phương án 1 (VI)', { exact: true }).fill(`Sai ${i + 1}`);
-    await questions.nth(i).getByLabel('Phương án 2 (VI)', { exact: true }).fill(`Đúng ${i + 1}`);
+    await questions.nth(i).getByLabel('Đề bài', { exact: true }).fill(`Đề bài ${i + 1}`);
+    await questions.nth(i).getByLabel('Phương án 1', { exact: true }).fill(`Sai ${i + 1}`);
+    await questions.nth(i).getByLabel('Phương án 2', { exact: true }).fill(`Đúng ${i + 1}`);
     await questions.nth(i).getByRole('radio', { name: 'Chọn phương án 2 làm đáp án đúng', exact: true }).check();
-    await questions.nth(i).getByLabel('Giải thích đáp án (VI)', { exact: true }).fill(`Giải thích ${i + 1}`);
+    await questions.nth(i).getByLabel('Giải thích đáp án', { exact: true }).fill(`Giải thích ${i + 1}`);
   }
   await questions.nth(1).getByRole('button', { name: 'Thêm phương án trả lời', exact: true }).click();
-  await questions.nth(1).getByLabel('Phương án 3 (VI)', { exact: true }).fill('Một lựa chọn khác');
+  await questions.nth(1).getByLabel('Phương án 3', { exact: true }).fill('Một lựa chọn khác');
   const both = (await saved()).steps[0];
   for (const value of ['content', 'questions', 'content_questions']) {
     await mode.selectOption(value);

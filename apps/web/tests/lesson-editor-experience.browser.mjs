@@ -33,7 +33,7 @@ export async function checkLessonEditorExperience(page) {
   assert.equal(await page.getByLabel('Mô tả ngắn').inputValue(), details.summary.vi);
   assert.equal(await page.locator('.tox-tinymce').count(), 0);
   await writing.getByRole('button', { name: 'Thêm bước học', exact: true }).click();
-  await page.getByLabel('Tên mục (VI)').fill('Hai dòng');
+  await page.getByLabel('Tên mục').fill('Hai dòng');
   assert.equal(await page.locator('#lesson-author-inspector, #lesson-toggle-inspector, #lesson-scene-structures').count(), 0);
   assert.equal(await page.locator('.structure-search-field').count(), 1, 'The editor has one structure search');
   assert.equal((await page.locator('.structure-search-field').textContent()).trim(), '', 'Search shows only the magnifier');
@@ -93,7 +93,7 @@ export async function checkLessonEditorExperience(page) {
   const first = (await saved()).steps[0];
   assert.equal(first.view.explosion, 100);
   await writing.getByRole('button', { name: 'Thêm bước học', exact: true }).click();
-  await page.getByLabel('Tên mục (VI)').fill('Chỉ nội dung');
+  await page.getByLabel('Tên mục').fill('Chỉ nội dung');
   await body.fill('Bước này không hiển thị mô hình.');
   await page.getByRole('checkbox', { name: 'Hiển thị mô hình 3D ở bước này', exact: true }).uncheck();
   assert.equal(await frame.count(), 0);
@@ -187,7 +187,7 @@ export async function checkLessonEditorExperience(page) {
       return set.call(this, key, value);
     };
   });
-  await page.getByLabel('Tên mục (VI)').fill('Chưa ghi được');
+  await page.getByLabel('Tên mục').fill('Chưa ghi được');
   await writing.getByRole('button', { name: 'Lưu bước', exact: true }).click();
   assert.deepEqual(await saved(), expected);
   assert.equal(await writing.getByRole('status').filter({ hasText: 'Đã lưu bước' }).count(), 0);
@@ -198,7 +198,7 @@ export async function checkLessonEditorExperience(page) {
   await frame.locator('.model-canvas[aria-busy="false"]').waitFor();
   const external = await saved(); external.title.vi = 'Đã sửa ở tab khác';
   await page.evaluate(lesson => localStorage.setItem('soma.lesson:' + lesson.id, JSON.stringify(lesson)), external);
-  await page.getByLabel('Tên mục (VI)').fill('Không ghi đè tab khác');
+  await page.getByLabel('Tên mục').fill('Không ghi đè tab khác');
   await writing.getByRole('button', { name: 'Lưu bước', exact: true }).click();
   assert.deepEqual(await saved(), external);
   assert(await page.locator('.lesson-author-alerts').isVisible());

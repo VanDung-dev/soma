@@ -10,7 +10,7 @@ export async function checkLessonRichText(page) {
   await page.getByRole('button', { name: 'Tạo bài học', exact: true }).click();
   await page.getByLabel('Tên bài học').fill('Nội dung định dạng');
   await page.locator('#lesson-author-writing').getByRole('button', { name: 'Thêm bước học', exact: true }).click();
-  await page.getByLabel('Tên mục (VI)').fill('Định dạng');
+  await page.getByLabel('Tên mục').fill('Định dạng');
   const id = new URL(page.url()).pathname.split('/')[2];
   const saved = () => page.evaluate(id => JSON.parse(localStorage.getItem('soma.lesson:' + id)), id);
   await lessonBody(page).fill('Quan sát mô hình');

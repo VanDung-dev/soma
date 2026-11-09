@@ -25,7 +25,7 @@ export async function checkLessons(page) {
 
   await page.getByLabel('Tên bài học').fill('Bài kiểm thử');
   await page.locator('#lesson-author-outline').getByRole('button', { name: 'Thêm bước học', exact: true }).click();
-  await page.getByLabel('Tên mục (VI)').fill('Đọc phần mở đầu');
+  await page.getByLabel('Tên mục').fill('Đọc phần mở đầu');
   await lessonBody(page).fill('Quan sát phần mô tả.');
   await page.getByRole('button', { name: 'Xem trước' }).click();
   await page.getByRole('heading', { name: 'Đọc phần mở đầu' }).waitFor();
@@ -43,7 +43,7 @@ export async function checkLessons(page) {
   await page.getByRole('button', { name: 'Chỉnh sửa' }).click();
   assert.equal(page.url(), editorUrl);
   await page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: 'Đọc phần mở đầu' }).click();
-  assert.equal(await page.getByLabel('Tên mục (VI)').inputValue(), 'Đọc phần mở đầu');
+  assert.equal(await page.getByLabel('Tên mục').inputValue(), 'Đọc phần mở đầu');
 
   await page.locator('#lesson-author-outline').getByRole('button', { name: 'Thêm bước học', exact: true }).click();
   const incomplete = await page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:' + location.pathname.split('/')[2])));

@@ -11,7 +11,7 @@ export async function checkLessonImages(page) {
   await page.getByRole('button', { name: 'Tạo bài học', exact: true }).click();
   await page.getByLabel('Tên bài học').fill('Bài học có ảnh');
   await page.locator('#lesson-author-writing').getByRole('button', { name: 'Thêm bước học', exact: true }).click();
-  await page.getByLabel('Tên mục (VI)').fill('Quan sát ảnh');
+  await page.getByLabel('Tên mục').fill('Quan sát ảnh');
   await lessonBody(page).fill('Hình minh họa được lưu cùng bài học.');
   const id = new URL(page.url()).pathname.split('/')[2];
   const saved = () => page.evaluate(id => JSON.parse(localStorage.getItem('soma.lesson:' + id)), id);

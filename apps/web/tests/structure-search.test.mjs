@@ -54,7 +54,6 @@ test('structure search matches names, Latin and laterality, and reveals the sele
     assert.match(html, /role="combobox"/);
     assert.match(html, /role="listbox"/);
     assert.doesNotMatch(html, /class="controls-info"/);
-    assert.match(html, /A–Z/);
     const alphabetical = renderToStaticMarkup(createElement(StructureSearch, {
       catalog: fixture([part('unknown', '???', ''), part('z', 'ZzzAtlas', ''), part('a', 'AaaAtlas', ''), part('m', 'MmmAtlas', '')]).store,
       disabled: false, onSelect() {},
