@@ -50,6 +50,8 @@ test('lesson models include every system needed by setup and authored scenes wit
   assert.deepEqual(lessonModels(catalog, lesson), ['bones', 'muscles']);
   assert.deepEqual(lessonModels(catalog, { ...lesson, steps: [{ kind: 'observe', targetId: 'joints', visibleIds: ['joint'] }] }), ['bones', 'muscles', 'joints']);
   assert.deepEqual(lessonModels(catalog, { ...lesson, scene: { targetId: 'bones', visibleIds: [] } }), ['bones']);
+  assert.deepEqual(lessonModels(catalog, { ...lesson, modelIds: ['bones', 'joints'] }), ['bones', 'joints', 'muscles']);
+  assert.deepEqual(lessonModels(catalog, { ...lesson, modelId: '', modelIds: [] }), []);
   assert.deepEqual(lessonModels(catalog, draft), []);
 });
 

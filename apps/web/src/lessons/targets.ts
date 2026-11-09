@@ -2,12 +2,16 @@ import type { Catalog, FolderView, StudyTarget } from "../anatomy/catalog/types"
 import type { Lesson } from "./contract";
 
 export function lessonModels(catalog: Catalog, lesson: Lesson): string[] {
-  if (!lesson.modelId) return [];
+  const initial = lesson.modelIds?.length ? lesson.modelIds : (lesson.modelId ? [lesson.modelId] : []);
+  if (!initial.length) return [];
   const scenes = [...(lesson.scene ? [lesson.scene] : []), ...lesson.steps.filter(step => step.kind !== "text")];
   const needed = new Set(scenes.flatMap(scene => scene.visibleIds ?? catalog.members(scene.targetId)));
-  const models = [lesson.modelId];
-  catalog.members(lesson.modelId).forEach(id => needed.delete(id));
+  const models = [...initial];
+  for (const mid of initial) {
+    catalog.members(mid).forEach(id => needed.delete(id));
+  }
   for (const root of catalog.roots) {
+    if (models.includes(root.id)) continue;
     const ids = catalog.members(root.id);
     if (!ids.some(id => needed.has(id))) continue;
     models.push(root.id);

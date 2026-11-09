@@ -26,6 +26,7 @@ export type Lesson = {
   summary: LessonText;
   cover?: string;
   modelId: string;
+  modelIds?: string[];
   scene?: LessonScene;
   steps: LessonStep[];
 };

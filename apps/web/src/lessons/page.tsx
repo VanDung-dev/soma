@@ -8,7 +8,7 @@ import type { Lesson } from "./contract";
 import { emptyText, LessonEditor } from "./editor";
 import { LessonPlayer } from "./player";
 import { lessonEditPath } from "./routes";
-import { importLesson, listLessons, newLessonId, removeLesson, saveLesson } from "./source";
+import { importLesson, listLessons, newLessonId, removeLesson, saveLesson, LESSON_PREFIX } from "./source";
 import "./style.css";
 import { lessonPlainText } from "./rich-text";
 import { LessonImageProvider } from "./image-context";
@@ -48,12 +48,27 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
   useEffect(() => { setSelected(undefined); setPreview(false); }, [editId]);
   useEffect(() => { title.current?.focus(); }, [editing, preview]);
 
+  // Khi chuyển lesson, reset saved state và load lesson đã lưu từ localStorage
+  useEffect(() => {
+    if (editId) {
+      const raw = localStorage.getItem(LESSON_PREFIX + editId);
+      if (raw) {
+        try { setSavedLessonState(JSON.parse(raw) as Lesson); } catch { setSavedLessonState(undefined); }
+      } else {
+        setSavedLessonState(undefined);
+      }
+    } else {
+      setSavedLessonState(undefined);
+    }
+  }, [editId]);
+
   function update(next: Lesson) {
     const previous = lastSaved.current?.id === next.id ? lastSaved.current : lessons.find(lesson => lesson.id === next.id);
     const revised = previous ? { ...next, version: previous.version + 1 } : next;
     try {
       saveLesson(revised, previous);
       lastSaved.current = revised;
+      setSavedLessonState(revised);
       setLessons(current => previous ? current.map(lesson => lesson.id === revised.id ? revised : lesson) : [...current, revised]);
       setPending(undefined);
       setError(undefined);
@@ -65,6 +80,9 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
       return false;
     }
   }
+
+  // Lesson đã lưu cuối cùng - dùng để so sánh trạng thái "đã lưu" trong editor
+  const [savedLessonState, setSavedLessonState] = useState<Lesson>();
 
   function create() {
     const id = newLessonId();
@@ -115,7 +133,7 @@ export function LessonsPage({ editId, navigate }: { editId?: string; navigate: (
       <LessonImageProvider key={draft.id} lesson={draft}>
       <WithLessonCatalog key={`${draft.id}/${preview ? "preview" : "editor"}`}>{catalog => preview
         ? <LessonPlayer lesson={draft} catalog={catalog} preview onBack={leave} onEdit={() => setPreview(false)} />
-        : <LessonEditor catalog={catalog} lesson={draft} selected={selected} onSelect={setSelected}
+        : <LessonEditor catalog={catalog} lesson={draft} saved={savedLessonState ?? draft} selected={selected} onSelect={setSelected}
           saveFailed={error === "save"} onChange={update} onPreview={() => setPreview(true)}
           onBack={leave} />}
       </WithLessonCatalog>

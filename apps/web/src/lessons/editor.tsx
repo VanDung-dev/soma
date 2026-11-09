@@ -21,9 +21,10 @@ const RichEditor = lazy(() => import("./rich-editor"));
 
 export const emptyText = { vi: "", en: "" };
 
-export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, onChange, onPreview, onBack }: {
+export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onSelect, onChange, onPreview, onBack }: {
   catalog: Catalog;
   lesson: Lesson;
+  saved: Lesson;
   selected?: string;
   saveFailed: boolean;
   onSelect: (id?: string) => void;
@@ -34,7 +35,8 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
   const { language, t } = useLanguage();
   const [locale, setLocale] = useState<Language>();
   const [error, setError] = useState("");
-  const [saveNotice, setSaveNotice] = useState("");
+  const [savedStep, setSavedStep] = useState(false);
+  const [savedView, setSavedView] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [outlineOpen, setOutlineOpen] = useLessonPanel("editorOutline", window.matchMedia("(min-width: 901px)").matches);
   const [revealPart, setRevealPart] = useState<{ id: string; target?: boolean }>();
@@ -45,7 +47,8 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
   const index = lesson.steps.findIndex(step => step.id === selected);
   const active = lesson.steps[index];
   const inherited = lessonSceneStep(lesson, Math.max(0, index));
-  const defaultScene = useMemo(() => lesson.scene ?? (lesson.modelId ? { targetId: lesson.modelId } : undefined), [lesson.scene, lesson.modelId]);
+  const primaryModelId = lesson.modelIds?.[0] || lesson.modelId;
+  const defaultScene = useMemo(() => lesson.scene ?? (primaryModelId ? { targetId: primaryModelId } : undefined), [lesson.scene, primaryModelId]);
   const scene = active && active.kind !== "text" ? active : inherited ?? defaultScene;
   const visibleIds = useMemo(() => scene?.visibleIds ?? catalog.members(scene?.targetId ?? ""), [catalog, scene?.visibleIds, scene?.targetId]);
   const modelIds = lessonModels(catalog, lesson);
@@ -63,57 +66,143 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
     }
   }, [selected]);
 
+  // So sánh step hiện tại với step đã lưu để xác định trạng thái "Đã lưu"
+  useEffect(() => {
+    if (!active) {
+      // So sánh lesson details (title, summary, scene)
+      const savedDetails = saved.steps.length === 0
+        ? saved
+        : saved;
+      const detailsMatch = JSON.stringify({ title: lesson.title, summary: lesson.summary, scene: lesson.scene, modelId: lesson.modelId, modelIds: lesson.modelIds })
+        === JSON.stringify({ title: savedDetails.title, summary: savedDetails.summary, scene: savedDetails.scene, modelId: savedDetails.modelId, modelIds: savedDetails.modelIds });
+      setSavedStep(detailsMatch);
+    } else {
+      const savedStep = saved.steps.find(s => s.id === active.id);
+      if (savedStep) {
+        setSavedStep(JSON.stringify(active) === JSON.stringify(savedStep));
+      } else {
+        setSavedStep(false);
+      }
+    }
+  }, [selected, active, lesson.title, lesson.summary, lesson.scene, saved]);
+
+  // So sánh scene hiện tại với scene đã lưu
+  useEffect(() => {
+    if (!scene) {
+      setSavedView(false);
+      return;
+    }
+    if (!active) {
+      const savedScene = saved.scene;
+      if (savedScene) {
+        setSavedView(JSON.stringify({ visibleIds: scene.visibleIds, view: scene.view })
+          === JSON.stringify({ visibleIds: savedScene.visibleIds, view: savedScene.view }));
+      } else {
+        setSavedView(false);
+      }
+    } else {
+      const savedStep = saved.steps.find(s => s.id === active.id);
+      const savedSceneStep = savedStep && savedStep.kind !== "text" ? savedStep : saved.scene;
+      if (savedSceneStep) {
+        setSavedView(JSON.stringify({ visibleIds: scene.visibleIds, view: scene.view })
+          === JSON.stringify({ visibleIds: savedSceneStep.visibleIds, view: savedSceneStep.view }));
+      } else {
+        setSavedView(false);
+      }
+    }
+  }, [selected, scene, active, saved]);
+
   function update(patch: Partial<Lesson>) {
     setError("");
-    setSaveNotice("");
+    setSavedStep(false);
     return onChange({ ...lesson, ...patch });
   }
 
   function updateActive(value: LessonStep) {
+    setSavedStep(false);
     return update({ steps: lesson.steps.map(step => step.id === value.id ? value : step) });
   }
 
   function updateScene(visibleIds: string[], view: SceneView | undefined = scene?.view) {
     const patch = { targetId: sceneTargetId, visibleIds, view };
     if (!active) return update({ scene: patch });
+    setSavedView(false);
     return updateActive(active.kind === "identify_structure" ? { ...active, ...patch }
       : { ...active, kind: "observe", ...patch });
   }
 
+  function changeModels(nextModelIds: string[]) {
+    const currentModelIds = lesson.modelIds?.length ? lesson.modelIds : (lesson.modelId ? [lesson.modelId] : []);
+    const prevKey = currentModelIds.slice().sort().join(",");
+    const nextKey = nextModelIds.slice().sort().join(",");
+    if (prevKey === nextKey) return;
+
+    const hadScenes = !!(lesson.scene?.view || lesson.scene?.visibleIds?.length
+      || lesson.steps.some(step => step.kind !== "text" && (step.targetId || step.visibleIds)));
+    const removedRoots = currentModelIds.filter(id => !nextModelIds.includes(id));
+
+    if (removedRoots.length > 0 && hadScenes && !window.confirm(t("lessons.confirmSceneReset"))) return;
+
+    const primaryId = nextModelIds[0] ?? "";
+    const removedMembers = new Set(removedRoots.flatMap(id => catalog.members(id)));
+    const cleanVisibleIds = (ids?: string[]) => ids ? ids.filter(id => !removedMembers.has(id)) : undefined;
+
+    update({
+      modelId: primaryId,
+      modelIds: nextModelIds,
+      scene: nextModelIds.length === 0 ? undefined : (lesson.scene ? {
+        ...lesson.scene,
+        targetId: removedRoots.includes(lesson.scene.targetId) ? primaryId : lesson.scene.targetId,
+        visibleIds: cleanVisibleIds(lesson.scene.visibleIds),
+      } : undefined),
+      steps: lesson.steps.map(step => {
+        if (nextModelIds.length === 0 && step.kind !== "identify_structure") {
+          return {
+            id: step.id, title: step.title, instruction: step.instruction, showModel: step.showModel,
+            mode: step.mode, questions: step.questions, kind: "text",
+          };
+        }
+        if (step.kind === "text") return step;
+        const targetId = removedRoots.includes(step.targetId) ? primaryId : step.targetId;
+        const visibleIds = cleanVisibleIds(step.visibleIds);
+        const patch = { targetId, visibleIds, view: step.view };
+        return step.kind === "identify_structure"
+          ? { ...step, ...patch, choiceIds: step.choiceIds.filter(id => !removedMembers.has(id)) }
+          : { ...step, kind: "observe", ...patch };
+      }),
+    });
+  }
+
   function changeModel(modelId: string) {
-    if (lesson.modelId === modelId) return;
-    if (lesson.modelId && (lesson.scene?.view || lesson.scene?.visibleIds?.length
-      || lesson.steps.some(step => step.kind !== "text" && (step.targetId || step.visibleIds)))
-      && !window.confirm(t("lessons.confirmSceneReset"))) return;
-    update({ modelId, scene: undefined, steps: lesson.steps.map(step => {
-      if (!modelId && step.kind !== "identify_structure") {
-        return { id: step.id, title: step.title, instruction: step.instruction, showModel: step.showModel,
-          mode: step.mode, questions: step.questions, kind: "text" };
-      }
-      const patch = { targetId: modelId, visibleIds: undefined, view: undefined };
-      return step.kind === "identify_structure" ? { ...step, ...patch, choiceIds: [], answerId: "" }
-        : { ...step, kind: "observe", ...patch };
-    }) });
+    if (!modelId) changeModels([]);
+    else changeModels([modelId]);
   }
 
   function addStructures(ids: string[], partId?: string) {
     setRevealPart(partId ? { id: partId } : undefined);
-    const modelId = lesson.modelId || catalog.roots.find(root => {
+    const rootsForIds = catalog.roots.filter(root => {
       const members = new Set(catalog.members(root.id));
       return ids.some(id => members.has(id));
-    })?.id;
+    }).map(r => r.id);
+    const currentModelIds = lesson.modelIds?.length ? lesson.modelIds : (lesson.modelId ? [lesson.modelId] : []);
+    const newModelIds = [...new Set([...currentModelIds, ...rootsForIds])];
+    const modelId = lesson.modelId || newModelIds[0];
     if (!modelId) { setError(t("lessons.targetError")); return; }
     const patch = { targetId: sceneTargetId || modelId, view: scene?.view,
       visibleIds: [...new Set([...(scene?.visibleIds ?? catalog.members(sceneTargetId)), ...ids])] };
-    update({ modelId,
+    update({
+      modelId,
+      modelIds: newModelIds,
       steps: lesson.steps.map(step => {
         if (lesson.modelId && step.id !== active?.id) return step;
         return step.kind === "identify_structure" ? { ...step, ...patch } : { ...step, kind: "observe", ...patch };
-      }) });
+      }),
+    });
   }
 
   function select(id?: string) {
-    setSaveNotice("");
+    setSavedStep(false);
+    setSavedView(false);
     setError("");
     setRevealPart(undefined);
     onSelect(id);
@@ -122,16 +211,16 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
   function save() {
     if (showModel && hasModel) {
       const snapshot = sceneHandle.current?.capture();
-      if (!snapshot) { setSaveNotice(""); setError(t("lessons.sceneSaveUnavailable")); return; }
+      if (!snapshot) { setError(t("lessons.sceneSaveUnavailable")); return; }
       if (!updateScene(snapshot.visibleIds, snapshot.view)) return;
     } else if (!update({})) return;
-    setSaveNotice(t(active ? "lessons.stepSaved" : "lessons.detailsSaved"));
+    setSavedStep(true);
   }
 
   function add() {
     const base = { id: newLessonId(), title: emptyText, instruction: emptyText, showModel: active?.showModel };
-    const step: LessonStep = lesson.modelId
-      ? { ...base, kind: "observe", targetId: scene?.targetId ?? lesson.modelId, visibleIds: scene?.visibleIds, view: scene?.view }
+    const step: LessonStep = hasModel
+      ? { ...base, kind: "observe", targetId: scene?.targetId ?? primaryModelId, visibleIds: scene?.visibleIds, view: scene?.view }
       : { ...base, kind: "text" };
     const insertion = active ? index + 1 : lesson.steps.length;
     update({ steps: [...lesson.steps.slice(0, insertion), step, ...lesson.steps.slice(insertion)] });
@@ -171,31 +260,24 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
 
   const title = active?.title ?? lesson.title;
   const body = active?.instruction ?? lesson.summary;
-  const sceneTargetId = scene && targets.some(target => target.id === scene.targetId) ? scene.targetId : lesson.modelId;
-  const hasModel = catalog.roots.some(model => model.id === lesson.modelId);
+  const sceneTargetId = scene && targets.some(target => target.id === scene.targetId) ? scene.targetId : primaryModelId;
+  const hasModel = modelIds.length > 0 && modelIds.some(id => catalog.roots.some(model => model.id === id));
   const showModel = !!active && active.showModel !== false;
   const renderScene = showModel && hasModel;
-  const panelToggle = (panel: "outline", name: string, expanded: boolean, toggle: () => void) => {
-    const label = t(expanded ? "panels.hide" : "panels.show", { name });
-    return <button type="button" id={`lesson-toggle-${panel}`} className="lesson-button lesson-panel-toggle" aria-expanded={expanded}
-      aria-controls={`lesson-author-${panel}`} aria-label={label} title={label} onClick={toggle}>
-      <LineIcon name="sidebar" size={18} />
-      <span className="lesson-action-full">{name}</span>
-    </button>;
-  };
 
   return <div className="lesson-editor study-shell" data-outline={outlineOpen}>
     {renderScene && sceneFrame && sceneControls && <EditorScene modelIds={modelIds} targetId={sceneTargetId}
       visibleIds={scene?.visibleIds} view={scene?.view} sectionId={active?.id ?? lesson.id} sceneRef={sceneHandle}
-      revealPart={revealPart}
-      onSaveView={(view, ids) => updateScene(ids, view)} onChangeScene={ids => updateScene(ids)}
+      revealPart={revealPart} saved={savedView}
+      onSaveView={(view, ids) => { updateScene(ids, view); setSavedView(true); }}
+      onChangeScene={ids => updateScene(ids)}
       frame={sceneFrame} controls={sceneControls} inactive={false} />}
     <header className="app-menu-bar lesson-author-bar">
       <div className="app-menu-history">
         <button className="controls-info" aria-label={t("lessons.library")} title={t("lessons.library")} onClick={onBack}>
           <LineIcon name="arrow-small-left" size={18} />
+          {t("lessons.exit")}
         </button>
-        {panelToggle("outline", t("lessons.outline"), outlineOpen, () => setOutlineOpen())}
       </div>
       <div className="lesson-author-heading">
         <h1 className="app-menu-title" ref={heading} tabIndex={-1}>{lessonText(lesson.title, language) || t("lessons.editor")}</h1>
@@ -236,8 +318,8 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
         {saveFailed && <p className="model-status model-error" role="alert">{t("lessons.saveError")}</p>}
         {error && <p className="model-status model-error" role="alert">{error}</p>}
       </div>}
-      {showModel && <div className="lesson-scene-region lesson-model" onPointerDownCapture={() => setSaveNotice("")}
-        onWheelCapture={() => setSaveNotice("")} onKeyDownCapture={() => setSaveNotice("")}>
+      {showModel && <div className="lesson-scene-region lesson-model" onPointerDownCapture={() => setSavedView(false)}
+        onWheelCapture={() => setSavedView(false)} onKeyDownCapture={() => setSavedView(false)}>
         <div className="lesson-scene-viewport" ref={setSceneFrame}>
         {!renderScene && <div className="lesson-scene-placeholder workspace-panel-surface">
           <span className="lesson-block-icon" aria-hidden="true">3D</span>
@@ -247,21 +329,20 @@ export function LessonEditor({ catalog, lesson, selected, saveFailed, onSelect, 
         <div className="lesson-editor-hud">
           <LessonModelSetup catalog={catalog} modelId={lesson.modelId} modelIds={modelIds} targetId={sceneTargetId}
             visibleIds={visibleIds} selectedPart={revealPart?.id} onSelectPart={(id, target) => setRevealPart({ id, target })}
-            onModel={changeModel} onChoose={addStructures}
-            onChangeScene={ids => lesson.modelId ? updateScene(ids) : addStructures(ids)} />
+            onModel={changeModel} onModels={changeModels} onChoose={addStructures}
+            onChangeScene={ids => hasModel ? updateScene(ids) : addStructures(ids)} />
           {renderScene && <div className="lesson-scene-controls" ref={setSceneControls} />}
         </div>
       </div>}
       <section className="lesson-author-document workspace-panel-surface" id="lesson-author-writing"
         aria-label={t("lessons.writing")}>
         <div className="lesson-editor-stepbar">
-          <button className="controls-info" disabled={index <= 0} onClick={() => select(lesson.steps[index - 1]?.id)} aria-label={t("lessons.previous")}><LineIcon name="arrow-small-left" /></button>
           <span>{active ? t("lessons.step", { current: index + 1, total: lesson.steps.length }) : t("lessons.details")}</span>
-          <button className="controls-info" disabled={index < 0 || index >= lesson.steps.length - 1} onClick={() => select(lesson.steps[index + 1]?.id)} aria-label={t("lessons.next")}><LineIcon name="arrow-small-right" /></button>
-          <button className="lesson-button lesson-primary" onClick={save}>{t(active ? "lessons.saveStep" : "lessons.saveDetails")}</button>
+          <button className="lesson-button lesson-primary" data-saved={savedStep} disabled={savedStep} onClick={save}>
+            {savedStep ? t("lessons.savedShort") : t(active ? "lessons.saveStep" : "lessons.saveDetails")}
+          </button>
           <button className="lesson-button" onClick={add}>{t("lessons.addStep")}</button>
         </div>
-        <p className="lesson-save-status" role="status">{saveFailed ? t("lessons.saveError") : saveNotice}</p>
         <div className="information-content">
           <div className="lesson-document-meta">
             <span>{t(active ? "lessons.learningStep" : "lessons.details")}</span>

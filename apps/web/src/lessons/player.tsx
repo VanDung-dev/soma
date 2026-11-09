@@ -68,7 +68,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
   }, [index, complete]);
 
   function move(next: number) {
-    if (boundary >= 0 && next > boundary) return;
+    if (!preview && boundary >= 0 && next > boundary) return;
     setComplete(false);
     setIndex(next);
     if (!next) heading.current?.focus();
@@ -79,10 +79,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
       <div className="app-menu-history">
         <button className="controls-info" onClick={onBack} aria-label={t("lessons.library")} title={t("lessons.library")}>
           <LineIcon name="arrow-small-left" size={18} />
-        </button>
-        <button className="lesson-button lesson-panel-toggle" aria-label={t("lessons.outline")} title={t("lessons.outline")}
-          aria-controls={outlineId} aria-expanded={outlineOpen} onClick={() => setOutlineOpen()}>
-          <LineIcon name="sidebar" size={18} /><span className="lesson-action-full">{t("lessons.outline")}</span>
+          {t("lessons.exit")}
         </button>
       </div>
       <div className="lesson-player-heading">
@@ -100,21 +97,21 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
     </header>
     <div className="lesson-player-body" data-outline={outlineOpen}>
       <nav id={outlineId} className="lesson-reader-outline workspace-panel-surface" hidden={!outlineOpen} aria-label={t("lessons.outline")}>
-        <div className="lesson-outline-heading"><h2>{t("lessons.outline")}</h2>
-          <button className="controls-info" aria-label={t("lessons.closeOutline")} onClick={() => {
-            setOutlineOpen(false);
-            document.querySelector<HTMLButtonElement>(`[aria-controls="${outlineId}"]`)?.focus();
-          }}><LineIcon name="close-small" /></button>
+        <div className="catalog-heading"><h2>{t("lessons.outline")}</h2></div>
+        <div className="catalog-tree">
+          <ol className="lesson-outline-list">
+            {lesson.steps.map((item, i) => {
+              const name = lessonText(item.title, language) || t("lessons.untitledSection");
+              return <li key={item.id} className="lesson-outline-item">
+                <button className="lesson-outline-row" aria-current={!complete && i === index ? "true" : undefined}
+                  disabled={!preview && boundary >= 0 && i > boundary} onClick={() => move(i)}>
+                  <span className="lesson-block-icon" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
+                  <span><strong>{name}</strong></span>
+                </button>
+              </li>;
+            })}
+          </ol>
         </div>
-        <ol className="lesson-outline-list">
-          {lesson.steps.map((item, i) => <li key={item.id}>
-            <button className="lesson-outline-row" aria-current={!complete && i === index ? "true" : undefined}
-              disabled={boundary >= 0 && i > boundary} onClick={() => move(i)}>
-              <span className="lesson-block-icon" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
-              <span>{lessonText(item.title, language) || t("lessons.untitledSection")}</span>
-            </button>
-          </li>)}
-        </ol>
       </nav>
       <div className="lesson-workspace" data-model={showStepModel} data-model-collapsed={modelCollapsed}>
       {usesModel && <section className="lesson-model" id={modelId} hidden={!showStepModel} aria-label={t("viewer.section.label")}>
@@ -149,7 +146,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
         </div>
         {!complete && lesson.steps.length > 0 && <div className="lesson-actions">
           <button className="lesson-button" disabled={index === 0} onClick={() => move(index - 1)}>{t("lessons.previous")}</button>
-          <button className="lesson-button lesson-primary" disabled={!!issue || (showStepModel && !ready) || (mode !== "content" && !solved)} onClick={() => {
+          <button className="lesson-button lesson-primary" disabled={!!issue && !preview || (showStepModel && !ready) || (mode !== "content" && !solved && !preview)} onClick={() => {
             if (index + 1 < lesson.steps.length) move(index + 1);
             else setComplete(true);
           }}>{t(index + 1 < lesson.steps.length ? "lessons.next" : "lessons.finish")}</button>

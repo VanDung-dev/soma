@@ -17,6 +17,7 @@ type SceneProps = {
   view?: SceneView; onSaveView: (view: SceneView, ids: string[]) => void;
   sceneRef?: Ref<EditorSceneHandle>;
   revealPart?: { id: string; target?: boolean };
+  saved?: boolean;
 };
 
 export type EditorSceneHandle = { capture: () => { view: SceneView; visibleIds: string[] } | undefined };
@@ -45,7 +46,7 @@ export function EditorScene(props: SceneProps) {
     </p>, props.frame);
 }
 
-function Scene({ catalog, modelIds, targetId, sectionId, frame, controls, inactive, visibleIds, view, onSaveView, onChangeScene, sceneRef, revealPart }: SceneProps & { catalog: Catalog }) {
+function Scene({ catalog, modelIds, targetId, sectionId, frame, controls, inactive, visibleIds, view, onSaveView, onChangeScene, sceneRef, revealPart, saved }: SceneProps & { catalog: Catalog }) {
   const { language, t } = useLanguage();
   const ids = useMemo(() => visibleIds ?? catalog.members(targetId), [catalog, targetId, visibleIds]);
   const { host, orientation, showAxes, session, state, hold, snapTarget } = useLessonViewer(catalog, modelIds, undefined, frame,
@@ -81,11 +82,17 @@ function Scene({ catalog, modelIds, targetId, sectionId, frame, controls, inacti
     </svg>}
     {createPortal(<>
       <ExplodeControls value={state.explosionAmount} disabled={!ready || separated} locked={separated} onChange={session.changeExplosion} />
-      <button className="lesson-button lesson-primary" aria-label={t("lessons.saveView")} disabled={!ready || separated} onClick={() => {
+      <button className="lesson-button lesson-primary" data-saved={saved} aria-label={t("lessons.saveView")} disabled={!ready || separated || saved} onClick={() => {
         const view = session.captureView();
         if (view) onSaveView(view, [...state.visibleIds]);
-      }}><span className="lesson-action-full">{t("lessons.saveView")}</span><span className="lesson-action-short">{t("lessons.saveViewShort")}</span></button>
-      <span className="lesson-view-status" role="status">{t(separated ? "lessons.restoreBeforeSave" : view ? "lessons.viewSaved" : "lessons.viewNotSaved")}</span>
+      }}>
+        {saved ? t("lessons.savedShort") : (
+          <>
+            <span className="lesson-action-full">{t("lessons.saveView")}</span>
+            <span className="lesson-action-short">{t("lessons.saveViewShort")}</span>
+          </>
+        )}
+      </button>
     </>, controls)}
     {createPortal(<>
       {showAxes && <div className="model-orientation"><OrientationAxes ref={orientation} disabled={!ready} onControl={session.control} /></div>}

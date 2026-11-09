@@ -6,26 +6,26 @@ import { getContent } from "../anatomy/core";
 import { loadLessonImages, removeLessonImages } from "./images";
 import type { LessonImages } from "./images";
 
-const prefix = "soma.lesson:";
+export const LESSON_PREFIX = "soma.lesson:";
 
 export function listLessons() {
-  return Object.keys(localStorage).filter(key => key.startsWith(prefix)).map(key => {
+  return Object.keys(localStorage).filter(key => key.startsWith(LESSON_PREFIX)).map(key => {
     const lesson = readLesson(JSON.parse(localStorage.getItem(key)!), true);
-    if (key !== prefix + lesson.id) throw new Error("Lesson ID does not match its storage key");
+    if (key !== LESSON_PREFIX + lesson.id) throw new Error("Lesson ID does not match its storage key");
     return lesson;
   });
 }
 
 export function saveLesson(lesson: Lesson, previous?: Lesson) {
   readLesson(lesson, true);
-  const key = prefix + lesson.id;
+  const key = LESSON_PREFIX + lesson.id;
   const expected = previous ? JSON.stringify(previous) : null;
   if (localStorage.getItem(key) !== expected) throw new Error("The lesson changed in another tab.");
   localStorage.setItem(key, JSON.stringify(lesson));
 }
 
 export function removeLesson(lesson: Lesson) {
-  const key = prefix + lesson.id;
+  const key = LESSON_PREFIX + lesson.id;
   if (localStorage.getItem(key) !== JSON.stringify(lesson)) throw new Error("The lesson changed in another tab.");
   localStorage.removeItem(key);
   void removeLessonImages(lesson.id, () => localStorage.getItem(key) === null).catch(error => console.error("Lesson image cleanup failed", error));
