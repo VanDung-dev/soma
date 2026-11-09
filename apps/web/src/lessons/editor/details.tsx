@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { Language } from "../../i18n";
-import { useLanguage } from "../../i18n";
+import { translateMessage, useLanguage } from "../../i18n";
 import { LineIcon } from "../../icons";
 import type { Lesson, LessonCoverCrop } from "../shared/contract";
 import { useLessonImages } from "../shared/image-context";
@@ -155,7 +155,7 @@ export function LessonDetails({ lesson, language, onChange }: {
         </button>
       </div>
     </div>
-    <label htmlFor="lesson-write-summary">{t("lessons.summary")}
+    <label htmlFor="lesson-write-summary" lang={language}>{translateMessage("lessons.summary", language)}
       <textarea id="lesson-write-summary" rows={4} lang={language} value={summary} onChange={event => {
         const html = lesson.summary.html?.filter(locale => locale !== language);
         onChange({ summary: { ...lesson.summary, [language]: event.target.value, html: html?.length ? html : undefined } });

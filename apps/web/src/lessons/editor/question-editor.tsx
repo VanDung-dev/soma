@@ -1,5 +1,5 @@
-import type { Language } from "../../i18n";
-import { useLanguage } from "../../i18n";
+import type { Language, MessageKey, MessageValues } from "../../i18n";
+import { translateMessage } from "../../i18n";
 import type { LessonQuestion } from "../shared/contract";
 import { newLessonId } from "../shared/source";
 
@@ -13,9 +13,9 @@ export function LessonQuestionEditor({ questions, locale, onChange }: {
   locale: Language;
   onChange: (questions: LessonQuestion[]) => void;
 }) {
-  const { t } = useLanguage();
+  const t = (key: MessageKey, values?: MessageValues) => translateMessage(key, locale, values);
   const update = (value: LessonQuestion) => onChange(questions.map(question => question.id === value.id ? value : question));
-  return <section className="lesson-question-editor lesson-fields" aria-label={t("lessons.questions")}>
+  return <section className="lesson-question-editor lesson-fields" lang={locale} aria-label={t("lessons.questions")}>
     {questions.map((question, index) => <fieldset className="lesson-question" key={question.id}>
       <legend>{t("lessons.questionNumber", { number: index + 1 })}</legend>
       <label className="lesson-question-prompt">{t("lessons.questionPrompt")}

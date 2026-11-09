@@ -131,12 +131,23 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
         {showStepModel && !state.building && !state.error && !sceneUsable && <p className="lesson-model-message model-status" role="status">{t("lessons.targetError")}</p>}
       </section>}
       <section className="lesson-step" aria-labelledby="lesson-step-title">
+        {lesson.steps.length > 0 && <div className="lesson-editor-stepbar lesson-player-stepbar">
+          {!complete && <button className="lesson-button lesson-step-previous" disabled={index === 0}
+            onClick={() => move(index - 1)}>{t("lessons.previous")}</button>}
+          <span>{t("lessons.step", { current: index + 1, total: lesson.steps.length })}</span>
+          <div className="lesson-editor-stepbar-actions">
+            {complete
+              ? <button className="lesson-button" onClick={() => move(0)}>{t("lessons.review")}</button>
+              : <button className="lesson-button lesson-primary" disabled={!!issue && !preview || (mode !== "content" && !solved && !preview)} onClick={() => {
+                if (index + 1 < lesson.steps.length) move(index + 1);
+                else setComplete(true);
+              }}>{t(index + 1 < lesson.steps.length ? "lessons.next" : "lessons.finish")}</button>}
+          </div>
+        </div>}
         <div className="information-content lesson-reader-body" ref={reader}>
         {complete ? <>
           <h2 id="lesson-step-title" ref={heading} tabIndex={-1}>{t("lessons.completed")}</h2>
-          <button className="lesson-button" onClick={() => move(0)}>{t("lessons.review")}</button>
         </> : <>
-        {lesson.steps.length > 0 && <p className="lesson-step-number">{t("lessons.step", { current: index + 1, total: lesson.steps.length })}</p>}
         <h2 id="lesson-step-title" ref={heading} tabIndex={-1}>{lessonText(step.title, language) || t(lesson.steps.length ? "lessons.untitledSection" : "lessons.addContent")}</h2>
         {issue && <p className="model-status lesson-preview-issue" role="status">{t(`lessons.validation.${issue.reason}`, { step: issue.step })}</p>}
         {mode !== "questions" && (lessonPlainText(step.instruction, language) || instruction.includes("<img ")
@@ -147,13 +158,6 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
         <div hidden={complete}><LessonQuestions stepId={step.id} questions={questions} disabled={!!issue}
           onComplete={() => setPassed(current => new Set([...current, step.id]))} /></div>
         </div>
-        {!complete && lesson.steps.length > 0 && <div className="lesson-actions">
-          <button className="lesson-button" disabled={index === 0} onClick={() => move(index - 1)}>{t("lessons.previous")}</button>
-          <button className="lesson-button lesson-primary" disabled={!!issue && !preview || (mode !== "content" && !solved && !preview)} onClick={() => {
-            if (index + 1 < lesson.steps.length) move(index + 1);
-            else setComplete(true);
-          }}>{t(index + 1 < lesson.steps.length ? "lessons.next" : "lessons.finish")}</button>
-        </div>}
       </section>
     </div>
     </div>

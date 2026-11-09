@@ -1,10 +1,10 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { Catalog } from "../../anatomy/catalog/types";
-import { useLanguage } from "../../i18n";
+import { translateMessage, useLanguage } from "../../i18n";
 import type { Language } from "../../i18n";
 import { LineIcon } from "../../icons";
 import { LessonValidationError, lessonMode, lessonQuestions, lessonSceneStep, lessonText, readLesson, updateLessonQuestions } from "../shared/contract";
-import type { Lesson, LessonStep, LessonText } from "../shared/contract";
+import type { Lesson, LessonScene, LessonStep, LessonText } from "../shared/contract";
 import { EditorScene } from "./editor-scene";
 import type { EditorSceneHandle } from "./editor-scene";
 import { LessonModelSetup } from "./model-setup";
@@ -46,6 +46,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
   const [orderStatus, setOrderStatus] = useState("");
   const [sceneFrame, setSceneFrame] = useState<HTMLDivElement | null>(null);
   const editorLanguage = locale ?? language;
+  const writingText: typeof t = (key, values) => translateMessage(key, editorLanguage, values);
   useEffect(() => {
     if (draft.languages?.length === 1 && editorLanguage !== draft.languages[0]) {
       setLocale(draft.languages[0]);
@@ -257,8 +258,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
     if (!current) return;
     const step: LessonStep = { id: newLessonId(), title: emptyText, instruction: emptyText, showModel: true,
       kind: "observe", modelIds: [], targetId: "" };
-    const insertion = active ? index + 1 : current.steps.length;
-    const nextDraft = { ...current, steps: [...current.steps.slice(0, insertion), step, ...current.steps.slice(insertion)] };
+    const nextDraft = { ...current, steps: [...current.steps, step] };
     stage(nextDraft);
     setSceneDirty(false);
     setRevealPart(undefined);
@@ -368,14 +368,12 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
       aria-label={t("lessons.outline")}>
       <div className="catalog-heading"><h2>{t("lessons.outline")}</h2></div>
       <div className="catalog-tree">
-        <button className="lesson-outline-row" aria-current={!active ? "true" : undefined} onClick={() => select()}>
+        <button className="lesson-outline-row lesson-outline-details" aria-current={!active ? "true" : undefined} onClick={() => select()}>
           <span className="lesson-block-icon" aria-hidden="true">≡</span>
           <span>{t("lessons.details")}</span>
         </button>
         <LessonOutline steps={draft.steps} selected={selected} onSelect={select} onMove={move} />
-      </div>
-      <div className="lesson-author-tools">
-        <button className="lesson-outline-row lesson-tool" onClick={add}>
+        <button type="button" className="lesson-outline-row lesson-tool" onClick={add}>
           <span className="lesson-block-icon" aria-hidden="true">+</span>
           <span>{t("lessons.addStep")}</span>
         </button>
@@ -406,16 +404,22 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
       <section className="lesson-author-document workspace-panel-surface" id="lesson-author-writing"
         aria-label={t("lessons.writing")}>
         <div className="lesson-editor-stepbar">
+          {active && <button className="lesson-button lesson-step-previous" disabled={index === 0}
+            onClick={() => select(draft.steps[index - 1]?.id)}>{t("lessons.previous")}</button>}
           {active && <span>{t("lessons.step", { current: index + 1, total: draft.steps.length })}</span>}
           <div className="lesson-editor-stepbar-actions">
-            <button className="lesson-button" onClick={add}>{t("lessons.addStep")}</button>
+            {active && index < draft.steps.length - 1 && <button className="lesson-button"
+              onClick={() => select(draft.steps[index + 1]?.id)}>{t("lessons.next")}</button>}
+            {(!draft.steps.length || (active && index === draft.steps.length - 1))
+              && <button className="lesson-button" onClick={add}>{t("lessons.addStep")}</button>}
           </div>
         </div>
         <p className="lesson-save-status sr-only" role="status">{saveFailed ? t("lessons.saveError") : saveNotice}</p>
+        <p className="lesson-writing-language" role="status">{t("lessons.writingLanguage")}: <strong lang={editorLanguage}>{editorLanguage === "vi" ? "Tiếng Việt" : "English"}</strong></p>
         <div className="information-content">
-          <label className={active ? "sr-only" : "lesson-details-label"} htmlFor="lesson-write-title">{t(active ? "lessons.stepTitle" : "lessons.title")}</label>
+          <label className={active ? "sr-only" : "lesson-details-label"} htmlFor="lesson-write-title" lang={editorLanguage}>{writingText(active ? "lessons.stepTitle" : "lessons.title")}</label>
           <input id="lesson-write-title" className="lesson-write-title" ref={titleField} value={title[editorLanguage]}
-            placeholder={t(active ? "lessons.stepTitle" : "lessons.title")} lang={editorLanguage}
+            placeholder={writingText(active ? "lessons.stepTitle" : "lessons.title")} lang={editorLanguage}
             onChange={event => {
               const value = { ...title, [editorLanguage]: event.target.value };
               if (active) updateActive({ ...active, title: value });
@@ -424,7 +428,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
           {active && <LessonStepOptions catalog={catalog} active={active} onChange={updateActive} />}
           {active && lessonMode(active) !== "questions" ? <Suspense fallback={<p role="status">{t("lessons.loadingEditor")}</p>}>
             <RichEditor key={`${active?.id ?? draft.id}/${editorLanguage}`} value={body} language={editorLanguage}
-              label={t(active ? "lessons.instruction" : "lessons.summary")}
+              label={writingText(active ? "lessons.instruction" : "lessons.summary")}
               onChange={(value: LessonText) => {
                 if (active) updateActive({ ...active, instruction: value });
                 else updateDraft({ summary: value });
@@ -434,10 +438,10 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
             questions={lessonQuestions(active, id => catalog.target(id)?.names)} locale={editorLanguage}
             onChange={questions => updateActive(updateLessonQuestions(active, lessonMode(active), questions))} />}
           {!active && !draft.steps.length && <p className="lesson-document-hint">{t("lessons.firstBlock")}</p>}
-          {active && <div className="lesson-step-management">
-            <button className="lesson-button lesson-remove-block" onClick={remove}>{t("lessons.removeStep")}</button>
-          </div>}
         </div>
+        {active && <div className="lesson-step-management">
+          <button type="button" className="lesson-button lesson-remove-block" onClick={remove}>{t("lessons.removeStep")}</button>
+        </div>}
       </section>
     </div>
 

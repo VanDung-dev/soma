@@ -73,7 +73,7 @@ export default function RichEditor({ value, language, label, onChange }: {
         };
         input.click();
       },
-      browser_spellcheck: true, iframe_aria_text: label,
+      browser_spellcheck: true, content_language: language, iframe_aria_text: label,
       content_style: `body{font:14px/1.6 system-ui;margin:12px;color:${palette.getPropertyValue("--text")};background:${palette.getPropertyValue("--surface")}}p{margin:0 0 12px}img{max-width:100%;height:auto}table{border-collapse:collapse;width:100%}td,th{border:1px solid #888;padding:6px}a{color:${palette.getPropertyValue("--accent")}}`,
       setup(editor) {
         instance = editor;
@@ -91,8 +91,9 @@ export default function RichEditor({ value, language, label, onChange }: {
       if (!disposed) { console.error("Lesson editor failed", error); setFailed(true); }
     });
     return () => { disposed = true; instance?.remove(); };
-  }, [mode, label]);
+  }, [mode, label, language]);
   return <div className="lesson-rich-editor">
+    <label className="lesson-details-label" htmlFor="lesson-write-body" lang={language}>{label}</label>
     <textarea id="lesson-write-body" className="lesson-write-body" rows={9} ref={target} readOnly aria-label={label} defaultValue={editorHtml(value, language, images.urls)} />
     {failed && <p role="alert">{t("lessons.richEditorError")}</p>}
     {imageStage && <div className="lesson-image-progress" role="status"><progress aria-label={t(`lessons.image.${imageStage}`)} /><span>{t(`lessons.image.${imageStage}`)}</span></div>}
