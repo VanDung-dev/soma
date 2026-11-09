@@ -13,17 +13,17 @@ import { useCameraDevices } from "./camera-devices";
 import { ReferenceNotice, WikipediaReader } from "./wikipedia-reader";
 import { OpenStaxLink, OpenStaxReading } from "./openstax-reference";
 import { useLanguage } from "../i18n";
-import { LineIcon } from "../icons";
 import { canReadStructure, StudySession } from "./study/session";
 import { ViewerRuntime } from "./viewer/runtime";
 import { ViewerStatusNotice } from "./viewer-status";
 import { desktopPanelQuery, measureViewport } from "./viewer/layout";
-import { graphicsStorageKey, readGraphicsSettings } from "./viewer/graphics";
-import { shortcutAction, shortcutLabel } from "../shortcuts";
+import { useGraphicsSettings } from "../pages/use-graphics-settings";
+import { SidebarToggle } from "../pages/workspace-layout";
+import { shortcutAction } from "../shortcuts";
 
 export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const { language, t } = useLanguage();
-  const [graphics, setGraphics] = useState(readGraphicsSettings);
+  const [graphics, setGraphics] = useGraphicsSettings();
   const [fps, setFps] = useState(0);
   const [hold, setHold] = useState<{ x: number; y: number; action: "hide" | "move" } | null>(null);
   const [snapTarget, setSnapTarget] = useState("");
@@ -77,7 +77,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   }, [session]);
   useEffect(() => {
     runtime.current?.setGraphics(graphics);
-    try { window.localStorage.setItem(graphicsStorageKey, JSON.stringify(graphics)); } catch {}
   }, [graphics, session]);
   const performAction = useCallback((action: ReturnType<typeof shortcutAction>) => {
     if (!action) return;
@@ -170,12 +169,8 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const otherHeading = selectedPart ? selectedPart.names[otherLanguage] : target ? target.names[otherLanguage] : "";
   const panelToggle = (target: "catalog" | "information", name: string) => {
     const expanded = desktopPanels ? !collapsedPanels[target] : panel === target;
-    const label = t(expanded ? "panels.hide" : "panels.show", { name });
-    return <button type="button" className="controls-info sidebar-toggle"
-      aria-expanded={expanded} aria-controls={target === "catalog" ? catalogId : informationId}
-      aria-label={label} title={`${label} (${shortcutLabel(target)})`} onClick={() => performAction(target)}>
-      <LineIcon name="sidebar" size={18} />
-    </button>;
+    return <SidebarToggle expanded={expanded} controls={target === "catalog" ? catalogId : informationId}
+      name={name} shortcut={target} onToggle={() => performAction(target)} />;
   };
   return (
     <>

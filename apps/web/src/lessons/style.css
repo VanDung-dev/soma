@@ -44,6 +44,8 @@
   border: 1px dashed var(--line);
 }
 .lesson-details-form, .lesson-cover-editor { display: grid; gap: 12px; }
+.lesson-cover-editor:has(> .lesson-cover) { grid-template-columns: minmax(0, 800px) max-content; align-items: start; }
+.lesson-cover-editor > :is(.lesson-image-progress, p) { grid-column: 1 / -1; }
 .lesson-details-form label { display: grid; gap: 6px; min-width: 0; font-size: 13px; }
 .lesson-details-form textarea { width: 100%; min-height: 96px; padding: 10px; resize: vertical; border: 1px solid var(--line-strong); border-radius: var(--detail-radius); color: var(--text); background: var(--surface); font: inherit; }
 .lesson-details-form select { width: 100%; min-height: 38px; padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: var(--detail-radius); color: var(--text); background: var(--surface); font: inherit; }
@@ -52,7 +54,7 @@
 .lesson-language-options .lesson-button { display: inline-flex; align-items: center; justify-content: center; min-height: 28px; height: 28px; padding: 3px 12px; border-radius: var(--inner-radius); font-size: 12px; color: var(--muted-dark); background: var(--surface); border: 1px solid var(--line-strong); cursor: pointer; white-space: nowrap; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
 .lesson-language-options .lesson-button:not(:disabled):hover { background: var(--control-hover); border-color: var(--line-hover); color: var(--text); }
 .lesson-language-options .lesson-button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--selected-bg); font-weight: 650; }
-.lesson-cover-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.lesson-cover-actions { display: flex; flex-direction: column; align-items: stretch; justify-self: start; gap: 6px; }
 .lesson-cover-actions .lesson-button { display: inline-flex; align-items: center; justify-content: center; min-height: 28px; height: 28px; padding: 3px 10px; border-radius: var(--inner-radius); font-size: 12px; white-space: nowrap; }
 .lesson-cover-upload { position: relative; overflow: hidden; cursor: pointer; }
 .lesson-cover-upload input[type="file"] { position: absolute; width: 0.1px; height: 0.1px; opacity: 0; overflow: hidden; z-index: -1; }
@@ -211,7 +213,6 @@ dialog.lesson-cover-modal:not([open]) {
 :root[data-theme="dark"] .lesson-button.lesson-danger:not(:disabled):hover { background: rgba(239, 83, 80, 0.18); border-color: #ef5350; color: #ff8a80; }
 .lessons-screen[data-player="true"] { --lesson-outline-width: clamp(210px, 18vw, 260px); padding: var(--panel-inset); overflow: hidden; }
 .lesson-player { display: flex; flex-direction: column; gap: var(--panel-gap); height: 100%; min-height: 0; }
-.lesson-player-header.app-menu-bar, .lesson-author-bar.app-menu-bar { position: static; width: auto; height: var(--reference-diameter); flex-shrink: 0; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; padding: 3px 9px; border-radius: var(--panel-radius); }
 .lesson-player-header .lesson-button, .lesson-author-bar .lesson-button { display: inline-flex; align-items: center; justify-content: center; min-height: 28px; height: 28px; padding: 3px 10px; border-radius: var(--inner-radius); font-size: 12px; white-space: nowrap; }
 .lesson-player-header .lesson-button svg, .lesson-author-bar .lesson-button svg { width: 14px; height: 14px; }
 .lesson-player-header .lesson-exit, .lesson-author-bar .lesson-exit { width: auto; height: 28px; padding: 3px 10px; gap: 4px; font-size: 12px; }
@@ -304,6 +305,10 @@ dialog.lesson-cover-modal:not([open]) {
 .lesson-author-workspace[data-outline="true"] { grid-template-columns: var(--lesson-outline-width) minmax(0, 1fr); }
 .lesson-author-outline { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: var(--panel-padding); overflow: hidden; }
 .lesson-author-heading { min-width: 0; text-align: center; }
+.lesson-author-bar[data-layout="inline"] { height: auto; min-height: var(--reference-diameter); grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.lesson-author-bar > .app-menu-history { grid-column: 1; grid-row: 1; align-items: center; flex-wrap: wrap; }
+.lesson-author-bar > .lesson-author-heading { grid-column: 2; grid-row: 1; }
+.lesson-author-bar[data-layout="inline"] > .app-menu-actions { grid-column: 3; grid-row: 1; flex-wrap: wrap; }
 .lesson-author-heading h1 { margin: 0; font: 700 clamp(12px, 1.6vw, 18px)/1.25 var(--font-ui); }
 .lesson-author-heading span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: var(--muted); }
 .lesson-save-retry { padding: 0; border: 0; background: transparent; color: var(--accent); font-size: 11px; text-decoration: underline; }
@@ -473,8 +478,6 @@ body:has(.lesson-rich-editor) .tox .tox-dialog__busy-spinner::after { content: a
 }
 
 @media (max-width: 600px) {
-  .lesson-player-header.app-menu-bar, .lesson-author-bar.app-menu-bar { height: auto; min-height: var(--reference-diameter); grid-template-columns: auto minmax(0, 1fr); gap: 6px; padding-block: 9px; }
-  :is(.lesson-player-header, .lesson-author-bar) > .app-menu-actions { grid-column: 1 / -1; flex-wrap: wrap; }
   :is(.lesson-player-header, .lesson-author-bar) :is(.app-menu-history, .app-menu-actions) { gap: 4px; }
   .lesson-player-header .lesson-button, .lesson-author-bar .lesson-button { padding-inline: 7px; font-size: 11px; }
   .lesson-languages button { padding-inline: 6px; font-size: 10px; }

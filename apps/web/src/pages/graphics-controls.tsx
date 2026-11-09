@@ -1,5 +1,5 @@
 import { useLanguage } from "../i18n";
-import type { GraphicsSettings } from "./viewer/graphics";
+import type { GraphicsSettings } from "../anatomy/viewer/graphics";
 
 export function GraphicsControls({ id, graphics, onChange }: {
   id: string; graphics: GraphicsSettings; onChange: (settings: GraphicsSettings) => void;

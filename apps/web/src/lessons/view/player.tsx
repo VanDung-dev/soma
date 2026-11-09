@@ -12,11 +12,13 @@ import { useLessonPanel } from "../shared/panels";
 import { lessonHtml, lessonPlainText } from "../shared/rich-text";
 import { useLessonImages } from "../shared/image-context";
 import { lessonModels } from "../shared/targets";
-import { LessonControls, useLessonGraphics } from "../shared/controls";
+import { LessonControls } from "../shared/controls";
+import { useGraphicsSettings } from "../../pages/use-graphics-settings";
+import { SidebarToggle, WorkspaceLayout, WorkspaceMenu } from "../../pages/workspace-layout";
 
 export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false }: { lesson: Lesson; catalog: Catalog; onBack: () => void; onEdit?: () => void; preview?: boolean }) {
   const { language, t } = useLanguage();
-  const [graphics, setGraphics] = useLessonGraphics();
+  const [graphics, setGraphics] = useGraphicsSettings();
   const images = useLessonImages();
   const usesModel = lesson.steps.some(step => step.kind !== "text") && lesson.steps.some(step => step.showModel !== false);
   const modelIds = useMemo(() => lessonModels(catalog, lesson), [catalog, lesson]);
@@ -76,23 +78,17 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
     if (!next) heading.current?.focus();
   }
 
-  return <div className="lesson-player">
-    <header className="app-menu-bar lesson-player-header">
-      <div className="app-menu-history">
-        <button type="button" className="controls-info sidebar-toggle" aria-controls={outlineId} aria-expanded={outlineOpen}
-          aria-label={t(outlineOpen ? "panels.hide" : "panels.show", { name: t("lessons.outline") })}
-          title={t(outlineOpen ? "panels.hide" : "panels.show", { name: t("lessons.outline") })}
-          onClick={() => setOutlineOpen(!outlineOpen)}><LineIcon name="sidebar" size={18} /></button>
-        <button className="controls-info lesson-exit" onClick={onBack} aria-label={t("lessons.library")} title={t("lessons.library")}>
+  return <WorkspaceLayout className="lesson-player">
+    <WorkspaceMenu className="lesson-player-header" layout="inline" navigation={<>
+        <SidebarToggle controls={outlineId} expanded={outlineOpen} name={t("lessons.outline")} onToggle={() => setOutlineOpen(!outlineOpen)} />
+        <button className="controls-info lesson-exit" onClick={onBack} aria-label={t("lessons.exit")} title={t("lessons.exit")}>
           <LineIcon name="arrow-small-left" size={18} />
           {t("lessons.exit")}
         </button>
-      </div>
-      <div className="lesson-player-heading">
+      </>} title={<div className="lesson-player-heading">
         <h1>{lessonText(lesson.title, language) || t("lessons.untitled")}</h1>
         <span>{preview && `${t("lessons.draftPreview")} · `}{lesson.steps.length ? t(complete ? "lessons.completed" : "lessons.step", { current: index + 1, total: lesson.steps.length }) : t("lessons.addContent")}</span>
-      </div>
-      <div className="app-menu-actions">
+      </div>} actions={<>
       {showStepModel && <button className="controls-info lesson-player-model-toggle" aria-controls={modelId} aria-expanded={!modelCollapsed}
         aria-label={t(modelCollapsed ? "lessons.showModel" : "lessons.hideModel")} title={t(modelCollapsed ? "lessons.showModel" : "lessons.hideModel")}
         onClick={() => setModelCollapsed(value => !value)}><LineIcon name="sidebar" size={18} /></button>}
@@ -100,8 +96,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
         <span className="lesson-action-full">{t("lessons.edit")}</span><span className="lesson-action-short">{t("lessons.editShort")}</span>
       </button>}
       <LessonControls graphics={graphics} onGraphicsChange={setGraphics} />
-      </div>
-    </header>
+      </>} />
     <div className="lesson-player-body" data-outline={outlineOpen}>
       <nav id={outlineId} className="lesson-reader-outline workspace-panel-surface" hidden={!outlineOpen} aria-label={t("lessons.outline")}>
         <div className="catalog-heading"><h2>{t("lessons.outline")}</h2></div>
@@ -169,5 +164,5 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
       </section>
     </div>
     </div>
-  </div>;
+  </WorkspaceLayout>;
 }

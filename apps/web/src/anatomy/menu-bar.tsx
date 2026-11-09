@@ -1,9 +1,9 @@
 import { useLanguage } from "../i18n";
 import { LineIcon } from "../icons";
-import type { GraphicsSettings } from "./viewer/graphics";
 import { shortcutLabel } from "../shortcuts";
-import { PopoverPanel } from "../popover-panel";
-import { GraphicsControls } from "./graphics-controls";
+import type { GraphicsSettings } from "./viewer/graphics";
+import { WorkspaceMenu } from "../pages/workspace-layout";
+import { WorkspacePopoverButton, WorkspaceSettings } from "../pages/workspace-panels";
 import type { ReactNode, RefObject } from "react";
 
 export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForward, helpId, settingsId, graphics, onGraphicsChange, cameraEnabled, cameraActive, onCameraChange,
@@ -31,8 +31,7 @@ export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForw
   informationToggle: ReactNode;
 }) {
   const { t } = useLanguage();
-  return <header ref={ref} className="app-menu-bar" aria-label={t("app.navigation.label")}>
-    <div className="app-menu-history">
+  return <WorkspaceMenu ref={ref} navigation={<>
       {catalogToggle}
       <button className="controls-info history-back" disabled={disabled || !canGoBack} onClick={onBack}
         aria-label={t("app.back")} title={`${t("app.back")} (${shortcutLabel("back")})`}>
@@ -49,18 +48,12 @@ export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForw
         onClick={() => onCameraChange(!cameraEnabled)}>
         <LineIcon name="camera" size={24} /><span className="camera-mode-switch" aria-hidden="true" />
       </button>
-    </div>
-    <h1 className="app-menu-title" title={t("app.title")}>{t("app.title")}</h1>
-    <div className="app-menu-actions">
-      <button className="controls-info" popoverTarget={helpId} aria-label={t("app.help")} title={`${t("app.help")} (G)`}>
-        <LineIcon name="alert-circle" size={14} />
-      </button>
-      <button className="controls-info" popoverTarget={settingsId} aria-label={t("app.settings")} title={`${t("app.settings")} (Esc)`}>
-        <LineIcon name="cog" size={14} />
-      </button>
+    </>} title={<h1 className="app-menu-title" title={t("app.title")}>{t("app.title")}</h1>} actions={<>
+      <WorkspacePopoverButton target={helpId} action="guide" />
+      <WorkspacePopoverButton target={settingsId} action="settings" />
       {informationToggle}
-    </div>
-    <PopoverPanel id={settingsId} className="settings-popover" contentClassName="settings-content" title={t("app.settings.title")} closeLabel={t("app.settings.close")}>
+    </>}>
+    <WorkspaceSettings id={settingsId} graphics={graphics} onChange={onGraphicsChange}>
         <div className="settings-row">
           <label htmlFor={`${settingsId}-camera`}>{t("handCamera.device.label")}</label>
           <div className="settings-camera-controls">
@@ -83,7 +76,6 @@ export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForw
           })()}
           </div>
         </div>
-        <GraphicsControls id={settingsId} graphics={graphics} onChange={onGraphicsChange} />
-    </PopoverPanel>
-  </header>;
+    </WorkspaceSettings>
+  </WorkspaceMenu>;
 }

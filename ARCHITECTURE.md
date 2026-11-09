@@ -10,6 +10,9 @@
 | `crates/wasm` | Viewer/gesture bindings, WebGL resources and rendering; no dependency on content |
 | `apps/web/src-tauri` | Desktop host and native catalog command |
 | `apps/web/src/pages/module-layout.tsx` | Shared header, workspace frame and host navigation |
+| `apps/web/src/pages/workspace-layout.tsx`, `workspace.css` | Workspace root, overlay/inline menu geometry, sidebar buttons and shared panel/control styling |
+| `apps/web/src/pages/workspace-panels.tsx`, `graphics-controls.tsx`, `camera-guide.tsx` | Shared settings and help presentation, composed with each module’s controls and capabilities |
+| `apps/web/src/pages/use-graphics-settings.ts` | Persisted graphics preferences shared by Anatomy and Lessons |
 | `apps/web/src/anatomy/catalog/` | Typed adapter to the Rust catalog store; UI snapshot types |
 | `apps/web/src/anatomy/study/session.ts` | Study state, visibility, focus, reading and history |
 | `apps/web/src/anatomy/viewer/` | Canvas lifecycle, loading, workers, DOM input and scheduling |
@@ -46,6 +49,19 @@ camera feedback serialization remain outside this content-data migration.
 avoid Rust's built-in `core`; `::renderer` identifies the external crate in WASM.
 
 ## Data flow
+
+`ModuleLayout` owns application navigation, language, theme and desktop window controls.
+Within that frame, Anatomy, Lessons editor/player and Games compose `WorkspaceLayout`.
+`WorkspaceMenu` supplies navigation, title and action slots with overlay or inline placement;
+`SidebarToggle`, `WorkspaceSettings` and `WorkspaceHelp` share presentation and accessibility.
+The workspace stylesheet loads through `pages/` independently of Anatomy’s stylesheet.
+Games currently uses only the empty workspace root and remains unavailable in navigation.
+
+Modules own their content, sidebar state, shortcuts and viewer/session lifecycle. Anatomy
+adds camera-device controls and its onboarding replay to the shared panels; Lessons supplies
+authoring/reading guidance and enables manipulation help only in the editor. The shared
+graphics controls use the existing viewer settings contract and storage key. Viewer runtime,
+camera commands and graphics validation remain in the existing anatomy viewer modules.
 
 ```text
 React UI → StudySession → ViewerRuntime → WASM → renderer

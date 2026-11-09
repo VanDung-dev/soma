@@ -16,7 +16,9 @@ import { lessonSceneModels, lessonTargets } from "../shared/targets";
 import type { SceneView } from "../../anatomy/viewer/contracts";
 import { useLessonPanel } from "../shared/panels";
 import { LessonOutline } from "./outline";
-import { LessonControls, useLessonGraphics } from "../shared/controls";
+import { LessonControls } from "../shared/controls";
+import { useGraphicsSettings } from "../../pages/use-graphics-settings";
+import { SidebarToggle, WorkspaceLayout, WorkspaceMenu } from "../../pages/workspace-layout";
 
 const RichEditor = lazy(() => import("./rich-editor"));
 
@@ -35,7 +37,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
   onBack: (lesson: Lesson) => void;
 }) {
   const { language, t } = useLanguage();
-  const [graphics, setGraphics] = useLessonGraphics();
+  const [graphics, setGraphics] = useGraphicsSettings();
   const [draft, setDraft] = useState<Lesson>(lesson);
   const [locale, setLocale] = useState<Language>();
   const [error, setError] = useState("");
@@ -323,29 +325,29 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
     onModel={id => changeModels(id ? [id] : [])} onModels={changeModels} onChoose={addStructures}
     onChangeScene={ids => hasModel ? updateScene(ids) : addStructures(ids)} />;
 
-  return <div className="lesson-editor study-shell" data-outline={outlineOpen}>
+  return <WorkspaceLayout className="lesson-editor study-shell" data-outline={outlineOpen}>
     {renderScene && sceneFrame && <EditorScene graphics={graphics} modelIds={modelIds} targetId={sceneTargetId}
       visibleIds={scene?.visibleIds} view={scene?.view} sectionId={active?.id ?? draft.id} sceneRef={sceneHandle}
       revealPart={revealPart}
       onChangeScene={ids => hasModel ? updateScene(ids) : addStructures(ids)}
       onSceneChange={() => { setSceneDirty(true); setSaveNotice(""); }}
       frame={sceneFrame} tools={modelSetup} inactive={false} />}
-    <header className="app-menu-bar lesson-author-bar">
-      <div className="app-menu-history">
-        <button type="button" id="lesson-toggle-outline" className="controls-info sidebar-toggle" aria-controls="lesson-author-outline" aria-expanded={outlineOpen}
-          aria-label={t(outlineOpen ? "panels.hide" : "panels.show", { name: t("lessons.outline") })}
-          title={t(outlineOpen ? "panels.hide" : "panels.show", { name: t("lessons.outline") })}
-          onClick={() => setOutlineOpen(!outlineOpen)}><LineIcon name="sidebar" size={18} /></button>
-        <button className="controls-info lesson-exit" aria-label={t("lessons.library")} title={t("lessons.library")} onClick={exit}>
+    <WorkspaceMenu className="lesson-author-bar" layout="inline" actionsClassName="lesson-author-actions" navigation={<>
+        <SidebarToggle id="lesson-toggle-outline" controls="lesson-author-outline" expanded={outlineOpen}
+          name={t("lessons.outline")} onToggle={() => setOutlineOpen(!outlineOpen)} />
+        <button className="controls-info lesson-exit" aria-label={t("lessons.exit")} title={t("lessons.exit")} onClick={exit}>
           <LineIcon name="arrow-small-left" size={18} />
           {t("lessons.exit")}
         </button>
-      </div>
-      <div className="lesson-author-heading">
+        <button className="lesson-button lesson-primary" aria-label={t(isDirty ? "lessons.saveLesson" : "lessons.savedShort")}
+          data-saved={!isDirty} disabled={!isDirty} onClick={save}>
+          <span className="lesson-action-full">{t(isDirty ? "lessons.saveLesson" : "lessons.savedShort")}</span>
+          <span className="lesson-action-short">{t(isDirty ? "lessons.saveLessonShort" : "lessons.savedShort")}</span>
+        </button>
+      </>} title={<div className="lesson-author-heading">
         <h1 className="app-menu-title" ref={heading} tabIndex={-1}>{lessonText(draft.title, language) || t("lessons.editor")}</h1>
         <span>{t(isDirty ? "lessons.unsaved" : "lessons.saved")}</span>
-      </div>
-      <div className="app-menu-actions lesson-author-actions">
+      </div>} actions={<>
         <div className="lesson-languages" role="group" aria-label={t("lessons.writingLanguage")}>
           {(["vi", "en"] as const).map(value => {
             const isConfigured = !draft.languages || draft.languages.includes(value);
@@ -356,11 +358,6 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
               onClick={() => { if (isConfigured) setLocale(value); }}>{value.toUpperCase()}</button>;
           })}
         </div>
-        <button className="lesson-button lesson-primary" aria-label={t(isDirty ? "lessons.saveLesson" : "lessons.savedShort")}
-          data-saved={!isDirty} disabled={!isDirty} onClick={save}>
-          <span className="lesson-action-full">{t(isDirty ? "lessons.saveLesson" : "lessons.savedShort")}</span>
-          <span className="lesson-action-short">{t(isDirty ? "lessons.saveLessonShort" : "lessons.savedShort")}</span>
-        </button>
         <button className="lesson-button" aria-label={t("lessons.export")} disabled={exporting} aria-busy={exporting} onClick={() => void exportDraft()}>
           <span className="lesson-action-full">{t("lessons.export")}</span><span className="lesson-action-short">{t("lessons.exportShort")}</span>
         </button>
@@ -368,8 +365,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
           <span className="lesson-action-full">{t("lessons.preview")}</span><span className="lesson-action-short">{t("lessons.previewShort")}</span>
         </button>
         <LessonControls graphics={graphics} onGraphicsChange={setGraphics} editing />
-      </div>
-    </header>
+      </>} />
     <div className="lesson-author-workspace" data-outline={outlineOpen}>
     <nav className="workspace-panel-surface lesson-author-outline" id="lesson-author-outline" hidden={!outlineOpen}
       aria-label={t("lessons.outline")}>
@@ -453,5 +449,5 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
     </div>
 
     </div>
-  </div>;
+  </WorkspaceLayout>;
 }

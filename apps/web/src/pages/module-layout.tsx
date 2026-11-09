@@ -7,6 +7,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useLanguage } from "../i18n";
 import { LineIcon } from "../icons";
 import { useTheme } from "../theme";
+import "./workspace.css";
 
 type ModulePage = "home" | "anatomy" | "lessons" | "games";
 
