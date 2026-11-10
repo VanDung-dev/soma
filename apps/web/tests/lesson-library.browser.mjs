@@ -32,6 +32,16 @@ export async function checkLessonLibrary() {
   try {
     const accept = document.querySelector('input[type="file"]').accept;
     assert(accept.includes('.lesson.br') && !accept.includes('.json'), 'Picker must only offer lesson packages');
+    const transfer = new DataTransfer();
+    transfer.items.add(file(lesson));
+    window.dispatchEvent(new DragEvent('dragenter', { dataTransfer: transfer, cancelable: true }));
+    await wait(() => document.querySelector('.lesson-library-drop-overlay'), 'Drop overlay was not shown');
+    const overlay = document.querySelector('.lesson-library-drop-overlay').getBoundingClientRect();
+    const workspace = document.querySelector('.module-content').getBoundingClientRect();
+    assert(overlay.top >= workspace.top && overlay.left >= workspace.left && overlay.right <= workspace.right && overlay.bottom <= workspace.bottom,
+      'Drop overlay must stay inside the lesson workspace');
+    window.dispatchEvent(new DragEvent('dragend'));
+    await wait(() => !document.querySelector('.lesson-library-drop-overlay'), 'Drop overlay did not close');
     drop(new File(['{}'], 'unsupported.json'));
     await wait(() => !!document.querySelector('[role="alert"]'), 'JSON rejection was not announced');
     assert(Object.keys(localStorage).filter(key => key.startsWith('soma.lesson:')).length === initialCount, 'JSON must not create a lesson');

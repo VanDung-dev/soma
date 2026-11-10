@@ -30,6 +30,7 @@ function LessonsPageContent({ editId, viewId, navigate }: { editId?: string; vie
   const [error, setError] = useState<"load" | "save" | "import">();
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const [exportingId, setExportingId] = useState<string>();
   const importBusy = useRef(false);
   const title = useRef<HTMLHeadingElement>(null);
@@ -167,7 +168,7 @@ function LessonsPageContent({ editId, viewId, navigate }: { editId?: string; vie
 
   const savedLesson = savedLessonState ?? lessons.find(item => item.id === activeId);
 
-  return <main className="lessons-screen" data-library={!activeId} data-editor={editing && !preview} data-player={viewing || (editing && preview)}>
+  return <><main className="lessons-screen" data-library={!activeId} data-editor={editing && !preview} data-player={viewing || (editing && preview)}>
     {draft ? <>
       <LessonImageProvider key={draft.id} lesson={draft}>
       <WithLessonCatalog key={`${draft.id}/${viewing ? "view" : preview ? "preview" : "editor"}`}>{catalog => viewing
@@ -183,13 +184,17 @@ function LessonsPageContent({ editId, viewId, navigate }: { editId?: string; vie
       <h1 ref={title} tabIndex={-1}>{t("module.lessons")}</h1>
       <p role={loading ? "status" : "alert"}>{t(loading ? "lessons.loading" : error === "load" ? "lessons.indexError" : "lessons.notFound")}</p>
       <button className="lesson-button" onClick={() => navigate("/lessons")}>{t("lessons.library")}</button>
-    </> : <LessonLibrary lessons={lessons} loading={loading} importing={importing} exportingId={exportingId} titleRef={title}
+    </> : <LessonLibrary lessons={lessons} loading={loading} importing={importing} exportingId={exportingId} titleRef={title} dragging={dragging} onDraggingChange={setDragging}
       error={error ? t(error === "load" ? "lessons.indexError" : error === "import" ? "lessons.importError" : "lessons.saveError")
         : unreadableCount ? t("lessons.unreadableCount", { count: unreadableCount }) : undefined}
       onCreate={create} onImport={importFile} onStart={lesson => navigate(lessonViewPath(lesson.id))}
       onEdit={lesson => { setError(pending?.id === lesson.id ? "save" : undefined); navigate(lessonEditPath(lesson.id)); }}
       onExport={lesson => { void handleExport(lesson); }} onRemove={remove} />}
-  </main>;
+  </main>
+    {!activeId && dragging && <div className="lesson-library-drop-overlay" role="status">
+      <span className="lesson-import-symbol" aria-hidden="true"><svg width="24" height="28" viewBox="0 0 24 28" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H5a2 2 0 0 0-2 2v20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9z" /><path d="M14 2v7h7M12 13v8m-3-3 3 3 3-3" /></svg></span><strong>{t(importing ? "lessons.importing" : loading ? "lessons.loading" : "lessons.dropToImport")}</strong><span>{t("lessons.importFileHint")}</span>
+    </div>}
+  </>;
 }
 
 function WithLessonCatalog({ children }: { children: (catalog: Catalog) => ReactNode }) {

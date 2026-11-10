@@ -10,15 +10,15 @@ import "./library.css";
 
 const searchable = (value: string) => value.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replaceAll("đ", "d");
 
-export function LessonLibrary({ lessons, loading, importing, error, exportingId, titleRef, onCreate, onImport, onStart, onEdit, onExport, onRemove }: {
+export function LessonLibrary({ lessons, loading, importing, error, exportingId, titleRef, dragging, onDraggingChange, onCreate, onImport, onStart, onEdit, onExport, onRemove }: {
   lessons: Lesson[]; loading: boolean; importing: boolean; error?: string; exportingId?: string; titleRef: Ref<HTMLHeadingElement>;
+  dragging: boolean; onDraggingChange: (dragging: boolean) => void;
   onCreate: () => void; onImport: (file: File) => Promise<Lesson | undefined>; onStart: (lesson: Lesson) => void;
   onEdit: (lesson: Lesson) => void; onExport: (lesson: Lesson) => void; onRemove: (lesson: Lesson) => void;
 }) {
   const { language, t } = useLanguage();
   const picker = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
-  const [dragging, setDragging] = useState(false);
   const [fileError, setFileError] = useState("");
   const [notice, setNotice] = useState("");
   const busy = loading || importing;
@@ -32,7 +32,7 @@ export function LessonLibrary({ lessons, loading, importing, error, exportingId,
     if (busy) return;
     setNotice("");
     if (files.length !== 1 || !/\.(lesson|soma)\.br$/i.test(files[0]!.name)) {
-      setFileError(t("lessons.importFileHint"));
+      setFileError(t("lessons.importFileError"));
       return;
     }
     setFileError("");
@@ -50,7 +50,7 @@ export function LessonLibrary({ lessons, loading, importing, error, exportingId,
       if (!hasFiles(event)) return;
       event.preventDefault();
       depth++;
-      setDragging(true);
+      onDraggingChange(true);
     };
     const over = (event: DragEvent) => {
       if (!hasFiles(event)) return;
@@ -60,9 +60,9 @@ export function LessonLibrary({ lessons, loading, importing, error, exportingId,
     const leave = (event: DragEvent) => {
       if (!hasFiles(event)) return;
       depth = Math.max(0, depth - 1);
-      if (!depth) setDragging(false);
+      if (!depth) onDraggingChange(false);
     };
-    const reset = () => { depth = 0; setDragging(false); };
+    const reset = () => { depth = 0; onDraggingChange(false); };
     const drop = (event: DragEvent) => {
       if (!hasFiles(event)) return;
       event.preventDefault();
@@ -122,7 +122,7 @@ export function LessonLibrary({ lessons, loading, importing, error, exportingId,
         <input type="search" value={query} placeholder={t("lessons.searchLessons")} onChange={event => setQuery(event.target.value)} />
       </label>
     </div>
-    {(fileError || error) && <p className="lesson-library-error" role="alert">{fileError || error}</p>}
+    {(fileError || error) && <p className="lesson-library-error" role="alert"><LineIcon name="alert-circle" size={18} /><span>{fileError || error}</span></p>}
     <div className="lesson-library-status" role="status" aria-live="polite">
       {importing ? <><progress aria-label={t("lessons.importing")} />{t("lessons.importing")}</> : notice}
     </div>
@@ -155,8 +155,5 @@ export function LessonLibrary({ lessons, loading, importing, error, exportingId,
         </li>;
       })}
     </ul>}
-    {dragging && <div className="lesson-library-drop-overlay" role="status">
-      <span className="lesson-import-symbol" aria-hidden="true">↓</span><strong>{t(importing ? "lessons.importing" : loading ? "lessons.loading" : "lessons.dropToImport")}</strong><span>{t("lessons.importFileHint")}</span>
-    </div>}
   </section>;
 }
