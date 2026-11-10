@@ -13,6 +13,7 @@ import { checkLessonBackground } from './lesson-background.browser.mjs';
 import { checkLessonPlayerBackground } from './lesson-player-background.browser.mjs';
 import { checkLessonBackgroundStability } from './lesson-background-stability.browser.mjs';
 import { checkLessonPlayerExit } from './lesson-player-exit.browser.mjs';
+import { checkLessonModelRemoval } from './lesson-model-removal.browser.mjs';
 
 export async function checkLessons(page) {
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -133,7 +134,7 @@ export async function checkLessons(page) {
   assert.equal(added.steps[2].targetId, added.modelId);
   assert(await compose.isEnabled());
   for (const check of [checkLessonPlayerExit, checkLessonBackgroundStability, checkLessonPlayerBackground, checkLessonBackground, checkLessonCanvas, checkLessonReader, checkLessonScenes, checkLessonEditorLayout, checkLessonRichText,
-    checkLessonOutlineTouch, checkLessonEditorExperience, checkLessonQuestions, checkLessonImageProgress, checkLessonImages]) {
+    checkLessonOutlineTouch, checkLessonEditorExperience, checkLessonQuestions, checkLessonImageProgress, checkLessonImages, checkLessonModelRemoval]) {
     console.log(check.name);
     await check(page);
   }

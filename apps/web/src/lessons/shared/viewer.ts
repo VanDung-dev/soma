@@ -19,7 +19,7 @@ export function useLessonViewer(catalog: Catalog, graphics: GraphicsSettings, mo
   const [snapTarget, setSnapTarget] = useState("");
   const modelKey = typeof modelId === "string" ? modelId : modelId.join(",");
   const canSeparate = useEffectEvent(() => allowSeparation);
-  const sessionKey = background ? "" : modelKey;
+  const sessionKey = modelKey;
   const session = useMemo(() => new StudySession(catalog), [catalog, sessionKey]);
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
   useCameraKeys(!modelKey || state.building || state.error, session.control, host);

@@ -29,10 +29,10 @@ export default function RichEditor({ value, language, label, onChange }: {
   const [imageStage, setImageStage] = useState<LessonImageStage>();
   const [mode, setMode] = useState(document.documentElement.dataset.theme);
   const content = useEffectEvent(() => editorHtml(value, language, images.urls));
-  const change = useEffectEvent((html: string) => onChange({ ...value, [language]: sanitizeLessonHtml(html, images.urls),
+  const change = useEffectEvent((html: string) => onChange({ ...value, [language]: sanitizeLessonHtml(html, images.urls, images.paths),
     html: [...new Set([...(value.html ?? []), language])] }));
   const addImage = useEffectEvent((blob: Blob, onProgress: (stage: LessonImageStage) => void) => images.add(blob, onProgress));
-  const safeContent = useEffectEvent((html: string) => resolveLessonImages(sanitizeLessonHtml(html, images.urls), images.urls));
+  const safeContent = useEffectEvent((html: string) => resolveLessonImages(sanitizeLessonHtml(html, images.urls, images.paths), images.urls));
   useEffect(() => {
     const observer = new MutationObserver(() => setMode(document.documentElement.dataset.theme));
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });

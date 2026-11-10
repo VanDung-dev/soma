@@ -5,7 +5,7 @@ import { is_lesson_image_path, lesson_image_paths } from "../../content/content.
 
 export const lessonElements = "p,br,strong,b,em,i,u,s,h2,h3,h4,ul,ol,li,blockquote,a[href|title|target|rel],table,thead,tbody,tr,th[colspan|rowspan],td[colspan|rowspan],hr,img[src|alt|title|width|height|data-lesson-image]";
 
-export function sanitizeLessonHtml(html: string, urls?: Map<string, string>) {
+export function sanitizeLessonHtml(html: string, urls?: Map<string, string>, pathsByUrl?: Map<string, string>) {
   const clean = DOMPurify.sanitize(html, {
     ALLOWED_TAGS: lessonElements.split(",").map(tag => tag.split("[")[0]!),
     ALLOWED_ATTR: ["href", "title", "target", "rel", "colspan", "rowspan", "src", "alt", "width", "height", "data-lesson-image"],
@@ -15,7 +15,7 @@ export function sanitizeLessonHtml(html: string, urls?: Map<string, string>) {
   });
   const template = document.createElement("template");
   template.innerHTML = clean;
-  const paths = new Map(urls ? [...urls].map(([path, url]) => [url, path]) : []);
+  const paths = new Map(pathsByUrl ?? (urls ? [...urls].map(([path, url]) => [url, path]) : []));
   template.content.querySelectorAll("img").forEach(image => {
     const source = image.getAttribute("src") ?? "";
     const identity = image.getAttribute("data-lesson-image") ?? "";
