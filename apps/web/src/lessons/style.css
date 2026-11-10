@@ -405,7 +405,16 @@ dialog.lesson-cover-modal:not([open]) {
 .lesson-drag-handle[aria-pressed="true"] { cursor: grabbing; }
 .lesson-drag-handle > span { font-size: 22px; }
 .lesson-rich-editor { min-width: 0; }
-.lesson-rich-editor .tox-tinymce { border: 1px solid var(--line); border-radius: var(--detail-radius); }
+.lesson-rich-editor .tox-tinymce { border: 1px solid var(--line-strong); border-radius: var(--detail-radius); }
+.lesson-rich-editor .tox:not(.tox-tinymce-inline) .tox-editor-header { background: var(--control-hover); box-shadow: none; border-bottom: 1px solid var(--line-strong); }
+.lesson-rich-editor .tox :is(.tox-toolbar-overlord, .tox-toolbar, .tox-toolbar__primary, .tox-toolbar__overflow) { background: var(--control-hover); }
+.lesson-rich-editor .tox .tox-tbtn { background: transparent; color: var(--text); }
+.lesson-rich-editor .tox .tox-tbtn svg { fill: var(--text); }
+.lesson-rich-editor .tox .tox-tbtn--select { background: var(--surface); }
+.lesson-rich-editor .tox .tox-tbtn:not(:disabled):is(:hover, :focus, :active), .lesson-rich-editor .tox .tox-tbtn--enabled { background: var(--selected-bg); color: var(--text); }
+.lesson-rich-editor .tox .tox-tbtn:is(:disabled, .tox-tbtn--disabled) { background: transparent; color: var(--muted); }
+.lesson-rich-editor .tox .tox-tbtn:is(:disabled, .tox-tbtn--disabled) svg { fill: var(--muted); }
+.lesson-rich-editor .tox .tox-tbtn:focus::after, .lesson-rich-editor .tox.tox-edit-focus .tox-edit-area::before { box-shadow: none; border: 0; }
 body:has(.lesson-rich-editor) .tox .tox-dialog__busy-spinner { flex-direction: column; gap: 12px; background: var(--surface); color: var(--text); }
 body:has(.lesson-rich-editor) .tox .tox-dialog__busy-spinner::after { content: attr(aria-label); font: 14px/1.5 var(--font-ui); }
 .lesson-rich-content { white-space: normal; overflow-wrap: anywhere; }
@@ -484,6 +493,11 @@ body:has(.lesson-rich-editor) .tox .tox-dialog__busy-spinner::after { content: a
 .lesson-fields .lesson-choices legend { font-size: 13px; }
 .lesson-question-editor, .lesson-questions { display: grid; gap: 12px; }
 .lesson-question { display: grid; gap: 10px; min-width: 0; margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: var(--detail-radius); }
+.lesson-question-editor { --lesson-question-input-bg: var(--highlight); }
+:root[data-theme="dark"] .lesson-question-editor { --lesson-question-input-bg: var(--page-bg); }
+.lesson-question-editor .lesson-question { background: var(--panel-bg); border-color: var(--line-strong); }
+.lesson-question-editor.lesson-fields :is(textarea, input:not([type=radio]):not([type=checkbox])) { background: var(--lesson-question-input-bg); }
+.lesson-question-editor.lesson-fields :is(textarea, input:not([type=radio]):not([type=checkbox])):focus-visible { background: var(--selected-bg); }
 .lesson-question > legend { padding-inline: 4px; font-size: 14px; font-weight: 650; }
 .lesson-question-prompt { display: grid; gap: 6px; font-size: 14px; font-weight: 600; }
 .lesson-fields .lesson-question-prompt textarea { min-height: 72px; padding: 8px 10px; font-size: 15px; font-weight: 400; line-height: 1.5; }
