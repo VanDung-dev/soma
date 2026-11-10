@@ -31,6 +31,26 @@ impl AnatomyViewer {
         Ok(())
     }
 
+    pub fn align_viewport(&mut self, fit: Option<bool>) -> Result<(), JsValue> {
+        let fitted = if fit == Some(true) {
+            Some(
+                Camera::layout(self.orbit_bounds()?, self.camera.aspect, self.layout_frame)
+                    .map_err(js_error)?,
+            )
+        } else {
+            None
+        };
+        match (&mut self.camera_transition, fitted) {
+            (Some((goal, _)), Some(fitted)) => *goal = fitted,
+            (None, Some(fitted)) => self.camera = fitted,
+            (Some((goal, _)), None) => goal.align_viewport(),
+            (None, None) => {}
+        }
+        self.camera.align_viewport();
+        self.shadow_cached.set(false);
+        Ok(())
+    }
+
     pub fn capture_view(&mut self) -> Result<JsValue, JsValue> {
         self.finish_explosion()?;
         self.finish_camera_transition();
@@ -189,9 +209,14 @@ impl AnatomyViewer {
                     .map(|part| part.source_id.clone())
                     .collect();
                 if let Some(bounds) = self.display_bounds(&ids.into_iter().collect::<Vec<_>>())? {
-                    self.camera
-                        .focus(bounds, self.layout_frame)
-                        .map_err(js_error)?;
+                    if self.background_camera.is_some() {
+                        self.camera = Camera::layout(bounds, self.camera.aspect, self.layout_frame)
+                            .map_err(js_error)?;
+                    } else {
+                        self.camera
+                            .focus(bounds, self.layout_frame)
+                            .map_err(js_error)?;
+                    }
                 }
             }
         } else {
@@ -342,9 +367,17 @@ impl AnatomyViewer {
     pub fn zoom_at(&mut self, x: f32, y: f32, factor: f32) -> Result<(), JsValue> {
         self.cancel_camera_transition();
         self.stop_explosion_follow();
+        let distance = self.camera.distance;
         self.camera
             .zoom_at(2.0 * x - 1.0, 1.0 - 2.0 * y, factor)
             .map_err(js_error)?;
+        if let Some(camera) = &mut self.background_camera {
+            camera.yaw = self.camera.yaw;
+            camera.pitch = self.camera.pitch;
+            camera
+                .zoom(self.camera.distance / distance)
+                .map_err(js_error)?;
+        }
         // The shadow frustum fits the viewed region, so zooming refits it.
         self.shadow_cached.set(false);
         Ok(())

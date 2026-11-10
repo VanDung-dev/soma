@@ -1,4 +1,5 @@
 use ::renderer::{Camera, Explosion};
+use std::collections::HashSet;
 use wasm_bindgen::prelude::*;
 use web_sys::HtmlCanvasElement;
 
@@ -8,6 +9,29 @@ use super::util::js_error;
 
 #[wasm_bindgen]
 impl AnatomyViewer {
+    pub fn background(canvas: HtmlCanvasElement) -> Result<AnatomyViewer, JsValue> {
+        let mut viewer = Self::build(
+            canvas,
+            ::renderer::PackedScene {
+                scene: ::renderer::Scene {
+                    parts: Vec::new(),
+                    bounds: ::renderer::Bounds {
+                        min: [-1.0, -1.0, -1.0].into(),
+                        max: [1.0, 1.0, 1.0].into(),
+                    },
+                    selected: String::new(),
+                },
+                draws: Vec::new(),
+                vertex_count: 0,
+                index_count: 0,
+            },
+            js_sys::Float32Array::new_with_length(0),
+            js_sys::Uint32Array::new_with_length(0),
+        )?;
+        viewer.background_camera = Some(viewer.camera.clone());
+        Ok(viewer)
+    }
+
     #[wasm_bindgen(constructor)]
     pub fn new(
         canvas: HtmlCanvasElement,
@@ -49,8 +73,25 @@ impl AnatomyViewer {
         }
         self.reconstruction.check_time(now).map_err(js_error)?;
         let (packed, vertices, indices) = prepared_buffers(prepared)?;
+        let known: HashSet<_> = self
+            .scene
+            .parts
+            .iter()
+            .map(|part| &part.source_id)
+            .collect();
+        if packed
+            .scene
+            .parts
+            .iter()
+            .all(|part| known.contains(&part.source_id))
+        {
+            return Ok(());
+        }
         let vao = self.gpu.upload(vertices, indices)?;
         let first = self.scene.parts.len();
+        if first == 0 {
+            self.scene.bounds = packed.scene.bounds;
+        }
         for index in self.scene.append(packed.scene) {
             let (count, offset) = packed.draws[index];
             self.draws.push((vao, count, offset));
