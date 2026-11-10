@@ -142,12 +142,16 @@ impl Camera {
         camera.radius = camera.radius.max(camera.distance / 4.0);
         camera.yaw = 0.0;
         camera.pitch = 0.0;
-        camera.composition = Vec3::new(
+        camera.align_viewport();
+        Ok(camera)
+    }
+    pub fn align_viewport(&mut self) {
+        let frame = self.frame.unwrap_or([0.0, 0.0, 1.0, 1.0]);
+        self.composition = Vec3::new(
             2.0 * (frame[0] + frame[2] * 0.5) - 1.0,
             1.0 - 2.0 * (frame[1] + frame[3] * 0.5),
             0.0,
         );
-        Ok(camera)
     }
     pub fn approach(&mut self, goal: &Self, blend: f32) -> bool {
         if blend == 1.0 {

@@ -2,6 +2,26 @@ use glam::Vec3;
 use renderer::{Bounds, Camera};
 
 #[test]
+fn viewport_alignment_moves_composition_without_changing_the_authored_pose() {
+    let mut camera = Camera::new(Bounds {
+        min: Vec3::splat(-1.0),
+        max: Vec3::splat(1.0),
+    });
+    camera.rotate(0.4, -0.2).unwrap();
+    camera.pan(0.1, 0.2).unwrap();
+    for frame in [[0.2, 0.1, 0.5, 0.6], [0.01, 0.2, 0.9, 0.7]] {
+        camera.reframe(frame).unwrap();
+        let pose = serde_json::to_value(camera.pose()).unwrap();
+        camera.align_viewport();
+        assert_eq!(serde_json::to_value(camera.pose()).unwrap(), pose);
+        let point = camera.matrix().project_point3(camera.target);
+        let pan = camera.pose().pan;
+        assert!((point.x - (2.0 * frame[0] + frame[2] - 1.0 + pan[0] * frame[2])).abs() < 1e-5);
+        assert!((point.y - (1.0 - 2.0 * frame[1] - frame[3] + pan[1] * frame[3])).abs() < 1e-5);
+    }
+}
+
+#[test]
 fn saved_camera_poses_restore_rotation_zoom_and_pan_across_viewports() {
     let bounds = Bounds {
         min: Vec3::splat(-2.0),
