@@ -7,8 +7,8 @@ import { useLanguage } from "../../i18n";
 type Drag = { id: string; from: number; to: number; slot: number; pointer?: number; x: number; y: number;
   preview?: { width: number; height: number; offsetX: number; offsetY: number } };
 
-export function LessonOutline({ steps, selected, onSelect, onMove }: {
-  steps: LessonStep[]; selected?: string; onSelect: (id: string) => void; onMove: (from: number, to: number) => void;
+export function LessonOutline({ steps, selected, onSelect, onMove, onRemove }: {
+  steps: LessonStep[]; selected?: string; onSelect: (id: string) => void; onMove: (from: number, to: number) => void; onRemove: () => void;
 }) {
   const { language, t } = useLanguage();
   const list = useRef<HTMLOListElement>(null);
@@ -65,6 +65,12 @@ export function LessonOutline({ steps, selected, onSelect, onMove }: {
     <p id="lesson-drag-instructions" className="sr-only">{t("lessons.dragInstructions")}</p>
     <ol className="lesson-outline-list" ref={list} onKeyDown={event => {
       if (event.key === "Escape" && dragging.current) { event.preventDefault(); cancel(); }
+      else if ((event.key === "Delete" || event.key === "Backspace") && !event.repeat && !event.nativeEvent.isComposing
+        && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && !dragging.current
+        && (event.target as HTMLElement).closest<HTMLElement>("[data-lesson-step]")?.dataset.lessonStep === selected && selected) {
+        event.preventDefault();
+        onRemove();
+      }
     }}>
       {steps.map((step, i) => {
         const name = lessonText(step.title, language) || t("lessons.untitledSection");
@@ -110,7 +116,8 @@ export function LessonOutline({ steps, selected, onSelect, onMove }: {
                 setDrag(dragging.current);
               }
             }}><span aria-hidden="true">⠿</span></button>
-          <button className="lesson-outline-row" aria-current={step.id === selected ? "true" : undefined} onClick={() => onSelect(step.id)}>
+          <button className="lesson-outline-row" aria-current={step.id === selected ? "true" : undefined}
+            aria-keyshortcuts={step.id === selected ? "Delete Backspace" : undefined} onClick={() => onSelect(step.id)}>
             <span className="lesson-block-icon" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
             <span><strong>{name}</strong>{step.kind === "identify_structure" && <small>{t("lessons.kind.identify")}</small>}</span>
           </button>

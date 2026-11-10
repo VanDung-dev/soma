@@ -404,7 +404,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
           <span className="lesson-block-icon" aria-hidden="true">≡</span>
           <span>{t("lessons.details")}</span>
         </button>
-        <LessonOutline steps={draft.steps} selected={selected} onSelect={select} onMove={move} />
+        <LessonOutline steps={draft.steps} selected={selected} onSelect={select} onMove={move} onRemove={remove} />
         <button type="button" className="lesson-outline-row lesson-tool" onClick={add}>
           <span className="lesson-block-icon" aria-hidden="true">+</span>
           <span>{t("lessons.addStep")}</span>

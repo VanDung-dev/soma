@@ -223,7 +223,6 @@ dialog.lesson-cover-modal:not([open]) {
 :root[data-theme="dark"] .lesson-confirm-actions .lesson-button.lesson-primary { background: #e6e8e5; border-color: #e6e8e5; color: #292d2c; }
 :root[data-theme="dark"] .lesson-confirm-actions .lesson-button.lesson-primary:hover { background: #c8ccca; border-color: #c8ccca; color: #292d2c; }
 :root[data-theme="dark"] .lesson-confirm-actions .lesson-button.lesson-danger { color: #ffaaa5; border-color: #e37974; }
-.lesson-confirm-actions .lesson-button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 .lessons-screen[data-player="true"] { --lesson-outline-width: clamp(210px, 18vw, 260px); padding: 0; overflow: hidden; }
 .lesson-player { display: flex; flex-direction: column; gap: var(--panel-gap); height: 100%; min-height: 0; padding: var(--panel-inset); background: var(--workspace-bg); }
 .lesson-player > .model-canvas { z-index: 0; }

@@ -139,6 +139,7 @@ scrolling area's edge to move through long outlines. With keyboard focus on the
 handle, Space picks up/drops the item, arrows move it, Home/End choose the first/last
 position, and Escape cancels without saving. Previous/next and Add learning step are also available
 above the writing fields. The outline's Add button stays outside its scrolling list.
+With a selected outline item focused, Delete (or Backspace) opens the same removal confirmation as the remove button.
 The outline can be hidden; its preference survives preview, reopening and reload
 when browser storage is available. On small screens,
 an open outline takes a compact area above the model and writing workspace.
