@@ -9,11 +9,18 @@ import type { LessonImages } from "./images";
 export const LESSON_PREFIX = "soma.lesson:";
 
 export function listLessons() {
-  return Object.keys(localStorage).filter(key => key.startsWith(LESSON_PREFIX)).map(key => {
-    const lesson = readLesson(JSON.parse(localStorage.getItem(key)!), true);
-    if (key !== LESSON_PREFIX + lesson.id) throw new Error("Lesson ID does not match its storage key");
-    return lesson;
-  });
+  const lessons: Lesson[] = [];
+  const invalidKeys: string[] = [];
+  for (const key of Object.keys(localStorage).filter(key => key.startsWith(LESSON_PREFIX))) {
+    try {
+      const lesson = readLesson(JSON.parse(localStorage.getItem(key)!), true);
+      if (key !== LESSON_PREFIX + lesson.id) throw new Error("Lesson ID does not match its storage key");
+      lessons.push(lesson);
+    } catch {
+      invalidKeys.push(key);
+    }
+  }
+  return { lessons, invalidKeys };
 }
 
 export function saveLesson(lesson: Lesson, previous?: Lesson) {

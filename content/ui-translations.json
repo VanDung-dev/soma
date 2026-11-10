@@ -31,6 +31,7 @@
     "lessons.loading": {"vi": "Đang tải học liệu…", "en": "Loading lessons…"},
     "lessons.empty": {"vi": "Chưa có bài học.", "en": "No lessons yet."},
     "lessons.indexError": {"vi": "Không thể tải danh sách bài học.", "en": "Could not load the lesson library."},
+    "lessons.unreadableCount": {"vi": "{count} bài học đã lưu không đọc được. Dữ liệu gốc vẫn được giữ trên thiết bị.", "en": "{count, plural, one {# saved lesson could not be read} other {# saved lessons could not be read}}. The original data remains on this device."},
     "lessons.create": {"vi": "Tạo bài học", "en": "Create lesson"},
     "lessons.editor": {"vi": "Soạn bài học", "en": "Lesson editor"},
     "lessons.start": {"vi": "Vào học", "en": "Start lesson"},

@@ -17,6 +17,7 @@ import { LessonLibrary } from "./library";
 export function LessonsPage({ editId, viewId, navigate }: { editId?: string; viewId?: string; navigate: (path: string) => void }) {
   const { language, t } = useLanguage();
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [unreadableCount, setUnreadableCount] = useState(0);
   const [pending, setPending] = useState<Lesson>();
   const [selected, setSelected] = useState<string>();
   const [preview, setPreview] = useState(false);
@@ -30,7 +31,13 @@ export function LessonsPage({ editId, viewId, navigate }: { editId?: string; vie
 
   useEffect(() => {
     let active = true;
-    void getContent().then(() => { if (active) setLessons(listLessons()); })
+    void getContent().then(() => {
+      if (!active) return;
+      const result = listLessons();
+      setLessons(result.lessons);
+      setUnreadableCount(result.invalidKeys.length);
+      for (const key of result.invalidKeys) console.error("Saved lesson could not be read", key);
+    })
       .catch(cause => { if (active) { console.error("Lesson library failed", cause); setError("load"); } })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -167,7 +174,8 @@ export function LessonsPage({ editId, viewId, navigate }: { editId?: string; vie
       <p role={loading ? "status" : "alert"}>{t(loading ? "lessons.loading" : error === "load" ? "lessons.indexError" : "lessons.notFound")}</p>
       <button className="lesson-button" onClick={() => navigate("/lessons")}>{t("lessons.library")}</button>
     </> : <LessonLibrary lessons={lessons} loading={loading} importing={importing} exportingId={exportingId} titleRef={title}
-      error={error ? t(error === "load" ? "lessons.indexError" : error === "import" ? "lessons.importError" : "lessons.saveError") : undefined}
+      error={error ? t(error === "load" ? "lessons.indexError" : error === "import" ? "lessons.importError" : "lessons.saveError")
+        : unreadableCount ? t("lessons.unreadableCount", { count: unreadableCount }) : undefined}
       onCreate={create} onImport={importFile} onStart={lesson => navigate(lessonViewPath(lesson.id))}
       onEdit={lesson => { setError(pending?.id === lesson.id ? "save" : undefined); navigate(lessonEditPath(lesson.id)); }}
       onExport={lesson => { void handleExport(lesson); }} onRemove={remove} />}

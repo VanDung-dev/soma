@@ -14,6 +14,7 @@ import { checkLessonPlayerBackground } from './lesson-player-background.browser.
 import { checkLessonBackgroundStability } from './lesson-background-stability.browser.mjs';
 import { checkLessonPlayerExit } from './lesson-player-exit.browser.mjs';
 import { checkLessonModelRemoval } from './lesson-model-removal.browser.mjs';
+import { checkLessonCorruptStorage } from './lesson-corrupt-storage.browser.mjs';
 
 export async function checkLessons(page) {
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -134,7 +135,7 @@ export async function checkLessons(page) {
   assert.equal(added.steps[2].targetId, added.modelId);
   assert(await compose.isEnabled());
   for (const check of [checkLessonPlayerExit, checkLessonBackgroundStability, checkLessonPlayerBackground, checkLessonBackground, checkLessonCanvas, checkLessonReader, checkLessonScenes, checkLessonEditorLayout, checkLessonRichText,
-    checkLessonOutlineTouch, checkLessonEditorExperience, checkLessonQuestions, checkLessonImageProgress, checkLessonImages, checkLessonModelRemoval]) {
+    checkLessonOutlineTouch, checkLessonEditorExperience, checkLessonQuestions, checkLessonImageProgress, checkLessonImages, checkLessonModelRemoval, checkLessonCorruptStorage]) {
     console.log(check.name);
     await check(page);
   }
