@@ -347,13 +347,16 @@ pub fn validate_targets(
                     .collect()
             })
             .unwrap_or_else(|| target.clone());
-        let assigned = step.get("modelIds").and_then(Value::as_array).map(|models| {
-            models
-                .iter()
-                .filter_map(Value::as_str)
-                .flat_map(|id| members.get(id).unwrap_or(&empty))
-                .collect::<HashSet<_>>()
-        });
+        let assigned = step
+            .get("modelIds")
+            .and_then(Value::as_array)
+            .map(|models| {
+                models
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .flat_map(|id| members.get(id).unwrap_or(&empty))
+                    .collect::<HashSet<_>>()
+            });
         let available = assigned.as_ref().unwrap_or(&model);
         if target.is_empty()
             || !target.iter().all(|id| available.contains(id))
