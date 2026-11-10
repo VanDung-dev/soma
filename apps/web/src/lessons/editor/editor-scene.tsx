@@ -21,6 +21,8 @@ type SceneProps = {
   sceneRef?: Ref<EditorSceneHandle>;
   revealPart?: { id: string; target?: boolean };
   onSceneChange?: () => void;
+  onResetScene: () => void;
+  resetVersion: number;
 };
 
 export type EditorSceneHandle = { capture: () => { view: SceneView; visibleIds: string[] } | undefined };
@@ -49,7 +51,7 @@ export function EditorScene(props: SceneProps) {
     </p>, props.frame);
 }
 
-function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inactive, outlineOpen, tools, visibleIds, view, onChangeScene, sceneRef, revealPart, onSceneChange }: SceneProps & { catalog: Catalog }) {
+function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inactive, outlineOpen, tools, visibleIds, view, onChangeScene, sceneRef, revealPart, onSceneChange, onResetScene, resetVersion }: SceneProps & { catalog: Catalog }) {
   const { language, t } = useLanguage();
   const ids = useMemo(() => visibleIds ?? catalog.members(targetId), [catalog, targetId, visibleIds]);
   const focusFrame = useRef<HTMLDivElement>(null);
@@ -91,7 +93,7 @@ function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inacti
     };
     animation = requestAnimationFrame(apply);
     return () => cancelAnimationFrame(animation);
-  }, [ready, inactive, session, sectionId, ids, view, state.structureIds, frame]);
+  }, [ready, inactive, session, sectionId, ids, view, state.structureIds, frame, resetVersion]);
   useEffect(() => {
     if (ready && !inactive && revealPart && revealedPart.current !== revealPart && (revealPart.target || ids.includes(revealPart.id))) {
       if (revealPart.target) session.browseTarget(revealPart.id);
@@ -120,8 +122,8 @@ function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inacti
       {state.building && !state.error && <progress className="model-progress" aria-label={t("viewer.loading.systems")}
         value={state.loadedSystems} max={modelIds.length} />}
       <div className="lesson-model-tools">
-        <button className={`lesson-button lesson-scene-fit${separated ? " lesson-scene-restore" : ""}`} disabled={!ready}
-          onClick={() => separated ? session.restoreStructure("") : session.applyScene(ids, view)}>{t(separated ? "context.restore" : "lessons.resetStudyScene")}</button>
+        <button className="lesson-button lesson-scene-fit" disabled={!ready}
+          onClick={onResetScene}>{t("lessons.resetStudyScene")}</button>
         {!inactive && tools}
         <ExplodeControls value={state.explosionAmount} disabled={!ready || separated} locked={separated} onChange={amount => {
           session.changeExplosion(amount);

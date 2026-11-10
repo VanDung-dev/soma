@@ -177,7 +177,9 @@ the whole lesson, including its details, every step's content, model selection,
 questions and scene. All edits stay in one draft until **Save lesson** is pressed;
 successful saves show a confirmation and failed saves keep the draft open with an error.
 Manual offsets are not stored: restore manually moved parts before saving. **Reset step
-scene** reapplies the authored view. Source structure IDs and lesson/step IDs remain stable.
+scene** restores the section's last saved model selection, visibility, camera and explosion,
+including returning manually moved parts to their original positions. Unsaved text and questions
+remain unchanged. Saving the lesson updates the scene used by this reset. Source structure IDs and lesson/step IDs remain stable.
 
 Preview runs the same player and completion rules as student learning. Every
 enabled question in a step must be answered correctly before proceeding; incorrect

@@ -20,6 +20,7 @@ import { LessonControls } from "../shared/controls";
 import { useGraphicsSettings } from "../../pages/use-graphics-settings";
 import { SidebarToggle, WorkspaceLayout, WorkspaceMenu } from "../../pages/workspace-layout";
 import { useLessonConfirm } from "../shared/confirm";
+import { restoreSavedScene } from "./saved-scene";
 
 const RichEditor = lazy(() => import("./rich-editor"));
 
@@ -51,6 +52,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
   const [revealPart, setRevealPart] = useState<{ id: string; target?: boolean }>();
   const [orderStatus, setOrderStatus] = useState("");
   const [sceneFrame, setSceneFrame] = useState<HTMLDivElement | null>(null);
+  const [resetVersion, setResetVersion] = useState(0);
   const editorLanguage = locale ?? language;
   const writingText: typeof t = (key, values) => translateMessage(key, editorLanguage, values);
   useEffect(() => {
@@ -89,6 +91,24 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
     setDraftDirty(true);
     setDraft(next);
     onDraftChange?.(next);
+  }
+
+  function resetScene() {
+    if (!active) return;
+    const savedIndex = saved.steps.findIndex(step => step.id === active.id);
+    const savedStep = saved.steps[savedIndex];
+    const savedScene = savedStep?.kind === "text" ? lessonSceneStep(saved, savedIndex) : savedStep;
+    const baseline = savedStep ? savedScene ?? saved.scene : undefined;
+    const next = { ...draft, steps: draft.steps.map(step => step.id === active.id
+      ? restoreSavedScene(step, baseline, savedStep ? lessonSceneModels(catalog, saved, baseline) : []) : step) };
+    setDraft(next);
+    onDraftChange?.(next);
+    setDraftDirty(JSON.stringify(next) !== JSON.stringify(saved));
+    setSceneDirty(false);
+    setError("");
+    setSaveNotice("");
+    setRevealPart(undefined);
+    setResetVersion(value => value + 1);
   }
 
   function updateDraft(patch: Partial<Lesson>) {
@@ -318,6 +338,10 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
   const loadedModelIds = lessonModels(catalog, draft);
   const previousStep = index > 0 ? draft.steps[index - 1] : undefined;
   const previousScene = previousStep?.kind === "text" ? lessonSceneStep(draft, index - 1) : previousStep;
+  const savedIndex = saved.steps.findIndex(step => step.id === active?.id);
+  const savedStep = saved.steps[savedIndex];
+  const savedScene = savedStep?.kind === "text" ? lessonSceneStep(saved, savedIndex) : savedStep;
+  const canRestoreSavedModel = !!savedStep && lessonSceneModels(catalog, saved, savedScene ?? saved.scene).length > 0;
   const canCopyPreviousScene = !!previousScene && previousScene.targetId !== ""
     && lessonSceneModels(catalog, draft, previousScene).length > 0;
   const modelSetup = <LessonModelSetup catalog={catalog} modelId={modelIds[0] ?? ""} modelIds={modelIds} targetId={sceneTargetId}
@@ -335,6 +359,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
       revealPart={revealPart}
       onChangeScene={ids => hasModel ? updateScene(ids) : addStructures(ids)}
       onSceneChange={() => { setSceneDirty(true); setSaveNotice(""); }}
+      onResetScene={resetScene} resetVersion={resetVersion}
       frame={sceneFrame} tools={modelSetup} inactive={!renderScene} outlineOpen={outlineOpen} />}
     <WorkspaceMenu className="lesson-author-bar" layout="inline" actionsClassName="lesson-author-actions" navigation={<>
         <SidebarToggle id="lesson-toggle-outline" controls="lesson-author-outline" expanded={outlineOpen}
@@ -401,6 +426,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
             <p>{t("lessons.scenePlaceholder")}</p>
             {modelIds.length === 0 && <div className="lesson-scene-placeholder-actions">
               <button className="lesson-button lesson-primary" popoverTarget="lesson-model-settings">{t("lessons.modelSettings")}</button>
+              {canRestoreSavedModel && <button className="lesson-button" onClick={resetScene}>{t("lessons.resetStudyScene")}</button>}
               {canCopyPreviousScene && <button className="lesson-button" onClick={copyPreviousScene}>{t("lessons.copyPreviousScene")}</button>}
             </div>}
           </div>
