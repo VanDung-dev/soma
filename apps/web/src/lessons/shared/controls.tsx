@@ -24,7 +24,7 @@ export function LessonControls({ graphics, onGraphicsChange, editing = false }: 
   return <>
     <WorkspacePopoverButton target={helpId} action="guide" />
     <WorkspacePopoverButton target={settingsId} action="settings" />
-    <WorkspaceSettings id={settingsId} graphics={graphics} onChange={onGraphicsChange} />
+    <WorkspaceSettings id={settingsId} graphics={graphics} onChange={onGraphicsChange} graphicsButtons={editing} />
     <WorkspaceHelp id={helpId}>
       <p>{t(editing ? "lessons.guide.editor" : "lessons.guide.reader")}</p>
       {editing && <p>{t("lessons.dragInstructions")}</p>}

@@ -5,15 +5,14 @@ export async function checkGraphics() {
   assert(document.querySelector('.model-canvas[aria-busy="false"]'), 'Wait for model loading to finish');
   const { AnatomyViewer } = await getWasm();
   const popover = document.querySelector('.settings-popover');
-  const [shadow, lighting, quality, fps] = ['shadow', 'lighting', 'model', 'fps'].map(id => popover.querySelector(`select[id$="-${id}"]`));
-  for (const [control, values] of [[shadow, ['high', 'low', 'off']], [lighting, ['high', 'low']],
-    [quality, ['high', 'low']], [fps, ['30', '60', '120', 'display']]]) {
-    assert(JSON.stringify([...control.options].map(option => option.value)) === JSON.stringify(values),
+  const [shadow, lighting, quality, fps] = ['shadow', 'lighting', 'model', 'fps'].map(id => popover.querySelector(`[role="group"][aria-labelledby$="-${id}-label"]`));
+  for (const [control, values] of [[shadow, ['off', 'low', 'high']], [lighting, ['low', 'high']],
+    [quality, ['low', 'high']], [fps, ['30', '60', '120']]]) {
+    assert(JSON.stringify([...control.querySelectorAll('button')].map(option => option.dataset.value).filter(value => value !== 'display')) === JSON.stringify(values),
       'Expose only the requested levels in their requested order');
+    assert(control.querySelectorAll('[aria-pressed="true"]').length === 1, 'Mark exactly one selected setting');
   }
-  assert(fps.options[3].textContent === (document.documentElement.lang === 'en' ? 'Match display' : 'Theo màn hình'),
-    'Describe browser-paced rendering in the selected language');
-  assert(quality.labels[0].textContent === (document.documentElement.lang === 'en' ? 'Display sharpness' : 'Độ nét hiển thị'),
+  assert(document.getElementById(quality.getAttribute('aria-labelledby')).textContent === (document.documentElement.lang === 'en' ? 'Display sharpness' : 'Độ nét hiển thị'),
     'Label display sharpness explicitly');
   const grid = popover.querySelector('input[id$="-grid"]');
   const showFps = popover.querySelector('input[id$="-show-fps"]');
@@ -24,7 +23,8 @@ export async function checkGraphics() {
       'Render settings switches with the custom switch style');
   }
   const canvas = document.querySelector('.model-canvas canvas'), gl = canvas.getContext('webgl2');
-  const original = { quality: quality.value, shadow: shadow.value, lighting: lighting.value, fps: fps.value,
+  const selected = control => control.querySelector('[aria-pressed="true"]').dataset.value;
+  const original = { quality: selected(quality), shadow: selected(shadow), lighting: selected(lighting), fps: selected(fps),
     grid: grid.checked, showFps: showFps.checked, open: popover.matches(':popover-open'),
     configure: AnatomyViewer.prototype.set_graphics, drawElements: gl.drawElements, drawArrays: gl.drawArrays,
     storage: gl.renderbufferStorage };
@@ -42,7 +42,9 @@ export async function checkGraphics() {
   };
   const frames = async () => { for (let i = 0; i < 5; i++) await new Promise(requestAnimationFrame); };
   const choose = async (control, value) => {
-    control.value = value; control.dispatchEvent(new Event('change', { bubbles: true })); await frames();
+    const button = control.querySelector(`[data-value="${value}"]`);
+    if (button) button.click();
+    await frames();
   };
   const matrix = () => {
     viewer.render();
@@ -51,14 +53,14 @@ export async function checkGraphics() {
   };
   try {
     if (!original.open) popover.showPopover();
-    for (const value of ['30', '60', '120', 'display']) {
+    for (const value of ['30', '60', '120']) {
       await choose(fps, value);
       assert(JSON.parse(localStorage.getItem('human-atlas-graphics')).frameRate === (value === 'display' ? value : Number(value)),
         'Apply and persist each frame-rate mode');
     }
     await choose(shadow, 'off'); await choose(lighting, 'high'); await choose(quality, 'high');
     assert(viewer, 'Settings must reach the WASM viewer');
-    const selected = viewer.selected_id(); viewer.select('');
+    const selectedId = viewer.selected_id(); viewer.select('');
     viewer.finish_camera_transition(); viewer.rotate(0.17, -0.06); viewer.pan(0.025, -0.015); viewer.zoom(0.94);
     const before = matrix(), visible = viewer.visible_count(), bounds = canvas.getBoundingClientRect();
     const results = [];
@@ -127,7 +129,7 @@ export async function checkGraphics() {
     const area = popover.getBoundingClientRect();
     assert(area.left >= 0 && area.right <= innerWidth && area.top >= 0 && area.bottom <= innerHeight
       && popover.scrollWidth <= popover.clientWidth, 'Settings must fit the viewport');
-    viewer.select(selected);
+    viewer.select(selectedId);
     return { modelResolution: results, independentShadows: true, independentLighting: true,
       activeFps, idleFps: 0, cameraPreserved: true, visibilityPreserved: true, gridPass: true, picking: true,
       persistence: true, invalidRejected: true, viewportFits: true };

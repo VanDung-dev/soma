@@ -53,7 +53,7 @@ export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForw
       <WorkspacePopoverButton target={settingsId} action="settings" />
       {informationToggle}
     </>}>
-    <WorkspaceSettings id={settingsId} graphics={graphics} onChange={onGraphicsChange}>
+    <WorkspaceSettings id={settingsId} graphics={graphics} onChange={onGraphicsChange} graphicsButtons>
         <div className="settings-row">
           <label htmlFor={`${settingsId}-camera`}>{t("handCamera.device.label")}</label>
           <div className="settings-camera-controls">

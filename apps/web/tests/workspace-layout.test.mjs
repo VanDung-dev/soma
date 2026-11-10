@@ -32,6 +32,7 @@ test('workspace settings preserve module extensions and guides respect manipulat
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
     const { WorkspaceSettings } = await server.ssrLoadModule('/src/pages/workspace-panels.tsx');
+    const { LessonControls } = await server.ssrLoadModule('/src/lessons/shared/controls.tsx');
     const { CameraGuide } = await server.ssrLoadModule('/src/pages/camera-guide.tsx');
     const { defaultGraphics } = await server.ssrLoadModule('/src/anatomy/viewer/graphics.ts');
     const { translateMessage } = await server.ssrLoadModule('/src/i18n.tsx');
@@ -43,6 +44,17 @@ test('workspace settings preserve module extensions and guides respect manipulat
       assert(settings.includes(`for="settings-${field}"`));
       assert(settings.includes(`id="settings-${field}"`));
     }
+    const anatomy = renderToStaticMarkup(h(WorkspaceSettings, { id: 'anatomy-settings', graphics: defaultGraphics, onChange() {}, graphicsButtons: true }));
+    for (const field of ['shadow', 'lighting', 'model', 'fps']) {
+      assert(anatomy.includes(`aria-labelledby="anatomy-settings-${field}-label"`));
+      assert(!anatomy.includes(`<select id="anatomy-settings-${field}"`));
+    }
+    assert.equal((anatomy.match(/aria-pressed="true"/g) ?? []).length, 4);
+    assert.equal((anatomy.match(/class="settings-switch"/g) ?? []).length, 3);
+    const legacy = renderToStaticMarkup(h(WorkspaceSettings, { id: 'legacy', graphics: { ...defaultGraphics, frameRate: 'display' }, onChange() {}, graphicsButtons: true }));
+    assert(legacy.includes('data-value="display" aria-pressed="true"'));
+    const editorSettings = renderToStaticMarkup(h(LessonControls, { graphics: defaultGraphics, onGraphicsChange() {}, editing: true }));
+    assert.equal((editorSettings.match(/class="graphics-options" role="group"/g) ?? []).length, 4);
     for (const [canManipulate, handCamera] of [[false, false], [true, false], [true, true]]) {
       const guide = renderToStaticMarkup(h(CameraGuide, { shortcuts: ['guide', 'settings'], canManipulate, handCamera }));
       assert(guide.includes(t('controls.mouse.zoomAtCursor')));

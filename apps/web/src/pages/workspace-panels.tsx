@@ -14,14 +14,14 @@ export function WorkspacePopoverButton({ target, action }: { target: string; act
   </button>;
 }
 
-export function WorkspaceSettings({ id, graphics, onChange, children }: {
-  id: string; graphics: GraphicsSettings; onChange: (settings: GraphicsSettings) => void; children?: ReactNode;
+export function WorkspaceSettings({ id, graphics, onChange, children, graphicsButtons = false }: {
+  id: string; graphics: GraphicsSettings; onChange: (settings: GraphicsSettings) => void; children?: ReactNode; graphicsButtons?: boolean;
 }) {
   const { t } = useLanguage();
   return <PopoverPanel id={id} className="settings-popover" contentClassName="settings-content"
     title={t("app.settings.title")} closeLabel={t("app.settings.close")}>
     {children}
-    <GraphicsControls id={id} graphics={graphics} onChange={onChange} />
+    <GraphicsControls id={id} graphics={graphics} onChange={onChange} buttons={graphicsButtons} />
   </PopoverPanel>;
 }
 

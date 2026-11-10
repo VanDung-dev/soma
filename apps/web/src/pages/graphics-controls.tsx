@@ -1,57 +1,25 @@
+import { useRef } from "react";
 import { useLanguage } from "../i18n";
 import type { GraphicsSettings } from "../anatomy/viewer/graphics";
 
-export function GraphicsControls({ id, graphics, onChange }: {
-  id: string; graphics: GraphicsSettings; onChange: (settings: GraphicsSettings) => void;
+export function GraphicsControls({ id, graphics, onChange, buttons = false }: {
+  id: string; graphics: GraphicsSettings; onChange: (settings: GraphicsSettings) => void; buttons?: boolean;
 }) {
   const { t } = useLanguage();
+  const legacyDisplay = useRef(graphics.frameRate === "display");
   return <>
-        <div className="settings-row">
-          <label htmlFor={`${id}-shadow`}>{t("graphics.shadow.label")}</label>
-          <select id={`${id}-shadow`} className="settings-select" value={graphics.shadowQuality}
-            onChange={event => {
-              const shadowQuality = event.currentTarget.value;
-              if (shadowQuality === "off" || shadowQuality === "low" || shadowQuality === "high") onChange({ ...graphics, shadowQuality });
-            }}>
-            <option value="high">{t("graphics.quality.high")}</option>
-            <option value="low">{t("graphics.quality.low")}</option>
-            <option value="off">{t("graphics.quality.off")}</option>
-          </select>
-        </div>
-        <div className="settings-row">
-          <label htmlFor={`${id}-lighting`}>{t("graphics.lighting.label")}</label>
-          <select id={`${id}-lighting`} className="settings-select" value={graphics.lightingQuality}
-            onChange={event => {
-              const lightingQuality = event.currentTarget.value;
-              if (lightingQuality === "low" || lightingQuality === "high") onChange({ ...graphics, lightingQuality });
-            }}>
-            <option value="high">{t("graphics.quality.high")}</option>
-            <option value="low">{t("graphics.quality.low")}</option>
-          </select>
-        </div>
-        <div className="settings-row">
-          <label htmlFor={`${id}-model`} title={t("graphics.model.description")}>{t("graphics.model.label")}</label>
-          <select id={`${id}-model`} className="settings-select" value={graphics.modelQuality}
-            onChange={event => {
-              const modelQuality = event.currentTarget.value;
-              if (modelQuality === "low" || modelQuality === "high") onChange({ ...graphics, modelQuality });
-            }}>
-            <option value="high">{t("graphics.quality.high")}</option>
-            <option value="low">{t("graphics.quality.low")}</option>
-          </select>
-        </div>
-        <div className="settings-row">
-          <label htmlFor={`${id}-fps`}>{t("graphics.frameRate.label")}</label>
-          <select id={`${id}-fps`} className="settings-select" value={graphics.frameRate}
-            onChange={event => {
-              const frameRate = Number(event.currentTarget.value);
-              if (frameRate === 30 || frameRate === 60 || frameRate === 120) onChange({ ...graphics, frameRate });
-            }}>
-            <option value="30">30 FPS</option>
-            <option value="60">60 FPS</option>
-            <option value="120">120 FPS</option>
-          </select>
-        </div>
+        <GraphicsOptions id={`${id}-shadow`} label={t("graphics.shadow.label")} value={graphics.shadowQuality} buttons={buttons}
+          options={[["off", t("graphics.quality.off")], ["low", t("graphics.quality.low")], ["high", t("graphics.quality.high")]]}
+          onChange={shadowQuality => onChange({ ...graphics, shadowQuality })} />
+        <GraphicsOptions id={`${id}-lighting`} label={t("graphics.lighting.label")} value={graphics.lightingQuality} buttons={buttons}
+          options={[["low", t("graphics.quality.low")], ["high", t("graphics.quality.high")]]}
+          onChange={lightingQuality => onChange({ ...graphics, lightingQuality })} />
+        <GraphicsOptions id={`${id}-model`} label={t("graphics.model.label")} title={t("graphics.model.description")} value={graphics.modelQuality} buttons={buttons}
+          options={[["low", t("graphics.quality.low")], ["high", t("graphics.quality.high")]]}
+          onChange={modelQuality => onChange({ ...graphics, modelQuality })} />
+        <GraphicsOptions id={`${id}-fps`} label={t("graphics.frameRate.label")} value={graphics.frameRate} buttons={buttons}
+          options={[[30, "30 FPS"], [60, "60 FPS"], [120, "120 FPS"], ...(buttons && legacyDisplay.current ? [["display", t("graphics.frameRate.display")] as const] : [])]}
+          onChange={frameRate => onChange({ ...graphics, frameRate })} />
         <div className="settings-row">
           <label htmlFor={`${id}-show-axes`}>{t("graphics.axes.label")}</label>
           <span className="settings-switch-control">
@@ -77,4 +45,20 @@ export function GraphicsControls({ id, graphics, onChange }: {
           </span>
         </div>
   </>;
+}
+
+function GraphicsOptions<T extends string | number>({ id, label, title, value, options, buttons, onChange }: {
+  id: string; label: string; title?: string; value: T; options: readonly (readonly [T, string])[]; buttons: boolean; onChange: (value: T) => void;
+}) {
+  return <div className={`settings-row${buttons ? " graphics-options-row" : ""}`}>
+    {buttons ? <span id={`${id}-label`} className="graphics-options-label" title={title}>{label}</span>
+      : <label htmlFor={id} title={title}>{label}</label>}
+    {buttons ? <div className="graphics-options" role="group" aria-labelledby={`${id}-label`}>
+      {options.map(([option, text]) => <button key={option} type="button" className="settings-option" data-value={option} aria-pressed={value === option}
+        onClick={() => { if (option !== value) onChange(option); }}>{text}</button>)}
+    </div> : <select id={id} className="settings-select" value={value} onChange={event => {
+      const selected = options.find(([option]) => String(option) === event.currentTarget.value);
+      if (selected) onChange(selected[0]);
+    }}>{options.map(([option, text]) => <option key={option} value={option}>{text}</option>)}</select>}
+  </div>;
 }

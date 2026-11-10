@@ -200,7 +200,7 @@
     "panels.hide": {"vi": "Ẩn bảng {name}", "en": "Hide {name} sidebar"},
     "app.help": {"vi": "Trợ giúp", "en": "Help"},
     "app.settings": {"vi": "Cài đặt", "en": "Settings"},
-    "app.settings.title": {"vi": "Cài đặt 3D Anatomy", "en": "3D Anatomy settings"},
+    "app.settings.title": {"vi": "Cài đặt hiển thị model 3D", "en": "3D model display settings"},
     "app.settings.close": {"vi": "Đóng cài đặt", "en": "Close settings"},
     "app.skipToWorkspace": {"vi": "Đến mô hình giải phẫu", "en": "Skip to anatomy model"},
     "app.startup.loading": {"vi": "Đang mở danh mục giải phẫu…", "en": "Opening the anatomy catalog…"},

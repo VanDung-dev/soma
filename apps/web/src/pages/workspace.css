@@ -12,6 +12,12 @@
 .settings-row > label { padding: 0 var(--panel-padding); font-size: 15px; }
 .settings-select { min-width: 0; max-width: 55%; flex-shrink: 0; height: var(--settings-control-size); min-height: var(--settings-control-size); padding: 0 8px; border: 1px solid var(--line); border-radius: var(--inner-radius); background: var(--control-hover); color: var(--text); font-size: 12px; }
 .settings-select[hidden] { display: none; }
+.graphics-options-row { flex-wrap: wrap; }
+.graphics-options-label { padding: 0 var(--panel-padding); font-size: 15px; }
+.graphics-options { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.settings-option { min-height: 28px; padding: 3px 10px; border: 1px solid var(--line-strong); border-radius: var(--inner-radius); color: var(--text); background: var(--surface); font: 12px var(--font-ui); cursor: pointer; }
+.settings-option:hover { background: var(--control-hover); }
+.settings-option[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--selected-bg); font-weight: 650; }
 .model-fps { display: inline-flex; align-items: center; min-height: 28px; padding: 3px 10px; border-radius: var(--inner-radius); background: var(--panel-bg); color: var(--text); font: 12px/1.4 var(--font-ui); font-variant-numeric: tabular-nums; pointer-events: none; }
 .camera-mode-switch { position: relative; width: 44px; height: 24px; border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--panel-bg)); border-radius: 12px; background: color-mix(in srgb, var(--accent) 10%, var(--panel-bg)); }
 .camera-mode-switch::before { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); transition: transform .15s ease; }
