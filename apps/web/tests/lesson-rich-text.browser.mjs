@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { brotliDecompressSync } from 'node:zlib';
-import { unpackLessonTar } from './lesson-package.fixture.mjs';
+import { brotliCompressSync, brotliDecompressSync } from 'node:zlib';
+import { packLessonTar, unpackLessonTar } from './lesson-package.fixture.mjs';
 import { lessonBody } from './lesson-editor-tools.mjs';
 
 export async function checkLessonRichText(page) {
@@ -41,9 +41,10 @@ export async function checkLessonRichText(page) {
   assert(json.includes('\n  "id":'), 'Export should be readable, indented JSON');
   const exported = JSON.parse(json);
   assert.deepEqual(exported, await saved());
-  const edited = { ...exported, title: { vi: 'Bài chỉnh trực tiếp JSON', en: '' } };
+  const edited = { ...exported, title: { vi: 'Bài chỉnh trực tiếp gói', en: '' } };
   await page.getByRole('button', { name: 'Danh sách bài học', exact: true }).click();
-  const upload = { name: 'edited-lesson.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(edited, null, 2)) };
+  files.set('lesson.json', new TextEncoder().encode(JSON.stringify(edited, null, 2)));
+  const upload = { name: 'edited-lesson.lesson.br', mimeType: 'application/octet-stream', buffer: brotliCompressSync(packLessonTar(files)) };
   const cancelled = page.waitForEvent('dialog').then(dialog => dialog.dismiss());
   await page.locator('input[type="file"]').setInputFiles(upload);
   await cancelled;
@@ -51,8 +52,8 @@ export async function checkLessonRichText(page) {
   const accepted = page.waitForEvent('dialog').then(dialog => dialog.accept());
   await page.locator('input[type="file"]').setInputFiles(upload);
   await accepted;
-  await page.getByRole('heading', { name: 'Bài chỉnh trực tiếp JSON', exact: true }).waitFor();
-  assert.deepEqual(await saved(), edited, 'Editing and reimporting JSON preserves rich text and step identities');
+  await page.getByRole('heading', { name: 'Bài chỉnh trực tiếp gói', exact: true }).waitFor();
+  assert.deepEqual(await saved(), edited, 'Reimporting a lesson package preserves rich text and section identities');
 
   const attack = '<p><strong>Safe</strong> <a href="javascript:window.lessonAttack=1">bad link</a></p><script>window.lessonAttack=1</script><img src="https://invalid.example/track" onerror="window.lessonAttack=1"><svg onload="window.lessonAttack=1"></svg><iframe srcdoc="<script>parent.lessonAttack=1</script>"></iframe><style>body{display:none}</style>';
   const legacy = { id: 'legacy-markup', kind: 'text', title: { vi: 'Văn bản cũ', en: '' },

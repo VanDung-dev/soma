@@ -81,15 +81,16 @@ fn tar_and_brotli_enforce_bounds_before_unbounded_expansion() {
 }
 
 #[test]
-fn package_round_trip_preserves_identity_and_old_json_and_soma_packages() {
+fn package_round_trip_preserves_identity_and_old_soma_packages_and_rejects_json() {
     let pack = Package::new(&draft()).unwrap();
     let bytes = pack.export().unwrap();
     for name in ["Renamed.lesson.br", "legacy.soma.br"] {
         let opened = Package::open(name, &bytes).unwrap();
         assert_eq!(opened.lesson, pack.lesson);
     }
-    let raw = Package::open("draft.json", draft().as_bytes()).unwrap();
-    assert_eq!(raw.lesson, pack.lesson);
+    assert!(Package::open("draft.json", draft().as_bytes()).is_err());
+    assert!(Package::open("draft.JSON", &bytes).is_err());
+    assert!(Package::open("raw.lesson.br", draft().as_bytes()).is_err());
     let mut files = tar::unpack(&lessons::decompress(&bytes).unwrap()).unwrap();
     files.insert(
         "manifest.json".into(),

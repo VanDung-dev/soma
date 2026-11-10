@@ -3,15 +3,16 @@ import test from 'node:test';
 import { LessonPackage, validate_lesson_file } from './lesson-wasm.fixture.mjs';
 
 const encoder = new TextEncoder();
-test('Rust imports raw editable JSON drafts and rejects malformed or oversized files', () => {
+test('Rust rejects standalone JSON imports and invalid or oversized lesson packages', () => {
   const draft = { id: 'draft-json', version: 1, title: { vi: '', en: '' }, summary: { vi: '', en: '' }, modelId: '', steps: [] };
-  const pack = LessonPackage.open('lesson.json', encoder.encode(JSON.stringify(draft)));
-  try { assert.deepEqual(JSON.parse(pack.lesson_json()), draft); }
-  finally { pack.free(); }
+  assert.throws(() => LessonPackage.open('lesson.json', encoder.encode(JSON.stringify(draft))), /Invalid .lesson.br file/);
+  assert.throws(() => LessonPackage.open('lesson.JSON', encoder.encode(JSON.stringify(draft))), /Invalid .lesson.br file/);
+  assert.throws(() => LessonPackage.open('raw.lesson.br', encoder.encode(JSON.stringify(draft))));
   assert.throws(() => validate_lesson_file('lesson.txt', 1), /Invalid .lesson.br file/);
   for (const json of ['{', 'null', '{}', JSON.stringify({ ...draft, steps: [{ kind: 'unsupported' }] })]) {
     assert.throws(() => LessonPackage.open('lesson.json', encoder.encode(json)));
   }
-  assert.throws(() => validate_lesson_file('large.json', 2 * 1024 * 1024 + 1), /2 MiB/);
+  assert.throws(() => validate_lesson_file('large.json', 1), /Invalid .lesson.br file/);
+  assert.throws(() => validate_lesson_file('large.lesson.br', 64 * 1024 * 1024 + 1), /64 MiB/);
   for (const size of [5 * 1024 ** 3, Infinity, NaN, -1, 1.5]) assert.throws(() => validate_lesson_file('large.lesson.br', size));
 });

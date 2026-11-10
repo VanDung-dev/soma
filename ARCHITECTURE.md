@@ -120,7 +120,8 @@ TypeScript handles UI, DOM sanitization, browser
 storage, file dialogs and binary transfer. The `.lesson.br` package contains
 manifest metadata, lesson JSON and referenced images. Filename defaults to the
 localized title; identity remains inside lesson JSON. Import validation precedes
-draft replacement; legacy `.soma.br`/JSON remain readable. Model assets and TinyMCE's
+draft replacement; legacy `.soma.br` packages remain readable by the package decoder,
+while the library imports `.lesson.br` packages and rejects standalone JSON. Model assets and TinyMCE's
 runtime stay in the application.
 
 ## Validation

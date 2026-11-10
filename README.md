@@ -238,10 +238,10 @@ images depend on the source image.
 
 Legacy `.soma.br` packages remain importable; new exports use `.lesson.br` and a
 lesson-specific manifest, leaving other package types available for future Games.
-Legacy `.json` imports remain available for text-only lessons and unfinished
-drafts. The native picker shows all files to avoid platform filtering of the
-custom `.lesson.br` extension; Rust validates the filename and contents.
-JSON files that reference missing images are rejected. Importing an
+The library accepts `.lesson.br` files through the file picker or by dropping a
+single package anywhere on the library page. Standalone `.json` imports are no
+longer supported; JSON remains an internal part of the package. Rust validates
+the filename and contents. Importing an
 existing lesson ID asks before replacing that draft and retains the check against
 simultaneous changes from another tab. Browser storage is not a backup: export
 important drafts before clearing app/site data. The separate JSoma design remains

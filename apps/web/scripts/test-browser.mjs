@@ -44,6 +44,9 @@ try {
     console.log(name, JSON.stringify(result));
     if (name === 'checkOrientationAxes') console.log('checkOrientationPointer', JSON.stringify(await checkOrientationPointer(page)));
   }
+  await page.goto('/lessons');
+  console.log('checkLessonLibrary', JSON.stringify(await page.evaluate(async () =>
+    (await import('/tests/lesson-library.browser.mjs')).checkLessonLibrary())));
   await checkLessons(page);
   console.log('checkLessons passed');
   assert.deepEqual(errors, [], 'Browser checks must not raise uncaught errors');

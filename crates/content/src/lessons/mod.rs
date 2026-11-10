@@ -1,4 +1,4 @@
-use catalog::lesson::{self, ARCHIVE_LIMIT, IMAGE_COUNT_LIMIT, IMAGE_LIMIT, JSON_LIMIT};
+use catalog::lesson::{self, ARCHIVE_LIMIT, IMAGE_COUNT_LIMIT, IMAGE_LIMIT};
 use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -11,11 +11,7 @@ pub type Files = BTreeMap<String, Vec<u8>>;
 
 pub fn check_file(name: &str, size: usize) -> Result<(), String> {
     let name = name.to_lowercase();
-    if name.ends_with(".json") {
-        if size > JSON_LIMIT {
-            return Err("Lesson JSON exceeds 2 MiB".into());
-        }
-    } else if !name.ends_with(".lesson.br") && !name.ends_with(".soma.br") {
+    if !name.ends_with(".lesson.br") && !name.ends_with(".soma.br") {
         return Err("Invalid .lesson.br file".into());
     } else if size > ARCHIVE_LIMIT {
         return Err("Lesson archive exceeds 64 MiB".into());
@@ -140,16 +136,6 @@ impl Package {
 
     pub fn open(name: &str, bytes: &[u8]) -> Result<Self, String> {
         check_file(name, bytes.len())?;
-        let name = name.to_lowercase();
-        if name.ends_with(".json") {
-            if bytes.len() > JSON_LIMIT {
-                return Err("Lesson JSON exceeds 2 MiB".into());
-            }
-            let package =
-                Self::new(std::str::from_utf8(bytes).map_err(|cause| cause.to_string())?)?;
-            package.check_resources()?;
-            return Ok(package);
-        }
         let mut files = tar::unpack(&decompress(bytes)?)?;
         let manifest: Value = serde_json::from_slice(
             files

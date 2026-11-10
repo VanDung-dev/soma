@@ -12,6 +12,7 @@
   "app": {
     "windows": [{
       "label": "main",
+      "dragDropEnabled": false,
       "url": "home",
       "title": "Soma — Tự học giải phẫu",
       "titleBarStyle": "Overlay",

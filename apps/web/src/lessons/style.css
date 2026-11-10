@@ -269,11 +269,6 @@ dialog.lesson-cover-modal:not([open]) {
 .lesson-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 18px; }
 .lesson-card .lesson-actions { margin-top: 14px; }
 .lesson-card .lesson-actions .lesson-button { display: inline-flex; align-items: center; justify-content: center; min-height: 28px; height: 28px; padding: 3px 10px; border-radius: var(--inner-radius); font-size: 12px; white-space: nowrap; }
-.lesson-library-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-bottom: 20px; }
-.lesson-import { display: grid; gap: 4px; min-width: 0; }
-.lesson-import input { max-width: 100%; }
-.lesson-library-search { display: grid; gap: 4px; width: min(100%, 420px); margin-bottom: 16px; font-size: 13px; }
-.lesson-library-search input { min-width: 0; min-height: 44px; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: var(--inner-radius); color: var(--text); background: var(--surface); }
 .lesson-workspace[data-model="false"] { grid-template-columns: minmax(0, 1fr); width: min(100%, 860px); justify-self: center; }
 .lesson-instructions { white-space: pre-wrap; }
 .lesson-card, .lesson-step { overflow-wrap: anywhere; }

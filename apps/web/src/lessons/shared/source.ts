@@ -36,6 +36,7 @@ export function newLessonId() {
 }
 
 export async function importLesson(file: File) {
+  if (!/\.(lesson|soma)\.br$/i.test(file.name)) throw new Error("Invalid .lesson.br file");
   await getContent();
   validate_lesson_file(file.name, file.size);
   const result = await lessonJob({ operation: "open", name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) });
