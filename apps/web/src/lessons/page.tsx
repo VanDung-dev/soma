@@ -13,9 +13,15 @@ import "./style.css";
 import { LessonImageProvider } from "./shared/image-context";
 import { storeLessonImages } from "./shared/images";
 import { LessonLibrary } from "./library";
+import { LessonConfirmProvider, useLessonConfirm } from "./shared/confirm";
 
 export function LessonsPage({ editId, viewId, navigate }: { editId?: string; viewId?: string; navigate: (path: string) => void }) {
+  return <LessonConfirmProvider><LessonsPageContent editId={editId} viewId={viewId} navigate={navigate} /></LessonConfirmProvider>;
+}
+
+function LessonsPageContent({ editId, viewId, navigate }: { editId?: string; viewId?: string; navigate: (path: string) => void }) {
   const { language, t } = useLanguage();
+  const confirm = useLessonConfirm();
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [unreadableCount, setUnreadableCount] = useState(0);
   const [pending, setPending] = useState<Lesson>();
@@ -100,7 +106,7 @@ export function LessonsPage({ editId, viewId, navigate }: { editId?: string; vie
     try {
       const { lesson, images } = await importLesson(file);
       const previous = lessons.find(item => item.id === lesson.id);
-      if (previous && !window.confirm(t("lessons.confirmReplace", { name: lessonText(previous.title, language) || t("lessons.untitled") }))) return;
+      if (previous && !await confirm(t("lessons.confirmReplace", { name: lessonText(previous.title, language) || t("lessons.untitled") }), t("lessons.replace"))) return;
       if (images.size) await storeLessonImages(lesson.id, images);
       saveLesson(lesson, previous);
       lastSaved.current = lesson;
@@ -131,8 +137,8 @@ export function LessonsPage({ editId, viewId, navigate }: { editId?: string; vie
     }
   }
 
-  function remove(lesson: Lesson) {
-    if (!window.confirm(t("lessons.confirmRemove"))) return;
+  async function remove(lesson: Lesson) {
+    if (!await confirm(t("lessons.confirmRemove"), t("lessons.remove"))) return;
     try {
       removeLesson(lesson);
       if (lastSaved.current?.id === lesson.id) lastSaved.current = undefined;
@@ -144,11 +150,15 @@ export function LessonsPage({ editId, viewId, navigate }: { editId?: string; vie
     }
   }
 
-  function leave(currentDraft?: Lesson) {
+  async function leave(currentDraft?: Lesson) {
     const currentSaved = savedLessonState ?? lessons.find(item => item.id === activeId);
     const unsavedDraft = currentDraft ?? pending;
     const hasUnsaved = unsavedDraft && (!currentSaved || JSON.stringify(unsavedDraft) !== JSON.stringify(currentSaved));
-    if ((error === "save" || hasUnsaved) && !window.confirm(t("lessons.confirmDiscard"))) return;
+    if (error === "save" || hasUnsaved) {
+      const choice = await confirm(t("lessons.confirmDiscard"), t("lessons.exitWithoutSaving"), t("lessons.saveAndExit"), t("lessons.continueEditing"));
+      if (!choice) return;
+      if (choice === "save" && (!unsavedDraft || !update(unsavedDraft))) return;
+    }
     setPending(undefined);
     setError(undefined);
     setPreview(false);

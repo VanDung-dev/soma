@@ -28,9 +28,7 @@ export async function checkLessonLibrary() {
     window.dispatchEvent(event);
     assert(event.defaultPrevented, 'Dropping a file must not navigate away from the library');
   };
-  const originalConfirm = window.confirm;
   const initialCount = Object.keys(localStorage).filter(key => key.startsWith('soma.lesson:')).length;
-  let confirmations = 0;
   try {
     const accept = document.querySelector('input[type="file"]').accept;
     assert(accept.includes('.lesson.br') && !accept.includes('.json'), 'Picker must only offer lesson packages');
@@ -49,20 +47,20 @@ export async function checkLessonLibrary() {
       && stored.steps.length === 0 && stored.modelId === '', 'Drop must preserve the packaged lesson');
     assert(!document.querySelector('.lesson-library-drop-overlay'), 'Drop overlay must close after import');
     const revised = { ...lesson, version: 2, title: { vi: 'Đã thay thế', en: '' } };
-    window.confirm = () => { confirmations++; return false; };
     drop(file(revised));
-    await wait(() => confirmations === 1 && !document.querySelector('.lesson-library-status progress'), 'Replacement confirmation was not shown');
+    await wait(() => document.querySelector('.lesson-confirm-dialog[open]'), 'Replacement confirmation was not shown');
+    document.querySelector('.lesson-confirm-actions button').click();
+    await wait(() => !document.querySelector('.lesson-confirm-dialog[open]') && !document.querySelector('.lesson-library-status progress'), 'Replacement cancellation did not finish');
     assert(JSON.parse(localStorage.getItem(key)).version === 1, 'Cancelling replacement must preserve the existing lesson');
-    window.confirm = () => { confirmations++; return true; };
     drop(file(revised));
+    await wait(() => document.querySelector('.lesson-confirm-dialog[open]'), 'Replacement confirmation was not shown again');
+    document.querySelector('.lesson-confirm-actions button:last-child').click();
     await wait(() => JSON.parse(localStorage.getItem(key)).version === 2, 'Confirmed replacement failed');
-    assert(confirmations === 2, 'Every replacement requires confirmation');
     drop(new File(['not a package'], 'broken.lesson.br'));
     await wait(() => !!document.querySelector('[role="alert"]'), 'Corrupt package was not rejected');
     assert(Object.keys(localStorage).filter(key => key.startsWith('soma.lesson:')).length === initialCount + 1, 'Corrupt files must not create a lesson');
     return { jsonRejected: true, multipleFilesRejected: true, dropped: true, replacementConfirmed: true, corruptRejected: true };
   } finally {
-    window.confirm = originalConfirm;
     localStorage.removeItem(key);
   }
 }

@@ -108,7 +108,7 @@
     "lessons.confirmRemoveBlock": {"vi":"Xóa mục này cùng nội dung của tất cả ngôn ngữ, câu hỏi và cảnh 3D?","en":"Delete this section, including its content in all languages, questions and 3D scene?"},
     "lessons.stepType": {"vi":"Loại nội dung","en":"Content type"},
     "lessons.confirmTypeChange": {"vi":"Tắt câu hỏi sẽ xóa các phương án và lời giải của mục này. Tiếp tục?","en":"Removing the question will delete this section’s answer choices and explanation. Continue?"},
-    "lessons.confirmDiscard": {"vi":"Thay đổi chưa được lưu. Về danh sách bài học?","en":"Changes are unsaved. Return to the lesson library?"},
+    "lessons.confirmDiscard": {"vi":"Bạn có thay đổi chưa lưu. Bạn muốn làm gì trước khi thoát?","en":"You have unsaved changes. What would you like to do before exiting?"},
     "lessons.saveError": {"vi": "Không thể lưu thay đổi trên thiết bị này.", "en": "Could not save changes on this device."},
     "lessons.model": {"vi": "Mô hình 3D của bài học", "en": "Lesson 3D model"},
     "lessons.noModel": {"vi": "Chọn mô hình nếu bài có mục 3D", "en": "Choose a model for 3D sections"},
@@ -377,6 +377,11 @@
     "lessons.dragPosition": {"vi":"Vị trí thả {position} / {total}.","en":"Drop position {position} of {total}."},
     "lessons.loadingEditor": {"vi":"Đang mở trình soạn thảo…","en":"Loading editor…"},
     "lessons.richEditorError": {"vi":"Không mở được trình soạn thảo. Nội dung đã lưu vẫn được giữ; tải lại trang để thử lại.","en":"The editor could not load. Saved content is preserved; reload to try again."},
-    "lessons.confirmReplace": {"vi":"Bài học “{name}” đã tồn tại. Thay bản đang lưu bằng file JSON này?","en":"The lesson “{name}” already exists. Replace the saved draft with this JSON file?"}
+    "lessons.confirmReplace": {"vi":"Bài học “{name}” đã tồn tại. Thay bản đang lưu bằng bài học nhập vào?","en":"The lesson “{name}” already exists. Replace the saved draft with the imported lesson?"},
+    "lessons.replace": {"vi":"Thay thế","en":"Replace"},
+    "lessons.discard": {"vi":"Bỏ thay đổi","en":"Discard changes"},
+    "lessons.continue": {"vi":"Tiếp tục","en":"Continue"},
+    "lessons.exitWithoutSaving": {"vi":"Thoát không lưu","en":"Exit without saving"},
+    "lessons.saveAndExit": {"vi":"Lưu và thoát","en":"Save and exit"}
   }
 }

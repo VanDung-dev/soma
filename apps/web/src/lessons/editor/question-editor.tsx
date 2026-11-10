@@ -2,6 +2,7 @@ import type { Language, MessageKey, MessageValues } from "../../i18n";
 import { translateMessage } from "../../i18n";
 import type { LessonQuestion } from "../shared/contract";
 import { newLessonId } from "../shared/source";
+import { useLessonConfirm } from "../shared/confirm";
 
 export function newLessonQuestion(): LessonQuestion {
   return { id: newLessonId(), prompt: { vi: "", en: "" }, explanation: { vi: "", en: "" }, answerId: "",
@@ -14,6 +15,7 @@ export function LessonQuestionEditor({ questions, locale, onChange }: {
   onChange: (questions: LessonQuestion[]) => void;
 }) {
   const t = (key: MessageKey, values?: MessageValues) => translateMessage(key, locale, values);
+  const confirm = useLessonConfirm();
   const update = (value: LessonQuestion) => onChange(questions.map(question => question.id === value.id ? value : question));
   return <section className="lesson-question-editor lesson-fields" lang={locale} aria-label={t("lessons.questions")}>
     {questions.map((question, index) => <fieldset className="lesson-question" key={question.id}>
@@ -41,8 +43,8 @@ export function LessonQuestionEditor({ questions, locale, onChange }: {
         <textarea value={question.explanation[locale]} lang={locale} onChange={event => update({ ...question,
           explanation: { ...question.explanation, [locale]: event.target.value } })} />
       </label>
-      <button className="lesson-button" onClick={() => {
-        if (window.confirm(t("lessons.confirmRemoveQuestion"))) onChange(questions.filter(value => value.id !== question.id));
+      <button className="lesson-button" onClick={async () => {
+        if (await confirm(t("lessons.confirmRemoveQuestion"), t("lessons.removeQuestion"))) onChange(questions.filter(value => value.id !== question.id));
       }}>{t("lessons.removeQuestion")}</button>
     </fieldset>)}
     <button className="lesson-button" onClick={() => onChange([...questions, newLessonQuestion()])}>{t("lessons.addQuestion")}</button>

@@ -19,6 +19,7 @@ import { LessonOutline } from "./outline";
 import { LessonControls } from "../shared/controls";
 import { useGraphicsSettings } from "../../pages/use-graphics-settings";
 import { SidebarToggle, WorkspaceLayout, WorkspaceMenu } from "../../pages/workspace-layout";
+import { useLessonConfirm } from "../shared/confirm";
 
 const RichEditor = lazy(() => import("./rich-editor"));
 
@@ -37,6 +38,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
   onBack: (lesson: Lesson) => void;
 }) {
   const { language, t } = useLanguage();
+  const confirm = useLessonConfirm();
   const [graphics, setGraphics] = useGraphicsSettings();
   const [draft, setDraft] = useState<Lesson>(lesson);
   const [locale, setLocale] = useState<Language>();
@@ -96,10 +98,11 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
   }
 
   function captureSceneDraft(): Lesson | undefined {
-    if (!sceneDirty || !active || !showModel || !hasModel) return draft;
+    if (!sceneDirty || !showModel || !hasModel) return draft;
     const snapshot = sceneHandle.current?.capture();
     if (!snapshot) { setError(t("lessons.sceneSaveUnavailable")); return; }
     const patch = { modelIds, targetId: sceneTargetId, visibleIds: snapshot.visibleIds, view: snapshot.view };
+    if (!active) return { ...draft, scene: patch };
     return { ...draft, steps: draft.steps.map(step => step.id === active.id
       ? (step.kind === "identify_structure" ? { ...step, ...patch } : { ...step, kind: "observe", ...patch })
       : step) };
@@ -151,7 +154,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
       : { ...active, kind: "observe", ...patch });
   }
 
-  function changeModels(nextModelIds: string[]) {
+  async function changeModels(nextModelIds: string[]) {
     if (!active) return;
     const live = sceneDirty ? sceneHandle.current?.capture() : undefined;
     if (sceneDirty && !live) { setError(t("lessons.sceneSaveUnavailable")); return; }
@@ -159,7 +162,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
     if (currentModelIds.slice().sort().join(",") === nextModelIds.slice().sort().join(",")) return;
     const removedRoots = currentModelIds.filter(id => !nextModelIds.includes(id));
     if (removedRoots.length && (scene?.targetId || scene?.view || scene?.visibleIds?.length)
-      && !window.confirm(t("lessons.confirmSceneReset"))) return;
+      && !await confirm(t("lessons.confirmSceneReset"), t("lessons.continue"))) return;
     const removedMembers = new Set(removedRoots.flatMap(id => catalog.members(id)));
     const primaryId = nextModelIds[0] ?? "";
     const targetId = scene && nextModelIds.some(id => lessonTargets(catalog, id).some(target => target.id === scene.targetId))
@@ -281,8 +284,8 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
     setOrderStatus(t("lessons.stepMoved", { name: lessonText(step.title, language) || t("lessons.untitledSection"), position: to + 1 }));
   }
 
-  function remove() {
-    if (!active || !window.confirm(t("lessons.confirmRemoveBlock"))) return;
+  async function remove() {
+    if (!active || !await confirm(t("lessons.confirmRemoveBlock"), t("lessons.removeStep"))) return;
     const steps = draft.steps.filter(step => step.id !== active.id);
     const nextDraft = { ...draft, steps };
     stage(nextDraft);
