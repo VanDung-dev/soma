@@ -24,10 +24,12 @@ export async function checkLessonEditorLayout(page) {
   await page.getByLabel('Tên bài học').waitFor();
   assert(await outline.isVisible());
   assert.equal(await settings.count(), 0);
-  assert.equal(await model.count(), 0, 'Lesson details have no 3D workspace');
+  assert(await model.isHidden(), 'Lesson details keep the model controls hidden');
+  await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
+  await page.evaluate(() => { window.editorCanvas = document.querySelector('.lesson-editor > .model-canvas canvas'); });
   await choose('Một');
-  await model.locator('.model-canvas[aria-busy="false"]').waitFor();
-  await page.evaluate(() => { window.editorCanvas = document.querySelector('.lesson-scene-region canvas'); });
+  await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
+  assert(await page.evaluate(() => window.editorCanvas === document.querySelector('.lesson-editor > .model-canvas canvas')));
   await lessonBody(page).fill('Đã sửa nội dung Một');
   await choose('Hai');
   assert(await outline.isVisible());
@@ -61,7 +63,7 @@ export async function checkLessonEditorLayout(page) {
   await model.locator('.orientation-axes [data-axis="Y"][data-direction="1"]').click();
   assert(await outline.isVisible());
   assert(await settings.isVisible());
-  assert(await page.evaluate(() => window.editorCanvas === document.querySelector('.lesson-scene-region canvas')));
+  assert(await page.evaluate(() => window.editorCanvas === document.querySelector('.lesson-editor > .model-canvas canvas')));
   await page.locator('#lesson-toggle-outline').click();
   await page.reload();
   await page.getByLabel('Tên bài học').waitFor();

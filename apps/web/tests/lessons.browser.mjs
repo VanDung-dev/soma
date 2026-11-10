@@ -8,6 +8,11 @@ import { checkLessonOutlineTouch } from './lesson-outline-touch.browser.mjs';
 import { checkLessonImages } from './lesson-images.browser.mjs';
 import { checkLessonEditorExperience } from './lesson-editor-experience.browser.mjs';
 import { checkLessonQuestions, checkLessonImageProgress } from './lesson-questions.browser.mjs';
+import { checkLessonCanvas } from './lesson-canvas.browser.mjs';
+import { checkLessonBackground } from './lesson-background.browser.mjs';
+import { checkLessonPlayerBackground } from './lesson-player-background.browser.mjs';
+import { checkLessonBackgroundStability } from './lesson-background-stability.browser.mjs';
+import { checkLessonPlayerExit } from './lesson-player-exit.browser.mjs';
 
 export async function checkLessons(page) {
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -29,7 +34,8 @@ export async function checkLessons(page) {
   await lessonBody(page).fill('Quan sát phần mô tả.');
   await page.getByRole('button', { name: 'Xem trước' }).click();
   await page.getByRole('heading', { name: 'Đọc phần mở đầu' }).waitFor();
-  assert.equal(await page.locator('.lesson-model canvas').count(), 0);
+  assert(await page.locator('.lesson-player .lesson-model').isHidden());
+  assert.equal(await page.locator('.lesson-player > .model-canvas canvas').count(), 1);
   await page.getByRole('button', { name: 'Hoàn thành', exact: true }).click();
   await page.getByRole('heading', { name: 'Đã hoàn thành bài học' }).waitFor();
 
@@ -126,7 +132,7 @@ export async function checkLessons(page) {
   const added = await page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:' + location.pathname.split('/')[2])));
   assert.equal(added.steps[2].targetId, added.modelId);
   assert(await compose.isEnabled());
-  for (const check of [checkLessonReader, checkLessonScenes, checkLessonEditorLayout, checkLessonRichText,
+  for (const check of [checkLessonPlayerExit, checkLessonBackgroundStability, checkLessonPlayerBackground, checkLessonBackground, checkLessonCanvas, checkLessonReader, checkLessonScenes, checkLessonEditorLayout, checkLessonRichText,
     checkLessonOutlineTouch, checkLessonEditorExperience, checkLessonQuestions, checkLessonImageProgress, checkLessonImages]) {
     console.log(check.name);
     await check(page);

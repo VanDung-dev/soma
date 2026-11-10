@@ -24,10 +24,10 @@ export async function checkLessonReader(page) {
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   const model = page.locator('.lesson-model');
   const reader = page.locator('.lesson-reader-body');
-  await model.locator('.model-canvas[aria-busy="false"]').waitFor();
+  await page.locator('.lesson-player > .model-canvas[aria-busy="false"]').waitFor();
   assert.equal(await model.locator('.structure-search-field, .explode-control').count(), 0);
-  await page.evaluate(() => { window.lessonReaderCanvas = document.querySelector('.lesson-model canvas'); });
-  const canvasUnchanged = () => page.evaluate(() => window.lessonReaderCanvas === document.querySelector('.lesson-model canvas'));
+  await page.evaluate(() => { window.lessonReaderCanvas = document.querySelector('.lesson-player > .model-canvas canvas'); });
+  const canvasUnchanged = () => page.evaluate(() => window.lessonReaderCanvas === document.querySelector('.lesson-player > .model-canvas canvas'));
   const original = await model.boundingBox();
   assert(await page.getByRole('button', { name: 'Thu gọn mô hình 3D', exact: true }).isHidden());
   const readingBounds = await page.locator('.lesson-step').boundingBox();

@@ -18,9 +18,9 @@ export async function checkLessonScenes(page) {
   await add('Mặt bên', 'Xoay và tách để quan sát mặt bên.');
   await selectLessonModel(page, 'collection:cc46df69f8495544');
   const frame = page.locator('.lesson-scene-region');
-  await frame.locator('.model-canvas[aria-busy="false"]').waitFor();
+  await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
   await frame.locator('.orientation-axes [data-axis="Y"][data-direction="1"]').click();
-  const canvas = frame.locator('canvas');
+  const canvas = page.locator('.lesson-editor > .model-canvas canvas');
   const bounds = await canvas.boundingBox();
   await page.mouse.move(bounds.x + bounds.width * 0.5, bounds.y + bounds.height * 0.55);
   await page.mouse.wheel(0, -100);
@@ -47,7 +47,7 @@ export async function checkLessonScenes(page) {
   await page.getByLabel('Tên bài học').waitFor();
   if (await page.locator('#lesson-author-outline').isHidden()) await page.locator('#lesson-toggle-outline').click();
   await page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: 'Mặt bên' }).click();
-  await frame.locator('.model-canvas[aria-busy="false"]').waitFor();
+  await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
   assert.equal(await slider.inputValue(), '30');
   await frame.getByRole('button', { name: 'Về cảnh của bước', exact: true }).click();
   await frame.getByRole('button', { name: 'Lưu cảnh cho bước', exact: true }).click();
@@ -58,12 +58,12 @@ export async function checkLessonScenes(page) {
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   const player = page.locator('.lesson-player');
   const playerModel = player.locator('.lesson-model');
-  await playerModel.locator('.model-canvas[aria-busy="false"]').waitFor();
+  await player.locator(':scope > .model-canvas[aria-busy="false"]').waitFor();
   assert.equal(await player.locator('.explode-control, .structure-search-field').count(), 0);
   await page.mouse.move(1400, 5);
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-  const initialImage = await playerModel.locator('canvas').screenshot();
-  const playerCanvas = playerModel.locator('canvas');
+  const playerCanvas = player.locator(':scope > .model-canvas canvas');
+  const initialImage = await playerCanvas.screenshot();
   const box = await playerCanvas.boundingBox();
   for (const button of ['left', 'right']) {
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -76,7 +76,7 @@ export async function checkLessonScenes(page) {
   await page.keyboard.down('Shift');
   await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2 + 20, box.y + box.height / 2 + 10);
-  assert(await playerModel.locator('.model-selection-box').isHidden(), 'Student input cannot select a group');
+  assert(await player.locator(':scope > .model-canvas .model-selection-box').isHidden(), 'Student input cannot select a group');
   await page.mouse.up();
   await page.keyboard.up('Shift');
   for (const button of ['left', 'right']) {
@@ -109,10 +109,10 @@ export async function checkLessonScenes(page) {
   assert.equal((await saved()).steps[0].kind, 'observe');
   assert.deepEqual((await saved()).steps[0].view, beforeLearning.steps[0].view);
   assert.equal(await page.locator('#lesson-author-inspector').count(), 0);
-  await frame.locator('.model-canvas[aria-busy="false"]').waitFor();
+  await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
   assert.equal(await slider.inputValue(), '30');
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
-  await playerModel.locator('.model-canvas[aria-busy="false"]').waitFor();
+  await player.locator(':scope > .model-canvas[aria-busy="false"]').waitFor();
   assert.equal(page.url(), url);
 }
 

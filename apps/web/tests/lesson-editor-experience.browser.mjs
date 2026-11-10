@@ -12,7 +12,7 @@ export async function checkLessonEditorExperience(page) {
   const saved = () => page.evaluate(id => JSON.parse(localStorage.getItem('soma.lesson:' + id)), id);
   const writing = page.locator('#lesson-author-writing');
   const frame = page.locator('.lesson-scene-region');
-  assert.equal(await page.locator('.lesson-model, .tox-tinymce, .structure-search-field').count(), 0, 'Lesson details are a simple card form');
+  assert.equal(await page.locator('.lesson-model:visible, .tox-tinymce, .structure-search-field:visible').count(), 0, 'Lesson details are a simple card form');
   await page.getByLabel('Tên bài học').fill('Thông tin và từng bước');
   await page.getByLabel('Mô tả ngắn').fill('Mô tả trên thẻ bài học.');
   const cover = await readFile(new URL('../public/home/anatomy.png', import.meta.url));
@@ -53,7 +53,7 @@ export async function checkLessonEditorExperience(page) {
     await option.waitFor();
     ids.push(await option.getAttribute('data-structure-id'));
     await option.click();
-    await frame.locator('.model-canvas[aria-busy="false"]').waitFor();
+    await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
   }
   assert.deepEqual((await saved()).steps[0].visibleIds, ids);
   const part = frame.getByRole('region', { name: 'Thông tin bộ phận' });
@@ -61,9 +61,9 @@ export async function checkLessonEditorExperience(page) {
   assert.equal(await part.locator('.information-heading .lesson-button').count(), 1);
   assert(await part.evaluate(node => getComputedStyle(node).backgroundColor === 'rgba(0, 0, 0, 0)' && getComputedStyle(node).boxShadow === 'none'));
   const bounds = await part.boundingBox();
-  const canvas = await frame.locator('.model-canvas').boundingBox();
+  const canvas = await frame.boundingBox();
   assert(Math.abs(bounds.x - canvas.x - 10) <= 1);
-  assert(Math.abs(bounds.width - canvas.width + 20) <= 1, 'Part details span the model canvas');
+  assert(Math.abs(bounds.width - canvas.width + 20) <= 1, 'Part details span the model interaction region');
   assert(bounds.y > canvas.y + canvas.height / 2, 'Part details sit near the bottom');
   await settingsButton.click();
   await settings.locator('.structure-tree > li > .tree-row .tree-name').first().click();
@@ -96,17 +96,17 @@ export async function checkLessonEditorExperience(page) {
   await page.getByLabel('Tên mục').fill('Chỉ nội dung');
   await body.fill('Bước này không hiển thị mô hình.');
   await page.getByRole('checkbox', { name: 'Hiển thị mô hình 3D ở bước này', exact: true }).uncheck();
-  assert.equal(await frame.count(), 0);
+  assert(await frame.isHidden());
   await writing.getByRole('button', { name: 'Lưu bước', exact: true }).click();
   const hidden = (await saved()).steps[1];
   assert.equal(hidden.showModel, false);
   assert.deepEqual(hidden.view, first.view, 'Hiding 3D preserves the authored scene');
   await page.reload();
   await page.getByLabel('Tên bài học').waitFor();
-  assert.equal(await page.locator('.lesson-model, .tox-tinymce').count(), 0);
+  assert.equal(await page.locator('.lesson-model:visible, .tox-tinymce').count(), 0);
   if (await page.locator('#lesson-author-outline').isHidden()) await page.locator('#lesson-toggle-outline').click();
   await page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: 'Chỉ nội dung' }).click();
-  assert.equal(await frame.count(), 0);
+  assert(await frame.isHidden());
   assert.equal(await body.innerText(), hidden.instruction.vi.replace(/<[^>]+>/g, ''));
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   const player = page.locator('.lesson-player');
@@ -132,7 +132,7 @@ export async function checkLessonEditorExperience(page) {
   assert(await viewer.evaluate(canvas => canvas === document.querySelector('.lesson-player canvas')), 'Changing model visibility keeps the learner viewer');
   await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
   await page.getByRole('checkbox', { name: 'Hiển thị mô hình 3D ở bước này', exact: true }).check();
-  await frame.locator('.model-canvas[aria-busy="false"]').waitFor();
+  await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
   assert.equal(await slider.inputValue(), '100');
   for (const width of [320, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
@@ -170,7 +170,7 @@ export async function checkLessonEditorExperience(page) {
     await imported.goto('/lessons/hidden-only/edit');
     await imported.getByRole('button', { name: 'Xem trước', exact: true }).click();
     await imported.getByRole('heading', { name: 'Chỉ nội dung', exact: true }).waitFor();
-    assert.equal(await imported.locator('.lesson-model, .lesson-preview-issue').count(), 0, 'Hidden-only lessons need no 3D model');
+    assert.equal(await imported.locator('.lesson-model:visible, .lesson-preview-issue').count(), 0, 'Hidden-only lessons need no 3D model');
     await imported.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
     await imported.getByLabel('Tên bài học').waitFor();
     await imported.getByRole('button', { name: 'Xem trước', exact: true }).click();
@@ -195,7 +195,7 @@ export async function checkLessonEditorExperience(page) {
   await page.getByLabel('Tên bài học').waitFor();
   if (await page.locator('#lesson-author-outline').isHidden()) await page.locator('#lesson-toggle-outline').click();
   await page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: 'Chỉ nội dung' }).click();
-  await frame.locator('.model-canvas[aria-busy="false"]').waitFor();
+  await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
   const external = await saved(); external.title.vi = 'Đã sửa ở tab khác';
   await page.evaluate(lesson => localStorage.setItem('soma.lesson:' + lesson.id, JSON.stringify(lesson)), external);
   await page.getByLabel('Tên mục').fill('Không ghi đè tab khác');
@@ -213,15 +213,17 @@ export async function checkLessonHeader(page, selector, headingSelector) {
       center: title.x + title.width / 2 - box.x - box.width / 2,
       buttons: [...header.querySelectorAll('.lesson-button, .controls-info')].filter(button => button.getBoundingClientRect().width).map(button => {
         const child = button.getBoundingClientRect();
-        return { height: child.height, radius: getComputedStyle(button).borderRadius, inset: Math.min(child.x - box.x, box.right - child.right) };
+        return { height: child.height, radius: getComputedStyle(button).borderRadius, inset: Math.min(child.x - box.x, box.right - child.right),
+          contained: child.top >= box.top && child.bottom <= box.bottom };
       }) };
   }, headingSelector);
-  assert.equal(geometry.height, 48);
+  assert(geometry.height >= 48);
   assert.equal(geometry.radius, '24px');
   assert(Math.abs(geometry.center) <= 1, 'The title is centered between equal side columns');
   for (const button of geometry.buttons) {
     assert.equal(button.height, 28);
     assert.equal(button.radius, '14px');
+    assert(button.contained, 'Wrapped toolbar controls stay inside the header');
     assert(button.inset >= 9.5, 'Toolbar controls respect the outer 10px inset');
   }
 }
