@@ -91,6 +91,20 @@ Camera → MediaPipe worker → Rust HandGestureController → StudySession.cont
 - Hand controls pause on hidden/unfocused pages and cannot move the camera during separation.
 - Manual separation and automatic explosion are mutually exclusive; restoration runs in Rust.
 - New study screens reuse the session/runtime and supply their own viewport geometry.
+- The lesson editor uses a borderless canvas behind the workspace panels and measures
+the remaining focus frame for camera fitting. Its composition follows that frame without
+changing the authored pose. Outline transitions, HUD wrapping and structure details resize
+the frame through the shared runtime observer; feedback reuses Anatomy components and styles.
+The editor mounts its empty renderer on lesson details, retains that canvas across details
+and steps, and adds lesson geometry to the same renderer when needed. Details and steps
+without a model hide anatomy and its controls while keeping the background visible.
+Preview and student view use the same persistent background and measured focus frame.
+Their outline and reading layout animate before applying the next authored scene;
+text-only steps and mobile model collapse hide anatomy without replacing the canvas.
+Lessons render the spherical grid with a separate full-viewport camera so model fitting
+cannot stretch the background. Its center follows the model's focus, including panel
+transitions and panning, and returns to the canvas center when no model is visible.
+It follows model rotation and manual zooming. Reset fits the model to the current focus frame.
 - Lessons apply authored scenes through `StudySession.applyScene`; Rust validates and restores
 visibility, camera pose and explosion. Camera poses adapt to the host viewport. Learner controls
 change only the active session; the editor saves the selected step's content, `modelIds` and
