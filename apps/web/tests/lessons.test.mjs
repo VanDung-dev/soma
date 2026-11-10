@@ -51,7 +51,7 @@ test('lesson models include every system needed by setup and authored scenes wit
   assert.deepEqual(lessonModels(catalog, { ...lesson, steps: [{ kind: 'observe', targetId: 'joints', visibleIds: ['joint'] }] }), ['bones', 'muscles', 'joints']);
   assert.deepEqual(lessonModels(catalog, { ...lesson, scene: { targetId: 'bones', visibleIds: [] } }), ['bones']);
   assert.deepEqual(lessonModels(catalog, { ...lesson, modelIds: ['bones', 'joints'] }), ['bones', 'joints', 'muscles']);
-  assert.deepEqual(lessonModels(catalog, { ...lesson, modelId: '', modelIds: [] }), []);
+  assert.deepEqual(lessonModels(catalog, { ...lesson, modelId: '', modelIds: [], scene: undefined }), []);
   assert.deepEqual(lessonModels(catalog, draft), []);
 });
 
@@ -177,10 +177,11 @@ test('an exercise must have distinct selectable structures inside its visible ta
       targetId: 'scene', answerId: 'a', choiceIds: ['a', 'b'], explanation: text('') }],
   };
   assert.deepEqual(readLesson(lesson), lesson);
-  const members = { scene: ['1', '2'], a: ['1'], b: ['2'] };
-  validateLessonTargets(lesson, ['1', '2'], id => members[id]);
-  assert.throws(() => validateLessonTargets(lesson, ['1'], id => members[id]), /unavailable structure/);
-  assert.throws(() => validateLessonTargets(lesson, ['1', '2'], id => id === 'b' ? ['1'] : members[id]), /cannot overlap/);
+  const members = { model: ['1', '2'], scene: ['1', '2'], a: ['1'], b: ['2'] };
+  const catalogMembers = id => members[id] ?? [];
+  validateLessonTargets(lesson, ['1', '2'], catalogMembers);
+  assert.throws(() => validateLessonTargets(lesson, ['1'], catalogMembers), /unavailable structure/);
+  assert.throws(() => validateLessonTargets(lesson, ['1', '2'], id => id === 'b' ? ['1'] : catalogMembers(id)), /cannot overlap/);
 });
 
 test('custom scenes persist exact model members and bound exercise choices', () => {
