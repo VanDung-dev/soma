@@ -11,7 +11,7 @@ export class ViewerRuntime implements StudyViewer {
   private viewer: AnatomyViewer | undefined;
   private canvas = document.createElement("canvas");
   private selectionBox = document.createElement("div");
-  private abort = new AbortController();
+  private loadAbort: AbortController | undefined;
   private motion = window.matchMedia("(prefers-reduced-motion: reduce)");
   private resolution = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
   private observer: ResizeObserver;
@@ -47,6 +47,7 @@ export class ViewerRuntime implements StudyViewer {
     canSelect?: () => boolean;
     preserveCameraOnResize?: boolean;
     animateInitialReconstruction?: boolean;
+    background?: boolean;
     onFps?: (fps: number) => void;
     onOrientation?: (axes: Float32Array) => void;
     onHold?: (point: { x: number; y: number; action: "hide" | "move" } | null) => void;
@@ -90,31 +91,49 @@ export class ViewerRuntime implements StudyViewer {
   }
 
   async start(catalog: Catalog, roots: StudyTarget[] = catalog.roots) {
+    this.loadAbort?.abort();
+    const request = this.loadAbort = new AbortController();
+    this.loading = true;
     this.options.onState({ building: true, loadedSystems: 0, structureIds: [], selected: "", error: false, status: "loading" });
     try {
       const wasm = await getWasm();
-      if (this.disposed) return;
+      if (this.disposed || this.loadAbort !== request) return;
+      if (this.options.background && !this.viewer) {
+        this.viewer = wasm.AnatomyViewer.background(this.canvas);
+        this.resizeCanvas();
+        this.setGraphics(this.graphics);
+        this.viewer.render();
+      }
+      if (this.options.background && !roots.length) {
+        this.viewer!.set_visibility([]);
+        this.loading = false;
+        this.options.onState({ building: false, status: "finishing" });
+        this.scheduleRender();
+        return;
+      }
       catalog.clearMetadata();
-      const packages = loadModels(roots, this.abort.signal, loadedSystems => {
+      const packages = loadModels(roots, request.signal, loadedSystems => {
+        if (this.loadAbort !== request) return;
         this.options.onState({ loadedSystems, status: "preparing" });
-      }, (root, json) => catalog.ingestMetadata(root, json));
+      }, (root, json) => { request.signal.throwIfAborted(); return catalog.ingestMetadata(root, json); });
       // Fit every system before the first frame so reconstruction cannot change the scale.
       const started = performance.now();
       const animate = !this.motion.matches && this.options.animateInitialReconstruction !== false;
       for await (const prepared of packages) {
-        if (this.disposed) return;
-        if (this.viewer) this.viewer.appendPrepared(prepared, started, animate);
+        if (this.disposed || this.loadAbort !== request) return;
+        if (this.viewer) this.viewer.appendPrepared(prepared, this.options.background ? performance.now() : started, animate);
         else {
           this.viewer = wasm.AnatomyViewer.fromPrepared(this.canvas, prepared);
           this.viewer.begin_reconstruction(started, animate);
         }
       }
-      if (this.disposed) return;
+      if (this.disposed || this.loadAbort !== request) return;
       this.viewer!.start_reconstruction(performance.now(), animate);
       this.resizeCanvas();
       this.viewer!.inspect("reset");
       this.setGraphics(this.graphics);
       this.viewer!.configure_explosion(roots.map(root => catalog.members(root.id)));
+      if (this.options.background) this.viewer!.set_visibility([]);
       if (this.failed) throw new Error("Model rendering failed");
       catalog.finish();
       this.structureIds = catalog.identities();
@@ -122,12 +141,13 @@ export class ViewerRuntime implements StudyViewer {
       this.options.onState({ structureIds: this.structureIds, building: animate, status: "finishing" });
       this.scheduleRender();
     } catch (cause) {
-      if (!this.disposed) this.fail(cause, "loadError");
+      if (!this.disposed && this.loadAbort === request) this.fail(cause, "loadError");
     }
   }
 
   private fail(cause: unknown, status: ViewerStatus) {
-    this.failed = true; this.animating = false; this.abort.abort();
+    this.failed = true; this.animating = false;
+    this.loadAbort?.abort();
     this.snapTarget = ""; this.options.onSnap?.("");
     this.stopFpsMeter();
     console.error(cause);
@@ -189,7 +209,7 @@ export class ViewerRuntime implements StudyViewer {
     });
   };
 
-  private resize = () => {
+  resize = () => {
     this.resizePending = true;
     this.scheduleRender();
   };
@@ -209,6 +229,7 @@ export class ViewerRuntime implements StudyViewer {
       const [renderWidth, renderHeight] = this.renderSize(width, height);
       if (this.canvas.width !== renderWidth || this.canvas.height !== renderHeight) this.viewer!.resize(renderWidth, renderHeight);
       this.viewer!.reframe(...this.options.viewport());
+      if (this.options.viewportElement) this.viewer!.align_viewport();
       if (pose) this.viewer!.set_camera_pose(pose);
     }
   }
@@ -337,7 +358,16 @@ export class ViewerRuntime implements StudyViewer {
 
   applyScene(ids: string[], view?: SceneView) {
     const reassembling = this.exploding && !view?.explosion && !this.motion.matches;
-    const success = this.operate(viewer => viewer.apply_scene(ids, view, this.animationTime()));
+    const success = this.operate(viewer => {
+      const reveal = this.options.background && !viewer.visible_count();
+      if (this.options.viewportElement) viewer.reframe(...this.options.viewport());
+      viewer.apply_scene(ids, view, this.animationTime());
+      if (this.options.viewportElement) viewer.align_viewport(!view);
+      if (reveal) {
+        viewer.set_visibility([]);
+        viewer.change_visibility(ids, true, this.animationTime());
+      }
+    });
     if (success) {
       this.exploding = !!view?.explosion || reassembling;
       this.reassembling = reassembling;
@@ -434,7 +464,7 @@ export class ViewerRuntime implements StudyViewer {
 
   dispose() {
     this.disposed = true; this.loading = true; this.animating = false;
-    this.abort.abort(); this.observer.disconnect(); this.unbindInput();
+    this.loadAbort?.abort(); this.observer.disconnect(); this.unbindInput();
     this.motion.removeEventListener("change", this.motionChanged);
     this.resolution.removeEventListener("change", this.resolutionChanged);
     this.canvas.removeEventListener("webglcontextlost", this.contextLost);

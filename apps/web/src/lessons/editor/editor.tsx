@@ -12,7 +12,7 @@ import { LessonDetails } from "./details";
 import { LessonStepOptions } from "./step-options";
 import { LessonQuestionEditor } from "./question-editor";
 import { exportLesson, newLessonId } from "../shared/source";
-import { lessonSceneModels, lessonTargets } from "../shared/targets";
+import { lessonModels, lessonSceneModels, lessonTargets } from "../shared/targets";
 import type { SceneView } from "../../anatomy/viewer/contracts";
 import { useLessonPanel } from "../shared/panels";
 import { LessonOutline } from "./outline";
@@ -312,6 +312,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
   const hasModel = modelIds.length > 0 && modelIds.some(id => catalog.roots.some(model => model.id === id));
   const showModel = !!active && active.showModel !== false;
   const renderScene = showModel && hasModel;
+  const loadedModelIds = lessonModels(catalog, draft);
   const previousStep = index > 0 ? draft.steps[index - 1] : undefined;
   const previousScene = previousStep?.kind === "text" ? lessonSceneStep(draft, index - 1) : previousStep;
   const canCopyPreviousScene = !!previousScene && previousScene.targetId !== ""
@@ -326,12 +327,12 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
     onChangeScene={ids => hasModel ? updateScene(ids) : addStructures(ids)} />;
 
   return <WorkspaceLayout className="lesson-editor study-shell" data-outline={outlineOpen}>
-    {renderScene && sceneFrame && <EditorScene graphics={graphics} modelIds={modelIds} targetId={sceneTargetId}
+    {sceneFrame && <EditorScene graphics={graphics} modelIds={loadedModelIds} targetId={sceneTargetId}
       visibleIds={scene?.visibleIds} view={scene?.view} sectionId={active?.id ?? draft.id} sceneRef={sceneHandle}
       revealPart={revealPart}
       onChangeScene={ids => hasModel ? updateScene(ids) : addStructures(ids)}
       onSceneChange={() => { setSceneDirty(true); setSaveNotice(""); }}
-      frame={sceneFrame} tools={modelSetup} inactive={false} />}
+      frame={sceneFrame} tools={modelSetup} inactive={!renderScene} outlineOpen={outlineOpen} />}
     <WorkspaceMenu className="lesson-author-bar" layout="inline" actionsClassName="lesson-author-actions" navigation={<>
         <SidebarToggle id="lesson-toggle-outline" controls="lesson-author-outline" expanded={outlineOpen}
           name={t("lessons.outline")} onToggle={() => setOutlineOpen(!outlineOpen)} />
@@ -367,7 +368,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
         <LessonControls graphics={graphics} onGraphicsChange={setGraphics} editing />
       </>} />
     <div className="lesson-author-workspace" data-outline={outlineOpen}>
-    <nav className="workspace-panel-surface lesson-author-outline" id="lesson-author-outline" hidden={!outlineOpen}
+    <nav className="workspace-panel-surface lesson-author-outline" id="lesson-author-outline" hidden={!outlineOpen} inert={!outlineOpen} aria-hidden={!outlineOpen}
       aria-label={t("lessons.outline")}>
       <div className="catalog-heading"><h2>{t("lessons.outline")}</h2></div>
       <div className="catalog-tree">
@@ -389,7 +390,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
         {saveFailed && <p className="model-status model-error" role="alert">{t("lessons.saveError")}</p>}
         {error && <p className="model-status model-error" role="alert">{error}</p>}
       </div>}
-      {showModel && <div className="lesson-scene-region lesson-model">
+      <div className="lesson-scene-region lesson-model" hidden={!showModel} inert={!showModel} aria-hidden={!showModel}>
         <div className="lesson-scene-viewport" ref={setSceneFrame}>
         {!renderScene && <div className="model-canvas lesson-model-empty">
           <div className="lesson-scene-placeholder workspace-panel-surface">
@@ -403,7 +404,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
           <div className="lesson-model-tools">{modelSetup}</div>
         </div>}
         </div>
-      </div>}
+      </div>
       <section className="lesson-author-document workspace-panel-surface" id="lesson-author-writing"
         aria-label={t("lessons.writing")}>
         <div className="lesson-editor-stepbar">

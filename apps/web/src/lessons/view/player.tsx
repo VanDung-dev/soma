@@ -25,13 +25,17 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
   const modelMembers = useMemo(() => [...new Set(modelIds.flatMap(id => catalog.members(id)))], [catalog, modelIds]);
   const heading = useRef<HTMLHeadingElement>(null);
   const reader = useRef<HTMLDivElement>(null);
+  const focusFrame = useRef<HTMLDivElement>(null);
+  const body = useRef<HTMLDivElement>(null);
+  const workspace = useRef<HTMLDivElement>(null);
   const outlineId = useId();
   const [outlineOpen, setOutlineOpen] = useLessonPanel("readerOutline", false);
   const modelId = useId();
   const [modelCollapsed, setModelCollapsed] = useState(false);
+  const [compact, setCompact] = useState(() => window.matchMedia("(max-width: 900px)").matches);
   const [index, setIndex] = useState(0);
-  const { host, orientation, showAxes, fps, session, state } = useLessonViewer(catalog, graphics, usesModel ? modelIds : "", undefined,
-    undefined, undefined, false, false);
+  const { host, orientation, showAxes, fps, session, state, runtime } = useLessonViewer(catalog, graphics, usesModel ? modelIds : "", undefined,
+    focusFrame, undefined, false, false, true);
   const [passed, setPassed] = useState<ReadonlySet<string>>(() => new Set());
   const [failed, setFailed] = useState(false);
   const [validated, setValidated] = useState(!usesModel);
@@ -41,6 +45,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
   const issue = issues.get(step.id);
   const scene = useMemo(() => lessonSceneStep(lesson, complete ? 0 : index), [complete, index, lesson]);
   const showStepModel = usesModel && !!scene;
+  const modelVisible = showStepModel && (!compact || !modelCollapsed);
   const sceneIds = useMemo(() => scene ? scene.visibleIds ?? catalog.members(scene.targetId) : [], [catalog, scene]);
   const sceneUsable = useMemo(() => {
     if (!scene) return false;
@@ -53,9 +58,26 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
   const questions = mode === "content" ? [] : lessonQuestions(step, id => catalog.target(id)?.names);
   const instruction = lessonHtml(step.instruction, language, images.urls);
   const solved = passed.has(step.id);
-  const ready = validated && !state.error && !failed;
+  const ready = validated && !state.building && !state.error && !failed;
   const modelMissing = modelIds.some(id => !catalog.roots.some(root => root.id === id));
   const boundary = lesson.steps.findIndex(item => issues.has(item.id) || (lessonMode(item) !== "content" && !passed.has(item.id)));
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 900px)");
+    const update = () => setCompact(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    let animation = 0;
+    const update = () => {
+      runtime.current?.resize();
+      if ([body.current, workspace.current].some(element => element?.getAnimations().some(animation => animation.playState === "running"))) animation = requestAnimationFrame(update);
+    };
+    animation = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(animation);
+  }, [outlineOpen, modelVisible, runtime, session]);
 
   useEffect(() => {
     if (state.building || state.error) return;
@@ -63,8 +85,16 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
   }, [state.building, state.error]);
 
   useEffect(() => {
-    if (ready && scene && !session.applyScene(sceneUsable ? sceneIds : [], sceneUsable ? scene.view : undefined)) setFailed(true);
-  }, [ready, scene, sceneUsable, session, sceneIds, index, complete]);
+    if (!ready) return;
+    if (!modelVisible || !sceneUsable) { session.changeVisibility(state.structureIds, false); return; }
+    let animation = 0;
+    const apply = () => {
+      if ([body.current, workspace.current].some(element => element?.getAnimations().some(animation => animation.playState === "running"))) animation = requestAnimationFrame(apply);
+      else if (!session.applyScene(sceneIds, scene?.view)) setFailed(true);
+    };
+    animation = requestAnimationFrame(apply);
+    return () => cancelAnimationFrame(animation);
+  }, [ready, modelVisible, scene, sceneUsable, session, sceneIds, index, complete, state.structureIds]);
 
   useEffect(() => {
     if (reader.current) reader.current.scrollTop = 0;
@@ -79,9 +109,11 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
   }
 
   return <WorkspaceLayout className="lesson-player">
+    <div className="lesson-model-canvas model-canvas" ref={host} inert={!modelVisible}
+      aria-busy={!modelMissing && state.building && !state.error && !failed} />
     <WorkspaceMenu className="lesson-player-header" layout="inline" navigation={<>
         <SidebarToggle controls={outlineId} expanded={outlineOpen} name={t("lessons.outline")} onToggle={() => setOutlineOpen(!outlineOpen)} />
-        <button className="controls-info lesson-exit" onClick={onBack} aria-label={t("lessons.exit")} title={t("lessons.exit")}>
+        <button className="controls-info lesson-exit" onClick={() => onBack()} aria-label={t("lessons.exit")} title={t("lessons.exit")}>
           <LineIcon name="arrow-small-left" size={18} />
           {t("lessons.exit")}
         </button>
@@ -97,8 +129,8 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
       </button>}
       <LessonControls graphics={graphics} onGraphicsChange={setGraphics} />
       </>} />
-    <div className="lesson-player-body" data-outline={outlineOpen}>
-      <nav id={outlineId} className="lesson-reader-outline workspace-panel-surface" hidden={!outlineOpen} aria-label={t("lessons.outline")}>
+    <div className="lesson-player-body" ref={body} data-outline={outlineOpen}>
+      <nav id={outlineId} className="lesson-reader-outline workspace-panel-surface" hidden={!outlineOpen} inert={!outlineOpen} aria-hidden={!outlineOpen} aria-label={t("lessons.outline")}>
         <div className="catalog-heading"><h2>{t("lessons.outline")}</h2></div>
         <div className="catalog-tree">
           <ol className="lesson-outline-list">
@@ -115,25 +147,33 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
           </ol>
         </div>
       </nav>
-      <div className="lesson-workspace" data-model={showStepModel} data-model-collapsed={modelCollapsed}>
-      {usesModel && <section className="lesson-model" id={modelId} hidden={!showStepModel} aria-label={t("viewer.section.label")}>
-        <div className="lesson-model-canvas model-canvas" ref={host} aria-busy={!modelMissing && state.building && !state.error && !failed}>
+      <div className="lesson-workspace" ref={workspace} data-model={modelVisible} data-model-collapsed={modelCollapsed}>
+      <section className="lesson-model" id={modelId} hidden={!modelVisible} inert={!modelVisible} aria-hidden={!modelVisible} aria-label={t("viewer.section.label")}>
+        <div className="model-focus-frame" ref={focusFrame}>
+          <div className="model-orientation">
+            <div hidden={!showAxes}>
+              <OrientationAxes ref={orientation} disabled={!ready || !modelVisible || !showAxes} onControl={session.control} />
+            </div>
+            {graphics.showFps && <span className="model-fps" aria-label={t("graphics.fps.current", { count: fps })}>{fps} FPS</span>}
+          </div>
+        </div>
+        <div className="model-hud lesson-player-hud">
+          {modelMissing ? <p className="model-status" role="status">{t("lessons.validation.target", { step: index + 1 })}</p>
+            : failed ? <p className="model-status model-error" role="alert">{t("lessons.targetError")}</p>
+            : <ViewerStatusNotice state={state} totalSystems={modelIds.length} />}
+          {state.building && !state.error && !modelMissing && <progress className="model-progress" aria-label={t("viewer.loading.systems")}
+            value={state.loadedSystems} max={modelIds.length} />}
+          {!state.building && !state.error && !sceneUsable && <p className="model-status" role="status">{t("lessons.targetError")}</p>}
           <div className="lesson-model-tools">
             <button className="lesson-button lesson-player-reset" disabled={!ready || !sceneUsable} onClick={() => {
               if (!session.applyScene(sceneIds, scene?.view)) return;
             }}>{t("lessons.resetStudyScene")}</button>
-            {graphics.showFps && <span className="model-fps" aria-label={t("graphics.fps.current", { count: fps })}>{fps} FPS</span>}
             <a className="lesson-model-credit" href="/models/z-anatomy/ATTRIBUTION.md" target="_blank" rel="noreferrer"
               aria-label={t("credit.link")}>Z-Anatomy</a>
           </div>
         </div>
-        {showAxes && <div className="model-orientation"><OrientationAxes ref={orientation} disabled={!ready} onControl={session.control} /></div>}
-        {modelMissing ? <p className="lesson-model-message model-status" role="status">{t("lessons.validation.target", { step: index + 1 })}</p>
-          : failed ? <p className="lesson-model-message model-status model-error" role="alert">{t("lessons.targetError")}</p>
-          : state.error && <ViewerStatusNotice className="lesson-model-message" state={state} totalSystems={modelIds.length} />}
-        {showStepModel && !state.building && !state.error && !sceneUsable && <p className="lesson-model-message model-status" role="status">{t("lessons.targetError")}</p>}
-      </section>}
-      <section className="lesson-step" aria-labelledby="lesson-step-title">
+      </section>
+      <section className="lesson-step workspace-panel-surface" aria-labelledby="lesson-step-title">
         {lesson.steps.length > 0 && <div className="lesson-editor-stepbar lesson-player-stepbar">
           {!complete && <button className="lesson-button lesson-step-previous" disabled={index === 0}
             onClick={() => move(index - 1)}>{t("lessons.previous")}</button>}
@@ -156,7 +196,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
         {mode !== "questions" && (lessonPlainText(step.instruction, language) || instruction.includes("<img ")
           ? <div className="lesson-instructions lesson-rich-content" dangerouslySetInnerHTML={{ __html: instruction }} />
           : <p className="lesson-instructions">{t("lessons.previewNoContent")}</p>)}
-        {!lesson.steps.length && <button className="lesson-button lesson-primary" onClick={onEdit ?? onBack}>{t("lessons.continueEditing")}</button>}
+        {!lesson.steps.length && <button className="lesson-button lesson-primary" onClick={() => (onEdit ?? onBack)()}>{t("lessons.continueEditing")}</button>}
         </>}
         <div hidden={complete}><LessonQuestions stepId={step.id} questions={questions} disabled={!!issue}
           onComplete={() => setPassed(current => new Set([...current, step.id]))} /></div>
