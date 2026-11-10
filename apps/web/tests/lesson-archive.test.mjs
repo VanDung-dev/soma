@@ -12,6 +12,22 @@ const draft = { id: '026317aafa166ceea1b3f9ee775c2c1e', version: 1, title: { vi:
   summary: { vi: '', en: '' }, modelId: '', steps: [{ id: 'read', kind: 'text', title: { vi: '', en: '' },
     instruction: { vi: '<p><img src="' + info.path + '" alt=""></p>', en: '', html: ['vi'] } }] };
 
+test('optional author survives package export and import and rejects non-text values', () => {
+  for (const author of [undefined, 'Nguyễn An']) {
+    const lesson = { ...draft, ...(author === undefined ? {} : { author }) };
+    const pack = new LessonPackage(JSON.stringify(lesson));
+    try {
+      pack.add_image(info.path, image);
+      const imported = LessonPackage.open('author.lesson.br', pack.export());
+      try { assert.deepEqual(JSON.parse(imported.lesson_json()), lesson); }
+      finally { imported.free(); }
+    } finally { pack.free(); }
+  }
+  for (const author of [null, 42, { name: 'An' }]) {
+    assert.throws(() => new LessonPackage(JSON.stringify({ ...draft, author })));
+  }
+});
+
 test('question resources survive inactive modes and are required by portable packages', () => {
   const empty = { vi: '', en: '' };
   const rich = draft.steps[0].instruction;

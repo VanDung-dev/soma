@@ -112,7 +112,7 @@ Blender exports use its bundled Python.
 
 ## Lessons
 
-Open **Lessons** and create a draft. **Lesson details** contains a title, a plain
+Open **Lessons** and create a draft. **Lesson details** contains a title, an optional author, a plain
 short description and an optional cover image for the library card. It has no 3D
 viewer or rich-text editor. Covers use the same local image storage, validation,
 compression and package resources as content images.
@@ -206,7 +206,7 @@ the first unanswered exercise. On small screens the model sits above the text
 and can be collapsed. Text-only lessons use the full reading area. Legacy reading
 sections inherit the preceding 3D section, with the first 3D section as the initial
 scene. Saving a scene for a legacy reading section gives that step its own scene.
-Use the library search to find drafts by title or description. A draft opens at
+Use the library search to find drafts by title, author or description. A draft opens at
 `/lessons/<id>/edit`, which reloads the saved draft in the same profile.
 Saved lesson text is stored in localStorage in the current browser profile or desktop
 WebView; binary images use IndexedDB. Changes remain in the editor draft until **Save

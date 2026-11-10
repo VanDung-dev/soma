@@ -25,6 +25,7 @@ export type Lesson = {
   version: number;
   title: LessonText;
   summary: LessonText;
+  author?: string;
   cover?: string;
   coverCrop?: LessonCoverCrop;
   modelId: string;

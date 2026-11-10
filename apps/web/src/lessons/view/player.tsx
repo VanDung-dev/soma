@@ -119,7 +119,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
         </button>
       </>} title={<div className="lesson-player-heading">
         <h1>{lessonText(lesson.title, language) || t("lessons.untitled")}</h1>
-        <span>{preview && `${t("lessons.draftPreview")} · `}{lesson.steps.length ? t(complete ? "lessons.completed" : "lessons.step", { current: index + 1, total: lesson.steps.length }) : t("lessons.addContent")}</span>
+        <span>{lesson.author?.trim() && `${t("lessons.author")}: ${lesson.author} · `}{preview && `${t("lessons.draftPreview")} · `}{lesson.steps.length ? t(complete ? "lessons.completed" : "lessons.step", { current: index + 1, total: lesson.steps.length }) : t("lessons.addContent")}</span>
       </div>} actions={<>
       {showStepModel && <button className="controls-info lesson-player-model-toggle" aria-controls={modelId} aria-expanded={!modelCollapsed}
         aria-label={t(modelCollapsed ? "lessons.showModel" : "lessons.hideModel")} title={t(modelCollapsed ? "lessons.showModel" : "lessons.hideModel")}

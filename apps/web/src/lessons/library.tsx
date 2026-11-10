@@ -24,7 +24,7 @@ export function LessonLibrary({ lessons, loading, importing, error, exportingId,
   const busy = loading || importing;
   const terms = searchable(query).trim().split(/\s+/).filter(Boolean);
   const matching = !terms.length ? lessons : lessons.filter(lesson => {
-    const content = searchable([lesson.title.vi, lesson.title.en, lessonPlainText(lesson.summary, "vi"), lessonPlainText(lesson.summary, "en"),
+    const content = searchable([lesson.title.vi, lesson.title.en, lesson.author ?? "", lessonPlainText(lesson.summary, "vi"), lessonPlainText(lesson.summary, "en"),
       lessonText(lesson.title, language) || t("lessons.untitled")].join(" "));
     return terms.every(term => content.includes(term));
   });
@@ -143,6 +143,7 @@ export function LessonLibrary({ lessons, loading, importing, error, exportingId,
           <div className="lesson-card-content">
             <span className="lesson-card-meta">{t("lessons.sectionCount", { count: lesson.steps.length })}</span>
             <h3>{name}</h3>
+            {lesson.author?.trim() && <p className="lesson-card-author">{t("lessons.author")}: {lesson.author}</p>}
             <p className="lesson-card-summary">{lessonPlainText(lesson.summary, language) || t("lessons.noDescription")}</p>
             <div className="lesson-card-actions">
               <button type="button" className="lesson-button lesson-primary" onClick={() => onStart(lesson)}>{t("lessons.start")}<LineIcon name="arrow-small-right" /></button>

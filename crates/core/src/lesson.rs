@@ -216,6 +216,9 @@ pub fn validate(lesson: &Value, draft: bool) -> Result<(), ValidationError> {
         || !localized(&lesson["title"], !draft)
         || !localized(&lesson["summary"], false)
         || lesson
+            .get("author")
+            .is_some_and(|author| !author.is_string())
+        || lesson
             .get("cover")
             .is_some_and(|cover| !cover.as_str().is_some_and(image_path))
         || !lesson["modelId"].is_string()

@@ -13,7 +13,7 @@ export async function checkLessonLibrary() {
   await init();
   const id = `library-drop-${crypto.randomUUID()}`;
   const key = 'soma.lesson:' + id;
-  const lesson = { id, version: 1, title: { vi: 'Kiểm tra kéo thả', en: 'Drop import check' },
+  const lesson = { id, version: 1, author: 'Nguyễn An', title: { vi: 'Kiểm tra kéo thả', en: 'Drop import check' },
     summary: { vi: 'Bài kiểm tra thư viện', en: '' }, modelId: '', steps: [] };
   const file = value => {
     const pack = new LessonPackage(JSON.stringify(value));
@@ -53,7 +53,7 @@ export async function checkLessonLibrary() {
     const stored = JSON.parse(localStorage.getItem(key));
     assert(stored.id === lesson.id && stored.version === lesson.version
       && stored.title.vi === lesson.title.vi && stored.title.en === lesson.title.en
-      && stored.summary.vi === lesson.summary.vi && stored.summary.en === lesson.summary.en
+      && stored.summary.vi === lesson.summary.vi && stored.summary.en === lesson.summary.en && stored.author === lesson.author
       && stored.steps.length === 0 && stored.modelId === '', 'Drop must preserve the packaged lesson');
     assert(!document.querySelector('.lesson-library-drop-overlay'), 'Drop overlay must close after import');
     const revised = { ...lesson, version: 2, title: { vi: 'Đã thay thế', en: '' } };

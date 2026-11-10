@@ -40,6 +40,7 @@
     "lessons.details": {"vi": "Thông tin bài học", "en": "Lesson details"},
     "lessons.title": {"vi": "Tên bài học", "en": "Lesson title"},
     "lessons.summary": {"vi": "Mô tả ngắn", "en": "Short description"},
+    "lessons.author": {"vi": "Tác giả", "en": "Author"},
     "lessons.cardDetailsHint": {"vi":"Tiêu đề, mô tả ngắn và ảnh bìa sẽ xuất hiện trên thẻ bài học.","en":"The title, short description and cover appear on the lesson card."},
     "lessons.cover": {"vi":"Ảnh bìa bài học","en":"Lesson cover image"},
     "lessons.editCover": {"vi": "Sửa ảnh", "en": "Edit photo"},

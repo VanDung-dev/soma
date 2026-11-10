@@ -47,9 +47,10 @@
 .lesson-cover-editor:has(> .lesson-cover) { grid-template-columns: minmax(0, 800px) max-content; align-items: start; }
 .lesson-cover-editor > :is(.lesson-image-progress, p) { grid-column: 1 / -1; }
 .lesson-details-form label { display: grid; gap: 6px; min-width: 0; font-size: 13px; }
-.lesson-details-form textarea { width: 100%; min-height: 96px; padding: 10px; resize: vertical; border: 1px solid var(--line-strong); border-radius: var(--detail-radius); color: var(--text); background: var(--surface); font: inherit; }
+.lesson-details-form input[type="text"], .lesson-details-form textarea { width: 100%; min-width: 0; padding: 10px; border: 1px solid var(--line-strong); border-radius: var(--detail-radius); color: var(--text); background: var(--surface); font: inherit; }
+.lesson-details-form textarea { min-height: 96px; resize: vertical; }
 .lesson-details-form select { width: 100%; min-height: 38px; padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: var(--detail-radius); color: var(--text); background: var(--surface); font: inherit; }
-.lesson-language-selector { display: grid; gap: 6px; }
+.lesson-language-selector { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .lesson-language-options { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .lesson-language-options .lesson-button { display: inline-flex; align-items: center; justify-content: center; min-height: 28px; height: 28px; padding: 3px 12px; border-radius: var(--inner-radius); font-size: 12px; color: var(--muted-dark); background: var(--surface); border: 1px solid var(--line-strong); cursor: pointer; white-space: nowrap; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
 .lesson-language-options .lesson-button:not(:disabled):hover { background: var(--control-hover); border-color: var(--line-hover); color: var(--text); }

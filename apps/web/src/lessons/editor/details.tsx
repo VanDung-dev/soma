@@ -155,6 +155,10 @@ export function LessonDetails({ lesson, language, onChange }: {
         </button>
       </div>
     </div>
+    <label htmlFor="lesson-author">{t("lessons.author")}
+      <input id="lesson-author" type="text" value={lesson.author ?? ""}
+        onChange={event => onChange({ author: event.target.value || undefined })} />
+    </label>
     <label htmlFor="lesson-write-summary" lang={language}>{translateMessage("lessons.summary", language)}
       <textarea id="lesson-write-summary" rows={4} lang={language} value={summary} onChange={event => {
         const html = lesson.summary.html?.filter(locale => locale !== language);
