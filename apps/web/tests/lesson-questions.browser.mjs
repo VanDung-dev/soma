@@ -17,8 +17,9 @@ export async function checkLessonQuestions(page) {
   await page.getByLabel('Tên mục').fill('Hai câu hỏi');
   await page.getByLabel('Hiển thị mô hình 3D ở bước này', { exact: true }).uncheck();
   await lessonBody(page).fill('Nội dung phải còn sau khi chuyển chế độ.');
-  const mode = page.getByLabel('Hiển thị trong bước', { exact: true });
-  await mode.selectOption('content_questions');
+  const mode = page.getByRole('group', { name: 'Hiển thị trong mục', exact: true });
+  const selectMode = value => mode.getByRole('button', { name: { content: 'Nội dung', questions: 'Câu hỏi', content_questions: 'Nội dung và câu hỏi' }[value], exact: true }).click();
+  await selectMode('content_questions');
   await page.getByRole('button', { name: 'Thêm câu hỏi', exact: true }).click();
   const questions = page.locator('.lesson-question-editor > fieldset');
   for (let i = 0; i < 2; i++) {
@@ -32,7 +33,8 @@ export async function checkLessonQuestions(page) {
   await questions.nth(1).getByLabel('Phương án 3', { exact: true }).fill('Một lựa chọn khác');
   const both = (await saved()).steps[0];
   for (const value of ['content', 'questions', 'content_questions']) {
-    await mode.selectOption(value);
+    await selectMode(value);
+    assert.equal(await mode.getByRole('button', { pressed: true }).count(), 1);
     assert.deepEqual((await saved()).steps[0].questions, both.questions);
     assert.deepEqual((await saved()).steps[0].instruction, both.instruction);
     assert.equal(await page.locator('.tox-tinymce').count(), value === 'questions' ? 0 : 1);
@@ -85,11 +87,11 @@ export async function checkLessonQuestions(page) {
   }
   assert.deepEqual(await saved(), original);
   await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
-  await mode.selectOption('questions');
+  await selectMode('questions');
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   assert.equal(await page.locator('.lesson-instructions').count(), 0);
   await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
-  await mode.selectOption('content');
+  await selectMode('content');
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   assert.equal(await page.locator('.lesson-questions input').count(), 0);
   assert(await page.getByRole('button', { name: 'Hoàn thành', exact: true }).isEnabled());

@@ -24,16 +24,14 @@ export function LessonStepOptions({ catalog, active, onChange }: {
         <span className="camera-mode-switch" aria-hidden="true" />
       </span>
     </div>
-    <div className="settings-row">
-      <label htmlFor={`${id}-mode`}>{t("lessons.stepMode")}</label>
-      <select id={`${id}-mode`} className="settings-select" value={mode} onChange={event => {
-        const value = event.target.value as LessonMode;
-        onChange(updateLessonQuestions(active, value, value !== "content" && !questions.length ? [newLessonQuestion()] : questions));
-      }}>
-        <option value="content">{t("lessons.mode.content")}</option>
-        <option value="questions">{t("lessons.mode.questions")}</option>
-        <option value="content_questions">{t("lessons.mode.contentQuestions")}</option>
-      </select>
+    <div className="settings-row lesson-mode-row">
+      <span id={`${id}-mode`}>{t("lessons.stepMode")}</span>
+      <div className="lesson-mode-options" role="group" aria-labelledby={`${id}-mode`}>
+        {(["content", "questions", "content_questions"] as LessonMode[]).map(value => <button key={value}
+          type="button" className="lesson-button" aria-pressed={mode === value} onClick={() => {
+            if (value !== mode) onChange(updateLessonQuestions(active, value, value !== "content" && !questions.length ? [newLessonQuestion()] : questions));
+          }}>{t(value === "content_questions" ? "lessons.mode.contentQuestions" : value === "content" ? "lessons.mode.content" : "lessons.mode.questions")}</button>)}
+      </div>
     </div>
   </section>;
 }

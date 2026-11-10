@@ -458,7 +458,6 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
               if (active) updateActive({ ...active, title: value });
               else updateDraft({ title: value });
             }} />
-          {active && <LessonStepOptions catalog={catalog} active={active} onChange={updateActive} />}
           {active && lessonMode(active) !== "questions" ? <Suspense fallback={<p role="status">{t("lessons.loadingEditor")}</p>}>
             <RichEditor key={`${active?.id ?? draft.id}/${editorLanguage}`} value={body} language={editorLanguage}
               label={writingText(active ? "lessons.instruction" : "lessons.summary")}
@@ -472,7 +471,8 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
             onChange={questions => updateActive(updateLessonQuestions(active, lessonMode(active), questions))} />}
           {!active && !draft.steps.length && <p className="lesson-document-hint">{t("lessons.firstBlock")}</p>}
         </div>
-        {active && <div className="lesson-step-management">
+        {active && <div className="lesson-management">
+          <LessonStepOptions catalog={catalog} active={active} onChange={updateActive} />
           <button type="button" className="lesson-button lesson-remove-block" onClick={remove}>{t("lessons.removeStep")}</button>
         </div>}
       </section>

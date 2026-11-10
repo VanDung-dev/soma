@@ -101,11 +101,11 @@ export async function checkLessonScenes(page) {
   assert.equal(await player.locator('.explode-control, .structure-search-field').count(), 0);
   await page.setViewportSize({ width: 1440, height: 900 });
   await player.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
-  const mode = page.getByLabel('Hiển thị trong bước', { exact: true });
-  await mode.selectOption('content_questions');
+  const mode = page.getByRole('group', { name: 'Hiển thị trong mục', exact: true });
+  await mode.getByRole('button', { name: 'Nội dung và câu hỏi', exact: true }).click();
   assert.equal((await saved()).steps[0].questions.length, 1);
   assert.deepEqual((await saved()).steps[0].view, beforeLearning.steps[0].view);
-  await mode.selectOption('content');
+  await mode.getByRole('button', { name: 'Nội dung', exact: true }).click();
   assert.equal((await saved()).steps[0].kind, 'observe');
   assert.deepEqual((await saved()).steps[0].view, beforeLearning.steps[0].view);
   assert.equal(await page.locator('#lesson-author-inspector').count(), 0);

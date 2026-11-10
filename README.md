@@ -132,8 +132,8 @@ the hidden content and questions. Each step can have several questions, each wit
 a prompt, at least two answer choices, one correct answer and an optional explanation.
 Questions can be used without a 3D model. Legacy identification questions remain readable.
 
-On desktop, the editor opens with a docked outline and step options above the writing
-fields. Selecting or adding a step keeps the outline visible and leaves the model usable.
+On desktop, the editor opens with a docked outline and step options below the writing
+fields, above the remove button. Selecting or adding a step keeps the outline visible and leaves the model usable.
 Drag each outline item's handle to reorder with mouse or touch; hold near the
 scrolling area's edge to move through long outlines. With keyboard focus on the
 handle, Space picks up/drops the item, arrows move it, Home/End choose the first/last
