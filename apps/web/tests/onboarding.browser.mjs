@@ -1,3 +1,4 @@
+import { openSettings, waitForSettings } from './settings.fixture.mjs';
 import { createElement, Fragment } from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
@@ -13,7 +14,6 @@ export async function checkOnboarding({ touch = false } = {}) {
   const matchMedia = window.matchMedia;
   if (touch) window.matchMedia = query => query === '(any-pointer: fine)'
     ? { matches: false, addEventListener() {}, removeEventListener() {} } : matchMedia.call(window, query);
-  const help = document.querySelector('.app-menu-actions button');
   const guide = () => document.querySelector('.anatomy-onboarding');
   const checkClickable = element => {
     const bounds = element.getBoundingClientRect();
@@ -22,14 +22,13 @@ export async function checkOnboarding({ touch = false } = {}) {
   const next = async () => { guide().querySelector('.onboarding-next').click(); await frames(); };
   const replay = async () => {
     document.querySelectorAll('[popover="auto"]:popover-open').forEach(panel => panel.hidePopover());
-    help.click(); await frames();
-    const controls = document.querySelector('.controls-guide');
+    const controls = (await openSettings('guide')).querySelector('.controls-guide');
     const replayButton = controls.querySelector('.onboarding-replay');
-    assert(controls.querySelector('.guide-content').nextElementSibling === replayButton, 'Place replay below the controls content');
+    assert(controls.querySelector('.guide-sections').nextElementSibling === replayButton, 'Place replay below the controls content');
     assert(!controls.querySelector('.guide-note'), 'Remove excess guide notes');
-    replayButton.click(); await frames();
+    replayButton.click(); await waitForSettings(false); await frames();
     assert(guide()?.matches(':popover-open') && shell.dataset.onboarding === '0', 'Help must restart at the welcome step');
-    assert(!document.querySelector('.controls-guide:popover-open'), 'Replay must close the full controls guide');
+    assert(!document.querySelector('.settings-page'), 'Replay must return from Settings');
   };
   const checkGeometry = () => {
     const card = guide().getBoundingClientRect(), area = document.querySelector('#workspace').getBoundingClientRect();
@@ -121,9 +120,7 @@ export async function checkOnboarding({ touch = false } = {}) {
     assert(Math.abs(infoFocus.left - infoBounds.left) < 1 && infoFocus.width === infoBounds.width, 'Align the spotlight with Information');
     await next(); checkGeometry();
     assert(shell.dataset.onboarding === '6', 'Finish with help');
-    const helpBounds = shell.querySelector('.app-menu-actions button[aria-label="Trợ giúp"]').getBoundingClientRect();
-    assert(guide().dataset.placement === 'below' && guide().getBoundingClientRect().top >= helpBounds.bottom + 11,
-      'Place the final guide step below Help');
+    assert(guide().textContent.includes('Cài đặt') && guide().textContent.includes('Phím tắt'), 'Point users to Settings');
     const back = guide().querySelector('.onboarding-back');
     back.click(); await frames();
     assert(shell.dataset.onboarding === '5', 'Allow going back without changing study state');
@@ -138,7 +135,7 @@ export async function checkOnboarding({ touch = false } = {}) {
     canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     await frames();
     assert(!guide() && localStorage.getItem(onboardingStorageKey) === 'dismissed', 'Escape outside the guide must save dismissal');
-    assert(!document.querySelector('.settings-popover:popover-open'), 'Dismissing the tour must not open Settings');
+    assert(!document.querySelector('.settings-page'), 'Dismissing the tour must not open Settings');
     await replay();
     guide().querySelector('.onboarding-actions button').click(); await frames();
     assert(!guide() && localStorage.getItem(onboardingStorageKey) === 'dismissed', 'Skip must save dismissal');

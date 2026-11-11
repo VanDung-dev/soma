@@ -1,11 +1,17 @@
 import { getWasm } from '../src/anatomy/core.ts';
+import { closeSettings, openSettings } from './settings.fixture.mjs';
 
 export async function checkGraphics() {
   const assert = (ok, message) => { if (!ok) throw Error(message); };
   assert(document.querySelector('.model-canvas[aria-busy="false"]'), 'Wait for model loading to finish');
   const { AnatomyViewer } = await getWasm();
-  const popover = document.querySelector('.settings-popover');
-  const [shadow, lighting, quality, fps] = ['shadow', 'lighting', 'model', 'fps'].map(id => popover.querySelector(`[role="group"][aria-labelledby$="-${id}-label"]`));
+  let settings, shadow, lighting, quality, fps, grid, showFps, showAxes;
+  const open = async () => {
+    settings = await openSettings('graphics');
+    [shadow, lighting, quality, fps] = ['shadow', 'lighting', 'model', 'fps'].map(id => settings.querySelector(`[role="group"][aria-labelledby$="-${id}-label"]`));
+    [grid, showFps, showAxes] = ['grid', 'show-fps', 'show-axes'].map(id => settings.querySelector(`input[id$="-${id}"]`));
+  };
+  await open();
   for (const [control, values] of [[shadow, ['off', 'low', 'high']], [lighting, ['low', 'high']],
     [quality, ['low', 'high']], [fps, ['30', '60', '120']]]) {
     assert(JSON.stringify([...control.querySelectorAll('button')].map(option => option.dataset.value).filter(value => value !== 'display')) === JSON.stringify(values),
@@ -14,9 +20,6 @@ export async function checkGraphics() {
   }
   assert(document.getElementById(quality.getAttribute('aria-labelledby')).textContent === (document.documentElement.lang === 'en' ? 'Display sharpness' : 'Độ nét hiển thị'),
     'Label display sharpness explicitly');
-  const grid = popover.querySelector('input[id$="-grid"]');
-  const showFps = popover.querySelector('input[id$="-show-fps"]');
-  const showAxes = popover.querySelector('input[id$="-show-axes"]');
   for (const control of [grid, showFps, showAxes]) {
     assert(getComputedStyle(control).appearance === 'none' && control.classList.contains('settings-switch')
       && control.nextElementSibling.classList.contains('camera-mode-switch'),
@@ -25,7 +28,7 @@ export async function checkGraphics() {
   const canvas = document.querySelector('.model-canvas canvas'), gl = canvas.getContext('webgl2');
   const selected = control => control.querySelector('[aria-pressed="true"]').dataset.value;
   const original = { quality: selected(quality), shadow: selected(shadow), lighting: selected(lighting), fps: selected(fps),
-    grid: grid.checked, showFps: showFps.checked, open: popover.matches(':popover-open'),
+    grid: grid.checked, showFps: showFps.checked,
     configure: AnatomyViewer.prototype.set_graphics, drawElements: gl.drawElements, drawArrays: gl.drawArrays,
     storage: gl.renderbufferStorage };
   let viewer, shadowDraws = 0, backgrounds = 0, shadowSize;
@@ -52,7 +55,6 @@ export async function checkGraphics() {
     return [...gl.getUniform(program, gl.getUniformLocation(program, 'view_projection'))];
   };
   try {
-    if (!original.open) popover.showPopover();
     for (const value of ['30', '60', '120']) {
       await choose(fps, value);
       assert(JSON.parse(localStorage.getItem('human-atlas-graphics')).frameRate === (value === 'display' ? value : Number(value)),
@@ -116,7 +118,7 @@ export async function checkGraphics() {
     }
     assert(invalid === 3, 'Reject invalid renderer configuration');
     if (!showFps.checked) { showFps.click(); await frames(); }
-    await choose(fps, '30'); popover.hidePopover(); canvas.focus();
+    await choose(fps, '30'); await closeSettings(); canvas.focus();
     canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true }));
     await new Promise(resolve => setTimeout(resolve, 1250));
     canvas.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowLeft', bubbles: true, cancelable: true }));
@@ -124,11 +126,11 @@ export async function checkGraphics() {
     assert(activeFps > 0 && activeFps <= 35, 'Show measured render FPS within the selected frame limit');
     await new Promise(resolve => setTimeout(resolve, 2200));
     assert(document.querySelector('.model-fps')?.textContent === '0 FPS', 'The FPS display must return to zero when idle');
-    popover.showPopover();
+    await open();
     assert(gl.getError() === gl.NO_ERROR && !document.querySelector('.model-error'), 'Keep WebGL healthy');
-    const area = popover.getBoundingClientRect();
+    const area = settings.getBoundingClientRect();
     assert(area.left >= 0 && area.right <= innerWidth && area.top >= 0 && area.bottom <= innerHeight
-      && popover.scrollWidth <= popover.clientWidth, 'Settings must fit the viewport');
+      && settings.scrollWidth <= settings.clientWidth, 'Settings must fit the viewport');
     viewer.select(selectedId);
     return { modelResolution: results, independentShadows: true, independentLighting: true,
       activeFps, idleFps: 0, cameraPreserved: true, visibilityPreserved: true, gridPass: true, picking: true,
@@ -136,12 +138,13 @@ export async function checkGraphics() {
   } finally {
     canvas.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowLeft', bubbles: true, cancelable: true }));
     window.dispatchEvent(new Event('blur'));
+    await open();
     await choose(quality, original.quality); await choose(shadow, original.shadow);
     await choose(lighting, original.lighting); await choose(fps, original.fps);
     if (grid.checked !== original.grid) { grid.click(); await frames(); }
     if (showFps.checked !== original.showFps) { showFps.click(); await frames(); }
     viewer?.inspect('reset'); viewer?.render();
-    if (!original.open) popover.hidePopover();
+    await closeSettings();
     AnatomyViewer.prototype.set_graphics = original.configure;
     gl.drawElements = original.drawElements; gl.drawArrays = original.drawArrays; gl.renderbufferStorage = original.storage;
   }

@@ -11,11 +11,11 @@ export async function checkPopoverPanels() {
   const root = createRoot(host);
   let sourceClosed = 0;
   try {
-    flushSync(() => root.render(createElement(SourceDocument, {
-      path: '/models/z-anatomy/ATTRIBUTION.md', onClose: () => sourceClosed++,
-    })));
-    const panels = [...document.querySelectorAll('.settings-popover, .controls-guide'), host.querySelector('.source-document')];
-    assert(panels.length === 3 && panels.every(Boolean), 'Check Settings, Guide and Source together');
+    flushSync(() => root.render(createElement('div', null,
+      ['/models/z-anatomy/ATTRIBUTION.md', '/home/ATTRIBUTION.md'].map(path =>
+        createElement(SourceDocument, { key: path, path, onClose: () => sourceClosed++ })))));
+    const panels = [...host.querySelectorAll('.source-document')];
+    assert(panels.length === 2, 'Check both source popovers');
     let geometry;
     for (const panel of panels) {
       panel.showPopover(); await frames();

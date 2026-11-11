@@ -84,17 +84,19 @@ export async function checkLessonCanvas(page) {
     assert(initial.height > 200 && initial.gap >= 7.5 && initial.interactive);
     for (const edge of ['top', 'left', 'right', 'bottom']) assert(Math.abs(initial[edge] - 10) < 1);
 
-    const settings = page.locator('.settings-popover');
-    await page.locator('.lesson-author-bar').getByRole('button', { name: 'Cài đặt', exact: true }).click();
+    const settings = page.locator('.settings-page');
+    await page.locator('.module-settings').click();
+    await settings.locator('a[href="/settings#graphics"]').click();
     await settings.locator('input[id$="-show-fps"]').check();
     await settings.locator('input[id$="-show-axes"]').uncheck();
-    await page.keyboard.press('Escape');
+    await page.locator('.module-settings').click();
     assert(await region.locator('.model-orientation .model-fps').isVisible());
     assert(await region.locator('.orientation-axes').isHidden());
     await canvas.press('ArrowRight');
-    await page.locator('.lesson-author-bar').getByRole('button', { name: 'Cài đặt', exact: true }).click();
+    await page.locator('.module-settings').click();
+    await settings.locator('a[href="/settings#graphics"]').click();
     await settings.locator('input[id$="-show-axes"]').check();
-    await page.keyboard.press('Escape');
+    await page.locator('.module-settings').click();
     assert(await region.locator('.orientation-axes').isVisible());
 
     const before = await pose();

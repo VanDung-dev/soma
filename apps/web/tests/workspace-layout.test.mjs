@@ -28,39 +28,36 @@ test('workspace menus retain feature slots and expose accessible sidebar state i
   } finally { await server.close(); }
 });
 
-test('workspace settings preserve module extensions and guides respect manipulation and camera capabilities', async () => {
+test('settings render as a page and guides respect manipulation and camera capabilities', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
-    const { WorkspaceSettings } = await server.ssrLoadModule('/src/pages/workspace-panels.tsx');
-    const { LessonControls } = await server.ssrLoadModule('/src/lessons/shared/controls.tsx');
-    const { CameraGuide } = await server.ssrLoadModule('/src/pages/camera-guide.tsx');
+    const { SettingsPage } = await server.ssrLoadModule('/src/settings/page.tsx');
+    const { GraphicsControls } = await server.ssrLoadModule('/src/settings/graphics-controls.tsx');
     const { defaultGraphics } = await server.ssrLoadModule('/src/anatomy/viewer/graphics.ts');
     const { translateMessage } = await server.ssrLoadModule('/src/i18n.tsx');
     const t = key => translateMessage(key, 'vi');
-    const settings = renderToStaticMarkup(h(WorkspaceSettings, { id: 'settings', graphics: defaultGraphics, onChange() {} },
-      h('div', { 'data-module-setting': true }, 'Module setting')));
-    assert(settings.includes('data-module-setting="true"'));
-    for (const field of ['shadow', 'lighting', 'model', 'fps', 'show-axes', 'show-fps', 'grid']) {
-      assert(settings.includes(`for="settings-${field}"`));
-      assert(settings.includes(`id="settings-${field}"`));
+    const settings = renderToStaticMarkup(h(SettingsPage));
+    assert(settings.includes('<main class="settings-page"') && !settings.includes('popover='));
+    assert(settings.includes('<nav class="settings-navigation" aria-labelledby="settings-title"><h1 id="settings-title">'));
+    assert(settings.includes('id="settings-language"') && settings.includes('id="settings-theme"'));
+    const graphicsPage = renderToStaticMarkup(h(SettingsPage, { section: 'graphics' }));
+    for (const field of ['show-axes', 'show-fps', 'grid']) {
+      assert(graphicsPage.includes(`for="settings-graphics-${field}"`));
+      assert(graphicsPage.includes(`id="settings-graphics-${field}"`));
     }
-    const anatomy = renderToStaticMarkup(h(WorkspaceSettings, { id: 'anatomy-settings', graphics: defaultGraphics, onChange() {}, graphicsButtons: true }));
+    const anatomy = renderToStaticMarkup(h(GraphicsControls, { id: 'anatomy-settings', graphics: defaultGraphics, onChange() {}, buttons: true }));
     for (const field of ['shadow', 'lighting', 'model', 'fps']) {
       assert(anatomy.includes(`aria-labelledby="anatomy-settings-${field}-label"`));
       assert(!anatomy.includes(`<select id="anatomy-settings-${field}"`));
     }
     assert.equal((anatomy.match(/aria-pressed="true"/g) ?? []).length, 4);
     assert.equal((anatomy.match(/class="settings-switch"/g) ?? []).length, 3);
-    const legacy = renderToStaticMarkup(h(WorkspaceSettings, { id: 'legacy', graphics: { ...defaultGraphics, frameRate: 'display' }, onChange() {}, graphicsButtons: true }));
+    const legacy = renderToStaticMarkup(h(GraphicsControls, { id: 'legacy', graphics: { ...defaultGraphics, frameRate: 'display' }, onChange() {}, buttons: true }));
     assert(legacy.includes('data-value="display" aria-pressed="true"'));
-    const editorSettings = renderToStaticMarkup(h(LessonControls, { graphics: defaultGraphics, onGraphicsChange() {}, editing: true }));
-    assert.equal((editorSettings.match(/class="graphics-options" role="group"/g) ?? []).length, 4);
-    for (const [canManipulate, handCamera] of [[false, false], [true, false], [true, true]]) {
-      const guide = renderToStaticMarkup(h(CameraGuide, { shortcuts: ['guide', 'settings'], canManipulate, handCamera }));
-      assert(guide.includes(t('controls.mouse.zoomAtCursor')));
-      assert.equal(guide.includes(t('context.detach')), canManipulate);
-      assert.equal(guide.includes(t('controls.hand.rightPinch')), handCamera);
-      assert(!guide.includes(t('context.restore')), 'Consumers choose the shortcuts their module supports');
-    }
+    const guidePage = renderToStaticMarkup(h(SettingsPage, { section: 'guide' }));
+    assert(guidePage.includes('controls-guide') && !guidePage.includes('popover=') && !guidePage.includes('<kbd>'));
+    assert(guidePage.includes(t('controls.mouse.zoomAtCursor')) && guidePage.includes(t('controls.hand.rightPinch')));
+    const keys = renderToStaticMarkup(h(SettingsPage, { section: 'shortcuts' }));
+    assert(keys.includes('data-shortcut="settings"') && keys.includes('data-shortcut="camera:r"'));
   } finally { await server.close(); }
 });

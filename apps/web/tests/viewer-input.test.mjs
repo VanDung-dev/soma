@@ -114,7 +114,7 @@ test('Shift-left marquee selects a temporary group and left hold moves it togeth
     canvas.dispatchEvent(escape); t.mock.timers.tick(1000);
     assert(escape.defaultPrevented); assert.deepEqual(selection, []); assert.equal(starts, 2);
     const settings = Object.assign(new Event('keydown', { cancelable: true }), { key: 'Escape' });
-    canvas.dispatchEvent(settings); assert(!settings.defaultPrevented, 'Escape keeps the Settings shortcut when no group or gesture is active');
+    canvas.dispatchEvent(settings); assert(!settings.defaultPrevented, 'Escape remains available when no group or gesture is active');
     for (const shiftKey of [false, true]) {
       pointer('pointerdown', { clientX: 300, button: 2, buttons: 2, shiftKey });
       pointer('pointermove', { clientX: 80, button: -1, buttons: 2, shiftKey });

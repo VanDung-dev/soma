@@ -56,7 +56,7 @@ test('the production server serves module URLs and keeps missing assets as error
     await writeFile(path.join(directory, 'site.webmanifest'), JSON.stringify({ name: 'Soma' }));
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     const base = `http://127.0.0.1:${server.address().port}`;
-    for (const route of ['/', '/home', '/home/', '/anatomy', '/lessons', '/lessons/example-lesson/edit', '/games', '/anatomy/']) {
+    for (const route of ['/', '/home', '/home/', '/anatomy', '/lessons', '/lessons/example-lesson/edit', '/games', '/anatomy/', '/settings']) {
       const response = await fetch(base + route);
       assert.equal(response.status, 200);
       assert.equal(await response.text(), '<main>Soma</main>');

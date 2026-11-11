@@ -15,18 +15,13 @@ test('hand feedback identifies each hand, held mouse buttons and zoom direction'
     assert(!controls.includes('hand-action-menu'));
     assert(!controls.includes('hand-camera-scene-toggle'));
     const { MenuBar } = await server.ssrLoadModule('/src/anatomy/menu-bar.tsx');
-    const { readGraphicsSettings } = await server.ssrLoadModule('/src/anatomy/viewer/graphics.ts');
     for (const cameraEnabled of [false, true]) {
       const menu = renderToStaticMarkup(createElement(MenuBar, {
         ref: { current: null }, disabled: false, canGoBack: false, canGoForward: false, onBack() {}, onForward() {},
-        helpId: 'help', settingsId: 'settings', graphics: readGraphicsSettings(), onGraphicsChange() {}, cameraEnabled, cameraActive: false, onCameraChange() {},
-        cameraDevices: [{ deviceId: 'usb-camera', label: 'USB Camera' }], cameraDeviceId: 'usb-camera', cameraDevicesError: false, onCameraDeviceChange() {},
-        cameraAccessPending: false, onCameraAccessRequest() {},
+        cameraEnabled, cameraActive: false, onCameraChange() {}, cameraAccessPending: false,
       }));
       assert(menu.includes(`role="switch" aria-checked="${cameraEnabled}" aria-label="Chế độ camera"`));
-      assert(menu.includes('class="popover-content settings-content"'));
-      assert(!menu.includes('settings-camera-status') && !menu.includes('aria-describedby="settings-camera-status"'));
-      assert(menu.includes('for="settings-camera"') && menu.includes('<option value="usb-camera" selected="">USB Camera</option>'));
+      assert(!menu.includes('settings-select'));
     }
     const { HandInteractionOverlay } = await server.ssrLoadModule('/src/anatomy/hand-interaction-overlay.tsx');
     const hands = ['left', 'right'].map(side => ({ side, x: side === 'left' ? 0.25 : 0.75, y: 0.5,

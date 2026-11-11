@@ -1,9 +1,9 @@
 import { createElement, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { useCameraDevices } from '../src/anatomy/camera-devices.ts';
+import { CameraDevicesContext, useCameraDevices } from '../src/anatomy/camera-devices.ts';
 import { MenuBar } from '../src/anatomy/menu-bar.tsx';
 import { HandCameraControls } from '../src/anatomy/hand-camera-controls.tsx';
-import { defaultGraphics } from '../src/anatomy/viewer/graphics.ts';
+import { SettingsPage } from '../src/settings/page.tsx';
 
 export async function checkCameraDevices() {
   const assert = (value, message) => { if (!value) throw Error(message); };
@@ -57,14 +57,13 @@ export async function checkCameraDevices() {
     const [active, setActive] = useState(false);
     return createElement('div', null,
       createElement(MenuBar, { ref: { current: null }, disabled: false, canGoBack: false, canGoForward: false,
-        onBack() {}, onForward() {}, helpId: 'test-camera-help', settingsId: 'test-camera-settings',
-        graphics: defaultGraphics, onGraphicsChange() {}, cameraEnabled: enabled, cameraActive: active || devices.accessActive, onCameraChange: setEnabled,
-        cameraDevices: devices.devices, cameraDeviceId: devices.deviceId, cameraDevicesError: devices.error, onCameraDeviceChange: devices.setDeviceId,
-        cameraAccessPending: devices.requesting, onCameraAccessRequest: devices.requestAccess }),
+        onBack() {}, onForward() {}, cameraEnabled: enabled, cameraActive: active || devices.accessActive,
+        onCameraChange: setEnabled, cameraAccessPending: devices.requesting }),
+      createElement(CameraDevicesContext, { value: devices }, createElement(SettingsPage, { section: 'camera' })),
       createElement(HandCameraControls, { enabled, disabled: false, deviceId: devices.deviceId, onCameraStarted: devices.refresh, onCameraActiveChange: setActive,
         onControl: () => true, sceneHost: sceneRef, interactionFrame: sceneRef, obstacles: [], onEnabledChange: setEnabled }));
   }
-  const select = () => host.querySelector('select[id$="-camera"]');
+  const select = () => host.querySelector('#settings-camera-device');
   const toggle = () => host.querySelector('.hand-camera-toggle');
   const choose = value => { select().value = value; select().dispatchEvent(new Event('change', { bubbles: true })); };
   try {
