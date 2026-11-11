@@ -132,6 +132,9 @@ images are not uploaded. Rust owns lesson validation and package processing; the
 app owns editing, display and browser storage. See [Architecture](ARCHITECTURE.md)
 for module boundaries.
 
+Desktop preferences are stored in `settings.json` alongside the `lessons/`
+directory. The browser version stores its preferences in localStorage.
+
 ## Wikipedia proxy
 
 `npm run serve` includes the proxy. Static hosting and packaged desktop need a deployed proxy:

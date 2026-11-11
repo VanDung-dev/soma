@@ -8,8 +8,9 @@
 | `crates/content` | Catalog data, search, snapshots and lesson packages; independent content WASM |
 | `crates/renderer` | Geometry, camera, gestures, animation and transforms |
 | `crates/wasm` | Viewer bindings, WebGL resources and rendering; independent of content |
-| `apps/web/src-tauri` | Desktop host, native catalog commands and lesson files |
-| `apps/web/src/pages` | Shared module frame, navigation, panels, graphics settings and help |
+| `apps/web/src-tauri` | Desktop host, native catalog commands, lesson and settings files |
+| `apps/web/src/pages` | Shared module frame, navigation, panels and graphics state |
+| `apps/web/src/settings` | Settings sections, controls guide and shortcut editor |
 | `apps/web/src/anatomy` | Anatomy UI, catalog adapter, study session and viewer runtime |
 | `apps/web/src/lessons` | Lesson library, editor, player and shared lesson UI |
 | `scripts/models`, `scripts/wikipedia` | Offline model and Wikipedia data tools |
@@ -17,7 +18,9 @@
 
 ## Data flow
 
-`ModuleLayout` owns navigation, language, theme and desktop window controls.
+`ModuleLayout` owns navigation and desktop window controls. The Settings page
+shares language, theme, graphics, shortcuts and camera preferences with the open workspace.
+Desktop stores these preferences in `settings.json` in its app data directory. Web uses localStorage.
 Anatomy, Lessons and Games compose the shared workspace frame while owning their
 content and session lifecycle. Anatomy and Lessons reuse viewer preferences and
 runtime; Games currently has an empty workspace.
