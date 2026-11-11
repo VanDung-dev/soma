@@ -39,7 +39,7 @@ jobs:
           cargo install wasm-pack --version 0.15.1 --locked
       - name: Install macOS Rust targets
         if: runner.os == 'macOS'
-        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+        run: rustup target add aarch64-apple-darwin
       - run: npm ci
       - name: Package Windows installer
         if: runner.os == 'Windows'
@@ -53,13 +53,13 @@ jobs:
       - name: Package macOS app
         if: runner.os == 'macOS'
         run: |
-          npm exec --workspace apps/web -- tauri build --bundles app --target universal-apple-darwin
-          app=target/universal-apple-darwin/release/bundle/macos/Soma.app
+          CARGO_PROFILE_RELEASE_STRIP=none npm exec --workspace apps/web -- tauri build --bundles app --target aarch64-apple-darwin
+          app=target/aarch64-apple-darwin/release/bundle/macos/Soma.app
           architectures=$(lipo -archs "$app/Contents/MacOS/soma")
-          [[ " $architectures " == *" x86_64 "* && " $architectures " == *" arm64 "* ]]
-          ditto -c -k --sequesterRsrc --keepParent "$app" Soma-macos.zip
+          [[ "$architectures" == "arm64" ]]
+          ditto -c -k --sequesterRsrc --keepParent "$app" Soma-macos-arm64.zip
       - uses: actions/upload-artifact@v7
         with:
-          path: Soma-${{ matrix.platform }}.zip
+          path: ${{ matrix.platform == 'macos' && 'Soma-macos-arm64.zip' || 'Soma-windows.zip' }}
           archive: false
           if-no-files-found: error
