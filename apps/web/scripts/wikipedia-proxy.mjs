@@ -30,6 +30,8 @@ function frameBridge(source) {
   const nativeFetch = window.fetch;
   window.fetch = (input, options) => nativeFetch(typeof input === 'string' || input instanceof URL ? apiUrl(input) : input, options);
   let blockContextMenu = false;
+  let shortcuts = [];
+  const physicalKeys = { Comma: ',', BracketLeft: '[', BracketRight: ']', Period: '.' };
   const rewrite = link => {
     let url;
     try { url = new URL(link.href); } catch { return; }
@@ -60,17 +62,23 @@ function frameBridge(source) {
   });
   addEventListener('keydown', event => {
     if (event.defaultPrevented || event.repeat || event.isComposing || event.keyCode === 229 || event.altKey) return;
-    const key = event.key.toLowerCase();
-    const command = /Mac|iPhone|iPad/i.test(navigator.platform) ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
-    if (key !== 'escape' && (event.target.isContentEditable || event.target.closest?.('input, textarea, select, [role="textbox"]'))) return;
-    if (command ? event.shiftKey ? key !== 's' && event.code !== 'Period' : !['[', ']'].includes(key) && !['BracketLeft', 'BracketRight'].includes(event.code)
-      : event.metaKey || event.ctrlKey || event.shiftKey || !['escape', 'g', 't'].includes(key)) return;
+    const mac = /Mac|iPhone|iPad/i.test(navigator.platform);
+    if (mac ? event.ctrlKey : event.metaKey) return;
+    const key = physicalKeys[event.code] ?? event.key.toLowerCase();
+    const command = mac ? event.metaKey : event.ctrlKey;
+    const editing = event.target.isContentEditable || event.target.closest?.('input, textarea, select, [role="textbox"]');
+    if (!shortcuts.some(binding => binding.key === key && binding.command === command && !!binding.shift === event.shiftKey
+      && (!editing || binding.editing && command))) return;
     event.preventDefault();
     parent.postMessage({ type: 'wikipedia:shortcut', key: event.key, code: event.code,
       metaKey: event.metaKey, ctrlKey: event.ctrlKey, shiftKey: event.shiftKey }, '*');
   });
   addEventListener('message', event => {
     if (event.source !== parent) return;
+    if (event.data?.type === 'wikipedia:bindings' && Array.isArray(event.data.bindings)) {
+      shortcuts = event.data.bindings;
+      return;
+    }
     if (event.data?.type === 'wikipedia:contextmenu' && typeof event.data.blocked === 'boolean') {
       blockContextMenu = event.data.blocked;
       return;
