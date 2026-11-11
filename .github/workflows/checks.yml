@@ -18,6 +18,19 @@ jobs:
         with:
           node-version: '24.22.2'
           cache: npm
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
       - name: Install Rust and wasm-pack
         run: |
           rustup toolchain install 1.96.0 --profile minimal --target wasm32-unknown-unknown
