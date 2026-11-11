@@ -22,6 +22,8 @@ type SceneProps = {
   revealPart?: { id: string; target?: boolean };
   onSceneChange?: () => void;
   onResetScene: () => void;
+  onReloadModel: () => void;
+  reloadVersion: number;
   resetVersion: number;
 };
 
@@ -44,14 +46,14 @@ export function EditorScene(props: SceneProps) {
     return () => { active = false; owned?.free(); };
   }, []);
 
-  if (catalog) return <Scene catalog={catalog} {...props} />;
+  if (catalog) return <Scene key={props.reloadVersion} catalog={catalog} {...props} />;
   return createPortal(
     <p className={`lesson-model-message model-status${failed ? " model-error" : ""}`} role={failed ? "alert" : "status"}>
       {t(failed ? "lessons.targetError" : "viewer.status.loading")}
     </p>, props.frame);
 }
 
-function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inactive, outlineOpen, tools, visibleIds, view, onChangeScene, sceneRef, revealPart, onSceneChange, onResetScene, resetVersion }: SceneProps & { catalog: Catalog }) {
+function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inactive, outlineOpen, tools, visibleIds, view, onChangeScene, sceneRef, revealPart, onSceneChange, onResetScene, onReloadModel, resetVersion }: SceneProps & { catalog: Catalog }) {
   const { language, t } = useLanguage();
   const ids = useMemo(() => visibleIds ?? catalog.members(targetId), [catalog, targetId, visibleIds]);
   const focusFrame = useRef<HTMLDivElement>(null);
@@ -115,24 +117,32 @@ function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inacti
       </div>
     </div>
     <div className="model-hud lesson-editor-hud">
-      {ready && <LessonStructureTools key={sectionId} catalog={catalog} session={session} state={state} ids={ids} searchable={false} />}
       {snapPart && <p className="model-status model-snap-hint" role="status">{t("viewer.snapHint", { name: snapPart.names[language] })}</p>}
       {separated && <p className="model-status separation-status" role="status">{t("context.dragHint")}</p>}
       <ViewerStatusNotice state={state} totalSystems={modelIds.length} />
       {state.building && !state.error && <progress className="model-progress" aria-label={t("viewer.loading.systems")}
         value={state.loadedSystems} max={modelIds.length} />}
       <div className="lesson-model-tools">
-        <button className="lesson-button lesson-scene-fit" disabled={!ready}
-          onClick={onResetScene}>{t("lessons.resetStudyScene")}</button>
-        {!inactive && tools}
-        <ExplodeControls value={state.explosionAmount} disabled={!ready || separated} locked={separated} onChange={amount => {
-          session.changeExplosion(amount);
-          onSceneChange?.();
-        }} />
-        <a className="lesson-model-credit" href="/models/z-anatomy/ATTRIBUTION.md" target="_blank" rel="noreferrer"
-          aria-label={t("credit.link")}>Z-Anatomy</a>
+        <div className="lesson-model-tools-row">
+          <button className="lesson-button lesson-scene-fit" disabled={!ready}
+            onClick={onResetScene}>{t("lessons.resetStudyScene")}</button>
+          {!inactive && tools}
+        </div>
+        <div className="lesson-model-tools-row">
+          <button className="lesson-button" disabled={!ready || !modelIds.length}
+            onClick={() => { if (session.control([{ kind: "reset" }])) onSceneChange?.(); }}>{t("lessons.resetModelScene")}</button>
+          <ExplodeControls value={state.explosionAmount} disabled={!ready || separated} locked={separated} onChange={amount => {
+            session.changeExplosion(amount);
+            onSceneChange?.();
+          }} />
+          <button className="lesson-button" disabled={!ready || !modelIds.length || separated}
+            onClick={onReloadModel}>{t("lessons.reloadModel")}</button>
+        </div>
       </div>
     </div>
+    <a className="lesson-model-credit" href="/models/z-anatomy/ATTRIBUTION.md" target="_blank" rel="noreferrer"
+      aria-label={t("credit.link")}>Z-Anatomy</a>
+    {ready && <LessonStructureTools key={sectionId} catalog={catalog} session={session} state={state} ids={ids} searchable={false} />}
     {hold && <svg key={hold.action} className="model-hold-progress" data-action={hold.action} style={{ left: hold.x, top: hold.y }} viewBox="0 0 40 40" aria-hidden="true">
       <circle cx="20" cy="20" r="16" />
       <circle className="model-hold-fill" cx="20" cy="20" r="16" pathLength="100" />

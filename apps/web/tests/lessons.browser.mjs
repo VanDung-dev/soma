@@ -84,9 +84,15 @@ export async function checkLessons(page) {
   await search.locator('[role="option"][data-structure-id]').first().click();
   const part = frame.getByRole('region', { name: 'Thông tin bộ phận' });
   await part.getByRole('heading').waitFor();
-  await part.getByRole('button', { name: 'Xem riêng bộ phận' }).click();
-  await frame.getByRole('button', { name: 'Về vùng bài học' }).click();
-  await part.waitFor({ state: 'hidden' });
+  const isolatePart = part.getByRole('button', { name: 'Xem riêng bộ phận' });
+  const isolatePartWidth = (await isolatePart.boundingBox()).width;
+  await isolatePart.click();
+  const restoreRegion = part.getByRole('button', { name: 'Về vùng bài học' });
+  const restoreRegionWidth = (await restoreRegion.boundingBox()).width;
+  assert(Math.abs(isolatePartWidth - restoreRegionWidth) < 1, 'Keep isolate and restore actions aligned to the same width');
+  await restoreRegion.click();
+  await part.getByRole('heading').waitFor();
+  assert(await part.isVisible(), 'Keep the selected structure visible after restoring the lesson region');
   const width = await frame.evaluate(node => node.clientWidth);
   await page.locator('#lesson-toggle-outline').click();
   assert(await page.locator('#lesson-author-outline').isHidden());

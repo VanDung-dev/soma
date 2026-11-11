@@ -362,6 +362,8 @@
     "lessons.showModel": {"vi":"Hiện mô hình 3D","en":"Show 3D model"},
     "lessons.hideModel": {"vi":"Thu gọn mô hình 3D","en":"Collapse 3D model"},
     "lessons.resetStudyScene": {"vi":"Về cảnh của mục","en":"Reset section scene"},
+    "lessons.resetModelScene": {"vi":"Về cảnh gốc","en":"Reset model view"},
+    "lessons.reloadModel": {"vi":"Tải lại model","en":"Reload model"},
     "lessons.closeOutline": {"vi":"Đóng mục lục","en":"Close lesson outline"},
     "lessons.review": {"vi":"Xem lại bài học","en":"Review lesson"},
     "lessons.draftPreview": {"vi":"Xem trước bản nháp","en":"Draft preview"},

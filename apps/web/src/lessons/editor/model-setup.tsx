@@ -6,6 +6,13 @@ import { useLanguage } from "../../i18n";
 import { fetchModelAsset } from "../../model-assets";
 import { PopoverPanel } from "../../popover-panel";
 
+export function metadataForRoot(payload: { metadata?: Record<string, unknown> }, rootId: string) {
+  if (!payload.metadata) return payload;
+  const metadata = payload.metadata[rootId];
+  if (!metadata) throw new Error("Missing system metadata");
+  return metadata;
+}
+
 export function LessonModelSetup({ catalog, modelId, modelIds, targetId, visibleIds, selectedPart, onModel, onModels, onChoose, onChangeScene, onSelectPart }: {
   catalog: Catalog;
   modelId: string;
@@ -57,8 +64,8 @@ export function LessonModelSetup({ catalog, modelId, modelIds, targetId, visible
     void Promise.all(catalog.roots.map(async root => {
       const response = await fetchModelAsset(root.model!.path.replace(/\.glb(?:\.br)?$/, ".json"), { signal: abort.signal });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const json = await response.text();
-      if (!abort.signal.aborted) catalog.ingestMetadata(root, json);
+      const payload = await response.json() as { metadata?: Record<string, unknown> };
+      if (!abort.signal.aborted) catalog.ingestMetadata(root, JSON.stringify(metadataForRoot(payload, root.id)));
     })).then(() => {
       if (!abort.signal.aborted) { catalog.finish(); setLoading(false); }
     }, error => {

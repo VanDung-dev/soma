@@ -18,7 +18,7 @@ export function useLessonViewer(catalog: Catalog, graphics: GraphicsSettings, mo
   const [hold, setHold] = useState<{ x: number; y: number; action: "hide" | "move" } | null>(null);
   const [snapTarget, setSnapTarget] = useState("");
   const modelKey = typeof modelId === "string" ? modelId : modelId.join(",");
-  const canSeparate = useEffectEvent(() => allowSeparation);
+  const canSelect = useEffectEvent(() => allowSeparation);
   const sessionKey = modelKey;
   const session = useMemo(() => new StudySession(catalog), [catalog, sessionKey]);
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
@@ -43,14 +43,14 @@ export function useLessonViewer(catalog: Catalog, graphics: GraphicsSettings, mo
       onSnap: setSnapTarget,
       onFps: setFps,
       onOrientation: axes => orientation.current?.update(axes),
-      canSeparate,
-      canSelect: canSeparate,
+      canSeparate: () => false,
+      canSelect,
       preserveCameraOnResize: true,
       animateInitialReconstruction,
       background,
     });
     const keyDown = (event: KeyboardEvent) => {
-      if (canSeparate() && shortcutAction(event) === "restore") {
+      if (canSelect() && shortcutAction(event) === "restore") {
         event.preventDefault();
         session.restoreStructure("");
       }

@@ -53,6 +53,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
   const [orderStatus, setOrderStatus] = useState("");
   const [sceneFrame, setSceneFrame] = useState<HTMLDivElement | null>(null);
   const [resetVersion, setResetVersion] = useState(0);
+  const [modelReloadVersion, setModelReloadVersion] = useState(0);
   const editorLanguage = locale ?? language;
   const writingText: typeof t = (key, values) => translateMessage(key, editorLanguage, values);
   useEffect(() => {
@@ -167,11 +168,16 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
   function updateScene(visibleIds: string[], view: SceneView | undefined = scene?.view) {
     const live = sceneDirty ? sceneHandle.current?.capture() : undefined;
     if (sceneDirty && !live) { setError(t("lessons.sceneSaveUnavailable")); return; }
-    const patch = { modelIds, targetId: sceneTargetId, visibleIds, view: live?.view ?? view };
+    const patch = { modelIds, targetId: sceneTargetId, visibleIds: live?.visibleIds ?? visibleIds, view: live?.view ?? view };
     setSceneDirty(false);
     if (!active) return updateDraft({ scene: patch });
     return updateActive(active.kind === "identify_structure" ? { ...active, ...patch }
       : { ...active, kind: "observe", ...patch });
+  }
+
+  function reloadModel() {
+    if (sceneDirty && !updateScene(visibleIds)) return;
+    setModelReloadVersion(value => value + 1);
   }
 
   async function changeModels(nextModelIds: string[]) {
@@ -359,7 +365,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
       revealPart={revealPart}
       onChangeScene={ids => hasModel ? updateScene(ids) : addStructures(ids)}
       onSceneChange={() => { setSceneDirty(true); setSaveNotice(""); }}
-      onResetScene={resetScene} resetVersion={resetVersion}
+      onResetScene={resetScene} onReloadModel={reloadModel} reloadVersion={modelReloadVersion} resetVersion={resetVersion}
       frame={sceneFrame} tools={modelSetup} inactive={!renderScene} outlineOpen={outlineOpen} />}
     <WorkspaceMenu className="lesson-author-bar" layout="inline" actionsClassName="lesson-author-actions" navigation={<>
         <SidebarToggle id="lesson-toggle-outline" controls="lesson-author-outline" expanded={outlineOpen}

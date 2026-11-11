@@ -117,7 +117,7 @@ fn scoped_search_uses_catalog_names_before_any_models_load() {
 #[test]
 fn scoped_part_search_returns_only_allowed_meshes() {
     let mut data = CatalogData::from_json(SOURCE).unwrap();
-    data.ingest("collection:baf3076d0495a617", METADATA)
+    data.ingest("collection:baf3076d0495a617", metadata())
         .unwrap();
     data.finish("vi").unwrap();
     let ids = ["za:8e8f88fe40d45d19".to_owned()];

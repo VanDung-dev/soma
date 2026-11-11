@@ -268,17 +268,15 @@ dialog.lesson-cover-modal:not([open]) {
 .lesson-structure-tools > :first-child { max-width: calc(100% - 112px); }
 .lesson-structure-tools > .lesson-part-card { max-width: none; }
 .lesson-restore-region { position: absolute; left: 0; bottom: -38px; }
-.lesson-pick-hint { padding: 6px 10px; border-radius: var(--inner-radius); font-size: 12px; }
 .lesson-structure-tools > :is(div, section, button) { pointer-events: auto; }
 .lessons-screen .structure-search-field:not([data-labeled]) { display: grid; place-items: center; flex-shrink: 0; width: 28px; height: 28px; padding: 0; border: 1px solid var(--line); border-radius: var(--inner-radius); color: var(--accent); background: var(--surface); }
 .lessons-screen .structure-search-field:not([data-labeled]):hover { background: var(--control-hover); }
-.lesson-part-card { flex-shrink: 0; width: 100%; max-height: 60%; margin-top: auto; overflow-y: auto; border-radius: var(--inner-radius); }
-.lesson-part-card .information-heading { display: flex; align-items: center; gap: 10px; min-width: 0; padding: var(--panel-padding); }
-.lesson-part-names { flex: 1; }
+.lesson-part-card { display: grid; flex-shrink: 0; gap: 8px; width: 100%; max-height: 60%; margin-top: auto; overflow-y: auto; padding: var(--panel-padding); border-radius: var(--inner-radius); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+.lesson-part-names { min-width: 0; }
 .lesson-part-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.lesson-part-card .lesson-part-actions .lesson-button, .lesson-part-card > .lesson-restore-region { width: 100%; }
 .lesson-part-card h3 { margin: 0; font: 700 15px/1.35 var(--font-ui); overflow-wrap: anywhere; }
 .lesson-part-card :is(.international-name, .latin-name) { margin: 4px 0 0; padding: 0; font-size: 12px; overflow-wrap: anywhere; }
-.lesson-part-close { font-size: 18px; }
 .lesson-structure-tools .lesson-button, .lesson-part-card .lesson-button { min-height: 28px; padding: 6px 10px; border-radius: var(--inner-radius); font-size: 12px; }
 .lesson-step-number { margin: 0 0 8px; color: var(--muted); font-size: 13px; font-weight: 650; }
 .lesson-choices { min-width: 0; margin: 0 0 12px; padding: 0; border: 0; }
@@ -344,11 +342,21 @@ dialog.lesson-cover-modal:not([open]) {
 .lesson-editor .lesson-scene-region { overflow: visible; border-radius: 0; background: transparent; box-shadow: none; }
 .lesson-editor-scene > .model-focus-frame { position: relative; min-width: 0; min-height: 0; }
 .lesson-editor-scene > .lesson-editor-hud { position: relative; z-index: 2; bottom: auto; left: auto; transform: none; width: 100%; min-width: 0; }
-.lesson-editor-hud .lesson-model-tools { position: static; padding: 0; width: 100%; }
-.lesson-editor-hud .lesson-structure-tools { position: static; width: 100%; align-items: center; }
-.lesson-editor-hud .lesson-structure-tools > :first-child { max-width: 100%; }
-.lesson-editor-hud .lesson-part-card { margin-top: 0; max-height: 120px; }
-.lesson-editor-hud .lesson-restore-region { position: static; }
+.lesson-editor-hud .lesson-model-tools { position: static; display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 0; width: 100%; }
+.lesson-model-tools-row { display: grid; grid-template-columns: minmax(max-content, 1fr) minmax(0, 1.5fr) minmax(max-content, 1fr); align-items: center; gap: 8px; width: 100%; pointer-events: auto; }
+.lesson-model-tools-row:first-child > .lesson-scene-fit { grid-column: 1; justify-self: start; }
+.lesson-model-tools-row .lesson-model-toolbar .structure-search-field { grid-column: 2; justify-self: center; max-width: 100%; }
+.lesson-model-tools-row .lesson-model-toolbar > .lesson-button { grid-column: 3; justify-self: end; }
+.lesson-model-tools-row:last-child > .lesson-button:first-child { grid-column: 1; justify-self: start; }
+.lesson-model-tools-row:last-child > .explode-control { grid-column: 2; justify-self: center; max-width: 100%; }
+.lesson-model-tools-row:last-child > .lesson-button:last-child { grid-column: 3; justify-self: end; }
+.lesson-editor-hud .lesson-model-search-status { grid-column: 1 / -1; }
+.lesson-editor-scene > .lesson-model-credit { position: absolute; z-index: 3; top: 10px; right: auto; bottom: auto; left: 10px; pointer-events: auto; }
+.lesson-editor-scene > .lesson-structure-tools { position: absolute; z-index: 3; top: 44px; left: 10px; width: min(calc(100% - 20px), 280px); align-items: flex-start; }
+.lesson-editor-scene > .lesson-structure-tools .lesson-part-card { width: 100%; margin-top: 0; max-height: 180px; }
+.lesson-editor-scene > .lesson-structure-tools .lesson-part-actions { justify-content: flex-start; }
+.lesson-editor-scene > .lesson-structure-tools .lesson-part-card .lesson-button { max-width: none; }
+.lesson-editor-scene > .lesson-structure-tools .lesson-restore-region { position: static; }
 .lesson-author-center { grid-column: 2; grid-row: 1; display: grid; min-width: 0; min-height: 0; grid-template-columns: minmax(0, 11fr) minmax(320px, 9fr); grid-template-rows: minmax(0, 1fr); gap: var(--panel-gap); transition: grid-template-columns .32s cubic-bezier(.22,1,.36,1), column-gap .32s cubic-bezier(.22,1,.36,1); }
 .lesson-author-center:has(.lesson-author-alerts) { grid-template-rows: auto minmax(0, 1fr); }
 .lesson-author-center[data-model="false"] { grid-template-columns: minmax(0, 0fr) minmax(320px, 20fr); column-gap: 0; }
@@ -551,8 +559,7 @@ body:has(.lesson-rich-editor) .tox .tox-dialog__busy-spinner::after { content: a
   :is(.lesson-player-header, .lesson-author-bar) :is(.app-menu-history, .app-menu-actions) { gap: 4px; }
   .lesson-player-header .lesson-button, .lesson-author-bar .lesson-button { padding-inline: 7px; font-size: 11px; }
   .lesson-languages button { padding-inline: 6px; font-size: 10px; }
-  .lesson-structure-tools > :first-child, .lesson-pick-hint { max-width: calc(100% - 82px); }
-  .lesson-part-card .information-heading { gap: 6px; }
+  .lesson-structure-tools > :first-child { max-width: calc(100% - 82px); }
   .lesson-part-card h3 { font-size: 14px; }
   .lesson-part-card :is(.international-name, .latin-name) { font-size: 11px; }
   .lesson-part-card .lesson-button { max-width: 95px; }

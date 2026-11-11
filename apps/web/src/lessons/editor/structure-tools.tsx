@@ -25,26 +25,26 @@ export function LessonStructureTools({ catalog, session, state, ids, searchable 
   const otherName = part?.names[otherLanguage];
   const focusSearch = () => (search.current?.querySelector<HTMLButtonElement>("button")
     ?? tools.current?.closest(".lesson-model")?.querySelector<HTMLButtonElement>(".structure-search-field"))?.focus({ preventScroll: true });
+  const restoreRegion = () => {
+    if (!session.showScene(ids)) return;
+    if (part) session.browseStructure(part.source_id);
+    focusSearch();
+  };
 
   const card = part && <section className="lesson-part-card"
       aria-label={t("information.panel.label")} data-structure-id={part.source_id}>
-      <div className="information-heading">
-        <div className="lesson-part-names">
-          <h3>{title}</h3>
-          {otherName && otherName !== title && <p className="international-name" lang={otherLanguage}>{otherName}</p>}
-          {part.latin && part.latin !== title && part.latin !== otherName && <p className="latin-name" lang="la">{part.latin}</p>}
-        </div>
-        <div className="lesson-part-actions">
-        {ids.length > 1 && !isolated && <button className="lesson-button" type="button"
+      <div className="lesson-part-names">
+        <h3>{title}</h3>
+        {otherName && otherName !== title && <p className="international-name" lang={otherLanguage}>{otherName}</p>}
+        {part.latin && part.latin !== title && part.latin !== otherName && <p className="latin-name" lang="la">{part.latin}</p>}
+      </div>
+      {ids.length > 1 && !isolated && <div className="lesson-part-actions">
+        <button className="lesson-button" type="button"
           onClick={() => {
             if (session.focus([part.source_id])) focusSearch();
-          }}>{t("lessons.isolatePart")}</button>}
-        <button className="controls-info lesson-part-close" type="button" onClick={() => {
-          session.browseStructure("");
-          focusSearch();
-        }} aria-label={t("lessons.closePart")} title={t("lessons.closePart")}><span aria-hidden="true">×</span></button>
-        </div>
-      </div>
+          }}>{t("lessons.isolatePart")}</button>
+      </div>}
+      {isolated && <button className="lesson-button lesson-restore-region" type="button" onClick={restoreRegion}>{t("lessons.restoreRegion")}</button>}
     </section>;
 
   return <div className="lesson-structure-tools" ref={tools}>
@@ -56,10 +56,7 @@ export function LessonStructureTools({ catalog, session, state, ids, searchable 
         }} />
     </div>}
     <span className="sr-only" role="status">{title}</span>
-    {card ? detailsHost ? createPortal(card, detailsHost) : card
-      : !isolated && <p className="model-status lesson-pick-hint">{t("lessons.pickPartHint")}</p>}
-    {isolated && <button className="lesson-button lesson-restore-region" type="button" onClick={() => {
-      if (session.showScene(ids)) focusSearch();
-    }}>{t("lessons.restoreRegion")}</button>}
+    {card ? detailsHost ? createPortal(card, detailsHost) : card : null}
+    {isolated && !part && <button className="lesson-button lesson-restore-region" type="button" onClick={restoreRegion}>{t("lessons.restoreRegion")}</button>}
   </div>;
 }
