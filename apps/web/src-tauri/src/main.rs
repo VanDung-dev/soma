@@ -1,6 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod lessons;
+mod settings;
+mod storage;
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -186,6 +188,8 @@ fn main() -> Result<(), tauri::Error> {
     builder
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
+            settings::load_settings,
+            settings::save_setting,
             get_catalog,
             open_attribution,
             lessons::list_saved_lessons,

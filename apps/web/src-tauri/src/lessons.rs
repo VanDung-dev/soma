@@ -1,10 +1,11 @@
+use crate::storage::{read_file, write_file};
 use catalog::lesson::{self, IMAGE_LIMIT, JSON_LIMIT};
 use content::lessons::{check_image_collection, image_info};
 use sha2::{Digest, Sha256};
 use std::{
     borrow::Cow,
     fs::{self, File},
-    io::{self, Read, Write},
+    io,
     path::{Path, PathBuf},
 };
 use tauri::{
@@ -38,25 +39,6 @@ fn directory(root: &Path, id: &str) -> PathBuf {
     root.join(format!("{:x}", Sha256::digest(id.as_bytes())))
 }
 
-fn read_file(path: &Path, limit: usize) -> io::Result<Vec<u8>> {
-    if !fs::symlink_metadata(path)?.is_file() {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "Expected a regular lesson file",
-        ));
-    }
-    let file = File::open(path)?;
-    let mut bytes = Vec::new();
-    file.take(limit as u64 + 1).read_to_end(&mut bytes)?;
-    if bytes.len() > limit {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "Lesson file exceeds its size limit",
-        ));
-    }
-    Ok(bytes)
-}
-
 fn current_lesson(path: &Path) -> io::Result<Option<String>> {
     match read_file(path, JSON_LIMIT) {
         Ok(bytes) => String::from_utf8(bytes)
@@ -65,16 +47,6 @@ fn current_lesson(path: &Path) -> io::Result<Option<String>> {
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(error) => Err(error),
     }
-}
-
-fn write_file(path: &Path, bytes: &[u8]) -> io::Result<()> {
-    let parent = path.parent().expect("Lesson file has a parent directory");
-    fs::create_dir_all(parent)?;
-    let mut file = tempfile::NamedTempFile::new_in(parent)?;
-    file.write_all(bytes)?;
-    file.as_file().sync_all()?;
-    file.persist(path).map_err(|error| error.error)?;
-    Ok(())
 }
 
 fn image_entries(dir: &Path) -> io::Result<Vec<(String, usize)>> {
