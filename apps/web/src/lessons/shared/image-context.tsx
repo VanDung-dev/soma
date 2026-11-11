@@ -33,7 +33,7 @@ export function LessonImageProvider({ lesson, children }: { lesson: Lesson; chil
     setReady(false); setFailed(false);
     void (async () => {
       const paths = lessonImagePaths(lesson);
-      const images = paths.size ? await loadLessonImages(lesson.id) : new Map<string, Blob>();
+      const images = paths.size ? await loadLessonImages(lesson.id, paths) : new Map<string, Blob>();
       validate_lesson_resources(JSON.stringify(lesson), [...images.keys()]);
       if (!active) return;
       for (const [path, blob] of images) {

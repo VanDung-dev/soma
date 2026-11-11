@@ -8,7 +8,7 @@
 | `crates/content` | Catalog data, search, snapshots and lesson packages; independent content WASM |
 | `crates/renderer` | Geometry, camera, gestures, animation and transforms |
 | `crates/wasm` | Viewer bindings, WebGL resources and rendering; independent of content |
-| `apps/web/src-tauri` | Desktop host and native catalog commands |
+| `apps/web/src-tauri` | Desktop host, native catalog commands and lesson files |
 | `apps/web/src/pages` | Shared module frame, navigation, panels, graphics settings and help |
 | `apps/web/src/anatomy` | Anatomy UI, catalog adapter, study session and viewer runtime |
 | `apps/web/src/lessons` | Lesson library, editor, player and shared lesson UI |
@@ -55,7 +55,7 @@ both on unmount. A new mount gets a new runtime.
 - Manual separation and automatic explosion are mutually exclusive; Rust restores moved parts.
 - Reuse the session/runtime for new study screens and provide their viewport geometry.
 - Lessons store authored scenes per step and apply them through `StudySession`; learner controls do not change saved lesson data.
-- Rust owns lesson schema, scene and question validation, image references and `.lesson.br` package validation. TypeScript owns editing, sanitization, browser storage and file dialogs.
+- Rust owns lesson validation, `.lesson.br` packages and desktop file storage. TypeScript owns editing, sanitization, web storage and file dialogs.
 
 ## Validation
 

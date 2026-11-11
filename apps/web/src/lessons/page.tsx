@@ -8,7 +8,7 @@ import type { Lesson } from "./shared/contract";
 import { emptyText, LessonEditor } from "./editor/editor";
 import { LessonPlayer } from "./view/player";
 import { lessonEditPath, lessonViewPath } from "./routes";
-import { exportLesson, importLesson, listLessons, newLessonId, removeLesson, saveLesson, LESSON_PREFIX } from "./shared/source";
+import { exportLesson, importLesson, listLessons, newLessonId, removeLesson, saveLesson } from "./shared/source";
 import "./style.css";
 import { LessonImageProvider } from "./shared/image-context";
 import { storeLessonImages } from "./shared/images";
@@ -29,18 +29,20 @@ function LessonsPageContent({ editId, viewId, navigate }: { editId?: string; vie
   const [preview, setPreview] = useState(false);
   const [error, setError] = useState<"load" | "save" | "import">();
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [exportingId, setExportingId] = useState<string>();
   const importBusy = useRef(false);
+  const saveBusy = useRef(false);
   const title = useRef<HTMLHeadingElement>(null);
-  const lastSaved = useRef<Lesson>(undefined);
 
   useEffect(() => {
     let active = true;
-    void getContent().then(() => {
+    void getContent().then(async () => {
       if (!active) return;
-      const result = listLessons();
+      const result = await listLessons();
+      if (!active) return;
       setLessons(result.lessons);
       setUnreadableCount(result.invalidKeys.length);
       for (const key of result.invalidKeys) console.error("Saved lesson could not be read", key);
@@ -57,50 +59,38 @@ function LessonsPageContent({ editId, viewId, navigate }: { editId?: string; vie
   useEffect(() => { setSelected(undefined); setPreview(false); }, [editId, viewId]);
   useEffect(() => { title.current?.focus(); }, [editing, viewing, preview]);
 
-  // Khi chuyển lesson, reset saved state và load lesson đã lưu từ localStorage
-  useEffect(() => {
-    if (activeId) {
-      const raw = localStorage.getItem(LESSON_PREFIX + activeId);
-      if (raw) {
-        try { setSavedLessonState(JSON.parse(raw) as Lesson); } catch { setSavedLessonState(undefined); }
-      } else {
-        setSavedLessonState(undefined);
-      }
-    } else {
-      setSavedLessonState(undefined);
-    }
-  }, [activeId]);
-
-  function update(next: Lesson) {
-    const previous = lastSaved.current?.id === next.id ? lastSaved.current : lessons.find(lesson => lesson.id === next.id);
+  async function update(next: Lesson) {
+    if (saveBusy.current) return false;
+    saveBusy.current = true;
+    setSaving(true);
+    const previous = lessons.find(lesson => lesson.id === next.id);
     const revised = previous ? { ...next, version: previous.version + 1 } : next;
     try {
-      saveLesson(revised, previous);
-      lastSaved.current = revised;
-      setSavedLessonState(revised);
+      await saveLesson(revised, previous);
       setLessons(current => previous ? current.map(lesson => lesson.id === revised.id ? revised : lesson) : [...current, revised]);
-      setPending(undefined);
+      setPending(current => current === pending ? undefined : current);
       setError(undefined);
       return true;
     } catch (cause) {
       console.error("Lesson draft save failed", cause);
-      setPending(revised);
+      setPending(current => current === pending ? revised : current);
       setError("save");
       return false;
+    } finally {
+      saveBusy.current = false;
+      setSaving(false);
     }
   }
 
-  // Lesson đã lưu cuối cùng - dùng để so sánh trạng thái "đã lưu" trong editor
-  const [savedLessonState, setSavedLessonState] = useState<Lesson>();
-
-  function create() {
+  async function create() {
+    if (saveBusy.current || importBusy.current) return;
     const id = newLessonId();
-    update({ id, version: 1, title: emptyText, summary: emptyText, modelId: "", steps: [] });
+    await update({ id, version: 1, title: emptyText, summary: emptyText, modelId: "", steps: [] });
     navigate(lessonEditPath(id));
   }
 
   async function importFile(file: File) {
-    if (importBusy.current) return;
+    if (importBusy.current || saveBusy.current) return;
     importBusy.current = true;
     setImporting(true);
     setError(undefined);
@@ -109,8 +99,7 @@ function LessonsPageContent({ editId, viewId, navigate }: { editId?: string; vie
       const previous = lessons.find(item => item.id === lesson.id);
       if (previous && !await confirm(t("lessons.confirmReplace", { name: lessonText(previous.title, language) || t("lessons.untitled") }), t("lessons.replace"))) return;
       if (images.size) await storeLessonImages(lesson.id, images);
-      saveLesson(lesson, previous);
-      lastSaved.current = lesson;
+      await saveLesson(lesson, previous);
       setLessons(current => previous ? current.map(item => item.id === lesson.id ? lesson : item) : [...current, lesson]);
       setError(undefined);
       return lesson;
@@ -141,8 +130,7 @@ function LessonsPageContent({ editId, viewId, navigate }: { editId?: string; vie
   async function remove(lesson: Lesson) {
     if (!await confirm(t("lessons.confirmRemove"), t("lessons.remove"))) return;
     try {
-      removeLesson(lesson);
-      if (lastSaved.current?.id === lesson.id) lastSaved.current = undefined;
+      await removeLesson(lesson);
       setLessons(current => current.filter(item => item.id !== lesson.id));
       setError(undefined);
     } catch (cause) {
@@ -152,13 +140,14 @@ function LessonsPageContent({ editId, viewId, navigate }: { editId?: string; vie
   }
 
   async function leave(currentDraft?: Lesson) {
-    const currentSaved = savedLessonState ?? lessons.find(item => item.id === activeId);
+    if (saveBusy.current) return;
+    const currentSaved = lessons.find(item => item.id === activeId);
     const unsavedDraft = currentDraft ?? pending;
     const hasUnsaved = unsavedDraft && (!currentSaved || JSON.stringify(unsavedDraft) !== JSON.stringify(currentSaved));
     if (error === "save" || hasUnsaved) {
       const choice = await confirm(t("lessons.confirmDiscard"), t("lessons.exitWithoutSaving"), t("lessons.saveAndExit"), t("lessons.continueEditing"));
       if (!choice) return;
-      if (choice === "save" && (!unsavedDraft || !update(unsavedDraft))) return;
+      if (choice === "save" && (!unsavedDraft || !await update(unsavedDraft))) return;
     }
     setPending(undefined);
     setError(undefined);
@@ -166,7 +155,7 @@ function LessonsPageContent({ editId, viewId, navigate }: { editId?: string; vie
     navigate("/lessons");
   }
 
-  const savedLesson = savedLessonState ?? lessons.find(item => item.id === activeId);
+  const savedLesson = lessons.find(item => item.id === activeId);
 
   return <><main className="lessons-screen" data-library={!activeId} data-editor={editing && !preview} data-player={viewing || (editing && preview)}>
     {draft ? <>
@@ -176,7 +165,7 @@ function LessonsPageContent({ editId, viewId, navigate }: { editId?: string; vie
         : preview
           ? <LessonPlayer lesson={draft} catalog={catalog} preview onBack={leave} onEdit={() => setPreview(false)} />
           : <LessonEditor catalog={catalog} lesson={draft} saved={savedLesson ?? draft} selected={selected} onSelect={setSelected}
-            saveFailed={error === "save"} onChange={update} onDraftChange={setPending} onPreview={current => { setPending(current); setPreview(true); }}
+            saving={saving} saveFailed={error === "save"} onChange={update} onDraftChange={setPending} onPreview={current => { setPending(current); setPreview(true); }}
             onBack={leave} />}
       </WithLessonCatalog>
       </LessonImageProvider>
@@ -187,7 +176,7 @@ function LessonsPageContent({ editId, viewId, navigate }: { editId?: string; vie
     </> : <LessonLibrary lessons={lessons} loading={loading} importing={importing} exportingId={exportingId} titleRef={title} dragging={dragging} onDraggingChange={setDragging}
       error={error ? t(error === "load" ? "lessons.indexError" : error === "import" ? "lessons.importError" : "lessons.saveError")
         : unreadableCount ? t("lessons.unreadableCount", { count: unreadableCount }) : undefined}
-      onCreate={create} onImport={importFile} onStart={lesson => navigate(lessonViewPath(lesson.id))}
+      saving={saving} onCreate={create} onImport={importFile} onStart={lesson => navigate(lessonViewPath(lesson.id))}
       onEdit={lesson => { setError(pending?.id === lesson.id ? "save" : undefined); navigate(lessonEditPath(lesson.id)); }}
       onExport={lesson => { void handleExport(lesson); }} onRemove={remove} />}
   </main>

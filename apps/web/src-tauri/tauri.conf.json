@@ -17,7 +17,7 @@
       "title": "Soma — Tự học giải phẫu",
       "titleBarStyle": "Overlay",
       "hiddenTitle": true,
-      "trafficLightPosition": { "x": 10, "y": 22 },
+      "trafficLightPosition": { "x": 12, "y": 22 },
       "width": 1280,
       "height": 800,
       "minWidth": 800,

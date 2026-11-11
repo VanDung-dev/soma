@@ -121,9 +121,12 @@ Lessons combine localized reading, optional anatomy scenes and questions in orde
 learning steps. Each step can own its model selection and scene; preview follows the
 same completion rules as the learner.
 
-Drafts are stored in the current browser profile or desktop WebView: text in
-localStorage and images in IndexedDB. Export `.lesson.br` packages to back up or
-share lessons offline. Imports validate package contents before replacing a draft;
+The desktop app stores each lesson as `lesson.json` and an `images/` folder under
+`~/Library/Application Support/io.github.vandung-dev.soma/lessons/` on macOS or
+`%LOCALAPPDATA%\io.github.vandung-dev.soma\lessons\` on Windows. Older drafts are
+copied when the current WebView can still read them. The browser version stores
+text in localStorage and images in IndexedDB. Export `.lesson.br` packages to back
+up or share lessons offline. Imports validate package contents before replacing a draft;
 legacy `.soma.br` packages remain readable. Rich text is sanitized locally, and
 images are not uploaded. Rust owns lesson validation and package processing; the web
 app owns editing, display and browser storage. See [Architecture](ARCHITECTURE.md)

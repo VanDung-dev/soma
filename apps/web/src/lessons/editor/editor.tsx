@@ -26,14 +26,15 @@ const RichEditor = lazy(() => import("./rich-editor"));
 
 export const emptyText = { vi: "", en: "" };
 
-export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onSelect, onChange, onDraftChange, onPreview, onBack }: {
+export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFailed, onSelect, onChange, onDraftChange, onPreview, onBack }: {
   catalog: Catalog;
   lesson: Lesson;
   saved: Lesson;
   selected?: string;
+  saving: boolean;
   saveFailed: boolean;
   onSelect: (id?: string) => void;
-  onChange: (lesson: Lesson) => boolean;
+  onChange: (lesson: Lesson) => Promise<boolean>;
   onDraftChange?: (lesson: Lesson) => void;
   onPreview: (lesson: Lesson) => void;
   onBack: (lesson: Lesson) => void;
@@ -78,6 +79,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
   const titleField = useRef<HTMLInputElement>(null);
   const focusAdded = useRef<string | null>(null);
   const sceneHandle = useRef<EditorSceneHandle>(null);
+  const editRevision = useRef(0);
   useEffect(() => { heading.current?.focus(); }, []);
   useEffect(() => {
     if (focusAdded.current && focusAdded.current === selected) {
@@ -87,6 +89,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
   }, [selected]);
 
   function stage(next: Lesson) {
+    editRevision.current++;
     setError("");
     setSaveNotice("");
     setDraftDirty(true);
@@ -96,6 +99,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
 
   function resetScene() {
     if (!active) return;
+    editRevision.current++;
     const savedIndex = saved.steps.findIndex(step => step.id === active.id);
     const savedStep = saved.steps[savedIndex];
     const savedScene = savedStep?.kind === "text" ? lessonSceneStep(saved, savedIndex) : savedStep;
@@ -234,11 +238,13 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
   }
 
   function exit() {
+    if (saving) return;
     const current = stageSceneDraft();
     if (current) onBack(current);
   }
 
   function preview() {
+    if (saving) return;
     const current = stageSceneDraft();
     if (current) onPreview(current);
   }
@@ -260,7 +266,9 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
       : { ...active, kind: "observe", ...patch });
   }
 
-  function save() {
+  async function save() {
+    if (saving) return;
+    const revision = editRevision.current;
     let nextDraft = draft;
     if (showModel && hasModel) {
       const snapshot = sceneHandle.current?.capture();
@@ -277,8 +285,8 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
         };
       }
     }
-    const success = onChange(nextDraft);
-    if (success) {
+    const success = await onChange(nextDraft);
+    if (success && editRevision.current === revision) {
       setDraft(nextDraft);
       setDraftDirty(false);
       setSceneDirty(false);
@@ -364,18 +372,18 @@ export function LessonEditor({ catalog, lesson, saved, selected, saveFailed, onS
       visibleIds={scene?.visibleIds} view={scene?.view} sectionId={active?.id ?? draft.id} sceneRef={sceneHandle}
       revealPart={revealPart}
       onChangeScene={ids => hasModel ? updateScene(ids) : addStructures(ids)}
-      onSceneChange={() => { setSceneDirty(true); setSaveNotice(""); }}
+      onSceneChange={() => { editRevision.current++; setSceneDirty(true); setSaveNotice(""); }}
       onResetScene={resetScene} onReloadModel={reloadModel} reloadVersion={modelReloadVersion} resetVersion={resetVersion}
       frame={sceneFrame} tools={modelSetup} inactive={!renderScene} outlineOpen={outlineOpen} />}
     <WorkspaceMenu className="lesson-author-bar" layout="inline" actionsClassName="lesson-author-actions" navigation={<>
         <SidebarToggle id="lesson-toggle-outline" controls="lesson-author-outline" expanded={outlineOpen}
           name={t("lessons.outline")} onToggle={() => setOutlineOpen(!outlineOpen)} />
-        <button className="controls-info lesson-exit" aria-label={t("lessons.exit")} title={t("lessons.exit")} onClick={exit}>
+        <button className="controls-info lesson-exit" aria-label={t("lessons.exit")} title={t("lessons.exit")} disabled={saving} onClick={exit}>
           <LineIcon name="arrow-small-left" size={18} />
           {t("lessons.exit")}
         </button>
         <button className="lesson-button lesson-primary" aria-label={t(isDirty ? "lessons.saveLesson" : "lessons.savedShort")}
-          data-saved={!isDirty} disabled={!isDirty} onClick={save}>
+          data-saved={!isDirty} disabled={!isDirty || saving} aria-busy={saving} onClick={save}>
           <span className="lesson-action-full">{t(isDirty ? "lessons.saveLesson" : "lessons.savedShort")}</span>
           <span className="lesson-action-short">{t(isDirty ? "lessons.saveLessonShort" : "lessons.savedShort")}</span>
         </button>

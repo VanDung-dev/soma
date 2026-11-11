@@ -9,8 +9,12 @@ tauri-build.workspace = true
 
 [dependencies]
 catalog.workspace = true
+content = { path = "../../../crates/content" }
+serde_json.workspace = true
+sha2 = "0.10.9"
 tauri = { workspace = true, features = ["protocol-asset"] }
 tauri-plugin-opener = ">=2, <3"
+tempfile = "3"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = "0.6"

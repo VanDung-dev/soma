@@ -3388,12 +3388,16 @@ name = "soma"
 version = "0.1.0"
 dependencies = [
  "block2",
+ "content",
  "core",
  "objc2-app-kit",
  "objc2-foundation",
+ "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-opener",
+ "tempfile",
 ]
 
 [[package]]

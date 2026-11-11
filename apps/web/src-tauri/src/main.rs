@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod lessons;
+
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use tauri::{AppHandle, LogicalSize, Manager, PhysicalSize, WebviewWindow, WindowEvent};
@@ -183,7 +185,16 @@ fn main() -> Result<(), tauri::Error> {
 
     builder
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![get_catalog, open_attribution])
+        .invoke_handler(tauri::generate_handler![
+            get_catalog,
+            open_attribution,
+            lessons::list_saved_lessons,
+            lessons::save_lesson,
+            lessons::remove_lesson,
+            lessons::list_lesson_images,
+            lessons::get_lesson_image,
+            lessons::put_lesson_image,
+        ])
         .manage(AtomicU64::new(1.0_f64.to_bits()))
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {

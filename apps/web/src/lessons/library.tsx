@@ -10,8 +10,8 @@ import "./library.css";
 
 const searchable = (value: string) => value.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replaceAll("đ", "d");
 
-export function LessonLibrary({ lessons, loading, importing, error, exportingId, titleRef, dragging, onDraggingChange, onCreate, onImport, onStart, onEdit, onExport, onRemove }: {
-  lessons: Lesson[]; loading: boolean; importing: boolean; error?: string; exportingId?: string; titleRef: Ref<HTMLHeadingElement>;
+export function LessonLibrary({ lessons, loading, saving, importing, error, exportingId, titleRef, dragging, onDraggingChange, onCreate, onImport, onStart, onEdit, onExport, onRemove }: {
+  lessons: Lesson[]; loading: boolean; saving: boolean; importing: boolean; error?: string; exportingId?: string; titleRef: Ref<HTMLHeadingElement>;
   dragging: boolean; onDraggingChange: (dragging: boolean) => void;
   onCreate: () => void; onImport: (file: File) => Promise<Lesson | undefined>; onStart: (lesson: Lesson) => void;
   onEdit: (lesson: Lesson) => void; onExport: (lesson: Lesson) => void; onRemove: (lesson: Lesson) => void;
@@ -21,7 +21,7 @@ export function LessonLibrary({ lessons, loading, importing, error, exportingId,
   const [query, setQuery] = useState("");
   const [fileError, setFileError] = useState("");
   const [notice, setNotice] = useState("");
-  const busy = loading || importing;
+  const busy = loading || saving || importing;
   const terms = searchable(query).trim().split(/\s+/).filter(Boolean);
   const matching = !terms.length ? lessons : lessons.filter(lesson => {
     const content = searchable([lesson.title.vi, lesson.title.en, lesson.author ?? "", lessonPlainText(lesson.summary, "vi"), lessonPlainText(lesson.summary, "en"),

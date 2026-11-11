@@ -1,3 +1,4 @@
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import * as content from "../../content/content.js";
 import { lessonJob } from "./archive";
 import type { LessonImageStage } from "./archive";
@@ -17,7 +18,19 @@ async function database() {
   });
 }
 
-export async function loadLessonImages(id: string) {
+export async function loadLessonImages(id: string, paths?: ReadonlySet<string>) {
+  if (isTauri()) {
+    const images: LessonImages = new Map();
+    for (const path of paths ?? await invoke<string[]>("list_lesson_images", { id })) {
+      const blob = await loadLessonImage(id, path);
+      if (blob) images.set(path, blob);
+    }
+    return images;
+  }
+  return loadBrowserLessonImages(id);
+}
+
+export async function loadBrowserLessonImages(id: string) {
   const db = await database();
   try {
     return await new Promise<LessonImages>((resolve, reject) => {
@@ -37,6 +50,12 @@ export async function loadLessonImages(id: string) {
 }
 
 export async function loadLessonImage(id: string, path: string) {
+  if (isTauri()) {
+    const bytes = await invoke<ArrayBuffer | number[]>("get_lesson_image", { id, path });
+    const data = new Uint8Array(bytes);
+    const type = path.endsWith(".jpg") ? "image/jpeg" : path.endsWith(".png") ? "image/png" : "image/webp";
+    return data.byteLength ? new Blob([data], { type }) : undefined;
+  }
   const db = await database();
   try {
     return await new Promise<Blob | undefined>((resolve, reject) => {
@@ -48,6 +67,14 @@ export async function loadLessonImage(id: string, path: string) {
 }
 
 export async function storeLessonImages(id: string, images: LessonImages) {
+  if (isTauri()) {
+    for (const [path, blob] of images) {
+      await invoke("put_lesson_image", await blob.arrayBuffer(), {
+        headers: { "soma-lesson-id": id, "soma-image-path": path },
+      });
+    }
+    return;
+  }
   const db = await database();
   try {
     await new Promise<void>((resolve, reject) => {
