@@ -42,6 +42,7 @@ export function LessonCoverView({ src, alt = "", crop, className = "", onLoad, c
   const y = crop?.y ?? 0;
 
   useEffect(() => {
+    setAspect(undefined);
     if (!src) return;
     const img = new Image();
     img.onload = () => {
@@ -62,7 +63,7 @@ export function LessonCoverView({ src, alt = "", crop, className = "", onLoad, c
         className="lesson-cover-img"
         src={src}
         alt={alt}
-        loading="lazy"
+        decoding="async"
         onLoad={e => {
           onLoad?.(e);
           const img = e.currentTarget;

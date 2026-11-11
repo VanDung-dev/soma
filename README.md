@@ -149,9 +149,9 @@ The step content field uses [TinyMCE Community self-hosted](https://www.tiny.clo
 emphasis, lists, links, tables and local images. The image button opens TinyMCE's
 image dialog; use **Browse files** beside Source to choose a PNG, JPEG or WebP.
 Before storage, a worker uses Squoosh's bundled WebP encoder to compress new
-images at their original resolution. PNG uses lossless compression, including
-transparency; JPEG uses quality 85. The encoded image is used only when smaller
-than the original. Existing WebP and animated PNG files stay unchanged, as do
+images at their original resolution with lossless compression, including
+transparency. The encoded image is used only when smaller than the original.
+Existing WebP and animated PNG files stay unchanged, as do
 images already stored or imported in lesson packages. Browsers without worker
 canvas/image decoding keep the original. The selected codec is vendored in
 `apps/web/src/lessons/shared/codecs/webp/`; the separate `squoosh-dev/` checkout is not
@@ -236,7 +236,7 @@ unused image bytes on the device, without affecting the exported package.
 Import checks the archive paths, regular-file types, duplicate entries, header
 checksums, image hashes and decoded formats before replacement. Limits are 64 MiB
 for the compressed file and expanded archive, 2 MiB for lesson JSON, 128 images,
-and 8 MiB / 16 megapixels / 8192 pixels per side for each image. Animated WebP and
+and 10 MiB / 16 megapixels / 8192 pixels per side for each image. Animated WebP and
 SVG are excluded. Brotli can reduce JSON/HTML well; savings on already compressed
 images depend on the source image.
 

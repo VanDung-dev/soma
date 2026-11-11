@@ -6,7 +6,7 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 
 pub const ARCHIVE_LIMIT: usize = 64 * 1024 * 1024;
 pub const JSON_LIMIT: usize = 2 * 1024 * 1024;
-pub const IMAGE_LIMIT: usize = 8 * 1024 * 1024;
+pub const IMAGE_LIMIT: usize = 10 * 1024 * 1024;
 pub const IMAGE_COUNT_LIMIT: usize = 128;
 
 #[derive(Debug, Clone, Serialize)]

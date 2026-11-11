@@ -19,7 +19,7 @@ export async function compressLessonImage(bytes: Uint8Array<ArrayBuffer>, mime: 
     const pixels = context.getImageData(0, 0, bitmap.width, bitmap.height);
     const encoder = await createEncoder({ noInitialRun: true, locateFile: () => wasmUrl });
     const compressed = encoder.encode(pixels.data, bitmap.width, bitmap.height, {
-      ...defaultOptions, quality: 85, lossless: mime === "image/png" ? 1 : 0, exact: 1,
+      ...defaultOptions, quality: 85, lossless: 1, exact: 1,
     });
     if (!compressed) throw new Error("Cannot compress lesson image");
     return compressed.byteLength < bytes.byteLength ? new Uint8Array(compressed) : bytes;

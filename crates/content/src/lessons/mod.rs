@@ -21,7 +21,7 @@ pub fn check_file(name: &str, size: usize) -> Result<(), String> {
 
 pub fn check_image_size(size: usize) -> Result<(), String> {
     if size == 0 || size > IMAGE_LIMIT {
-        return Err("Image must be at most 8 MiB".into());
+        return Err("Image must be at most 10 MiB".into());
     }
     Ok(())
 }

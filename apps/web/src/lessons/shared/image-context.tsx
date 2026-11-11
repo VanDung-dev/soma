@@ -51,8 +51,10 @@ export function LessonImageProvider({ lesson, children }: { lesson: Lesson; chil
         checkImageCollection(stored);
         await storeLessonImages(lesson.id, new Map([[image.path, image.blob]]));
         if (!active) throw new Error("Lesson editor closed");
+        const existing = current.get(image.path);
+        if (existing) return existing;
         const url = URL.createObjectURL(image.blob);
-        if (!current.has(image.path)) current.set(image.path, url);
+        current.set(image.path, url);
         currentPaths.set(url, image.path);
         return url;
       };
