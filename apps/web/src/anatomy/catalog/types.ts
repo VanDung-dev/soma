@@ -11,7 +11,7 @@ export interface StudyTarget {
   model?: Model;
 }
 
-export interface Model { path: string; scope: string }
+export interface Model { path: string; scope: string; sha256: string }
 
 export interface Structure {
   source_id: string;

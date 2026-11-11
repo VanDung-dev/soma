@@ -1,3 +1,4 @@
+import { modelMetadata } from './model.fixture.mjs';
 import { createCatalogFixture, initCatalogWasm } from './catalog.fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -235,7 +236,7 @@ test('model metadata validation preserves identities and rejects malformed or mi
   try {
     const wasm = await initCatalogWasm(server);
     const validateMetadata = (value, expected) => wasm.validate_metadata(JSON.stringify(value), expected);
-    const metadata = JSON.parse(await readFile(new URL('../public/models/z-anatomy/skeletal-system.json', import.meta.url)));
+    const metadata = modelMetadata('skeletal-system');
     const ids = metadata.structures.map(s => s.source_id);
     const before = JSON.stringify(metadata);
     assert.deepEqual(validateMetadata(metadata, ids.slice().reverse()), metadata.structures);

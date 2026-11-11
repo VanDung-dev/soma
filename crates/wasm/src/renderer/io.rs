@@ -61,6 +61,20 @@ pub fn prepare_package_ids(
     )?)
 }
 
+#[wasm_bindgen]
+pub fn prepare_model(
+    bytes: js_sys::Uint8Array,
+    ids: JsValue,
+    selected: JsValue,
+) -> Result<js_sys::Array, JsValue> {
+    let expected: Vec<String> = serde_wasm_bindgen::from_value(ids).map_err(js_error)?;
+    let selected: Vec<String> = serde_wasm_bindgen::from_value(selected).map_err(js_error)?;
+    let mut scene = Scene::from_glb(&bytes.to_vec(), &expected).map_err(js_error)?;
+    scene.subset(&selected).map_err(js_error)?;
+    scene.parts.retain(|part| part.active);
+    pack(Scene::merge(vec![scene]).map_err(js_error)?)
+}
+
 fn pack(scene: Scene) -> Result<js_sys::Array, JsValue> {
     let (packed, vertices, indices) = scene.pack().map_err(js_error)?;
     let result = js_sys::Array::new();

@@ -2,8 +2,27 @@ use content::data::{CatalogData, SearchRow, normalize, parse_metadata};
 use std::collections::{HashMap, HashSet};
 
 const SOURCE: &str = include_str!("../../../content/catalog.json");
-const METADATA: &str =
-    include_str!("../../../apps/web/public/models/z-anatomy/skeletal-system.json");
+fn bundle() -> &'static serde_json::Value {
+    static BUNDLE: std::sync::OnceLock<serde_json::Value> = std::sync::OnceLock::new();
+    BUNDLE.get_or_init(|| {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../apps/web/public/models/z-anatomy/z-anatomy.json");
+        serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
+    })
+}
+
+fn metadata() -> &'static str {
+    static METADATA: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    METADATA.get_or_init(|| {
+        let model = bundle()["manifest"]["models"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|model| model["file"] == "skeletal-system.glb")
+            .unwrap();
+        bundle()["metadata"][model["root_id"].as_str().unwrap()].to_string()
+    })
+}
 
 fn structure_id<'a>(row: &SearchRow<'a>) -> &'a str {
     match row {
@@ -26,11 +45,8 @@ fn skull_search_returns_the_linked_group_without_midword_noise() {
                 .map(|model| (target.id.clone(), model.path.clone()))
         })
         .collect();
-    for (id, path) in packages {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../apps/web/public")
-            .join(path.replace(".glb.br", ".json"));
-        data.ingest(&id, &std::fs::read_to_string(path).unwrap())
+    for (id, _) in packages {
+        data.ingest(&id, &bundle()["metadata"][&id].to_string())
             .unwrap();
     }
     data.finish("en-US").unwrap();
@@ -123,9 +139,9 @@ fn openstax_related_readings_prefer_specific_collections_and_inherit_group_conte
         .unwrap()
         .id
         .to_owned();
-    data.ingest(&root, METADATA).unwrap();
+    data.ingest(&root, metadata()).unwrap();
     data.finish("en-US").unwrap();
-    let parts: serde_json::Value = serde_json::from_str(METADATA).unwrap();
+    let parts: serde_json::Value = serde_json::from_str(metadata()).unwrap();
     for (name, section) in [
         ("Parietal bone", "7-2-the-skull"),
         ("Femur", "8-4-bones-of-the-lower-limb"),
@@ -178,15 +194,11 @@ fn source_ties_follow_host_collation_and_invalid_locale_keeps_index() {
         .catalog
         .targets
         .iter()
-        .find(|t| {
-            t.model
-                .as_ref()
-                .is_some_and(|m| m.path.ends_with("/skeletal-system.glb.br"))
-        })
+        .find(|t| t.source_name == "1: Skeletal system")
         .unwrap()
         .id
         .clone();
-    let mut metadata: serde_json::Value = serde_json::from_str(METADATA).unwrap();
+    let mut metadata: serde_json::Value = serde_json::from_str(metadata()).unwrap();
     for (i, object) in ["ä", "z"].iter().enumerate() {
         metadata["structures"][i]["source_name"] = "Collation test".into();
         metadata["structures"][i]["laterality"] = "".into();
@@ -218,22 +230,18 @@ fn metadata_validation_preserves_all_source_fields_and_is_atomic() {
         .catalog
         .targets
         .iter()
-        .find(|t| {
-            t.model
-                .as_ref()
-                .is_some_and(|m| m.path.ends_with("/skeletal-system.glb.br"))
-        })
+        .find(|t| t.source_name == "1: Skeletal system")
         .unwrap()
         .id
         .clone();
     let expected = data.members(&root).unwrap().to_vec();
-    let parts = parse_metadata(METADATA, &expected).unwrap();
-    let original: serde_json::Value = serde_json::from_str(METADATA).unwrap();
+    let parts = parse_metadata(metadata(), &expected).unwrap();
+    let original: serde_json::Value = serde_json::from_str(metadata()).unwrap();
     assert_eq!(
         serde_json::to_value(&parts).unwrap(),
         original["structures"]
     );
-    data.ingest(&root, METADATA).unwrap();
+    data.ingest(&root, metadata()).unwrap();
     data.finish("en-US").unwrap();
     let before = data.identities();
     assert_eq!(before.len(), expected.len());
@@ -242,7 +250,7 @@ fn metadata_validation_preserves_all_source_fields_and_is_atomic() {
         assert!(data.ingest(&root, invalid).is_err());
         assert_eq!(data.identities(), before);
     }
-    assert!(parse_metadata(METADATA, &expected[1..]).is_err());
+    assert!(parse_metadata(metadata(), &expected[1..]).is_err());
     let mut duplicate = original;
     duplicate["structures"][1] = duplicate["structures"][0].clone();
     assert!(data.ingest(&root, &duplicate.to_string()).is_err());
@@ -280,16 +288,12 @@ fn tree_snapshots_keep_display_membership_and_bound_direct_rows() {
         .catalog
         .targets
         .iter()
-        .find(|t| {
-            t.model
-                .as_ref()
-                .is_some_and(|m| m.path.ends_with("/skeletal-system.glb.br"))
-        })
+        .find(|t| t.source_name == "1: Skeletal system")
         .unwrap()
         .id
         .clone();
     let ids = data.members(&root).unwrap().to_vec();
-    data.ingest(&root, METADATA).unwrap();
+    data.ingest(&root, metadata()).unwrap();
     data.finish("en-US").unwrap();
     let visible: HashSet<_> = ids.iter().cloned().collect();
     let closed = data.tree(&HashSet::new(), &HashMap::new(), &visible);

@@ -1,6 +1,7 @@
+mod support;
+
 use renderer::Scene;
-use std::io::Read;
-use std::path::Path;
+use support::ModelFixture;
 
 #[test]
 fn rejects_brotli_with_invalid_block_switch() {
@@ -13,24 +14,27 @@ fn rejects_brotli_with_invalid_block_switch() {
 
 #[test]
 fn rejects_corrupt_geometry_and_groups_multiple_primitives() {
-    let folder =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/public/models/z-anatomy");
-    let compressed = std::fs::read(folder.join("visceral-systems.glb.br")).unwrap();
-    let mut bytes = Vec::new();
-    brotli_decompressor::Decompressor::new(compressed.as_slice(), 4096)
-        .read_to_end(&mut bytes)
-        .unwrap();
-    let metadata: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(folder.join("visceral-systems.json")).unwrap())
-            .unwrap();
-    let ids: Vec<String> = metadata["structures"]
+    let mut fixture = ModelFixture::new();
+    let all_ids: Vec<String> = fixture.bundle["manifest"]["models"]
         .as_array()
         .unwrap()
         .iter()
-        .map(|s| s["source_id"].as_str().unwrap().into())
+        .flat_map(|model| {
+            model["source_ids"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|id| id.as_str().unwrap().to_owned())
+        })
         .collect();
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../apps/web/public/models/z-anatomy/z-anatomy.glb.br");
+    let compressed = std::fs::read(path).unwrap();
+    let ids = fixture.select("visceral-systems");
+    let bytes = fixture.bytes();
     let raw = Scene::from_glb(&bytes, &ids).unwrap();
-    let decoded = Scene::from_glb(&compressed, &ids).unwrap();
+    let mut decoded = Scene::from_glb(&compressed, &all_ids).unwrap();
+    decoded.parts.retain(|part| ids.contains(&part.source_id));
     assert_eq!(raw.parts.len(), decoded.parts.len());
     for (raw, decoded) in raw.parts.iter().zip(&decoded.parts) {
         assert_eq!(raw.source_id, decoded.source_id);
@@ -41,7 +45,18 @@ fn rejects_corrupt_geometry_and_groups_multiple_primitives() {
     assert!(Scene::from_glb(&compressed[..compressed.len() / 2], &ids).is_err());
     let json_len = u32::from_le_bytes(bytes[12..16].try_into().unwrap()) as usize;
     let document: serde_json::Value = serde_json::from_slice(&bytes[20..20 + json_len]).unwrap();
-    let accessor = document["meshes"][0]["primitives"][0]["attributes"]["POSITION"]
+    let root = document["scenes"][document["scene"].as_u64().unwrap() as usize]["nodes"][0]
+        .as_u64()
+        .unwrap() as usize;
+    let mesh = document["nodes"][root]["mesh"].as_u64().unwrap() as usize;
+    let material = document["meshes"][mesh]["primitives"][0]["material"]
+        .as_u64()
+        .unwrap() as usize;
+    let primitive_count = document["meshes"][mesh]["primitives"]
+        .as_array()
+        .unwrap()
+        .len();
+    let accessor = document["meshes"][mesh]["primitives"][0]["attributes"]["POSITION"]
         .as_u64()
         .unwrap() as usize;
     let view = document["accessors"][accessor]["bufferView"]
@@ -78,17 +93,17 @@ fn rejects_corrupt_geometry_and_groups_multiple_primitives() {
         result
     };
     let mut invalid = document.clone();
-    invalid["materials"][0]["extras"]["source_specular"] = serde_json::json!(-0.1);
+    invalid["materials"][material]["extras"]["source_specular"] = serde_json::json!(-0.1);
     assert!(Scene::from_glb(&rebuild(&invalid), &ids).is_err());
     invalid = document.clone();
-    invalid["materials"][0]["extras"]["source_subsurface"] = serde_json::json!(1.1);
+    invalid["materials"][material]["extras"]["source_subsurface"] = serde_json::json!(1.1);
     assert!(Scene::from_glb(&rebuild(&invalid), &ids).is_err());
     invalid = document.clone();
     invalid["accessors"][accessor]["byteOffset"] = serde_json::json!(bytes.len());
     assert!(Scene::from_glb(&rebuild(&invalid), &ids).is_err());
     let mut multiple = document;
-    let primitive = multiple["meshes"][0]["primitives"][0].clone();
-    multiple["meshes"][0]["primitives"]
+    let primitive = multiple["meshes"][mesh]["primitives"][0].clone();
+    multiple["meshes"][mesh]["primitives"]
         .as_array_mut()
         .unwrap()
         .push(primitive);
@@ -99,7 +114,10 @@ fn rejects_corrupt_geometry_and_groups_multiple_primitives() {
     scene.subset(std::slice::from_ref(&id)).unwrap();
     scene.select(&id).unwrap();
     scene.inspect("isolate").unwrap();
-    assert_eq!(scene.parts.iter().filter(|p| p.visible).count(), 2);
+    assert_eq!(
+        scene.parts.iter().filter(|p| p.visible).count(),
+        primitive_count + 1
+    );
     assert_eq!(scene.visible_count(), 1);
     scene.inspect("hide").unwrap();
     assert_eq!(scene.visible_count(), 0);
@@ -112,6 +130,6 @@ fn rejects_brotli_models_exceeding_the_decoded_size_limit() {
         Scene::from_glb(bytes, &[])
             .err()
             .unwrap()
-            .contains("128 MiB")
+            .contains("256 MiB")
     );
 }

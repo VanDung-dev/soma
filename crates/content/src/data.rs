@@ -171,6 +171,7 @@ pub fn parse_metadata(json: &str, expected: &[String]) -> Result<Vec<Structure>,
 pub struct ModelView<'a> {
     path: &'a str,
     scope: &'a str,
+    sha256: &'a str,
 }
 
 #[derive(Serialize)]
@@ -390,6 +391,7 @@ impl CatalogData {
             model: target.model.as_ref().map(|m| ModelView {
                 path: &m.path,
                 scope: &m.scope,
+                sha256: &m.sha256,
             }),
         }
     }

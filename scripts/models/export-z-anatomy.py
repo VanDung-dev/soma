@@ -272,6 +272,7 @@ bpy.context.window.scene = scene
 addon_utils.enable('io_scene_gltf2')
 catalog = {'schema_version': 4, 'groups': [], 'targets': []}
 covered = set()
+all_exported = []
 manifest = {'source': 'Z-Anatomy', 'source_file': 'Z-Anatomy/Startup.blend', 'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(), 'selections_sha256': hashlib.sha256(selection_bytes).hexdigest(), 'blender': bpy.app.version_string, 'units': 'metres', 'up_axis': 'Y', 'license': 'CC BY-SA 4.0; upstream third-party notices also apply', 'excluded_objects': excluded, 'models': []}
 for name, recipe in selections.items():
     primary = source_collections[recipe['source_collection']]
@@ -321,12 +322,15 @@ for name, recipe in selections.items():
         obj.select_set(True)
         exported.append(obj)
     assert bpy.ops.export_scene.gltf(filepath=str(output / (name + '.glb')), export_format='GLB', use_selection=True, use_active_scene=True, export_extras=True, export_animations=False, export_texcoords=False, export_vertex_color='NONE', export_cameras=False, export_lights=False) == {'FINISHED'}
-    for obj in exported: bpy.data.objects.remove(obj, do_unlink=True)
+    all_exported.extend(exported)
+    for obj in exported: obj.select_set(False)
     package = {'source': 'Z-Anatomy', 'structures': [geometry[n]['meta'] for n in sorted(names)]}
     (output / (name + '.json')).write_text(json.dumps(package, ensure_ascii=False), encoding='utf8')
     manifest['models'].append({'file': name + '.glb', 'metadata_file': name + '.json', 'structures': len(names), 'source_ids': sorted(geometry[n]['meta']['source_id'] for n in names), 'selection': recipe, 'catalog_nodes': len(nodes)})
     print(f'EXPORTED {name}: {len(names)} structures', flush=True)
 assert covered == geometry.keys(), f'Unselected anatomy: {sorted(geometry.keys() - covered)}'
+for obj in all_exported: obj.select_set(True)
+assert bpy.ops.export_scene.gltf(filepath=str(output / 'z-anatomy.glb'), export_format='GLB', use_selection=True, use_active_scene=True, export_extras=True, export_animations=False, export_texcoords=False, export_vertex_color='NONE', export_cameras=False, export_lights=False) == {'FINISHED'}
 manifest['unique_structures'] = len(covered)
 manifest['fallback_materials'] = sorted(fallback_materials)
 manifest['repaired_meshes'] = repaired

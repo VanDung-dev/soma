@@ -29,10 +29,13 @@ is built into `apps/web/src/content/`; the viewer module stays in
 Each catalog handle owns its Rust data
 and is freed on page disposal; separate viewer hosts use separate handles.
 Metadata text goes directly to Rust for validation before geometry preparation.
-Desktop builds package the compressed model files and their metadata as Tauri
-resources under `models/`. The desktop viewer reads these files through Tauri's
-scoped asset protocol. Web builds serve the same files over HTTP and cache
-compressed geometry in IndexedDB using the manifest hashes.
+Desktop builds package `models/z-anatomy/z-anatomy.glb.br` and `z-anatomy.json`
+as Tauri resources. The JSON combines the provenance manifest and all nine
+systems' metadata. Metadata text goes to the content module for validation,
+then the worker prepares the requested structure IDs from the shared GLB.
+The desktop viewer reads both files through Tauri's scoped asset protocol.
+Web builds serve the same files over HTTP and cache the compressed GLB in
+IndexedDB using the SHA-256 in the catalog model descriptors.
 Rust retains source fields, names, membership, hierarchy and search indexes.
 React receives requested tree/search/detail snapshots and command IDs, without
 reconstructing the data indexes. Expansion, scrolling, focus and study history

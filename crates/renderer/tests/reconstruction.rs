@@ -1,5 +1,7 @@
+mod support;
+
 use renderer::{Primitive, Reconstruction, Scene};
-use std::path::Path;
+use support::ModelFixture;
 
 #[test]
 fn inventory_replacement_hides_the_old_system_before_revealing_the_new_one() {
@@ -79,21 +81,9 @@ fn visibility_reveals_only_changed_parts_and_reverses_from_the_displayed_value()
 
 #[test]
 fn reconstruction_reveals_feet_before_head_and_finishes_without_changing_visibility() {
-    let folder =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/public/models/z-anatomy");
-    let meta: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(folder.join("body-regions.json")).unwrap()).unwrap();
-    let ids: Vec<String> = meta["structures"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|s| s["source_id"].as_str().unwrap().into())
-        .collect();
-    let scene = Scene::from_glb(
-        &std::fs::read(folder.join("body-regions.glb.br")).unwrap(),
-        &ids,
-    )
-    .unwrap();
+    let mut fixture = ModelFixture::new();
+    let ids = fixture.select("body-regions");
+    let scene = Scene::from_glb(&fixture.bytes(), &ids).unwrap();
     let mut reconstruction = Reconstruction::default();
     reconstruction
         .append(&scene.parts, scene.bounds, 1000.0, true)

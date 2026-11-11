@@ -11,6 +11,7 @@ mod separation;
 pub use camera::{Camera, CameraPose};
 pub use explosion::Explosion;
 pub use geometry::{Bounds, Primitive};
+pub use glb::read_glb;
 pub use hand_input::{HandCameraCommand, HandCursor, HandInput, HandInputResult};
 pub use packed::PackedScene;
 pub use reconstruction::Reconstruction;
