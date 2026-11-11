@@ -5,6 +5,7 @@ import { placeOnboarding, spotlightPath } from "./onboarding-layout";
 import { OnboardingControls } from "./onboarding-controls";
 
 export const onboardingStorageKey = "anatomy-onboarding:v1";
+export const replayOnboardingEvent = "soma:replay-onboarding";
 
 export function readOnboardingStatus(): "completed" | "dismissed" | null {
   try {
@@ -14,7 +15,7 @@ export function readOnboardingStatus(): "completed" | "dismissed" | null {
 }
 
 const steps = ["welcome", "camera", "detach", "search", "tree", "information", "help"] as const;
-const targets = ["", ".model-focus-frame", ".model-focus-frame", ".tree-actions", ".catalog-tree", ".information-panel", ".app-menu-actions > button:first-child"];
+const targets = ["", ".model-focus-frame", ".model-focus-frame", ".tree-actions", ".catalog-tree", ".information-panel", ""];
 
 export function AnatomyOnboarding({ replay, onPanelChange }: {
   replay: boolean;
@@ -73,7 +74,7 @@ export function AnatomyOnboarding({ replay, onPanelChange }: {
       const horizontalPadding = step === 3 ? 5 : 0;
       const placementTarget = rect ? { left: rect.left - horizontalPadding, top: rect.top,
         right: rect.right + horizontalPadding, bottom: rect.bottom, width: rect.width + horizontalPadding * 2, height: rect.height } : null;
-      const position = placeOnboarding(bounds, placementTarget, card.getBoundingClientRect(), inset, step === 6 ? "below" : undefined);
+    const position = placeOnboarding(bounds, placementTarget, card.getBoundingClientRect(), inset);
       Object.assign(card.style, { left: `${position.left}px`, top: `${position.top}px` });
       card.dataset.placement = position.placement;
       card.dataset.positioned = "true";

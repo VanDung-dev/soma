@@ -1,7 +1,7 @@
 import type { HTMLAttributes, ReactNode, Ref } from "react";
 import { useLanguage } from "../i18n";
 import { LineIcon } from "../icons";
-import { shortcutLabel } from "../shortcuts";
+import { shortcutLabel, useShortcutBindings } from "../shortcuts";
 import type { AppShortcut } from "../shortcuts";
 import "./workspace.css";
 
@@ -26,6 +26,7 @@ export function SidebarToggle({ id, controls, expanded, name, shortcut, onToggle
   id?: string; controls: string; expanded: boolean; name: string; shortcut?: AppShortcut; onToggle: () => void;
 }) {
   const { t } = useLanguage();
+  useShortcutBindings();
   const label = t(expanded ? "panels.hide" : "panels.show", { name });
   return <button id={id} type="button" className="controls-info sidebar-toggle" aria-expanded={expanded} aria-controls={controls}
     aria-label={label} title={shortcut ? `${label} (${shortcutLabel(shortcut)})` : label} onClick={onToggle}>

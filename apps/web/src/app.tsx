@@ -1,4 +1,4 @@
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useEffectEvent, useState, type MouseEvent } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { LanguageProvider } from "./i18n";
 import { HomePage } from "./home/page";
@@ -9,8 +9,13 @@ import { AnatomyPage } from "./anatomy/page";
 import { ModuleLayout } from "./pages/module-layout";
 import { ThemeProvider } from "./theme";
 import { SourceDocument } from "./source-document";
+import { SettingsPage, settingsHref, settingsSectionAt, type SettingsSection } from "./settings/page";
+import { GraphicsSettingsContext, useGraphicsSettings } from "./pages/use-graphics-settings";
+import { CameraDevicesContext, useCameraDevices } from "./anatomy/camera-devices";
+import { shortcutAction } from "./shortcuts";
+import { replayOnboardingEvent } from "./anatomy/onboarding";
 
-function pageAtPath(pathname: string): keyof typeof pages | "lessons" | null {
+function pageAtPath(pathname: string): keyof typeof pages | "lessons" | "settings" | null {
   const path = pathname.replace(/\/+$/, "");
   if (path === "" || path === "/home") {
     return "home";
@@ -21,6 +26,9 @@ function pageAtPath(pathname: string): keyof typeof pages | "lessons" | null {
   if (path === "/games") {
     return "games";
   }
+  if (path === "/settings") {
+    return "settings";
+  }
   if (path === "/lessons" || lessonEditId(pathname) || lessonViewId(pathname)) {
     return "lessons";
   }
@@ -30,42 +38,86 @@ function pageAtPath(pathname: string): keyof typeof pages | "lessons" | null {
 const pages = { home: HomePage, anatomy: AnatomyPage, games: GamesPage };
 
 function AppRoute() {
-  const [path, setPath] = useState(() => window.location.pathname);
+  const [{ path, workspacePath, section }, setRoute] = useState(() => {
+    const path = window.location.pathname;
+    return { path, workspacePath: pageAtPath(path) === "settings" ? "" : path, section: settingsSectionAt(window.location.hash) };
+  });
   const page = pageAtPath(path);
+  const workspace = workspacePath ? pageAtPath(workspacePath) : null;
+  const settings = page === "settings";
+  const desktop = isTauri();
+  const graphics = useGraphicsSettings();
+  const cameras = useCameraDevices(settings || workspace === "anatomy");
   const [documentPath, setDocumentPath] = useState<string | null>(null);
   useEffect(() => {
-    const sync = () => setPath(window.location.pathname);
+    const sync = () => {
+      const next = window.location.pathname;
+      setRoute(current => ({ path: next, workspacePath: pageAtPath(next) === "settings" ? current.workspacePath : next,
+        section: settingsSectionAt(window.location.hash) }));
+    };
     window.addEventListener("popstate", sync);
     return () => window.removeEventListener("popstate", sync);
   }, []);
-  const goTo = (next: string) => {
-    if (!isTauri() && window.location.pathname !== next) window.history.pushState(null, "", next);
-    setPath(next);
+  const goTo = (next: string, nextSection: SettingsSection = "interface") => {
+    const opensSettings = pageAtPath(next) === "settings";
+    if (next === path && (!opensSettings || nextSection === section)) {
+      if (opensSettings) document.getElementById("settings-section-title")?.focus({ preventScroll: true });
+      return;
+    }
+    if (!desktop) {
+      if (settings && opensSettings) window.history.replaceState(window.history.state, "", settingsHref(nextSection));
+      else window.history.pushState(opensSettings ? { settingsFrom: workspacePath } : null, "", opensSettings ? settingsHref(nextSection) : next);
+    }
+    if (opensSettings) {
+      for (const popover of document.querySelectorAll<HTMLElement>('.model-space [popover="auto"]:popover-open')) popover.hidePopover();
+    }
+    setRoute({ path: next, workspacePath: opensSettings ? workspacePath : next, section: nextSection });
   };
+  const closeSettings = () => {
+    if (!desktop && window.history.state?.settingsFrom) window.history.back();
+    else goTo(workspacePath || "/home");
+  };
+  const handleSettingsShortcut = useEffectEvent((event: KeyboardEvent) => {
+    const action = shortcutAction(event);
+    if (!page || action !== "settings" || document.querySelector("dialog[open]")) return;
+    event.preventDefault();
+    if (settings) closeSettings();
+    else goTo("/settings");
+  });
+  useEffect(() => {
+    const keyDown = (event: KeyboardEvent) => handleSettingsShortcut(event);
+    window.addEventListener("keydown", keyDown);
+    return () => window.removeEventListener("keydown", keyDown);
+  }, []);
   if (!page) return null;
-  const Page = page === "lessons" ? null : pages[page];
+  const Page = workspace && workspace !== "lessons" && workspace !== "settings" ? pages[workspace] : null;
   const navigate = (event: MouseEvent<HTMLDivElement>) => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
     if (!(link instanceof HTMLAnchorElement) || link.hasAttribute("download")) return;
     const url = new URL(link.href);
-    if (url.protocol !== window.location.protocol || url.host !== window.location.host || url.search || url.hash) return;
-    if (url.pathname.endsWith("/ATTRIBUTION.md")) {
+    if (url.protocol !== window.location.protocol || url.host !== window.location.host || url.search) return;
+    const nextPage = pageAtPath(url.pathname);
+    if (url.hash && (nextPage !== "settings" || settingsSectionAt(url.hash) === "interface")) return;
+    if (desktop && url.pathname.endsWith("/ATTRIBUTION.md")) {
       event.preventDefault();
       void invoke("open_attribution", { path: url.pathname }).catch(() => setDocumentPath(url.pathname));
       return;
     }
     if (link.target && link.target !== "_self") return;
-    const nextPage = pageAtPath(url.pathname);
-    if (!nextPage) return;
+    if (!nextPage || (!desktop && !settings && nextPage !== "settings")) return;
     event.preventDefault();
-    goTo(url.pathname);
+    if (settings && link.classList.contains("module-settings")) { closeSettings(); return; }
+    goTo(url.pathname, settingsSectionAt(url.hash));
     event.currentTarget.querySelector<HTMLAnchorElement>(`.module-nav a[href="/${nextPage}"]`)?.focus({ preventScroll: true });
   };
-  return <ModuleLayout page={page} onClick={isTauri() ? navigate : undefined}>
-    {Page ? <Page /> : <LessonsPage editId={lessonEditId(path)} viewId={lessonViewId(path)} navigate={goTo} />}
+  return <GraphicsSettingsContext value={graphics}><CameraDevicesContext value={cameras}>
+    <ModuleLayout page={page} onClick={navigate} settings={settings ? <SettingsPage section={section}
+      onReplayGuide={workspace === "anatomy" ? () => { window.dispatchEvent(new Event(replayOnboardingEvent)); closeSettings(); } : undefined} /> : undefined}>
+    {Page ? <Page /> : workspace === "lessons" ? <LessonsPage editId={lessonEditId(workspacePath)} viewId={lessonViewId(workspacePath)} navigate={goTo} /> : null}
     {documentPath && <SourceDocument key={documentPath} path={documentPath} onClose={() => setDocumentPath(null)} />}
-  </ModuleLayout>;
+    </ModuleLayout>
+  </CameraDevicesContext></GraphicsSettingsContext>;
 }
 
 export function App() {

@@ -1,6 +1,5 @@
 import type { AnatomyViewer } from "../../wasm/wasm";
-import { shortcutAction } from "../../shortcuts";
-import { isCameraKey } from "../camera-controls";
+import { cameraShortcutAction, shortcutAction } from "../../shortcuts";
 
 export function bindViewerInput(canvas: HTMLCanvasElement, options: {
   enabled: () => boolean;
@@ -257,7 +256,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
       else options.moved?.(current.id);
       return;
     }
-    if (drag && isCameraKey(event.key)) {
+    if (drag && cameraShortcutAction(event)) {
       event.preventDefault(); return;
     }
   };

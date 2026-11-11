@@ -16,7 +16,6 @@ import { lessonModels, lessonSceneModels, lessonTargets } from "../shared/target
 import type { SceneView } from "../../anatomy/viewer/contracts";
 import { useLessonPanel } from "../shared/panels";
 import { LessonOutline } from "./outline";
-import { LessonControls } from "../shared/controls";
 import { useGraphicsSettings } from "../../pages/use-graphics-settings";
 import { SidebarToggle, WorkspaceLayout, WorkspaceMenu } from "../../pages/workspace-layout";
 import { useLessonConfirm } from "../shared/confirm";
@@ -41,7 +40,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
 }) {
   const { language, t } = useLanguage();
   const confirm = useLessonConfirm();
-  const [graphics, setGraphics] = useGraphicsSettings();
+  const [graphics] = useGraphicsSettings();
   const [draft, setDraft] = useState<Lesson>(lesson);
   const [locale, setLocale] = useState<Language>();
   const [error, setError] = useState("");
@@ -407,7 +406,6 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
         <button className="lesson-button lesson-primary" aria-label={t("lessons.preview")} onClick={preview}>
           <span className="lesson-action-full">{t("lessons.preview")}</span><span className="lesson-action-short">{t("lessons.previewShort")}</span>
         </button>
-        <LessonControls graphics={graphics} onGraphicsChange={setGraphics} editing />
       </>} />
     <div className="lesson-author-workspace" data-outline={outlineOpen}>
     <nav className="workspace-panel-surface lesson-author-outline" id="lesson-author-outline" hidden={!outlineOpen} inert={!outlineOpen} aria-hidden={!outlineOpen}

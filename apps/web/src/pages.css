@@ -1,17 +1,15 @@
 .module-brand { display: inline-flex; align-items: center; flex: none; min-height: 28px; height: 28px; color: var(--text); text-decoration: none; font: 700 14px/1.4 var(--font-ui); white-space: nowrap; }
-.module-preferences { display: flex; align-items: center; gap: 6px; }
-.page-toggle { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; min-height: 28px; height: 28px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--inner-radius); color: var(--muted-dark); background: var(--surface); font-size: 11px; font-weight: 650; letter-spacing: .4px; cursor: pointer; }
-.page-toggle:hover { border-color: var(--line-hover); background: var(--control-hover); }
-.theme-toggle { width: 28px; height: 28px; padding: 0; flex-shrink: 0; }
+.module-preferences { display: flex; align-items: center; }
+.module-settings { gap: 6px; white-space: nowrap; }
 .module-page { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100dvh; min-width: 0; overflow: hidden; padding: 0 6px 6px; color: var(--text); background: var(--page-bg); }
 .module-header { min-height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 10px; }
 .macos-window .module-header { padding-left: 100px; user-select: none; -webkit-user-select: none; }
 .windows-window .module-header { gap: 10px; margin-right: -6px; padding-right: 0; user-select: none; -webkit-user-select: none; }
 .module-nav { display: flex; align-items: center; gap: 5px; min-width: 0; margin-right: auto; flex-wrap: wrap; }
-.module-nav > a { min-height: 28px; height: 28px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: var(--inner-radius); color: var(--muted-dark); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); text-decoration: none; font-size: 12px; }
+:is(.module-nav > a, .module-settings) { min-height: 28px; height: 28px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: var(--inner-radius); color: var(--muted-dark); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); text-decoration: none; font-size: 12px; }
 .module-nav > .module-nav-disabled { min-height: 28px; height: 28px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: var(--inner-radius); color: var(--muted-dark); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); font-size: 12px; opacity: .58; cursor: not-allowed; }
-.module-nav > a:hover { background: var(--control-hover); box-shadow: inset 0 0 0 1px var(--line-hover); }
-.module-nav > a[aria-current="page"] { color: var(--accent); background: var(--selected-bg); box-shadow: inset 0 0 0 1px var(--accent); font-weight: 650; }
+:is(.module-nav > a, .module-settings):hover { background: var(--control-hover); box-shadow: inset 0 0 0 1px var(--line-hover); }
+:is(.module-nav > a, .module-settings)[aria-current="page"] { color: var(--accent); background: var(--selected-bg); box-shadow: inset 0 0 0 1px var(--accent); font-weight: 650; }
 .module-nav > .module-nav-disabled[aria-current="page"] { box-shadow: inset 0 0 0 1px var(--line-hover); font-weight: 650; }
 .window-controls { display: flex; align-self: stretch; flex: none; margin-left: 4px; }
 .window-control { width: 46px; min-height: 40px; height: 100%; display: grid; place-items: center; padding: 0; border: 0; border-radius: 0; color: var(--text); background: transparent; }
@@ -32,9 +30,7 @@
   .module-nav > a { min-height: 28px; height: 28px; padding: 0 8px; font-size: 11px; }
   .module-nav > .module-nav-disabled { min-height: 28px; height: 28px; padding: 0 8px; font-size: 11px; }
   .module-header .module-preferences { grid-column: 2; grid-row: 1; }
-  .module-preferences { gap: 5px; }
-  .page-toggle { min-width: 28px; height: 28px; min-height: 28px; padding: 0 6px; }
-  .theme-toggle { width: 28px; height: 28px; padding: 0; }
 }
 
 .model-space { --muted: var(--muted-dark); position: absolute; inset: 0; min-width: 0; min-height: 0; overflow: hidden; border-radius: inherit; background: var(--workspace-bg); }
+.model-space[inert] { visibility: hidden; }

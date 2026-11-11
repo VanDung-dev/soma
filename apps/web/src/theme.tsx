@@ -1,16 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { readSetting, writeSetting } from "./settings/storage";
 
 export type Theme = "auto" | "light" | "dark";
 
-const themeStorageKey = "human-atlas-theme";
 type ThemeTransition = { finished: Promise<void>; skipTransition: () => void };
 
 export function getInitialTheme(): Theme {
-  try {
-    const theme = window.localStorage.getItem(themeStorageKey);
-    return theme === "light" || theme === "dark" ? theme : "auto";
-  } catch { return "auto"; }
+  const theme = readSetting("theme");
+  return theme === "light" || theme === "dark" ? theme : "auto";
 }
 
 export function getEffectiveTheme(theme: Theme): "light" | "dark" {
@@ -27,7 +25,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const appliedTheme = useRef<"light" | "dark" | null>(null);
   const activeTransition = useRef<ThemeTransition | null>(null);
   const setTheme = useCallback((nextTheme: Theme) => {
-    try { window.localStorage.setItem(themeStorageKey, nextTheme); } catch {}
+    writeSetting("theme", nextTheme);
     setThemeState(nextTheme);
   }, []);
   useEffect(() => {
@@ -57,7 +55,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       };
       if (appliedTheme.current === null || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { update(); return; }
       transitionTimeout = window.setTimeout(() => {
-        const toggle = document.querySelector<HTMLElement>(".theme-toggle");
+        const toggle = document.querySelector<HTMLElement>('.theme-toggle[aria-pressed="true"]');
         const rect = toggle?.getBoundingClientRect();
         const x = rect?.width ? rect.left + rect.width / 2 : window.innerWidth / 2;
         const y = rect?.height ? rect.top + rect.height / 2 : window.innerHeight / 2;

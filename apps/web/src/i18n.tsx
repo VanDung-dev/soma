@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import translations from "../../../content/ui-translations.json";
+import { readSetting, writeSetting } from "./settings/storage";
 
 export type Language = "vi" | "en";
 export type MessageKey = keyof typeof translations.messages;
@@ -12,11 +13,8 @@ interface LanguageContextValue {
   t: (key: MessageKey, values?: MessageValues) => string;
 }
 
-const languageStorageKey = "human-atlas-language";
-
 export function getInitialLanguage(): Language {
-  try { return window.localStorage.getItem(languageStorageKey) === "en" ? "en" : "vi"; }
-  catch { return "vi"; }
+  return readSetting("language") === "en" ? "en" : "vi";
 }
 
 export function translateMessage(key: MessageKey, language: Language, values: MessageValues = {}) {
@@ -39,7 +37,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState<Language>(getInitialLanguage);
   useEffect(() => {
     document.documentElement.lang = language;
-    try { window.localStorage.setItem(languageStorageKey, language); } catch {}
+    writeSetting("language", language);
   }, [language]);
   const value = useMemo<LanguageContextValue>(() => ({
     language,

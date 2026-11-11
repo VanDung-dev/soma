@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { anatomy_names, wikipedia_reference } from "../content/content";
 import { useLanguage } from "../i18n";
 import { isTauri } from "@tauri-apps/api/core";
+import { frameShortcuts, useShortcutBindings } from "../shortcuts";
 
 export function wikipediaReference(name: string) {
   const article = wikipedia_reference(name) as { url: string; status: string } | undefined;
@@ -32,6 +33,9 @@ export function WikipediaReader({ name, expanded = false, actions }: { name: str
   const [loading, setLoading] = useState(!!article);
   const frame = useRef<HTMLIFrameElement>(null);
   const homePage = useRef<string | undefined>(undefined);
+  const bindings = useShortcutBindings();
+  const sendShortcuts = () => frame.current?.contentWindow?.postMessage({ type: "wikipedia:bindings", bindings: frameShortcuts() }, "*");
+  useEffect(sendShortcuts, [bindings]);
   useEffect(() => {
     const receive = (event: MessageEvent) => {
       if (event.source !== frame.current?.contentWindow || !["wikipedia:ready", "wikipedia:location", "wikipedia:loading"].includes(event.data?.type)) return;
@@ -68,6 +72,7 @@ export function WikipediaReader({ name, expanded = false, actions }: { name: str
       sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer"
       onLoad={() => {
         setLoading(false);
+        sendShortcuts();
         if (isTauri() && import.meta.env.DEV) frame.current?.contentWindow?.postMessage({ type: "wikipedia:contextmenu", blocked: true }, "*");
       }} />
       {loading && <div className="wikipedia-skeleton" role="status">

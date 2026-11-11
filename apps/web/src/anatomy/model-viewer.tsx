@@ -1,15 +1,15 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { Catalog } from "./catalog/types";
 import { StructureTree } from "./structure-tree";
 import { StructureSearch } from "./structure-search";
-import { ModelControls } from "./model-controls";
-import { AnatomyOnboarding } from "./onboarding";
+import { useCameraKeys } from "./use-camera-keys";
+import { AnatomyOnboarding, replayOnboardingEvent } from "./onboarding";
 import { MenuBar } from "./menu-bar";
 import { OrientationAxes } from "./orientation-axes";
 import type { OrientationAxesHandle } from "./orientation-axes";
 import { ExplodeControls } from "./explode-controls";
 import { HandCameraControls } from "./hand-camera-controls";
-import { useCameraDevices } from "./camera-devices";
+import { CameraDevicesContext, useCameraDevices } from "./camera-devices";
 import { ReferenceNotice, WikipediaReader } from "./wikipedia-reader";
 import { OpenStaxLink, OpenStaxReading } from "./openstax-reference";
 import { useLanguage } from "../i18n";
@@ -19,11 +19,13 @@ import { ViewerStatusNotice } from "./viewer-status";
 import { desktopPanelQuery, measureViewport } from "./viewer/layout";
 import { useGraphicsSettings } from "../pages/use-graphics-settings";
 import { SidebarToggle } from "../pages/workspace-layout";
+import { WorkspaceActiveContext } from "../pages/module-layout";
 import { shortcutAction } from "../shortcuts";
 
 export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const { language, t } = useLanguage();
-  const [graphics, setGraphics] = useGraphicsSettings();
+  const [graphics] = useGraphicsSettings();
+  const active = useContext(WorkspaceActiveContext);
   const [fps, setFps] = useState(0);
   const [hold, setHold] = useState<{ x: number; y: number; action: "hide" | "move" } | null>(null);
   const [snapTarget, setSnapTarget] = useState("");
@@ -37,9 +39,9 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const [onboardingRun, setOnboardingRun] = useState(0);
   const [handCameraEnabled, setHandCameraEnabled] = useState(false);
   const [handCameraActive, setHandCameraActive] = useState(false);
-  const cameras = useCameraDevices();
-  const helpId = useId();
-  const settingsId = useId();
+  const sharedCameras = useContext(CameraDevicesContext);
+  const localCameras = useCameraDevices(!sharedCameras);
+  const cameras = sharedCameras ?? localCameras;
   const catalogId = useId();
   const informationId = useId();
   const menuBar = useRef<HTMLElement>(null);
@@ -55,6 +57,12 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const { structureIds, building, error, loadedSystems, selected, readingId, targetId,
     visibleIds, readerExpanded, explosionAmount, movingId, separatedIds, reveal, canGoBack, canGoForward } = state;
+  useCameraKeys(!active || building || error, session.control);
+  useEffect(() => {
+    const replay = () => { setHandCameraEnabled(false); setOnboardingRun(run => run + 1); };
+    window.addEventListener(replayOnboardingEvent, replay);
+    return () => window.removeEventListener(replayOnboardingEvent, replay);
+  }, []);
   const roots = session.catalog.roots;
   const target = useMemo(() => targetId ? catalog.target(targetId) : undefined, [catalog, targetId]);
   const focusViewport = () => measureViewport({ host: host.current!, frame: focusFrame.current!,
@@ -80,18 +88,8 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   }, [graphics, session]);
   const performAction = useCallback((action: ReturnType<typeof shortcutAction>) => {
     if (!action) return;
-    const open = (id: string) => {
-      const panel = document.getElementById(id);
-      if (!panel) return;
-      const trigger = document.querySelector<HTMLButtonElement>(`button[popovertarget="${id}"]`);
-      if (panel.matches(":popover-open")) { panel.hidePopover(); trigger?.focus({ preventScroll: true }); return; }
-      panel.showPopover();
-      panel.querySelector<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled)")?.focus({ preventScroll: true });
-    };
     const current = session.getSnapshot();
-    if (action === "settings") open(settingsId);
-    else if (action === "guide") open(helpId);
-    else if (action === "catalog" || action === "information") {
+    if (action === "catalog" || action === "information") {
       if (desktopPanels) setCollapsedPanels(current => ({ ...current, [action]: !current[action] }));
       else setPanel(current => current === action ? null : action);
     }
@@ -100,12 +98,12 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       else if (action === "forward") session.forward();
       else if (action === "restore" && (current.movingId || current.separatedIds.size)) session.restoreStructure("");
     }
-  }, [session, helpId, settingsId, desktopPanels]);
+  }, [session, desktopPanels]);
   useEffect(() => {
+    if (!active) return;
     const keyDown = (event: KeyboardEvent) => {
       const action = shortcutAction(event);
-      if (!action) return;
-      if (action === "settings" && document.querySelector(":popover-open:not([data-hand-visual])") && !document.getElementById(settingsId)?.matches(":popover-open")) return;
+      if (!action || action === "settings") return;
       event.preventDefault();
       performAction(action);
     };
@@ -114,12 +112,12 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       if (data?.type !== "wikipedia:shortcut" || typeof data.key !== "string" || typeof data.code !== "string"
         || typeof data.metaKey !== "boolean" || typeof data.ctrlKey !== "boolean" || typeof data.shiftKey !== "boolean"
         || ![...document.querySelectorAll<HTMLIFrameElement>("iframe.wikipedia-article")].some(frame => frame.contentWindow === event.source)) return;
-      keyDown(new KeyboardEvent("keydown", { key: data.key, code: data.code, metaKey: data.metaKey, ctrlKey: data.ctrlKey, shiftKey: data.shiftKey, cancelable: true }));
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: data.key, code: data.code, metaKey: data.metaKey, ctrlKey: data.ctrlKey, shiftKey: data.shiftKey, bubbles: true, cancelable: true }));
     };
     document.addEventListener("keydown", keyDown);
     window.addEventListener("message", frameKeyDown);
     return () => { document.removeEventListener("keydown", keyDown); window.removeEventListener("message", frameKeyDown); };
-  }, [performAction, settingsId]);
+  }, [active, performAction]);
   useEffect(() => {
     const panels = [catalogPanel.current!, informationPanel.current!];
     const centerControls = () => {
@@ -177,11 +175,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       <MenuBar ref={menuBar} disabled={building || error} canGoBack={canGoBack} canGoForward={canGoForward}
         catalogToggle={panelToggle("catalog", t("catalog.heading"))} informationToggle={panelToggle("information", t("information.panel.label"))}
         cameraEnabled={handCameraEnabled} cameraActive={handCameraActive || cameras.accessActive} onCameraChange={setHandCameraEnabled}
-        cameraDevices={cameras.devices} cameraDeviceId={cameras.deviceId} cameraDevicesError={cameras.error} onCameraDeviceChange={cameras.setDeviceId}
-        cameraAccessPending={cameras.requesting} onCameraAccessRequest={cameras.requestAccess}
-        onBack={session.back} onForward={session.forward} helpId={helpId} settingsId={settingsId} graphics={graphics} onGraphicsChange={setGraphics} />
-      <ModelControls disabled={building || error} onControl={session.control} helpId={helpId}
-        onReplayGuide={() => { document.getElementById(helpId)?.hidePopover(); setHandCameraEnabled(false); setOnboardingRun(run => run + 1); }} />
+        cameraAccessPending={cameras.requesting} onBack={session.back} onForward={session.forward} />
       <aside id={catalogId} ref={catalogPanel} className="catalog-panel" data-open={panel === "catalog"} data-collapsed={collapsedPanels.catalog} aria-label={t("catalog.navigation.label")}>
         <div className="catalog-heading"><h2>{t("catalog.heading")}</h2><span>{t("catalog.systemCount", { count: catalog.groupCount })}</span></div>
         <div className="tree-actions">
@@ -203,7 +197,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
             <circle className="model-hold-fill" cx="20" cy="20" r="16" pathLength="100" />
           </svg>}
           <div className="model-focus-frame" ref={focusFrame}>
-            <HandCameraControls enabled={handCameraEnabled} disabled={building || error} cameraDisabled={!!movingId || !!separatedIds.size} onControl={session.control}
+            <HandCameraControls enabled={active && handCameraEnabled && !cameras.requesting} disabled={building || error} cameraDisabled={!!movingId || !!separatedIds.size} onControl={session.control}
               deviceId={cameras.deviceId} onCameraStarted={cameras.refresh} onCameraActiveChange={setHandCameraActive}
               sceneHost={host} interactionFrame={focusFrame} obstacles={[hud, catalogPanel, informationPanel, orientationHud]}
               onEnabledChange={setHandCameraEnabled} />
@@ -259,7 +253,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
           </div>
         </div>
       </aside>
-      {!building && !error && !handCameraEnabled && <AnatomyOnboarding key={onboardingRun} replay={onboardingRun > 0} onPanelChange={showPanel} />}
+      {active && !building && !error && !handCameraEnabled && <AnatomyOnboarding key={onboardingRun} replay={onboardingRun > 0} onPanelChange={showPanel} />}
     </>
   );
 }

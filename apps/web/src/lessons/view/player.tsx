@@ -12,13 +12,12 @@ import { useLessonPanel } from "../shared/panels";
 import { lessonHtml, lessonPlainText } from "../shared/rich-text";
 import { useLessonImages } from "../shared/image-context";
 import { lessonModels } from "../shared/targets";
-import { LessonControls } from "../shared/controls";
 import { useGraphicsSettings } from "../../pages/use-graphics-settings";
 import { SidebarToggle, WorkspaceLayout, WorkspaceMenu } from "../../pages/workspace-layout";
 
 export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false }: { lesson: Lesson; catalog: Catalog; onBack: () => void; onEdit?: () => void; preview?: boolean }) {
   const { language, t } = useLanguage();
-  const [graphics, setGraphics] = useGraphicsSettings();
+  const [graphics] = useGraphicsSettings();
   const images = useLessonImages();
   const usesModel = lesson.steps.some(step => step.kind !== "text") && lesson.steps.some(step => step.showModel !== false);
   const modelIds = useMemo(() => lessonModels(catalog, lesson), [catalog, lesson]);
@@ -127,7 +126,6 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
       {onEdit && <button className="lesson-button lesson-primary" onClick={onEdit} aria-label={t("lessons.backEditor")}>
         <span className="lesson-action-full">{t("lessons.edit")}</span><span className="lesson-action-short">{t("lessons.editShort")}</span>
       </button>}
-      <LessonControls graphics={graphics} onGraphicsChange={setGraphics} />
       </>} />
     <div className="lesson-player-body" ref={body} data-outline={outlineOpen}>
       <nav id={outlineId} className="lesson-reader-outline workspace-panel-surface" hidden={!outlineOpen} inert={!outlineOpen} aria-hidden={!outlineOpen} aria-label={t("lessons.outline")}>

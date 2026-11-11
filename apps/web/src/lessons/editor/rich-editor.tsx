@@ -15,6 +15,7 @@ import type { Editor } from "tinymce";
 import type { LessonText } from "../shared/contract";
 import type { Language } from "../../i18n";
 import { useLanguage } from "../../i18n";
+import { shortcutAction } from "../../shortcuts";
 import { editorHtml, lessonElements, resolveLessonImages, sanitizeLessonHtml } from "../shared/rich-text";
 import { useLessonImages } from "../shared/image-context";
 import type { LessonImageStage } from "../shared/archive";
@@ -79,6 +80,13 @@ export default function RichEditor({ value, language, label, onChange }: {
         instance = editor;
         editor.on("OpenWindow", event => { dialog = event.dialog; });
         editor.on("CloseWindow", event => { if (dialog === event.dialog) dialog = undefined; });
+        editor.on("keydown", event => {
+          if (dialog || shortcutAction(event) !== "settings") return;
+          const settings = document.querySelector<HTMLAnchorElement>(".module-settings");
+          if (!settings) return;
+          event.preventDefault();
+          settings.click();
+        });
         editor.on("BeforeSetContent", event => { event.content = safeContent(event.content); });
         editor.on("init", () => {
           if (disposed) { editor.remove(); return; }

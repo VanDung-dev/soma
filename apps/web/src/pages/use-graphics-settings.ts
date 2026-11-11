@@ -1,10 +1,16 @@
-import { useEffect, useState } from "react";
-import { graphicsStorageKey, readGraphicsSettings } from "../anatomy/viewer/graphics";
+import { createContext, useContext, useEffect, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
+import { readGraphicsSettings, type GraphicsSettings } from "../anatomy/viewer/graphics";
+import { writeSetting } from "../settings/storage";
+
+export const GraphicsSettingsContext = createContext<readonly [GraphicsSettings, Dispatch<SetStateAction<GraphicsSettings>>] | null>(null);
 
 export function useGraphicsSettings() {
+  const shared = useContext(GraphicsSettingsContext);
   const [graphics, setGraphics] = useState(readGraphicsSettings);
   useEffect(() => {
-    try { window.localStorage.setItem(graphicsStorageKey, JSON.stringify(graphics)); } catch {}
-  }, [graphics]);
-  return [graphics, setGraphics] as const;
+    if (shared) return;
+    writeSetting("graphics", graphics);
+  }, [graphics, shared]);
+  return shared ?? [graphics, setGraphics] as const;
 }
