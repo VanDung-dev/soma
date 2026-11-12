@@ -22,15 +22,24 @@ fn get_catalog() -> Result<String, String> {
 fn open_attribution(app: AppHandle, path: &str) -> Result<(), String> {
     let resource = match path {
         "/home/ATTRIBUTION.md" => "home/ATTRIBUTION.md",
+        "/icons/ATTRIBUTION.md" => "icons/ATTRIBUTION.md",
+        "/hand-input/ATTRIBUTION.md" => "hand-input/ATTRIBUTION.md",
         "/models/z-anatomy/ATTRIBUTION.md" => "models/z-anatomy/ATTRIBUTION.md",
-        _ => return Err("Unknown attribution document".into()),
+        "/licenses/LICENSE.txt" => "licenses/LICENSE.txt",
+        "/licenses/NOTICE.txt" => "licenses/NOTICE.txt",
+        "/licenses/brotli.txt" => "licenses/brotli.txt",
+        "/licenses/lesson-content.txt" => "licenses/lesson-content.txt",
+        "/licenses/squoosh.txt" => "licenses/squoosh.txt",
+        "/licenses/tinymce.md" => "licenses/tinymce.md",
+        "/licenses/dompurify.txt" => "licenses/dompurify.txt",
+        _ => return Err("Unknown source document".into()),
     };
     let path = app
         .path()
         .resolve(resource, tauri::path::BaseDirectory::Resource)
         .map_err(|error| error.to_string())?;
     if !path.is_file() {
-        return Err("Attribution document is missing".into());
+        return Err("Source document is missing".into());
     }
     let editor = match std::env::consts::OS {
         "macos" => "/System/Applications/TextEdit.app",

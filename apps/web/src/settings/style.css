@@ -16,6 +16,8 @@
 .settings-guide-content > h3 { margin: 14px 0 10px; font-size: 15px; }
 .settings-guide-content > h3:first-child { margin-top: 0; }
 .settings-guide-content > p { margin: 0 0 8px; }
+.settings-guide-content > .settings-row + .settings-row { margin-top: 8px; }
+.settings-document-link { display: inline-flex; align-items: center; text-decoration: none; }
 
 @media (max-width: 650px) {
   .settings-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }

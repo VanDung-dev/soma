@@ -14,6 +14,7 @@ const sections = {
   camera: "settings.camera",
   guide: "settings.guide",
   shortcuts: "settings.shortcuts",
+  licenses: "settings.licenses",
 } as const;
 
 export type SettingsSection = keyof typeof sections;
@@ -25,6 +26,14 @@ export function settingsSectionAt(hash: string): SettingsSection {
 
 export function settingsHref(section: SettingsSection) {
   return section === "interface" ? "/settings" : `/settings#${section}`;
+}
+
+function LicenseRow({ label, path }: { label: string; path: string }) {
+  const { t } = useLanguage();
+  return <div className="settings-row">
+    <span className="graphics-options-label">{label}</span>
+    <a className="settings-option settings-document-link" href={path} target="_blank" rel="noreferrer">{t("settings.licenses.view")}</a>
+  </div>;
 }
 
 export function SettingsPage({ section = "interface", onReplayGuide }: {
@@ -90,6 +99,23 @@ export function SettingsPage({ section = "interface", onReplayGuide }: {
             <p>{t("lessons.dragInstructions")}</p>
             <p>{t("lessons.guide.reader")}</p>
             <p>{t("lessons.guide.cameraFocus")}</p>
+          </div>}
+          {section === "licenses" && <div className="settings-guide-content">
+            <p>{t("settings.licenses.description")}</p>
+            <h3>{t("settings.licenses.group.soma")}</h3>
+            <LicenseRow label={t("settings.licenses.doc.license")} path="/licenses/LICENSE.txt" />
+            <LicenseRow label={t("settings.licenses.doc.notice")} path="/licenses/NOTICE.txt" />
+            <h3>{t("settings.licenses.group.assets")}</h3>
+            <LicenseRow label={t("settings.licenses.doc.anatomy")} path="/models/z-anatomy/ATTRIBUTION.md" />
+            <LicenseRow label={t("settings.licenses.doc.home")} path="/home/ATTRIBUTION.md" />
+            <LicenseRow label={t("settings.licenses.doc.icons")} path="/icons/ATTRIBUTION.md" />
+            <LicenseRow label={t("settings.licenses.doc.handInput")} path="/hand-input/ATTRIBUTION.md" />
+            <h3>{t("settings.licenses.group.dependencies")}</h3>
+            <LicenseRow label="Brotli" path="/licenses/brotli.txt" />
+            <LicenseRow label={t("settings.licenses.doc.lessonContent")} path="/licenses/lesson-content.txt" />
+            <LicenseRow label="Squoosh / libwebp" path="/licenses/squoosh.txt" />
+            <LicenseRow label="TinyMCE" path="/licenses/tinymce.md" />
+            <LicenseRow label="DOMPurify" path="/licenses/dompurify.txt" />
           </div>}
           {section === "shortcuts" && <ShortcutControls />}
         </section>

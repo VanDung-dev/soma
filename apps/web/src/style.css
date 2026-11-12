@@ -52,4 +52,4 @@ button { color: inherit; }
 .app-popover:popover-open { display: flex; flex-direction: column; gap: var(--panel-padding); }
 .app-popover > .guide-heading { flex-shrink: 0; margin-bottom: 0; }
 .popover-content { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--panel-padding); border-radius: var(--inner-radius); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
-.source-document pre { margin: 0; white-space: pre; overflow-wrap: normal; font: 13px monospace; }
+.source-document pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px monospace; }

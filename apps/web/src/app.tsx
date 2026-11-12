@@ -97,6 +97,13 @@ function AppRoute() {
     if (!(link instanceof HTMLAnchorElement) || link.hasAttribute("download")) return;
     const url = new URL(link.href);
     if (url.protocol !== window.location.protocol || url.host !== window.location.host || url.search) return;
+    if (desktop && url.pathname.startsWith("/licenses/")) {
+      event.preventDefault();
+      const documentPath = url.pathname === "/licenses/LICENSE.txt" ? "/LICENSE"
+        : url.pathname === "/licenses/NOTICE.txt" ? "/NOTICE" : url.pathname;
+      void invoke("open_attribution", { path: url.pathname }).catch(() => setDocumentPath(documentPath));
+      return;
+    }
     const nextPage = pageAtPath(url.pathname);
     if (url.hash && (nextPage !== "settings" || settingsSectionAt(url.hash) === "interface")) return;
     if (desktop && url.pathname.endsWith("/ATTRIBUTION.md")) {
@@ -115,8 +122,8 @@ function AppRoute() {
     <ModuleLayout page={page} onClick={navigate} settings={settings ? <SettingsPage section={section}
       onReplayGuide={workspace === "anatomy" ? () => { window.dispatchEvent(new Event(replayOnboardingEvent)); closeSettings(); } : undefined} /> : undefined}>
     {Page ? <Page /> : workspace === "lessons" ? <LessonsPage editId={lessonEditId(workspacePath)} viewId={lessonViewId(workspacePath)} navigate={goTo} /> : null}
-    {documentPath && <SourceDocument key={documentPath} path={documentPath} onClose={() => setDocumentPath(null)} />}
     </ModuleLayout>
+    {documentPath && <SourceDocument key={documentPath} path={documentPath} onClose={() => setDocumentPath(null)} />}
   </CameraDevicesContext></GraphicsSettingsContext>;
 }
 
