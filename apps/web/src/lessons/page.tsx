@@ -143,7 +143,7 @@ function LessonsPageContent({ editId, viewId, navigate }: { editId?: string; vie
     if (saveBusy.current) return;
     const currentSaved = lessons.find(item => item.id === activeId);
     const unsavedDraft = currentDraft ?? pending;
-    const hasUnsaved = unsavedDraft && (!currentSaved || JSON.stringify(unsavedDraft) !== JSON.stringify(currentSaved));
+    const hasUnsaved = unsavedDraft && (!currentSaved || JSON.stringify({ ...unsavedDraft, version: currentSaved.version }) !== JSON.stringify(currentSaved));
     if (error === "save" || hasUnsaved) {
       const choice = await confirm(t("lessons.confirmDiscard"), t("lessons.exitWithoutSaving"), t("lessons.saveAndExit"), t("lessons.continueEditing"));
       if (!choice) return;
