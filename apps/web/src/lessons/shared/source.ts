@@ -4,7 +4,7 @@ import type { Lesson } from "./contract";
 import { lessonJob } from "./archive";
 import { validate_lesson_file } from "../../content/content.js";
 import { getContent } from "../../anatomy/core";
-import { loadBrowserLessonImages, loadLessonImages, removeLessonImages, storeLessonImages } from "./images";
+import { loadBrowserLessonImages, loadLessonImages, removeLessonImages, retainLessonImages, storeLessonImages } from "./images";
 import type { LessonImages } from "./images";
 import { lessonImagePaths } from "./rich-text";
 
@@ -67,6 +67,8 @@ export async function saveLesson(lesson: Lesson, previous?: Lesson) {
   const key = LESSON_PREFIX + lesson.id;
   if (localStorage.getItem(key) !== expected) throw new Error("The lesson changed in another tab.");
   localStorage.setItem(key, json);
+  try { await retainLessonImages(lesson.id, lessonImagePaths(lesson), lesson); }
+  catch (error) { console.error("Lesson image cleanup failed", error); }
 }
 
 export async function removeLesson(lesson: Lesson) {

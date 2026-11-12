@@ -208,6 +208,7 @@ fn main() -> Result<(), tauri::Error> {
             wikipedia::wikipedia_proxy_url,
             lessons::list_saved_lessons,
             lessons::save_lesson,
+            lessons::retain_lesson_images,
             lessons::remove_lesson,
             lessons::list_lesson_images,
             lessons::get_lesson_image,

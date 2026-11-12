@@ -84,6 +84,11 @@ pub fn lesson_image_info(bytes: &[u8]) -> Result<JsValue, JsValue> {
 }
 
 #[wasm_bindgen]
+pub fn lesson_image_fingerprint(bytes: &[u8]) -> Result<String, JsValue> {
+    lessons::image_fingerprint(bytes).map_err(js_error)
+}
+
+#[wasm_bindgen]
 pub fn validate_lesson_images(entries: JsValue) -> Result<(), JsValue> {
     let entries: Vec<(String, usize)> = read(entries)?;
     lessons::check_image_collection(&entries).map_err(js_error)

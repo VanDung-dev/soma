@@ -4,6 +4,7 @@ use content::lessons::{check_image_collection, image_info};
 use sha2::{Digest, Sha256};
 use std::{
     borrow::Cow,
+    collections::{BTreeSet, HashSet},
     fs::{self, File},
     io,
     path::{Path, PathBuf},
@@ -66,6 +67,15 @@ fn image_entries(dir: &Path) -> io::Result<Vec<(String, usize)>> {
     Ok(images)
 }
 
+fn retain_images(dir: &Path, keep: &BTreeSet<String>) -> io::Result<()> {
+    for (path, _) in image_entries(dir)? {
+        if !keep.contains(&path) {
+            fs::remove_file(dir.join(path))?;
+        }
+    }
+    Ok(())
+}
+
 fn check_previous(path: &Path, expected: Option<&str>) -> Result<(), String> {
     let current = current_lesson(path).map_err(message)?;
     let parse = |json: &str| serde_json::from_str::<serde_json::Value>(json);
@@ -124,12 +134,37 @@ pub async fn save_lesson(
     let path = dir.join("lesson.json");
     check_previous(&path, expected.as_deref())?;
     let referenced = lesson::image_paths(&value);
-    let mut images = image_entries(&dir).map_err(message)?;
-    images.retain(|(path, _)| referenced.contains(path));
-    check_image_collection(&images)?;
-    let paths = images.into_iter().map(|(path, _)| path).collect();
+    let images = image_entries(&dir).map_err(message)?;
+    let retained: Vec<_> = images
+        .iter()
+        .filter(|(path, _)| referenced.contains(path))
+        .cloned()
+        .collect();
+    check_image_collection(&retained)?;
+    let paths: HashSet<_> = retained.into_iter().map(|(path, _)| path).collect();
     lesson::validate_resources(&value, &paths)?;
-    write_file(&path, json.as_bytes()).map_err(message)
+    write_file(&path, json.as_bytes()).map_err(message)?;
+    if let Err(error) = retain_images(&dir, &referenced) {
+        eprintln!("Could not remove unused lesson images: {error}");
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn retain_lesson_images(
+    app: AppHandle,
+    id: String,
+    keep: Vec<String>,
+    expected: Option<String>,
+) -> Result<(), String> {
+    if keep.iter().any(|path| !lesson::image_path(path)) {
+        return Err("Invalid lesson image path".into());
+    }
+    let (root, _lock) = store(&app)?;
+    let dir = directory(&root, &id);
+    check_previous(&dir.join("lesson.json"), expected.as_deref()).map_err(message)?;
+    let keep = keep.into_iter().collect();
+    retain_images(&dir, &keep).map_err(message)
 }
 
 #[tauri::command]

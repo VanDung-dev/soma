@@ -171,7 +171,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
   function updateScene(visibleIds: string[], view: SceneView | undefined = scene?.view) {
     const live = sceneDirty ? sceneHandle.current?.capture() : undefined;
     if (sceneDirty && !live) { setError(t("lessons.sceneSaveUnavailable")); return; }
-    const patch = { modelIds, targetId: sceneTargetId, visibleIds: live?.visibleIds ?? visibleIds, view: live?.view ?? view };
+    const patch = { modelIds, targetId: sceneTargetId, visibleIds, view: live?.view ?? view };
     setSceneDirty(false);
     if (!active) return updateDraft({ scene: patch });
     return updateActive(active.kind === "identify_structure" ? { ...active, ...patch }
@@ -179,7 +179,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
   }
 
   function reloadModel() {
-    if (sceneDirty && !updateScene(visibleIds)) return;
+    if (!stageSceneDraft()) return;
     setModelReloadVersion(value => value + 1);
   }
 
@@ -193,13 +193,17 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
     if (removedRoots.length && (scene?.targetId || scene?.view || scene?.visibleIds?.length)
       && !await confirm(t("lessons.confirmSceneReset"), t("lessons.continue"))) return;
     const removedMembers = new Set(removedRoots.flatMap(id => catalog.members(id)));
+    const addedMembers = nextModelIds.filter(id => !currentModelIds.includes(id)).flatMap(id => catalog.members(id));
     const primaryId = nextModelIds[0] ?? "";
     const targetId = scene && nextModelIds.some(id => lessonTargets(catalog, id).some(target => target.id === scene.targetId))
       ? scene.targetId : primaryId;
     const patch = {
       modelIds: nextModelIds,
       targetId,
-      visibleIds: (live?.visibleIds ?? scene?.visibleIds)?.filter(id => !removedMembers.has(id)),
+      visibleIds: [...new Set([
+        ...(live?.visibleIds ?? visibleIds).filter(id => !removedMembers.has(id)),
+        ...addedMembers,
+      ])],
       view: live?.view ?? scene?.view,
     };
     setSceneDirty(false);

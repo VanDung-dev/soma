@@ -34,15 +34,15 @@ pub struct ImageInfo {
     pub height: u32,
 }
 
-pub fn image_info(bytes: &[u8]) -> Result<ImageInfo, String> {
+fn decode_image(
+    bytes: &[u8],
+) -> Result<(image::ImageFormat, u32, u32, image::DynamicImage), String> {
     check_image_size(bytes.len())?;
     let format = image::guess_format(bytes).map_err(|_| "Choose a PNG, JPEG or WebP image")?;
-    let (extension, mime) = match format {
-        image::ImageFormat::Png => ("png", "image/png"),
-        image::ImageFormat::Jpeg => ("jpg", "image/jpeg"),
-        image::ImageFormat::WebP => ("webp", "image/webp"),
+    match format {
+        image::ImageFormat::Png | image::ImageFormat::Jpeg | image::ImageFormat::WebP => {}
         _ => return Err("Choose a PNG, JPEG or WebP image".into()),
-    };
+    }
     if format == image::ImageFormat::WebP
         && bytes.get(12..16) == Some(b"VP8X")
         && bytes.get(20).is_some_and(|flags| flags & 2 != 0)
@@ -64,7 +64,18 @@ pub fn image_info(bytes: &[u8]) -> Result<ImageInfo, String> {
     if width == 0 || height == 0 || u64::from(width) * u64::from(height) > 16 * 1024 * 1024 {
         return Err("Image exceeds 16 megapixels or is invalid".into());
     }
-    reader().decode().map_err(|cause| cause.to_string())?;
+    let decoded = reader().decode().map_err(|cause| cause.to_string())?;
+    Ok((format, width, height, decoded))
+}
+
+pub fn image_info(bytes: &[u8]) -> Result<ImageInfo, String> {
+    let (format, width, height, _) = decode_image(bytes)?;
+    let (extension, mime) = match format {
+        image::ImageFormat::Png => ("png", "image/png"),
+        image::ImageFormat::Jpeg => ("jpg", "image/jpeg"),
+        image::ImageFormat::WebP => ("webp", "image/webp"),
+        _ => return Err("Choose a PNG, JPEG or WebP image".into()),
+    };
     let hash = format!("{:x}", Sha256::digest(bytes));
     Ok(ImageInfo {
         path: format!("images/{hash}.{extension}"),
@@ -72,6 +83,16 @@ pub fn image_info(bytes: &[u8]) -> Result<ImageInfo, String> {
         width,
         height,
     })
+}
+
+pub fn image_fingerprint(bytes: &[u8]) -> Result<String, String> {
+    let (_, width, height, decoded) = decode_image(bytes)?;
+    let pixels = decoded.to_rgba8();
+    let mut hash = Sha256::new();
+    hash.update(width.to_be_bytes());
+    hash.update(height.to_be_bytes());
+    hash.update(pixels.as_raw());
+    Ok(format!("{:x}", hash.finalize()))
 }
 
 pub fn check_image_collection(entries: &[(String, usize)]) -> Result<(), String> {

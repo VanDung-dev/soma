@@ -25,12 +25,12 @@
       "preventOverflow": true
     }],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' blob: ipc: http://ipc.localhost asset: http://asset.localhost; img-src 'self' data: blob:; frame-src 'self' https: http://127.0.0.1:*",
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self' 'unsafe-inline'; style-src-elem 'self' 'unsafe-inline'; connect-src 'self' blob: ipc: http://ipc.localhost asset: http://asset.localhost; img-src 'self' data: blob:; frame-src 'self' https: http://127.0.0.1:*",
       "assetProtocol": {
         "enable": true,
         "scope": ["$RESOURCE/models/**/*"]
       },
-      "devCsp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' blob: ipc: http://ipc.localhost ws://localhost:5173; img-src 'self' data: blob:; frame-src 'self' https:"
+      "devCsp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self' 'unsafe-inline'; style-src-elem 'self' 'unsafe-inline'; connect-src 'self' blob: ipc: http://ipc.localhost ws://localhost:5173; img-src 'self' data: blob:; frame-src 'self' https:"
     }
   },
   "bundle": {

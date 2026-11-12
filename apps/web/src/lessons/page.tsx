@@ -11,7 +11,9 @@ import { lessonEditPath, lessonViewPath } from "./routes";
 import { exportLesson, importLesson, listLessons, newLessonId, removeLesson, saveLesson } from "./shared/source";
 import "./style.css";
 import { LessonImageProvider } from "./shared/image-context";
-import { storeLessonImages } from "./shared/images";
+import { checkImageCollection, loadLessonImages, retainLessonImages, storeLessonImages } from "./shared/images";
+import { lessonJob } from "./shared/archive";
+import { lessonImagePaths } from "./shared/rich-text";
 import { LessonLibrary } from "./library";
 import { LessonConfirmProvider, useLessonConfirm } from "./shared/confirm";
 
@@ -98,11 +100,33 @@ function LessonsPageContent({ editId, viewId, navigate }: { editId?: string; vie
       const { lesson, images } = await importLesson(file);
       const previous = lessons.find(item => item.id === lesson.id);
       if (previous && !await confirm(t("lessons.confirmReplace", { name: lessonText(previous.title, language) || t("lessons.untitled") }), t("lessons.replace"))) return;
-      if (images.size) await storeLessonImages(lesson.id, images);
-      await saveLesson(lesson, previous);
-      setLessons(current => previous ? current.map(item => item.id === lesson.id ? lesson : item) : [...current, lesson]);
+      const storedImages = await loadLessonImages(lesson.id);
+      const previousPaths = new Set(storedImages.keys());
+      let importedLesson = lesson;
+      if (images.size) {
+        const referencedExisting = previous ? lessonImagePaths(previous) : new Set<string>();
+        const existing = [...storedImages].filter(([path]) => referencedExisting.has(path));
+        const result = await lessonJob({ operation: "deduplicate",
+          incoming: await Promise.all([...images].map(async ([path, blob]): Promise<[string, Uint8Array<ArrayBuffer>]> => [path, new Uint8Array(await blob.arrayBuffer())])),
+          existing: await Promise.all(existing.map(async ([path, blob]): Promise<[string, Uint8Array<ArrayBuffer>]> => [path, new Uint8Array(await blob.arrayBuffer())])) });
+        const aliases = new Map(result.aliases ?? []);
+        if (aliases.size) importedLesson = JSON.parse([...aliases].reduce((json, [from, to]) => json.replaceAll(from, to), JSON.stringify(lesson))) as Lesson;
+      }
+      const available = new Map([...storedImages, ...images]);
+      const paths = lessonImagePaths(importedLesson);
+      const retained = new Map([...paths].map(path => [path, available.get(path)!] as const).filter(([, blob]) => !!blob));
+      if (retained.size !== paths.size) throw new Error("Imported lesson references a missing image.");
+      checkImageCollection(retained);
+      const additions = new Map([...retained].filter(([path]) => !storedImages.has(path)));
+      if (additions.size) await storeLessonImages(lesson.id, additions);
+      try { await saveLesson(importedLesson, previous); }
+      catch (error) {
+        await retainLessonImages(lesson.id, previousPaths, previous).catch(cleanupError => console.error("Lesson import rollback failed", cleanupError));
+        throw error;
+      }
+      setLessons(current => previous ? current.map(item => item.id === importedLesson.id ? importedLesson : item) : [...current, importedLesson]);
       setError(undefined);
-      return lesson;
+      return importedLesson;
     } catch (cause) {
       console.error("Lesson import failed", cause);
       setError("import");

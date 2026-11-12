@@ -2,6 +2,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import * as content from "../../content/content.js";
 import { lessonJob } from "./archive";
 import type { LessonImageStage } from "./archive";
+import type { Lesson } from "./contract";
 
 export type LessonImages = Map<string, Blob>;
 
@@ -96,6 +97,28 @@ export async function removeLessonImages(id: string, canRemove: () => boolean) {
         const cursor = request.result;
         if (!cursor || !canRemove()) return;
         cursor.delete();
+        cursor.continue();
+      };
+      transaction.oncomplete = () => resolve();
+      transaction.onabort = transaction.onerror = () => reject(transaction.error);
+    });
+  } finally { db.close(); }
+}
+
+export async function retainLessonImages(id: string, paths: ReadonlySet<string>, expected?: Lesson) {
+  if (isTauri()) return invoke<void>("retain_lesson_images", { id, keep: [...paths], expected: expected ? JSON.stringify(expected) : null });
+  const key = `soma.lesson:${id}`;
+  const expectedJson = expected ? JSON.stringify(expected) : null;
+  const db = await database();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction("images", "readwrite");
+      const request = transaction.objectStore("images").openCursor(IDBKeyRange.bound([id, ""], [id, "\uffff"]));
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) return;
+        if (localStorage.getItem(key) !== expectedJson) return;
+        if (!paths.has((cursor.key as string[])[1]!)) cursor.delete();
         cursor.continue();
       };
       transaction.oncomplete = () => resolve();
