@@ -29,7 +29,7 @@ export function SidebarToggle({ id, controls, expanded, name, shortcut, onToggle
   useShortcutBindings();
   const label = t(expanded ? "panels.hide" : "panels.show", { name });
   return <button id={id} type="button" className="controls-info sidebar-toggle" aria-expanded={expanded} aria-controls={controls}
-    aria-label={label} title={shortcut ? `${label} (${shortcutLabel(shortcut)})` : label} onClick={onToggle}>
+    aria-label={label} title={shortcut ? `${label}${shortcutLabel(shortcut) ? ` (${shortcutLabel(shortcut)})` : ""}` : label} onClick={onToggle}>
     <LineIcon name="sidebar" size={18} />
   </button>;
 }

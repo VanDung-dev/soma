@@ -24,11 +24,11 @@ export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForw
   return <WorkspaceMenu ref={ref} navigation={<>
       {catalogToggle}
       <button className="controls-info history-back" disabled={disabled || !canGoBack} onClick={onBack}
-        aria-label={t("app.back")} title={`${t("app.back")} (${shortcutLabel("back")})`}>
+        aria-label={t("app.back")} title={`${t("app.back")}${shortcutLabel("back") ? ` (${shortcutLabel("back")})` : ""}`}>
         <LineIcon name="arrow-small-left" size={14} />
       </button>
       <button className="controls-info history-forward" disabled={disabled || !canGoForward} onClick={onForward}
-        aria-label={t("app.forward")} title={`${t("app.forward")} (${shortcutLabel("forward")})`}>
+        aria-label={t("app.forward")} title={`${t("app.forward")}${shortcutLabel("forward") ? ` (${shortcutLabel("forward")})` : ""}`}>
         <LineIcon name="arrow-small-right" size={14} />
       </button>
       <button type="button" className="hand-camera-toggle" role="switch" aria-checked={cameraEnabled}

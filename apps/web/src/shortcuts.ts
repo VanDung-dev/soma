@@ -16,7 +16,7 @@ export type AppShortcut = keyof typeof appShortcuts;
 type CameraShortcut = `camera:${string}`;
 export type Shortcut = AppShortcut | CameraShortcut;
 export type ShortcutBinding = { key: string; command: boolean; shift?: boolean };
-type Overrides = Partial<Record<Shortcut, ShortcutBinding>>;
+type Overrides = Partial<Record<Shortcut, ShortcutBinding | null>>;
 
 const appActions = Object.keys(appShortcuts) as AppShortcut[];
 const actions: Shortcut[] = [...appActions, ...cameraControls.map(({ key }): CameraShortcut => `camera:${key}`)];
@@ -25,8 +25,8 @@ const arrowLabels: Record<string, string> = { arrowup: "↑", arrowleft: "←", 
 const editingKeys = new Set(["a", "c", "f", "v", "x", "y", "z"]);
 const listeners = new Set<() => void>();
 
-function sameBinding(a: ShortcutBinding, b: ShortcutBinding) {
-  return a.key === b.key && a.command === b.command && !!a.shift === !!b.shift;
+function sameBinding(a: ShortcutBinding | undefined, b: ShortcutBinding | undefined) {
+  return !!a && !!b && a.key === b.key && a.command === b.command && !!a.shift === !!b.shift;
 }
 
 function validBinding(value: unknown): value is ShortcutBinding {
@@ -38,15 +38,19 @@ function validBinding(value: unknown): value is ShortcutBinding {
     && !(command && editingKeys.has(key) && (!shift || key === "z"));
 }
 
-function bindingFor(action: Shortcut, values = overrides): ShortcutBinding {
-  return values[action] ?? (action.startsWith("camera:") ? { key: action.slice(7), command: false } : appShortcuts[action as AppShortcut]);
+function bindingFor(action: Shortcut, values = overrides): ShortcutBinding | undefined {
+  if (Object.hasOwn(values, action)) return values[action] ?? undefined;
+  return action.startsWith("camera:") ? { key: action.slice(7), command: false } : appShortcuts[action as AppShortcut];
 }
 
 function readOverrides(): Overrides {
   try {
     const stored = (readSetting("shortcuts") ?? {}) as Overrides;
     const values: Overrides = {};
-    for (const action of actions) if (validBinding(stored[action])) values[action] = stored[action];
+    for (const action of actions) {
+      if (stored[action] === null) values[action] = null;
+      else if (validBinding(stored[action])) values[action] = stored[action];
+    }
     if (actions.some((action, index) => actions.slice(0, index).some(other => sameBinding(bindingFor(action, values), bindingFor(other, values))))) return {};
     return values;
   } catch { return {}; }
@@ -79,6 +83,10 @@ export function setShortcut(action: Shortcut, binding: ShortcutBinding): "invali
   store({ ...overrides, [action]: binding });
 }
 
+export function removeShortcut(action: Shortcut) {
+  store({ ...overrides, [action]: null });
+}
+
 export function resetShortcuts() {
   store({});
 }
@@ -86,12 +94,16 @@ export function resetShortcuts() {
 export function isMacPlatform(platform = typeof navigator === "undefined" ? "" : navigator.platform) { return /Mac|iPhone|iPad/i.test(platform); }
 
 export function shortcutLabel(action: Shortcut, mac = isMacPlatform()) {
-  const { key, command, shift } = bindingFor(action);
+  const binding = bindingFor(action);
+  if (!binding) return;
+  const { key, command, shift } = binding;
   return `${shift ? mac ? "⇧" : "Shift+" : ""}${command ? mac ? "⌘" : "Ctrl+" : ""}${arrowLabels[key] ?? key.toUpperCase()}`;
 }
 
 export function shortcutAriaLabel(action: AppShortcut, mac = isMacPlatform()) {
-  const { key, command, shift } = bindingFor(action);
+  const binding = bindingFor(action);
+  if (!binding) return;
+  const { key, command, shift } = binding;
   return `${command ? mac ? "Meta+" : "Control+" : ""}${shift ? "Shift+" : ""}${key}`;
 }
 
@@ -102,7 +114,10 @@ export function bindingFromEvent(event: KeyboardEvent, mac = isMacPlatform()): S
 }
 
 export function frameShortcuts() {
-  return appActions.map(action => ({ ...bindingFor(action), editing: action === "settings" }));
+  return appActions.flatMap(action => {
+    const binding = bindingFor(action);
+    return binding ? [{ ...binding, editing: action === "settings" }] : [];
+  });
 }
 
 export function shortcutAction(event: KeyboardEvent, mac = isMacPlatform()): AppShortcut | undefined {

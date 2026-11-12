@@ -1,14 +1,20 @@
 .settings-page { height: 100%; min-height: 0; padding: clamp(10px, 3vw, 36px); }
 .settings-layout { height: 100%; min-height: 0; max-width: 1080px; margin-inline: auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); gap: var(--panel-padding); }
 .settings-navigation, .settings-section { min-width: 0; min-height: 0; overflow: auto; padding: var(--panel-padding); border-radius: var(--panel-radius); background: var(--panel-bg); box-shadow: inset 0 0 0 1px var(--line); }
+:root { --settings-row-bg: var(--control-hover); }
+:root { --settings-row-gap: 8px; }
 .settings-navigation { display: grid; align-content: start; gap: 4px; }
 .settings-navigation h1 { grid-column: 1 / -1; margin: 0 0 6px; padding: 4px var(--panel-padding); font: 700 22px/1.2 var(--font-ui); }
 .settings-navigation a { display: flex; align-items: center; min-height: 28px; padding: 4px 10px; border-radius: var(--inner-radius); color: var(--text); text-decoration: none; font-size: 13px; }
 .settings-navigation a:hover { background: var(--control-hover); }
 .settings-navigation a[aria-current="page"] { background: var(--selected-bg); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); font-weight: 650; }
 .settings-section { scrollbar-gutter: stable; }
+.settings-section.settings-content, .settings-section .settings-content { gap: var(--settings-row-gap); }
+.settings-section:not(.controls-shortcuts) { overflow: hidden; }
+.settings-section.controls-shortcuts { overflow: hidden; }
 .settings-section h2 { flex-shrink: 0; margin: 0; padding: 4px var(--panel-padding); color: var(--accent); font: 650 18px/1.4 var(--font-ui); }
-.settings-section .settings-row { padding: 4px var(--panel-padding); flex-wrap: wrap; border-radius: var(--inner-radius); background: var(--surface); }
+.settings-scroll { display: flex; flex: 1 1 auto; flex-direction: column; gap: var(--settings-row-gap); min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.settings-section .settings-row { padding: 4px var(--panel-padding); flex-wrap: wrap; border-radius: var(--inner-radius); background: var(--settings-row-bg); }
 .settings-section :is(.settings-row > label, .graphics-options-label) { padding: 0; font-size: 13px; }
 .settings-section .graphics-options { margin-inline-start: auto; }
 .settings-section .settings-select { max-width: 100%; }
@@ -16,7 +22,8 @@
 .settings-guide-content > h3 { margin: 14px 0 10px; font-size: 15px; }
 .settings-guide-content > h3:first-child { margin-top: 0; }
 .settings-guide-content > p { margin: 0 0 8px; }
-.settings-guide-content > .settings-row + .settings-row { margin-top: 8px; }
+.settings-section .guide-sections dl > div { background: var(--settings-row-bg); }
+.settings-guide-content > .settings-row + .settings-row { margin-top: var(--settings-row-gap); }
 .settings-document-link { display: inline-flex; align-items: center; text-decoration: none; }
 
 @media (max-width: 650px) {
@@ -26,7 +33,7 @@
 
 .guide-sections { display: grid; gap: 12px; }
 .guide-sections h3 { margin: 0 0 8px; font-size: 14px; }
-.guide-sections dl { display: grid; gap: 8px; margin: 0; }
+.guide-sections dl { display: grid; gap: var(--settings-row-gap); margin: 0; }
 .guide-sections dl > div { padding: 6px 10px; border-radius: var(--inner-radius); background: var(--surface); }
 .guide-sections dt { font-weight: 650; }
 .guide-sections dd { margin: 0; color: var(--muted); }
@@ -36,6 +43,10 @@
 .shortcut-toolbar p, .shortcut-status { margin: 0; color: var(--muted); font-size: 13px; }
 .shortcut-status { padding-inline: var(--panel-padding); }
 .shortcut-status:empty { display: none; }
+.shortcut-list { display: flex; flex: 1 1 auto; flex-direction: column; gap: var(--settings-row-gap); min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .shortcut-group { flex-shrink: 0; }
 .shortcut-group h3 { margin: 6px var(--panel-padding) 0; font-size: 14px; }
+.settings-section .shortcut-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+.shortcut-edit { grid-column: 2; }
+.shortcut-remove { grid-column: 3; justify-self: end; }
 .shortcut-row kbd { font: inherit; white-space: nowrap; }

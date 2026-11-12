@@ -87,7 +87,8 @@ export function ModuleLayout({ children, page, onClick, settings }: {
       </nav>
       <div className="module-preferences">
         <a ref={settingsLink} className="module-settings" href="/settings" aria-current={page === "settings" ? "page" : undefined}
-          aria-label={t("app.settings")} aria-keyshortcuts={shortcutAriaLabel("settings")} title={`${t("app.settings")} (${shortcutLabel("settings")})`}>
+          aria-label={t("app.settings")} aria-keyshortcuts={shortcutAriaLabel("settings")}
+          title={`${t("app.settings")}${shortcutLabel("settings") ? ` (${shortcutLabel("settings")})` : ""}`}>
           <LineIcon name="cog" size={16} />
         </a>
       </div>

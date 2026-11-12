@@ -27,10 +27,11 @@ export async function loadSettings() {
     const value = readBrowserSetting(name);
     return value == null ? [] : [[name, value]];
   }));
+  const initialValues = { camera: "", shortcuts: {}, ...legacy };
   try {
-    desktopValues = await invoke<Values>("load_settings", { legacy });
+    desktopValues = await invoke<Values>("load_settings", { legacy: initialValues });
   } catch (error) {
-    desktopValues = legacy;
+    desktopValues = initialValues;
     console.error("Could not load desktop settings", error);
   }
 }

@@ -11,9 +11,9 @@ import "./style.css";
 const sections = {
   interface: "settings.interface",
   graphics: "settings.graphics",
+  shortcuts: "settings.shortcuts",
   camera: "settings.camera",
   guide: "settings.guide",
-  shortcuts: "settings.shortcuts",
   licenses: "settings.licenses",
 } as const;
 
@@ -55,8 +55,9 @@ export function SettingsPage({ section = "interface", onReplayGuide }: {
             {t(sections[name])}
           </a>)}
         </nav>
-        <section key={section} className={`settings-section settings-content${section === "guide" ? " controls-guide" : ""}`} aria-labelledby="settings-section-title">
+        <section key={section} className={`settings-section settings-content${section === "guide" ? " controls-guide" : section === "shortcuts" ? " controls-shortcuts" : ""}`} aria-labelledby="settings-section-title">
           <h2 ref={heading} id="settings-section-title" tabIndex={-1}>{t(sections[section])}</h2>
+          {section === "shortcuts" ? <ShortcutControls /> : <div className="settings-scroll">
           {section === "interface" && <>
             <div className="settings-row graphics-options-row">
               <span className="graphics-options-label" id="settings-language">{t("language.selector.label")}</span>
@@ -117,7 +118,7 @@ export function SettingsPage({ section = "interface", onReplayGuide }: {
             <LicenseRow label="TinyMCE" path="/licenses/tinymce.md" />
             <LicenseRow label="DOMPurify" path="/licenses/dompurify.txt" />
           </div>}
-          {section === "shortcuts" && <ShortcutControls />}
+          </div>}
         </section>
       </div>
   </main>;

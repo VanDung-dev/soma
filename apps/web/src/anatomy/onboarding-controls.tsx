@@ -35,10 +35,10 @@ export function OnboardingControls({ step, mouse }: { step: number; mouse: boole
   } else if (step === 1) rows = [row("controls.mouse.rotate", <MouseInput />),
     row("onboarding.action.zoom", <MouseInput wheel />),
     row("onboarding.action.pan", <MouseInput right />),
-    row("onboarding.action.reset", <kbd>{shortcutLabel("camera:r")}</kbd>)];
+    row("onboarding.action.reset", <kbd>{shortcutLabel("camera:r") ?? t("shortcuts.unassigned")}</kbd>)];
   else if (step === 2) rows = [row("context.detach", <><MouseInput hold /><span aria-hidden="true">→</span><kbd>{t("onboarding.input.drag")}</kbd></>),
     row("context.hide", <MouseInput hold right />),
-    row("context.restore", <kbd>{shortcutLabel("restore")}</kbd>)];
+    row("context.restore", <kbd>{shortcutLabel("restore") ?? t("shortcuts.unassigned")}</kbd>)];
   else if (step === 4) rows = [row("onboarding.action.visibility", <kbd>{t("onboarding.input.checkbox")}</kbd>),
     row("onboarding.action.select", <kbd>{t("onboarding.input.clickName")}</kbd>),
     row("onboarding.action.focus", <><kbd>Shift</kbd><span aria-hidden="true">+</span><kbd>Enter</kbd></>)];
