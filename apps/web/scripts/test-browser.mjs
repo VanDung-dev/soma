@@ -19,7 +19,6 @@ try {
   const baseURL = server.resolvedUrls.local[0];
   browser = await chromium.launch({ executablePath: process.env.BENCHMARK_BROWSER, headless: true, chromiumSandbox: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, baseURL });
-  await context.addInitScript(() => { if (window.top === window) localStorage.setItem('anatomy-onboarding:v1', 'dismissed'); });
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));

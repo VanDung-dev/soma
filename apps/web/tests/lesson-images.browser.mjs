@@ -139,7 +139,6 @@ export async function checkLessonImages(page) {
   assert.deepEqual(await saved(), original, 'A valid image with the wrong hash cannot replace draft');
   const fresh = await page.context().browser().newContext({ baseURL: new URL(page.url()).origin });
   try {
-    await fresh.addInitScript(() => { localStorage.setItem('anatomy-onboarding:v1', 'dismissed'); });
     const imported = await fresh.newPage();
     await imported.goto('/lessons');
     await imported.locator('input[type=file]').setInputFiles(upload);

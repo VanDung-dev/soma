@@ -144,7 +144,6 @@ async function trial(dpr, repetition) {
       blockedRequests.push(url.href); return route.abort();
     });
     await context.addInitScript(instrument);
-    await context.addInitScript(() => localStorage.setItem('anatomy-onboarding:v1', 'dismissed'));
     const page = await context.newPage();
     const errors = [], consoleMessages = [];
     page.on('pageerror', e => errors.push(e.message));

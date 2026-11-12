@@ -36,9 +36,7 @@ function LicenseRow({ label, path }: { label: string; path: string }) {
   </div>;
 }
 
-export function SettingsPage({ section = "interface", onReplayGuide }: {
-  section?: SettingsSection; onReplayGuide?: () => void;
-}) {
+export function SettingsPage({ section = "interface" }: { section?: SettingsSection }) {
   const { language, setLanguage, t } = useLanguage();
   const { theme, setTheme } = useTheme();
   const [graphics, setGraphics] = useGraphicsSettings();
@@ -94,7 +92,6 @@ export function SettingsPage({ section = "interface", onReplayGuide }: {
           {section === "guide" && <div className="settings-guide-content">
             <h3>{t("controls.guide.title")}</h3>
             <ControlsGuide />
-            {onReplayGuide && <button type="button" className="settings-option onboarding-replay" onClick={onReplayGuide}>{t("onboarding.replay")}</button>}
             <h3>{t("module.lessons")}</h3>
             <p>{t("lessons.guide.editor")}</p>
             <p>{t("lessons.dragInstructions")}</p>

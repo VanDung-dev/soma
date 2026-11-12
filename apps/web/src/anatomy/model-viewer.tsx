@@ -3,7 +3,6 @@ import type { Catalog } from "./catalog/types";
 import { StructureTree } from "./structure-tree";
 import { StructureSearch } from "./structure-search";
 import { useCameraKeys } from "./use-camera-keys";
-import { AnatomyOnboarding, replayOnboardingEvent } from "./onboarding";
 import { MenuBar } from "./menu-bar";
 import { OrientationAxes } from "./orientation-axes";
 import type { OrientationAxesHandle } from "./orientation-axes";
@@ -32,11 +31,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const [panel, setPanel] = useState<"catalog" | "information" | null>(null);
   const [collapsedPanels, setCollapsedPanels] = useState({ catalog: false, information: false });
   const [desktopPanels, setDesktopPanels] = useState(() => window.matchMedia(desktopPanelQuery).matches);
-  const showPanel = useCallback((panel: "catalog" | "information" | null) => {
-    setPanel(panel);
-    if (panel) setCollapsedPanels(current => ({ ...current, [panel]: false }));
-  }, []);
-  const [onboardingRun, setOnboardingRun] = useState(0);
   const [handCameraEnabled, setHandCameraEnabled] = useState(false);
   const [handCameraActive, setHandCameraActive] = useState(false);
   const sharedCameras = useContext(CameraDevicesContext);
@@ -58,11 +52,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const { structureIds, building, error, loadedSystems, selected, readingId, targetId,
     visibleIds, readerExpanded, explosionAmount, movingId, separatedIds, reveal, canGoBack, canGoForward } = state;
   useCameraKeys(!active || building || error, session.control);
-  useEffect(() => {
-    const replay = () => { setHandCameraEnabled(false); setOnboardingRun(run => run + 1); };
-    window.addEventListener(replayOnboardingEvent, replay);
-    return () => window.removeEventListener(replayOnboardingEvent, replay);
-  }, []);
   const roots = session.catalog.roots;
   const target = useMemo(() => targetId ? catalog.target(targetId) : undefined, [catalog, targetId]);
   const focusViewport = () => measureViewport({ host: host.current!, frame: focusFrame.current!,
@@ -253,7 +242,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
           </div>
         </div>
       </aside>
-      {active && !building && !error && !handCameraEnabled && <AnatomyOnboarding key={onboardingRun} replay={onboardingRun > 0} onPanelChange={showPanel} />}
     </>
   );
 }
