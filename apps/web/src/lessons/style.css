@@ -61,11 +61,6 @@
 .lesson-cover-upload { position: relative; overflow: hidden; cursor: pointer; }
 .lesson-cover-upload input[type="file"] { position: absolute; width: 0.1px; height: 0.1px; opacity: 0; overflow: hidden; z-index: -1; }
 
-dialog.lesson-confirm-dialog { width: min(400px, calc(100vw - 32px)); padding: var(--panel-padding); border: 0; border-radius: var(--panel-radius); background: var(--panel-bg); color: var(--text); box-shadow: 0 16px 50px rgba(var(--shadow-rgb), .25), inset 0 0 0 1px var(--line); }
-dialog.lesson-confirm-dialog::backdrop { background: rgba(0, 0, 0, .55); }
-.lesson-confirm-dialog p { margin: 0; padding: 20px 16px; border-radius: var(--inner-radius); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); font: 600 15px/1.5 var(--font-ui); text-align: center; overflow-wrap: anywhere; }
-.lesson-confirm-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; padding-top: var(--panel-padding); }
-.lesson-confirm-actions .lesson-button { display: inline-flex; align-items: center; justify-content: center; min-height: 28px; padding: 3px 10px; border-radius: var(--inner-radius); font-size: 12px; }
 
 dialog.lesson-cover-modal {
   position: fixed;
@@ -219,12 +214,6 @@ dialog.lesson-cover-modal:not([open]) {
 .lesson-button.lesson-danger:not(:disabled):hover { background: rgba(239, 83, 80, 0.12); border-color: #e53935; color: #b71c1c; }
 :root[data-theme="dark"] .lesson-button.lesson-danger { color: #ef5350; border-color: #b71c1c; }
 :root[data-theme="dark"] .lesson-button.lesson-danger:not(:disabled):hover { background: rgba(239, 83, 80, 0.18); border-color: #ef5350; color: #ff8a80; }
-.lesson-confirm-actions .lesson-button.lesson-primary { background: #292d2c; border-color: #292d2c; color: #fff; }
-.lesson-confirm-actions .lesson-button.lesson-primary:hover { background: #454c48; border-color: #454c48; color: #fff; }
-.lesson-confirm-actions .lesson-button.lesson-danger { color: #a21e1e; border-color: #b83e3e; }
-:root[data-theme="dark"] .lesson-confirm-actions .lesson-button.lesson-primary { background: #e6e8e5; border-color: #e6e8e5; color: #292d2c; }
-:root[data-theme="dark"] .lesson-confirm-actions .lesson-button.lesson-primary:hover { background: #c8ccca; border-color: #c8ccca; color: #292d2c; }
-:root[data-theme="dark"] .lesson-confirm-actions .lesson-button.lesson-danger { color: #ffaaa5; border-color: #e37974; }
 .lessons-screen[data-player="true"] { --lesson-outline-width: clamp(210px, 18vw, 260px); padding: 0; overflow: hidden; }
 .lesson-player { display: flex; flex-direction: column; gap: var(--panel-gap); height: 100%; min-height: 0; padding: var(--panel-inset); background: var(--workspace-bg); }
 .lesson-player > .model-canvas { z-index: 0; }

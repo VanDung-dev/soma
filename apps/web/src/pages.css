@@ -34,3 +34,16 @@
 
 .model-space { --muted: var(--muted-dark); position: absolute; inset: 0; min-width: 0; min-height: 0; overflow: hidden; border-radius: inherit; background: var(--workspace-bg); }
 .model-space[inert] { visibility: hidden; }
+
+.hand-camera-error-symbol { display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--inner-radius); background: var(--accent-hover); color: var(--accent); }
+.hand-camera-error-message { min-width: 0; max-width: 360px; overflow-wrap: anywhere; }
+.hand-camera-error-message h2 { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.4; }
+.hand-camera-error-message p { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.alert-card-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
+dialog.alert-card-dialog { width: min(440px, calc(100vw - var(--panel-padding) * 2)); max-width: none; max-height: calc(100dvh - var(--panel-padding) * 2); padding: 0; border: 0; border-radius: var(--panel-radius); background: var(--panel-bg); color: var(--text); box-shadow: 0 12px 32px rgba(var(--shadow-rgb), .24), inset 0 0 0 1px var(--line-strong); pointer-events: auto; }
+dialog.alert-card-dialog::backdrop { background: rgba(0, 0, 0, .55); }
+.hand-camera-error { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 16px; padding: calc(var(--panel-padding) * 2); text-align: center; }
+.alert-card-button { min-width: 104px; min-height: 28px; padding: 3px 14px; border: 1px solid var(--line); border-radius: var(--inner-radius); background: var(--surface); color: var(--text); font: 600 12px var(--font-ui); }
+.alert-card-button:not(:disabled):hover { background: var(--control-hover); }
+.alert-card-primary { border-color: var(--accent); background: var(--accent); color: var(--panel-bg); }
+.alert-card-primary:not(:disabled):hover { background: var(--accent); filter: brightness(1.1); }

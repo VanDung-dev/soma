@@ -1,7 +1,7 @@
-import { useEffect, useEffectEvent, useId, useRef, useState, type RefObject } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useLanguage } from "../i18n";
-import { LineIcon } from "../icons";
+import { AlertCard } from "../pages/alert-card";
 import { HandInteractionOverlay } from "./hand-interaction-overlay";
 import { measureHandImage, measureHandRegion, type HandImageBounds } from "./viewer/layout";
 import { startHandCamera, type HandCameraError, type HandFeedback } from "./viewer/hand-camera";
@@ -26,7 +26,6 @@ export function HandCameraControls({ enabled, disabled, cameraDisabled = false, 
   const [feedback, setFeedback] = useState<HandFeedback | null>(null);
   const [bounds, setBounds] = useState<HandImageBounds | null>(null);
   const [error, setError] = useState<HandCameraError | null>(null);
-  const errorTitleId = useId();
   const video = useRef<HTMLVideoElement>(null);
   const handsLayer = useRef<HTMLDivElement>(null);
   const enabledChanged = useEffectEvent(onEnabledChange);
@@ -84,18 +83,10 @@ export function HandCameraControls({ enabled, disabled, cameraDisabled = false, 
       }} />, sceneHost.current)}
     {sceneHost.current && createPortal(<div ref={handsLayer} className="hand-visual-overlay" popover="manual"
       data-hand-visual="true" aria-hidden="true">{overlay}</div>, document.body)}
-    {error && <section className="hand-camera hand-camera-error" role="alert" aria-labelledby={errorTitleId}>
-      <span className="hand-camera-error-symbol"><LineIcon name="alert-circle" size={24} /></span>
-      <div className="hand-camera-error-message">
-        <h2 id={errorTitleId}>{t("handCamera.error.title")}</h2>
-        <p>{t(`handCamera.error.${error}`)}</p>
-      </div>
-      <button type="button" className="controls-info" aria-label={t("handCamera.error.close")} onClick={() => setError(null)}>
-        <LineIcon name="close-small" size={14} />
-      </button>
-      <button type="button" className="hand-camera-error-retry" disabled={disabled} onClick={() => { setError(null); onEnabledChange(true); }}>
-        {t("handCamera.error.retry")}
-      </button>
-    </section>}
+    {error && <AlertCard title={t("handCamera.error.title")} message={t(`handCamera.error.${error}`)}
+      onCancel={() => setError(null)} actions={[
+        { label: t("handCamera.error.close"), onClick: () => setError(null) },
+        { label: t("handCamera.error.retry"), primary: true, disabled, onClick: () => { setError(null); onEnabledChange(true); } },
+      ]} />}
   </>;
 }

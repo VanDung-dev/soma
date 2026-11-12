@@ -169,12 +169,12 @@ export async function checkCameraDevices() {
     assert(Math.abs(noticeArea.left + noticeArea.width / 2 - innerWidth / 2) < 1
       && Math.abs(noticeArea.top + noticeArea.height / 2 - innerHeight / 2) < 1, 'Center the camera notification in the viewport');
     const retryArea = notice.querySelector('.hand-camera-error-retry').getBoundingClientRect();
-    assert(Math.abs(retryArea.left + retryArea.width / 2 - noticeArea.left - noticeArea.width / 2) < 1
-      && retryArea.top > notice.querySelector('p').getBoundingClientRect().bottom, 'Center the retry button below the notification message');
+    assert(retryArea.top > notice.querySelector('p').getBoundingClientRect().bottom, 'Place the retry button below the notification message');
+    assert(document.elementFromPoint(retryArea.left + retryArea.width / 2, retryArea.top + retryArea.height / 2) === notice.querySelector('.hand-camera-error-retry'), 'The retry button must receive pointer input');
     assert(notice.querySelector('h2').textContent === 'Điều khiển bằng camera đã dừng'
-      && notice.getAttribute('aria-labelledby') === notice.querySelector('h2').id, 'Give the notification an accessible title');
-    assert(getComputedStyle(notice).backgroundColor !== 'rgba(0, 0, 0, 0)' && getComputedStyle(notice).pointerEvents === 'auto', 'Display the error on an interactive notification surface');
-    notice.querySelector('button[aria-label="Đóng thông báo"]').click(); await frames();
+      && notice.closest('dialog').getAttribute('aria-labelledby') === notice.querySelector('h2').id, 'Give the notification an accessible title');
+    assert(getComputedStyle(notice.closest('dialog')).backgroundColor !== 'rgba(0, 0, 0, 0)' && getComputedStyle(notice).pointerEvents === 'auto', 'Display the error on an interactive notification surface');
+    notice.querySelector('.alert-card-actions button').click(); await frames();
     assert(!host.querySelector('.hand-camera-error') && toggle().getAttribute('aria-checked') === 'false', 'Dismissing an error must keep the camera off');
     toggle().click();
     await waitFor(() => host.querySelector('.hand-camera-error') && toggle().getAttribute('aria-checked') === 'false', 'A new failure must show the notification again');

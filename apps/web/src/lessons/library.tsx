@@ -2,6 +2,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { Ref } from "react";
 import { useLanguage } from "../i18n";
 import { LineIcon } from "../icons";
+import { AlertCard } from "../pages/alert-card";
 import { LessonCover } from "./editor/cover";
 import type { Lesson } from "./shared/contract";
 import { lessonLanguageTag, lessonText } from "./shared/contract";
@@ -122,7 +123,9 @@ export function LessonLibrary({ lessons, loading, saving, importing, error, expo
         <input type="search" value={query} placeholder={t("lessons.searchLessons")} onChange={event => setQuery(event.target.value)} />
       </label>
     </div>
-    {(fileError || error) && <p className="lesson-library-error" role="alert"><LineIcon name="alert-circle" size={18} /><span>{fileError || error}</span></p>}
+    {fileError && <AlertCard title={language === "vi" ? "Thông báo" : "Notice"} message={fileError}
+      onCancel={() => setFileError("")} actions={[{ label: language === "vi" ? "Đóng" : "Close", onClick: () => setFileError("") }]} />}
+    {error && !fileError && <p className="lesson-library-error" role="alert"><LineIcon name="alert-circle" size={18} /><span>{error}</span></p>}
     <div className="lesson-library-status" role="status" aria-live="polite">
       {importing ? <><progress aria-label={t("lessons.importing")} />{t("lessons.importing")}</> : notice}
     </div>
