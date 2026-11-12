@@ -20,6 +20,7 @@ import { useGraphicsSettings } from "../pages/use-graphics-settings";
 import { SidebarToggle } from "../pages/workspace-layout";
 import { WorkspaceActiveContext } from "../pages/module-layout";
 import { shortcutAction } from "../shortcuts";
+import { loadAnatomyHiddenIds, saveAnatomyHiddenIds } from "./study/storage";
 
 export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const { language, t } = useLanguage();
@@ -49,6 +50,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const runtime = useRef<ViewerRuntime | null>(null);
   const session = useMemo(() => new StudySession(catalog), [catalog]);
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
+  const restoredVisibility = useRef(false);
   const { structureIds, building, error, loadedSystems, selected, readingId, targetId,
     visibleIds, readerExpanded, explosionAmount, movingId, separatedIds, reveal, canGoBack, canGoForward } = state;
   useCameraKeys(!active || building || error, session.control);
@@ -65,13 +67,33 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     return () => media.removeEventListener("change", update);
   }, []);
   useEffect(() => {
+    let active = true;
+    let hiddenIds: string[] | null = null;
     const viewer = new ViewerRuntime(host.current!, { viewport: focusViewport,
-      onState: session.updateViewer, onPick: session.pick, onHide: ids => session.changeVisibility(ids, false), onFps: setFps, onHold: setHold, onSnap: setSnapTarget,
+      onState: patch => {
+        session.updateViewer(patch);
+        if (!restoredVisibility.current && patch.structureIds?.length) {
+          restoredVisibility.current = true;
+          if (hiddenIds) session.restoreHiddenIds(hiddenIds);
+        }
+      }, onPick: session.pick, onHide: ids => session.changeVisibility(ids, false), onFps: setFps, onHold: setHold, onSnap: setSnapTarget,
       onOrientation: axes => orientation.current?.update(axes) });
     runtime.current = viewer; session.connect(viewer);
-    void viewer.start(catalog);
-    return () => { session.disconnect(viewer); viewer.dispose(); if (runtime.current === viewer) runtime.current = null; };
+    void loadAnatomyHiddenIds().catch(error => {
+      console.error("Could not load Anatomy visibility", error);
+      return null;
+    }).then(async saved => {
+      if (!active) return;
+      hiddenIds = saved;
+      await viewer.start(catalog);
+    });
+    return () => { active = false; session.disconnect(viewer); viewer.dispose(); if (runtime.current === viewer) runtime.current = null; };
   }, [session]);
+  useEffect(() => {
+    if (!restoredVisibility.current) return;
+    const hiddenIds = state.structureIds.filter(id => !state.visibleIds.has(id)).sort();
+    void saveAnatomyHiddenIds(hiddenIds).catch(error => console.error("Could not save Anatomy visibility", error));
+  }, [state.structureIds, state.visibleIds]);
   useEffect(() => {
     runtime.current?.setGraphics(graphics);
   }, [graphics, session]);

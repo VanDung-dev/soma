@@ -124,6 +124,14 @@ export class StudySession {
     return true;
   };
 
+  restoreHiddenIds = (ids: string[]) => {
+    const hidden = new Set(ids.filter(id => this.state.structureIds.includes(id)));
+    const toHide = [...this.state.visibleIds].filter(id => hidden.has(id));
+    if (toHide.length && !this.viewer?.changeVisibility(toHide, false)) return false;
+    this.update({ visibleIds: new Set(this.state.structureIds.filter(id => !hidden.has(id))) });
+    return true;
+  };
+
   showScene = (ids: string[]) => {
     if (!ids.every(id => this.state.structureIds.includes(id))) return false;
     const success = ids.length

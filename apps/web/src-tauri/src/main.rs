@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod anatomy;
 mod lessons;
 mod settings;
 mod storage;
@@ -198,6 +199,8 @@ fn main() -> Result<(), tauri::Error> {
     builder
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
+            anatomy::load_anatomy_hidden_ids,
+            anatomy::save_anatomy_hidden_ids,
             settings::load_settings,
             settings::save_setting,
             get_catalog,
