@@ -36,6 +36,7 @@ button:disabled { opacity: .45; cursor: default; }
 :focus { outline: none; }
 :root :is(button, a, input, select, textarea, summary):focus-visible { background-color: var(--selected-bg); }
 :root :is(button, a, summary):focus-visible { text-decoration: underline; text-underline-offset: 3px; }
+:root .module-page[data-focus-source="pointer"] .module-nav a:focus-visible { text-decoration: none; }
 button { color: inherit; }
 .skip-link { position: fixed; top: -60px; left: 20px; padding: 12px; background: var(--surface); z-index: 10; }
 .skip-link:focus { top: 12px; }
