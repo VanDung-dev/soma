@@ -18,7 +18,8 @@
 .orientation-axes [data-direction="-1"] text { opacity: 0; }
 .orientation-axes g[aria-pressed="true"] text { opacity: 1; }
 .orientation-axes g:hover text { fill: #fff; opacity: 1; }
-.orientation-axes g:focus-visible .orientation-hit-target { stroke: currentColor; stroke-width: 2; }
+.orientation-axes g:focus-visible circle:not(.orientation-hit-target) { fill: var(--selected-bg); stroke: var(--selected-bg); }
+.orientation-axes g:focus-visible text { fill: var(--text); opacity: 1; }
 .hand-camera-toggle { display: inline-flex; flex-shrink: 0; align-items: center; gap: 6px; height: 28px; min-height: 28px; padding: 0 4px; border: 0; border-radius: var(--inner-radius); background: transparent; color: var(--accent); font: 12px var(--font-ui); cursor: pointer; }
 .hand-camera-toggle[aria-checked="true"] .camera-mode-switch::before { transform: translateX(20px); background: var(--panel-bg); }
 .hand-camera-toggle[aria-checked="true"] .camera-mode-switch { background: var(--accent); border-color: var(--accent); }
