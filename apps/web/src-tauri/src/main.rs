@@ -3,6 +3,7 @@
 mod lessons;
 mod settings;
 mod storage;
+mod wikipedia;
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -201,6 +202,7 @@ fn main() -> Result<(), tauri::Error> {
             settings::save_setting,
             get_catalog,
             open_attribution,
+            wikipedia::wikipedia_proxy_url,
             lessons::list_saved_lessons,
             lessons::save_lesson,
             lessons::remove_lesson,
@@ -210,6 +212,7 @@ fn main() -> Result<(), tauri::Error> {
         ])
         .manage(AtomicU64::new(1.0_f64.to_bits()))
         .setup(|app| {
+            app.manage(wikipedia::Proxy::start());
             if let Some(window) = app.get_webview_window("main") {
                 fit_interface(&window);
                 #[cfg(target_os = "macos")]

@@ -1,4 +1,5 @@
-import { wikipediaPage } from '../scripts/wikipedia-proxy.mjs';
+import { wikipediaPage } from '../scripts/wikipedia-page.mjs';
+import frameTemplate from '../scripts/wikipedia-frame.html?raw';
 import { frameShortcuts } from '../src/shortcuts.ts';
 import { closeSettings, openSettings, waitForSettings } from './settings.fixture.mjs';
 
@@ -54,7 +55,7 @@ export async function checkAppShortcuts() {
     window.postMessage({ type: 'wikipedia:shortcut', key: ',', code: 'Comma', ctrlKey: false, metaKey: false, shiftKey: false, ...command }, '*');
     await frames(); assert(!document.querySelector('.settings-page'), 'Ignore shortcut messages from unknown windows');
     frame.className = 'wikipedia-article'; frame.sandbox = 'allow-scripts';
-    frame.srcdoc = wikipediaPage('<html><head></head><body><script>addEventListener("message", e => { if(e.data?.type === "test:key") dispatchEvent(new KeyboardEvent("keydown", {key:e.data.key, code:e.data.code || "KeyG", metaKey:!!e.data.metaKey, ctrlKey:!!e.data.ctrlKey, bubbles:true, cancelable:true})); });</script></body></html>', new URL('https://en.wikipedia.org/wiki/Skeleton'));
+    frame.srcdoc = wikipediaPage('<html><head></head><body><script>addEventListener("message", e => { if(e.data?.type === "test:key") dispatchEvent(new KeyboardEvent("keydown", {key:e.data.key, code:e.data.code || "KeyG", metaKey:!!e.data.metaKey, ctrlKey:!!e.data.ctrlKey, bubbles:true, cancelable:true})); });</script></body></html>', new URL('https://en.wikipedia.org/wiki/Skeleton'), frameTemplate);
     const loaded = new Promise(resolve => frame.addEventListener('load', resolve, { once: true }));
     document.body.append(frame); await loaded;
     frame.contentWindow.postMessage({ type: 'wikipedia:bindings', bindings: frameShortcuts() }, '*');

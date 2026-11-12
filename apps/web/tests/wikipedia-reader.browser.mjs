@@ -1,7 +1,8 @@
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { WikipediaReader } from '../src/anatomy/wikipedia-reader.tsx';
-import { wikipediaPage } from '../scripts/wikipedia-proxy.mjs';
+import { wikipediaPage } from '../scripts/wikipedia-page.mjs';
+import frameTemplate from '../scripts/wikipedia-frame.html?raw';
 
 // Run in Vite: (await import('/tests/wikipedia-reader.browser.mjs')).checkWikipediaReader()
 export async function checkWikipediaReader() {
@@ -31,7 +32,7 @@ export async function checkWikipediaReader() {
     frame.srcdoc = wikipediaPage(`<html><head></head><body><script>addEventListener('message', e => {
       if(e.data?.type === 'wikipedia:reset') parent.postMessage({type:'wikipedia:reset-seen',url:e.data.url},'*');
       if(e.data?.type === 'wikipedia:test-loading') dispatchEvent(new Event('beforeunload'));
-    }); parent.postMessage({type:'wikipedia:test-ready'},'*');<\/script></body></html>`, new URL(source));
+    }); parent.postMessage({type:'wikipedia:test-ready'},'*');<\/script></body></html>`, new URL(source), frameTemplate);
     await new Promise(resolve => { const ready = event => { if(event.source === frame.contentWindow && event.data?.type === 'wikipedia:test-ready') { window.removeEventListener('message',ready); resolve(); } }; window.addEventListener('message',ready); });
     send('wikipedia:ready', source);
     await until(() => frame.getAttribute('aria-busy') === 'false');

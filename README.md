@@ -137,7 +137,7 @@ directory. The browser version stores its preferences in localStorage.
 
 ## Wikipedia proxy
 
-`npm run serve` includes the proxy. Static hosting and packaged desktop need a deployed proxy:
+`npm run serve` and the packaged desktop app each include a Wikipedia proxy. Static hosting needs a deployed proxy:
 
 ```sh
 VITE_WIKIPEDIA_PROXY_URL=https://your-server.example/wikipedia npm run build

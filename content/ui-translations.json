@@ -6,6 +6,7 @@
   "message_format": "ICU MessageFormat 1",
   "messages": {
     "openstax.newTab": {"vi": "mở trong tab mới", "en": "opens in a new tab"},
+    "wikipedia.unavailable": {"vi": "Không tải được nội dung Wikipedia.", "en": "Wikipedia content could not be loaded."},
     "handCamera.mode": {"vi": "Chế độ camera", "en": "Camera mode"},
     "handCamera.active": {"vi": "Camera đang được sử dụng", "en": "Camera is in use"},
     "handCamera.device.label": {"vi": "Camera điều khiển tay", "en": "Hand control camera"},
