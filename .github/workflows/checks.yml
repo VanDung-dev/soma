@@ -41,6 +41,8 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: cargo fmt --all --check
+      - name: Build desktop assets for Rust checks
+        run: npm exec --workspace apps/web -- vite build --mode desktop
       - run: cargo test --workspace --locked
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: npm run build
