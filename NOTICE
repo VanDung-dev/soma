@@ -1,8 +1,14 @@
 Soma
 Copyright (c) 2026 Nguyễn Lê Văn Dũng
 
-The project's original source code and build scripts are licensed under
-the Apache License, Version 2.0. See LICENSE.
+Only original Soma materials identified in this notice and in which Nguyễn Lê
+Văn Dũng owns or controls copyright are licensed under the Soma Community and
+Commercial Use License 1.0. This includes original source code, build scripts,
+documentation, text, graphics, and original Soma code in official application
+builds compiled and distributed by Nguyễn Lê Văn Dũng. Contributions by
+others are covered only where their authors have separately granted the
+necessary rights. Do not assume that this notice changes the license of any
+earlier release.
 
 Anatomy models and source-derived catalog data retain their
 source licenses. See apps/web/public/models/z-anatomy/ATTRIBUTION.md.
