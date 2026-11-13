@@ -160,9 +160,10 @@ impl AnatomyViewer {
         self.cancel_camera_transition();
         if self.exploding {
             let frame = [left, top, width, height];
-            Camera::layout(self.scene.bounds, self.camera.aspect, frame).map_err(js_error)?;
             self.layout_frame = frame;
-            self.relayout_explosion()?;
+            self.camera.reframe(frame).map_err(js_error)?;
+            self.camera.align_viewport();
+            self.shadow_cached.set(false);
             return Ok(());
         }
         self.camera

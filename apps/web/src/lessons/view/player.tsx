@@ -152,7 +152,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
             <div hidden={!showAxes}>
               <OrientationAxes ref={orientation} disabled={!ready || !modelVisible || !showAxes} onControl={session.control} />
             </div>
-            {graphics.showFps && <span className="model-fps" aria-label={t("graphics.fps.current", { count: fps })}>{fps} FPS</span>}
+            {graphics.showFps && <span className="model-fps" aria-label={t("graphics.fps.current", { count: fps || "—" })}>{fps || "—"} FPS</span>}
           </div>
         </div>
         <div className="model-hud lesson-player-hud">

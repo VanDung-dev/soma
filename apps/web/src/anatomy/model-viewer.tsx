@@ -216,7 +216,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
               <div hidden={!graphics.showAxes}>
                 <OrientationAxes ref={orientation} disabled={building || error || !graphics.showAxes} onControl={session.control} />
               </div>
-              {graphics.showFps && <span className="model-fps" aria-label={t("graphics.fps.current", { count: fps })}>{fps} FPS</span>}
+              {graphics.showFps && <span className="model-fps" aria-label={t("graphics.fps.current", { count: fps || "—" })}>{fps || "—"} FPS</span>}
             </div>
             <div ref={hud} className="model-hud">
               {snapPart && <div className="model-status model-snap-hint" role="status">
