@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { brotliCompressSync, brotliDecompressSync } from 'node:zlib';
@@ -71,16 +72,23 @@ test('Rust exports title.lesson.br with internal identity and lossless images, r
     assert.equal(pack.file_name('en'), 'Anatomy lesson.lesson.br');
     const bytes = pack.export();
     const files = unpackLessonTar(brotliDecompressSync(bytes));
-    assert.deepEqual(JSON.parse(new TextDecoder().decode(files.get('lesson.json'))), draft);
-    assert.deepEqual(JSON.parse(new TextDecoder().decode(files.get('manifest.json'))), { format: 'soma-lesson', version: 1 });
+    const hash = createHash('sha256').update(draft.steps[0].instruction.vi).digest('hex');
+    const stored = structuredClone(draft);
+    stored.steps[0].instruction.vi = `lesson-content:${hash}`;
+    assert.deepEqual(JSON.parse(new TextDecoder().decode(files.get('lesson.json'))), stored);
+    assert.deepEqual(JSON.parse(new TextDecoder().decode(files.get('manifest.json'))), { format: 'soma-lesson', version: 2 });
+    assert.deepEqual(files.get(`content/${hash}.html`), encoder.encode(draft.steps[0].instruction.vi));
     assert.deepEqual(files.get(info.path), image);
     for (const filename of ['renamed.lesson.br', 'old.soma.br']) {
       const imported = LessonPackage.open(filename, bytes);
       try { assert.deepEqual(JSON.parse(imported.lesson_json()), draft); assert.deepEqual(imported.image_bytes(info.path), image); }
       finally { imported.free(); }
     }
-    files.set('manifest.json', encoder.encode('{"format":"soma","version":1}'));
-    const legacy = LessonPackage.open('legacy.soma.br', brotliCompressSync(packLessonTar(files)));
+    const legacyFiles = new Map(files);
+    legacyFiles.set('lesson.json', encoder.encode(JSON.stringify(draft)));
+    legacyFiles.delete(`content/${hash}.html`);
+    legacyFiles.set('manifest.json', encoder.encode('{"format":"soma","version":1}'));
+    const legacy = LessonPackage.open('legacy.soma.br', brotliCompressSync(packLessonTar(legacyFiles)));
     try { assert.equal(JSON.parse(legacy.lesson_json()).id, draft.id); }
     finally { legacy.free(); }
     assert.throws(() => LessonPackage.open('content.game.br', bytes));
