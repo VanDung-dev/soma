@@ -14,7 +14,7 @@ import type { GraphicsSettings } from "../../anatomy/viewer/graphics";
 
 type SceneProps = {
   graphics: GraphicsSettings;
-  modelIds: string[]; targetId: string; sectionId: string; frame: HTMLElement; inactive: boolean; tools: ReactNode;
+  modelIds: string[]; targetId: string; sectionId: string; frame: HTMLElement; inactive: boolean; configuring: boolean; tools: ReactNode;
   outlineOpen: boolean;
   visibleIds?: string[]; onChangeScene: (ids: string[]) => void;
   view?: SceneView;
@@ -53,7 +53,7 @@ export function EditorScene(props: SceneProps) {
     </p>, props.frame);
 }
 
-function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inactive, outlineOpen, tools, visibleIds, view, onChangeScene, sceneRef, revealPart, onSceneChange, onResetScene, onReloadModel, resetVersion }: SceneProps & { catalog: Catalog }) {
+function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inactive, configuring, outlineOpen, tools, visibleIds, view, onChangeScene, sceneRef, revealPart, onSceneChange, onResetScene, onReloadModel, resetVersion }: SceneProps & { catalog: Catalog }) {
   const { language, t } = useLanguage();
   const ids = useMemo(() => visibleIds ?? catalog.members(targetId), [catalog, targetId, visibleIds]);
   const focusFrame = useRef<HTMLDivElement>(null);
@@ -124,7 +124,7 @@ function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inacti
         value={state.loadedSystems} max={modelIds.length} />}
       <div className="lesson-model-tools">
         <div className="lesson-model-tools-row">
-          <button className="lesson-button lesson-scene-fit" disabled={!ready}
+          <button className="lesson-button lesson-scene-fit" disabled={!ready || configuring}
             onClick={onResetScene}>{t("lessons.resetStudyScene")}</button>
           {!inactive && tools}
         </div>
@@ -135,7 +135,7 @@ function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inacti
             session.changeExplosion(amount);
             onSceneChange?.();
           }} />
-          <button className="lesson-button" disabled={!ready || !modelIds.length || separated}
+          <button className="lesson-button" disabled={!ready || !modelIds.length || separated || configuring}
             onClick={onReloadModel}>{t("lessons.reloadModel")}</button>
         </div>
       </div>

@@ -54,6 +54,12 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
   const [sceneFrame, setSceneFrame] = useState<HTMLDivElement | null>(null);
   const [resetVersion, setResetVersion] = useState(0);
   const [modelReloadVersion, setModelReloadVersion] = useState(0);
+  const [modelSettingsOpen, setModelSettingsOpen] = useState(false);
+  const [previewScene, setPreviewScene] = useState<LessonScene & { modelIds: string[]; visibleIds: string[] }>();
+  const previewDirty = useRef(false);
+  const [modelSettingsHost, setModelSettingsHost] = useState<HTMLElement | null>(null);
+  const [modelToolbarHost, setModelToolbarHost] = useState<HTMLElement | null>(null);
+  const modelSettingsOpener = useRef<HTMLButtonElement>(null);
   const editorLanguage = locale ?? language;
   const writingText: typeof t = (key, values) => translateMessage(key, editorLanguage, values);
   useEffect(() => {
@@ -62,6 +68,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
     }
   }, [draft.languages, editorLanguage]);
   useEffect(() => { setDraft(lesson); }, [lesson]);
+  useEffect(() => { setModelSettingsOpen(false); setPreviewScene(undefined); previewDirty.current = false; }, [selected]);
   const index = draft.steps.findIndex(step => step.id === selected);
   const active = draft.steps[index];
   const inherited = lessonSceneStep(draft, Math.max(0, index));
@@ -183,32 +190,61 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
     setModelReloadVersion(value => value + 1);
   }
 
-  async function changeModels(nextModelIds: string[]) {
-    if (!active) return;
-    const live = sceneDirty ? sceneHandle.current?.capture() : undefined;
-    if (sceneDirty && !live) { setError(t("lessons.sceneSaveUnavailable")); return; }
+  async function changeModels() {
+    if (!active || !previewScene) return false;
+    const nextModelIds = previewScene.modelIds;
     const currentModelIds = scene?.modelIds ?? modelIds;
-    if (currentModelIds.slice().sort().join(",") === nextModelIds.slice().sort().join(",")) return;
     const removedRoots = currentModelIds.filter(id => !nextModelIds.includes(id));
     if (removedRoots.length && (scene?.targetId || scene?.view || scene?.visibleIds?.length)
-      && !await confirm(t("lessons.confirmSceneReset"), t("lessons.continue"))) return;
-    const removedMembers = new Set(removedRoots.flatMap(id => catalog.members(id)));
-    const addedMembers = nextModelIds.filter(id => !currentModelIds.includes(id)).flatMap(id => catalog.members(id));
-    const primaryId = nextModelIds[0] ?? "";
-    const targetId = scene && nextModelIds.some(id => lessonTargets(catalog, id).some(target => target.id === scene.targetId))
-      ? scene.targetId : primaryId;
+      && !await confirm(t("lessons.confirmSceneReset"), t("lessons.continue"))) return false;
+    const live = previewDirty.current && nextModelIds.length ? sceneHandle.current?.capture() : undefined;
+    if (previewDirty.current && nextModelIds.length && !live) { setError(t("lessons.sceneSaveUnavailable")); return false; }
     const patch = {
       modelIds: nextModelIds,
-      targetId,
-      visibleIds: [...new Set([
-        ...(live?.visibleIds ?? visibleIds).filter(id => !removedMembers.has(id)),
-        ...addedMembers,
-      ])],
-      view: live?.view ?? scene?.view,
+      targetId: previewScene.targetId,
+      visibleIds: previewScene.visibleIds,
+      view: live?.view ?? previewScene.view,
     };
     setSceneDirty(false);
     updateActive(active.kind === "identify_structure" ? { ...active, ...patch }
       : { ...active, kind: "observe", ...patch });
+    return true;
+  }
+
+  function previewModels(nextModelIds: string[]) {
+    const live = previewDirty.current ? sceneHandle.current?.capture() : undefined;
+    if (previewDirty.current && !live) { setError(t("lessons.sceneSaveUnavailable")); return; }
+    previewDirty.current = false;
+    setPreviewScene(current => {
+      if (!current) return current;
+      const removed = new Set(current.modelIds.filter(id => !nextModelIds.includes(id)).flatMap(id => catalog.members(id)));
+      const added = nextModelIds.filter(id => !current.modelIds.includes(id)).flatMap(id => catalog.members(id));
+      const targetId = nextModelIds.some(id => lessonTargets(catalog, id).some(target => target.id === current.targetId))
+        ? current.targetId : nextModelIds[0] ?? "";
+      return { ...current, modelIds: nextModelIds, targetId,
+        visibleIds: [...new Set([...current.visibleIds.filter(id => !removed.has(id)), ...added])],
+        view: live?.view ?? current.view };
+    });
+  }
+
+  function openModelSettings(event: React.MouseEvent<HTMLButtonElement>) {
+    const live = sceneDirty ? sceneHandle.current?.capture() : undefined;
+    if (!stageSceneDraft()) return;
+    modelSettingsOpener.current = event.currentTarget;
+    previewDirty.current = false;
+    setPreviewScene({ modelIds: [...modelIds], targetId: sceneTargetId,
+      visibleIds: [...(live?.visibleIds ?? visibleIds)], view: live?.view ?? scene?.view });
+    setModelSettingsOpen(true);
+  }
+
+  function closeModelSettings() {
+    setModelSettingsOpen(false);
+    setPreviewScene(undefined);
+    previewDirty.current = false;
+    setRevealPart(undefined);
+    setResetVersion(value => value + 1);
+    requestAnimationFrame(() => (modelSettingsOpener.current?.isConnected ? modelSettingsOpener.current
+      : document.querySelector<HTMLButtonElement>(".lesson-scene-placeholder-actions .lesson-primary, .lesson-model-toolbar > .lesson-button") ?? heading.current)?.focus({ preventScroll: true }));
   }
 
   function addStructures(ids: string[], partId?: string) {
@@ -349,10 +385,13 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
   const title = active?.title ?? draft.title;
   const body = active?.instruction ?? draft.summary;
   const sceneTargetId = scene && targets.some(target => target.id === scene.targetId) ? scene.targetId : primarySceneModelId;
-  const hasModel = modelIds.length > 0 && modelIds.some(id => catalog.roots.some(model => model.id === id));
+  const displayModelIds = previewScene?.modelIds ?? modelIds;
+  const displayTargetId = previewScene?.targetId ?? sceneTargetId;
+  const displayVisibleIds = previewScene?.visibleIds ?? visibleIds;
+  const hasModel = displayModelIds.length > 0 && displayModelIds.some(id => catalog.roots.some(model => model.id === id));
   const showModel = !!active && active.showModel !== false;
   const renderScene = showModel && hasModel;
-  const loadedModelIds = lessonModels(catalog, draft);
+  const loadedModelIds = [...new Set([...lessonModels(catalog, draft), ...displayModelIds])];
   const previousStep = index > 0 ? draft.steps[index - 1] : undefined;
   const previousScene = previousStep?.kind === "text" ? lessonSceneStep(draft, index - 1) : previousStep;
   const savedIndex = saved.steps.findIndex(step => step.id === active?.id);
@@ -361,23 +400,33 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
   const canRestoreSavedModel = !!savedStep && lessonSceneModels(catalog, saved, savedScene ?? saved.scene).length > 0;
   const canCopyPreviousScene = !!previousScene && previousScene.targetId !== ""
     && lessonSceneModels(catalog, draft, previousScene).length > 0;
-  const modelSetup = <LessonModelSetup catalog={catalog} modelId={modelIds[0] ?? ""} modelIds={modelIds} targetId={sceneTargetId}
-    visibleIds={visibleIds} selectedPart={revealPart?.id} onSelectPart={(id, target) => {
+  const modelSetup = <LessonModelSetup catalog={catalog} modelIds={displayModelIds} targetId={displayTargetId}
+    settingsOpen={modelSettingsOpen} settingsHost={modelSettingsHost} toolbarHost={modelToolbarHost}
+    onOpenSettings={openModelSettings} onCloseSettings={closeModelSettings}
+    visibleIds={displayVisibleIds} selectedPart={revealPart?.id} onSelectPart={(id, target) => {
       setRevealPart({ id, target });
-      setSceneDirty(true);
+      if (modelSettingsOpen) previewDirty.current = true;
+      else setSceneDirty(true);
       setSaveNotice("");
     }}
-    onModel={id => changeModels(id ? [id] : [])} onModels={changeModels} onChoose={addStructures}
-    onChangeScene={ids => hasModel ? updateScene(ids) : addStructures(ids)} />;
+    onModels={changeModels} onPendingModels={previewModels} onChoose={addStructures}
+    onChangeScene={ids => modelSettingsOpen
+      ? setPreviewScene(current => current && { ...current, visibleIds: ids })
+      : hasModel ? updateScene(ids) : addStructures(ids)} />;
 
   return <WorkspaceLayout className="lesson-editor study-shell" data-outline={outlineOpen}>
-    {sceneFrame && <EditorScene graphics={graphics} modelIds={loadedModelIds} targetId={sceneTargetId}
-      visibleIds={scene?.visibleIds} view={scene?.view} sectionId={active?.id ?? draft.id} sceneRef={sceneHandle}
+    {modelSetup}
+    {sceneFrame && <EditorScene graphics={graphics} modelIds={loadedModelIds} targetId={displayTargetId}
+      visibleIds={displayVisibleIds} view={previewScene?.view ?? scene?.view} sectionId={active?.id ?? draft.id} sceneRef={sceneHandle}
       revealPart={revealPart}
-      onChangeScene={ids => hasModel ? updateScene(ids) : addStructures(ids)}
-      onSceneChange={() => { editRevision.current++; setSceneDirty(true); setSaveNotice(""); }}
+      onChangeScene={ids => modelSettingsOpen
+        ? setPreviewScene(current => current && { ...current, visibleIds: ids })
+        : hasModel ? updateScene(ids) : addStructures(ids)}
+      onSceneChange={() => { if (modelSettingsOpen) previewDirty.current = true;
+        else { editRevision.current++; setSceneDirty(true); setSaveNotice(""); } }}
       onResetScene={resetScene} onReloadModel={reloadModel} reloadVersion={modelReloadVersion} resetVersion={resetVersion}
-      frame={sceneFrame} tools={modelSetup} inactive={!renderScene} outlineOpen={outlineOpen} />}
+      frame={sceneFrame} tools={<div className="lesson-model-toolbar-host" ref={setModelToolbarHost} />} inactive={!renderScene}
+      configuring={modelSettingsOpen} outlineOpen={outlineOpen} />}
     <WorkspaceMenu className="lesson-author-bar" layout="inline" actionsClassName="lesson-author-actions" navigation={<>
         <SidebarToggle id="lesson-toggle-outline" controls="lesson-author-outline" expanded={outlineOpen}
           name={t("lessons.outline")} onToggle={() => setOutlineOpen(!outlineOpen)} />
@@ -386,7 +435,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
           {t("lessons.exit")}
         </button>
         <button className="lesson-button lesson-primary" aria-label={t(isDirty ? "lessons.saveLesson" : "lessons.savedShort")}
-          data-saved={!isDirty} disabled={!isDirty || saving} aria-busy={saving} onClick={save}>
+          data-saved={!isDirty} disabled={!isDirty || saving || modelSettingsOpen} aria-busy={saving} onClick={save}>
           <span className="lesson-action-full">{t(isDirty ? "lessons.saveLesson" : "lessons.savedShort")}</span>
           <span className="lesson-action-short">{t(isDirty ? "lessons.saveLessonShort" : "lessons.savedShort")}</span>
         </button>
@@ -404,10 +453,10 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
               onClick={() => { if (isConfigured) setLocale(value); }}>{value.toUpperCase()}</button>;
           })}
         </div>
-        <button className="lesson-button" aria-label={t("lessons.export")} disabled={exporting} aria-busy={exporting} onClick={() => void exportDraft()}>
+        <button className="lesson-button" aria-label={t("lessons.export")} disabled={exporting || modelSettingsOpen} aria-busy={exporting} onClick={() => void exportDraft()}>
           <span className="lesson-action-full">{t("lessons.export")}</span><span className="lesson-action-short">{t("lessons.exportShort")}</span>
         </button>
-        <button className="lesson-button lesson-primary" aria-label={t("lessons.preview")} onClick={preview}>
+        <button className="lesson-button lesson-primary" aria-label={t("lessons.preview")} disabled={modelSettingsOpen} onClick={preview}>
           <span className="lesson-action-full">{t("lessons.preview")}</span><span className="lesson-action-short">{t("lessons.previewShort")}</span>
         </button>
       </>} />
@@ -440,17 +489,17 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
           <div className="lesson-scene-placeholder workspace-panel-surface">
             <span className="lesson-block-icon" aria-hidden="true">3D</span>
             <p>{t("lessons.scenePlaceholder")}</p>
-            {modelIds.length === 0 && <div className="lesson-scene-placeholder-actions">
-              <button className="lesson-button lesson-primary" popoverTarget="lesson-model-settings">{t("lessons.modelSettings")}</button>
+            {modelIds.length === 0 && !modelSettingsOpen && <div className="lesson-scene-placeholder-actions">
+              <button className="lesson-button lesson-primary" onClick={openModelSettings}>{t("lessons.modelSettings")}</button>
               {canRestoreSavedModel && <button className="lesson-button" onClick={resetScene}>{t("lessons.resetStudyScene")}</button>}
               {canCopyPreviousScene && <button className="lesson-button" onClick={copyPreviousScene}>{t("lessons.copyPreviousScene")}</button>}
             </div>}
           </div>
-          <div className="lesson-model-tools">{modelSetup}</div>
+          <div className="lesson-model-tools"><div className="lesson-model-toolbar-host" ref={setModelToolbarHost} /></div>
         </div>}
         </div>
       </div>
-      <section className="lesson-author-document workspace-panel-surface" id="lesson-author-writing"
+      <section className="lesson-author-document workspace-panel-surface" id="lesson-author-writing" inert={modelSettingsOpen}
         aria-label={t("lessons.writing")}>
         <div className="lesson-editor-stepbar">
           {active && <button className="lesson-button lesson-step-previous" disabled={index === 0}
@@ -492,6 +541,11 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
           <button type="button" className="lesson-button lesson-remove-block" onClick={remove}>{t("lessons.removeStep")}</button>
         </div>}
       </section>
+      <section className="lesson-model-settings workspace-panel-surface" ref={setModelSettingsHost} data-open={modelSettingsOpen}
+        aria-hidden={!modelSettingsOpen} inert={!modelSettingsOpen}
+        role="region" aria-label={t("lessons.modelSettings")} onKeyDown={event => {
+          if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeModelSettings(); }
+        }} />
     </div>
 
     </div>

@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Catalog } from "../../anatomy/catalog/types";
 import { StructureSearch } from "../../anatomy/structure-search";
 import { StructureTree } from "../../anatomy/structure-tree";
 import { useLanguage } from "../../i18n";
 import { fetchModelAsset } from "../../model-assets";
-import { PopoverPanel } from "../../popover-panel";
+import { LineIcon } from "../../icons";
 
 export function metadataForRoot(payload: { metadata?: Record<string, unknown> }, rootId: string) {
   if (!payload.metadata) return payload;
@@ -13,15 +14,19 @@ export function metadataForRoot(payload: { metadata?: Record<string, unknown> },
   return metadata;
 }
 
-export function LessonModelSetup({ catalog, modelId, modelIds, targetId, visibleIds, selectedPart, onModel, onModels, onChoose, onChangeScene, onSelectPart }: {
+export function LessonModelSetup({ catalog, modelIds, targetId, visibleIds, selectedPart, settingsOpen, settingsHost, toolbarHost, onOpenSettings, onCloseSettings, onModels, onPendingModels, onChoose, onChangeScene, onSelectPart }: {
   catalog: Catalog;
-  modelId: string;
   modelIds: string[];
   targetId: string;
   visibleIds: string[];
   selectedPart?: string;
-  onModel: (id: string) => void;
-  onModels?: (ids: string[]) => void;
+  settingsOpen: boolean;
+  settingsHost: HTMLElement | null;
+  toolbarHost: HTMLElement | null;
+  onOpenSettings: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  onCloseSettings: () => void;
+  onModels: () => Promise<boolean>;
+  onPendingModels: (ids: string[]) => void;
   onChoose: (ids: string[], partId?: string) => void;
   onChangeScene: (ids: string[]) => void;
   onSelectPart: (id: string, target?: boolean) => void;
@@ -30,32 +35,36 @@ export function LessonModelSetup({ catalog, modelId, modelIds, targetId, visible
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const closeButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const frame = requestAnimationFrame(() => {
+      if (window.matchMedia("(max-width: 900px)").matches) settingsHost?.scrollIntoView({ block: "start", inline: "nearest" });
+      closeButton.current?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [settingsOpen, settingsHost]);
   const shown = useMemo(() => new Set(visibleIds), [visibleIds]);
   const reveal = useMemo(() => ({ id: selectedPart || targetId }), [selectedPart, targetId]);
 
   function handleToggleSystem(rootId: string) {
-    const next = modelIds.includes(rootId)
+    onPendingModels(modelIds.includes(rootId)
       ? modelIds.filter(id => id !== rootId)
-      : [...modelIds, rootId];
-    if (onModels) onModels(next);
-    else onModel(next[0] ?? "");
+      : [...modelIds, rootId]);
   }
 
   function handleSelectAll() {
     const all = catalog.roots.map(r => r.id);
-    if (onModels) onModels(all);
-    else onModel(all[0] ?? "");
+    onPendingModels(all);
   }
 
   function handleDeselectAll() {
-    if (onModels) onModels([]);
-    else onModel("");
+    onPendingModels([]);
   }
 
   function handleSelectChange(event: React.ChangeEvent<HTMLSelectElement>) {
     const selected = Array.from(event.target.selectedOptions, o => o.value).filter(Boolean);
-    if (onModels) onModels(selected);
-    else onModel(selected[0] ?? "");
+    onPendingModels(selected);
   }
   useEffect(() => {
     const abort = new AbortController();
@@ -74,16 +83,26 @@ export function LessonModelSetup({ catalog, modelId, modelIds, targetId, visible
     return () => abort.abort();
   }, [catalog, attempt]);
 
-  return <div className="lesson-model-toolbar">
-    {modelIds.length > 0 && <>
+  return <>
+    {toolbarHost && createPortal(<div className="lesson-model-toolbar">
+    {!settingsOpen && modelIds.length > 0 && <>
       <StructureSearch catalog={catalog} disabled={loading || failed} label={t("search.submit")}
         onSelect={id => {
           const ids = catalog.target(id) ? catalog.members(id) : [id];
           onChoose(ids, catalog.target(id) ? undefined : id);
         }} />
-      <button className="lesson-button" popoverTarget="lesson-model-settings">{t("lessons.modelSettings")}</button>
+      <button className="lesson-button" onClick={onOpenSettings}>{t("lessons.modelSettings")}</button>
     </>}
-    <PopoverPanel id="lesson-model-settings" className="lesson-model-settings" title={t("lessons.modelSettings")} closeLabel={t("lessons.closeModelSettings")}>
+    {loading && <span className="lesson-model-search-status" role="status">{t("lessons.loadingStructures")}</span>}
+    {failed && <div className="lesson-model-search-status" role="alert">{t("lessons.targetError")} <button className="lesson-save-retry" onClick={() => setAttempt(attempt + 1)}>{t("lessons.retry")}</button></div>}
+    </div>, toolbarHost)}
+    {settingsHost && createPortal(<>
+      <header className="guide-heading"><h2 id="lesson-model-settings-title">{t("lessons.modelSettings")}</h2>
+        <button className="controls-info" ref={closeButton} aria-label={t("lessons.closeModelSettings")} onClick={onCloseSettings}>
+          <LineIcon name="close-small" size={14} />
+        </button>
+      </header>
+      <div className="lesson-model-settings-content">
       <div className="lesson-fields">
         <div className="lesson-model-systems">
           <div className="lesson-model-systems-header">
@@ -176,8 +195,12 @@ export function LessonModelSetup({ catalog, modelId, modelIds, targetId, visible
           )
         )}
       </div>
-    </PopoverPanel>
-    {loading && <span className="lesson-model-search-status" role="status">{t("lessons.loadingStructures")}</span>}
-    {failed && <div className="lesson-model-search-status" role="alert">{t("lessons.targetError")} <button className="lesson-save-retry" onClick={() => setAttempt(attempt + 1)}>{t("lessons.retry")}</button></div>}
-  </div>;
+      </div>
+      <div className="lesson-model-settings-actions">
+        <button className="lesson-button" onClick={onCloseSettings}>{t("lessons.cancel")}</button>
+        <button className="lesson-button lesson-primary" disabled={loading || failed}
+          onClick={async () => { if (await onModels()) onCloseSettings(); }}>{t("lessons.apply")}</button>
+      </div>
+    </>, settingsHost)}
+  </>;
 }
