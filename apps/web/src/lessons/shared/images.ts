@@ -8,8 +8,11 @@ export type LessonImages = Map<string, Blob>;
 
 async function database() {
   return new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open("soma-lesson-images", 1);
-    request.onupgradeneeded = () => request.result.createObjectStore("images");
+    const request = indexedDB.open("soma-lesson-images", 2);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains("images")) request.result.createObjectStore("images");
+      if (!request.result.objectStoreNames.contains("content")) request.result.createObjectStore("content");
+    };
     request.onsuccess = () => {
       request.result.onversionchange = () => request.result.close();
       resolve(request.result);
@@ -45,6 +48,59 @@ export async function loadBrowserLessonImages(id: string) {
         cursor.continue();
       };
       transaction.oncomplete = () => resolve(images);
+      transaction.onabort = transaction.onerror = () => reject(transaction.error);
+    });
+  } finally { db.close(); }
+}
+
+export async function loadBrowserLessonContent(id: string, paths: ReadonlySet<string>) {
+  const db = await database();
+  try {
+    return await new Promise<Map<string, string>>((resolve, reject) => {
+      const transaction = db.transaction("content");
+      const store = transaction.objectStore("content");
+      const contents = new Map<string, string>();
+      let remaining = paths.size;
+      if (!remaining) { resolve(contents); return; }
+      for (const path of paths) {
+        const request = store.get([id, path]);
+        request.onsuccess = () => {
+          if (typeof request.result === "string") contents.set(path, request.result);
+          if (!--remaining) resolve(contents);
+        };
+        request.onerror = () => reject(request.error);
+      }
+      transaction.onabort = transaction.onerror = () => reject(transaction.error);
+    });
+  } finally { db.close(); }
+}
+
+export async function storeBrowserLessonContent(id: string, contents: ReadonlyMap<string, string>) {
+  const db = await database();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction("content", "readwrite");
+      const store = transaction.objectStore("content");
+      for (const [path, html] of contents) store.put(html, [id, path]);
+      transaction.oncomplete = () => resolve();
+      transaction.onabort = transaction.onerror = () => reject(transaction.error);
+    });
+  } finally { db.close(); }
+}
+
+export async function retainBrowserLessonContent(id: string, paths: ReadonlySet<string>, canRemove: () => boolean = () => true) {
+  const db = await database();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction("content", "readwrite");
+      const request = transaction.objectStore("content").openCursor(IDBKeyRange.bound([id, ""], [id, "\uffff"]));
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor || !canRemove()) return;
+        if (!paths.has((cursor.key as string[])[1]!)) cursor.delete();
+        cursor.continue();
+      };
+      transaction.oncomplete = () => resolve();
       transaction.onabort = transaction.onerror = () => reject(transaction.error);
     });
   } finally { db.close(); }

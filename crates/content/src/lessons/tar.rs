@@ -1,31 +1,44 @@
-use super::Files;
+use super::{CONTENT_COUNT_LIMIT, CONTENT_LIMIT, Files, content_hash};
 use catalog::lesson::{self, ARCHIVE_LIMIT, IMAGE_COUNT_LIMIT, IMAGE_LIMIT, JSON_LIMIT};
 
 fn block(size: usize) -> usize {
     size.div_ceil(512) * 512
 }
 fn valid_path(path: &str) -> bool {
-    matches!(path, "manifest.json" | "lesson.json") || lesson::image_path(path)
+    matches!(path, "manifest.json" | "lesson.json")
+        || lesson::image_path(path)
+        || content_hash(path).is_some()
+}
+
+fn entry_limit(path: &str) -> usize {
+    if lesson::image_path(path) {
+        IMAGE_LIMIT
+    } else if content_hash(path).is_some() {
+        CONTENT_LIMIT
+    } else {
+        JSON_LIMIT
+    }
+}
+
+fn entry_count_limit() -> usize {
+    IMAGE_COUNT_LIMIT + CONTENT_COUNT_LIMIT + 2
 }
 
 fn validate(files: &Files) -> Result<usize, String> {
     if !files.contains_key("manifest.json")
         || !files.contains_key("lesson.json")
-        || files.len() > IMAGE_COUNT_LIMIT + 2
+        || files.len() > entry_count_limit()
+        || files
+            .keys()
+            .filter(|path| content_hash(path).is_some())
+            .count()
+            > CONTENT_COUNT_LIMIT
     {
         return Err("Invalid lesson entries".into());
     }
     let mut size = 1024;
     for (path, bytes) in files {
-        if !valid_path(path)
-            || bytes.is_empty()
-            || bytes.len()
-                > if lesson::image_path(path) {
-                    IMAGE_LIMIT
-                } else {
-                    JSON_LIMIT
-                }
-        {
+        if !valid_path(path) || bytes.is_empty() || bytes.len() > entry_limit(path) {
             return Err("Invalid lesson entry".into());
         }
         size += 512 + block(bytes.len());
@@ -118,13 +131,14 @@ pub fn unpack(bytes: &[u8]) -> Result<Files, String> {
             || !valid_path(path)
             || files.contains_key(path)
             || size == 0
-            || size
-                > if lesson::image_path(path) {
-                    IMAGE_LIMIT
-                } else {
-                    JSON_LIMIT
-                }
-            || files.len() >= IMAGE_COUNT_LIMIT + 2
+            || size > entry_limit(path)
+            || files.len() >= entry_count_limit()
+            || (content_hash(path).is_some()
+                && files
+                    .keys()
+                    .filter(|path| content_hash(path).is_some())
+                    .count()
+                    >= CONTENT_COUNT_LIMIT)
             || offset + 512 + block(size) + 1024 > bytes.len()
         {
             return Err("Invalid lesson TAR entry".into());

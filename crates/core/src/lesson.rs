@@ -6,6 +6,7 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 
 pub const ARCHIVE_LIMIT: usize = 64 * 1024 * 1024;
 pub const JSON_LIMIT: usize = 2 * 1024 * 1024;
+pub const LESSON_LIMIT: usize = ARCHIVE_LIMIT;
 pub const IMAGE_LIMIT: usize = 10 * 1024 * 1024;
 pub const IMAGE_COUNT_LIMIT: usize = 128;
 
@@ -318,8 +319,8 @@ pub fn validate(lesson: &Value, draft: bool) -> Result<(), ValidationError> {
 }
 
 pub fn parse(json: &str, draft: bool) -> Result<Value, ValidationError> {
-    if json.len() > JSON_LIMIT {
-        return Err(error("details", 0, "Lesson JSON exceeds 2 MiB"));
+    if json.len() > LESSON_LIMIT {
+        return Err(error("details", 0, "Lesson data exceeds 64 MiB"));
     }
     let lesson =
         serde_json::from_str(json).map_err(|cause| error("details", 0, cause.to_string()))?;

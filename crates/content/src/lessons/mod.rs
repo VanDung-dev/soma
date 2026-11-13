@@ -1,13 +1,196 @@
-use catalog::lesson::{self, ARCHIVE_LIMIT, IMAGE_COUNT_LIMIT, IMAGE_LIMIT};
+use catalog::lesson::{self, ARCHIVE_LIMIT, IMAGE_COUNT_LIMIT, IMAGE_LIMIT, JSON_LIMIT};
 use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::{Cursor, Read, Write};
 
 pub mod tar;
 
 pub type Files = BTreeMap<String, Vec<u8>>;
+
+pub const CONTENT_LIMIT: usize = JSON_LIMIT;
+pub const CONTENT_COUNT_LIMIT: usize = 2048;
+
+fn content_path(hash: &str) -> String {
+    format!("content/{hash}.html")
+}
+
+fn content_hash(path: &str) -> Option<&str> {
+    path.strip_prefix("content/")?
+        .strip_suffix(".html")
+        .filter(|hash| {
+            hash.len() == 64
+                && hash
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        })
+}
+
+fn content_reference(value: &str) -> Option<&str> {
+    value.strip_prefix("lesson-content:").filter(|hash| {
+        hash.len() == 64
+            && hash
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    })
+}
+
+fn transform_content(
+    value: &mut Value,
+    contents: &mut Files,
+    externalize: bool,
+    recover_missing: bool,
+    missing: &mut Vec<String>,
+) -> Result<(), String> {
+    match value {
+        Value::Object(fields) => {
+            let locales: Vec<String> = fields
+                .get("html")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect();
+            for locale in locales {
+                let Some(Value::String(text)) = fields.get_mut(&locale) else {
+                    continue;
+                };
+                if externalize {
+                    if !text.is_empty() {
+                        let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
+                        let path = content_path(&hash);
+                        contents.insert(path, text.as_bytes().to_vec());
+                        *text = format!("lesson-content:{hash}");
+                    }
+                } else if let Some(hash) = content_reference(text) {
+                    let path = content_path(hash);
+                    let Some(bytes) = contents.get(&path) else {
+                        if recover_missing {
+                            missing.push(path);
+                            *text = "[Missing lesson text content]".into();
+                            continue;
+                        }
+                        return Err("Missing lesson text content".into());
+                    };
+                    if format!("{:x}", Sha256::digest(bytes)) != hash {
+                        if recover_missing {
+                            missing.push(path);
+                            *text = "[Missing lesson text content]".into();
+                            continue;
+                        }
+                        return Err("Lesson text content does not match its reference".into());
+                    }
+                    match String::from_utf8(bytes.clone()) {
+                        Ok(html) => *text = html,
+                        Err(_) if recover_missing => {
+                            missing.push(path);
+                            *text = "[Missing lesson text content]".into();
+                        }
+                        Err(cause) => return Err(cause.to_string()),
+                    }
+                } else if text.starts_with("lesson-content:") {
+                    if recover_missing {
+                        missing.push(text.clone());
+                        *text = "[Missing lesson text content]".into();
+                    } else {
+                        return Err("Invalid lesson text content reference".into());
+                    }
+                }
+            }
+            for child in fields.values_mut() {
+                transform_content(child, contents, externalize, recover_missing, missing)?;
+            }
+        }
+        Value::Array(items) => {
+            for child in items {
+                transform_content(child, contents, externalize, recover_missing, missing)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+pub fn externalize_lesson_content(lesson: &mut Value) -> Result<Files, String> {
+    let mut contents = Files::new();
+    transform_content(lesson, &mut contents, true, false, &mut Vec::new())?;
+    if contents.len() > CONTENT_COUNT_LIMIT
+        || contents
+            .values()
+            .try_fold(0usize, |total, bytes| {
+                if bytes.len() > CONTENT_LIMIT {
+                    return None;
+                }
+                total.checked_add(bytes.len())
+            })
+            .is_none_or(|total| total > ARCHIVE_LIMIT - 4 * 1024 * 1024)
+    {
+        return Err("Lesson text content limit exceeded".into());
+    }
+    Ok(contents)
+}
+
+pub fn hydrate_lesson_content(lesson: &mut Value, mut contents: Files) -> Result<(), String> {
+    let references = lesson_content_paths(lesson);
+    if references.len() != contents.len()
+        || references.iter().any(|path| !contents.contains_key(path))
+    {
+        return Err("Invalid lesson text content entries".into());
+    }
+    transform_content(lesson, &mut contents, false, false, &mut Vec::new())?;
+    if contents.len() > CONTENT_COUNT_LIMIT {
+        return Err("Invalid lesson text content entries".into());
+    }
+    Ok(())
+}
+
+pub fn hydrate_lesson_content_recovering(lesson: &mut Value, mut contents: Files) -> Vec<String> {
+    let mut missing = Vec::new();
+    if let Err(error) = transform_content(lesson, &mut contents, false, true, &mut missing) {
+        missing.push(error);
+    }
+    missing.extend(contents.into_keys());
+    missing
+}
+
+pub fn lesson_content_paths(lesson: &Value) -> BTreeSet<String> {
+    fn collect(value: &Value, paths: &mut BTreeSet<String>) {
+        match value {
+            Value::Object(fields) => {
+                let locales = fields
+                    .get("html")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(Value::as_str);
+                for locale in locales {
+                    if let Some(hash) = fields
+                        .get(locale)
+                        .and_then(Value::as_str)
+                        .and_then(content_reference)
+                    {
+                        paths.insert(content_path(hash));
+                    }
+                }
+                for child in fields.values() {
+                    collect(child, paths);
+                }
+            }
+            Value::Array(items) => items.iter().for_each(|child| collect(child, paths)),
+            _ => {}
+        }
+    }
+
+    let mut paths = BTreeSet::new();
+    collect(lesson, &mut paths);
+    paths
+}
+
+pub fn is_content_path(path: &str) -> bool {
+    content_hash(path).is_some()
+}
 
 pub fn check_file(name: &str, size: usize) -> Result<(), String> {
     let name = name.to_lowercase();
@@ -164,15 +347,34 @@ impl Package {
                 .ok_or("Missing lesson manifest")?,
         )
         .map_err(|cause| cause.to_string())?;
-        if manifest["version"] != 1
+        let version = manifest["version"]
+            .as_u64()
+            .ok_or("Unsupported lesson archive format")?;
+        if !matches!(version, 1 | 2)
             || !matches!(manifest["format"].as_str(), Some("soma-lesson" | "soma"))
         {
             return Err("Unsupported lesson archive format".into());
         }
         let json = files.remove("lesson.json").ok_or("Missing lesson JSON")?;
-        let mut package =
-            Self::new(std::str::from_utf8(&json).map_err(|cause| cause.to_string())?)?;
         files.remove("manifest.json");
+        let mut lesson: Value = serde_json::from_slice(&json).map_err(|cause| cause.to_string())?;
+        let content_paths: Vec<_> = files
+            .keys()
+            .filter(|path| content_hash(path).is_some())
+            .cloned()
+            .collect();
+        let mut contents = Files::new();
+        for path in content_paths {
+            contents.insert(path.clone(), files.remove(&path).unwrap());
+        }
+        if version == 1 && !contents.is_empty() {
+            return Err("Invalid lesson text content entries".into());
+        }
+        if version == 2 {
+            hydrate_lesson_content(&mut lesson, contents)?;
+        }
+        let json = serde_json::to_string(&lesson).map_err(|cause| cause.to_string())?;
+        let mut package = Self::new(&json)?;
         for (path, bytes) in files {
             let image = image_info(&bytes)?;
             if image.path != path {
@@ -212,16 +414,19 @@ impl Package {
     pub fn export(&self) -> Result<Vec<u8>, String> {
         lesson::validate(&self.lesson, true).map_err(|cause| cause.to_string())?;
         self.check_resources()?;
+        let mut lesson_data = self.lesson.clone();
+        let contents = externalize_lesson_content(&mut lesson_data)?;
         let mut files = Files::from([
             (
                 "manifest.json".into(),
-                br#"{"format":"soma-lesson","version":1}"#.to_vec(),
+                br#"{"format":"soma-lesson","version":2}"#.to_vec(),
             ),
             (
                 "lesson.json".into(),
-                serde_json::to_vec_pretty(&self.lesson).map_err(|cause| cause.to_string())?,
+                serde_json::to_vec_pretty(&lesson_data).map_err(|cause| cause.to_string())?,
             ),
         ]);
+        files.extend(contents);
         for path in lesson::image_paths(&self.lesson) {
             let bytes = self.images.get(&path).ok_or("Missing lesson image")?;
             if image_info(bytes)?.path != path {

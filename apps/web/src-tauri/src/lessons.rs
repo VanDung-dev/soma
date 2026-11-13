@@ -42,12 +42,58 @@ fn directory(root: &Path, id: &str) -> PathBuf {
 
 fn current_lesson(path: &Path) -> io::Result<Option<String>> {
     match read_file(path, JSON_LIMIT) {
-        Ok(bytes) => String::from_utf8(bytes)
-            .map(Some)
-            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error)),
+        Ok(bytes) => {
+            let mut lesson: serde_json::Value = serde_json::from_slice(&bytes)
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+            let mut contents = content::lessons::Files::new();
+            for content_path in content::lessons::lesson_content_paths(&lesson) {
+                match read_file(
+                    &path.parent().unwrap_or(path).join(&content_path),
+                    content::lessons::CONTENT_LIMIT,
+                ) {
+                    Ok(bytes) => {
+                        contents.insert(content_path, bytes);
+                    }
+                    Err(error)
+                        if error.kind() == io::ErrorKind::NotFound
+                            || error.kind() == io::ErrorKind::InvalidData =>
+                    {
+                        eprintln!("Could not read lesson text block {}: {error}", content_path);
+                    }
+                    Err(error) => return Err(error),
+                }
+            }
+            let missing =
+                content::lessons::hydrate_lesson_content_recovering(&mut lesson, contents);
+            if !missing.is_empty() {
+                eprintln!(
+                    "Could not read lesson text content in {}: {missing:?}",
+                    path.display()
+                );
+            }
+            serde_json::to_string(&lesson)
+                .map(Some)
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
+        }
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(error) => Err(error),
     }
+}
+
+fn retain_lesson_content(dir: &Path, keep: &BTreeSet<String>) -> io::Result<()> {
+    let entries = match fs::read_dir(dir.join("content")) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error),
+    };
+    for entry in entries {
+        let entry = entry?;
+        let path = format!("content/{}", entry.file_name().to_string_lossy());
+        if content::lessons::is_content_path(&path) && !keep.contains(&path) {
+            fs::remove_file(entry.path())?;
+        }
+    }
+    Ok(())
 }
 
 fn image_entries(dir: &Path) -> io::Result<Vec<(String, usize)>> {
@@ -141,9 +187,29 @@ pub async fn save_lesson(
         .cloned()
         .collect();
     check_image_collection(&retained)?;
+    let image_bytes = retained.iter().map(|(_, size)| size).sum::<usize>();
     let paths: HashSet<_> = retained.into_iter().map(|(path, _)| path).collect();
     lesson::validate_resources(&value, &paths)?;
-    write_file(&path, json.as_bytes()).map_err(message)?;
+    let mut stored_lesson = value.clone();
+    let contents = content::lessons::externalize_lesson_content(&mut stored_lesson)?;
+    let text_bytes = contents.values().map(Vec::len).sum::<usize>();
+    if image_bytes + text_bytes > catalog::lesson::ARCHIVE_LIMIT - 4 * 1024 * 1024 {
+        return Err("Lesson resources exceed 60 MiB".into());
+    }
+    let stored_json = serde_json::to_vec(&stored_lesson).map_err(message)?;
+    if stored_json.len() > JSON_LIMIT {
+        return Err("Lesson metadata exceeds 2 MiB".into());
+    }
+    for (content_path, bytes) in &contents {
+        write_file(&dir.join(content_path), bytes).map_err(message)?;
+    }
+    write_file(&path, &stored_json).map_err(message)?;
+    if let Err(error) = retain_lesson_content(
+        &dir,
+        &content::lessons::lesson_content_paths(&stored_lesson),
+    ) {
+        eprintln!("Could not remove unused lesson text: {error}");
+    }
     if let Err(error) = retain_images(&dir, &referenced) {
         eprintln!("Could not remove unused lesson images: {error}");
     }
