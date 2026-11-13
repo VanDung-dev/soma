@@ -348,7 +348,6 @@
     "wikipedia.returnToArticle": {"vi": "Nội dung", "en": "Content"},
     "wikipedia.open": {"vi": "Wikipedia", "en": "Wikipedia"},
     "wikipedia.notes.short": {"vi": "Lưu ý", "en": "Note"},
-    "wikipedia.notes.disclaimer": {"vi": "Wikipedia chỉ phục vụ tham khảo và học tập; thông tin có thể sai hoặc chưa cập nhật, không thay thế tài liệu chuyên môn hoặc tư vấn y tế.", "en": "Wikipedia is for reference and learning only. Its information may be inaccurate or outdated and does not replace professional sources or medical advice."},
     "context.detach": {"vi": "Tách để quan sát", "en": "Move to inspect"},
     "context.hide": {"vi": "Ẩn bộ phận hoặc nhóm đã chọn", "en": "Hide the structure or selected group"},
     "context.restore": {"vi": "Đưa về vị trí gốc", "en": "Restore position"},

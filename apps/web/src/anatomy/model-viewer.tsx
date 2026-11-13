@@ -9,7 +9,7 @@ import type { OrientationAxesHandle } from "./orientation-axes";
 import { ExplodeControls } from "./explode-controls";
 import { HandCameraControls } from "./hand-camera-controls";
 import { CameraDevicesContext, useCameraDevices } from "./camera-devices";
-import { ReferenceNotice, WikipediaReader } from "./wikipedia-reader";
+import { WikipediaReader } from "./wikipedia-reader";
 import { OpenStaxLink, OpenStaxReading } from "./openstax-reference";
 import { useLanguage } from "../i18n";
 import { canReadStructure, StudySession } from "./study/session";
@@ -256,7 +256,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
             actions={<OpenStaxLink reference={openstaxReference} compact={!readerExpanded} />} />
             : openstaxReference && <div className="reader-actions"><OpenStaxLink reference={openstaxReference} compact={!readerExpanded} /></div>}
           <div className="model-credit">
-            {referenceName && <ReferenceNotice compact={!readerExpanded} />}
             <div className="credit-sources">
               <a href={`${import.meta.env.BASE_URL}models/z-anatomy/ATTRIBUTION.md`} target="_blank" rel="noreferrer" aria-label={t("credit.link")} title={t("credit.summary")}>{readerExpanded ? t("credit.summary") : "Z-Anatomy"}</a>
               <OpenStaxReading reference={openstaxReference} compact={!readerExpanded} />

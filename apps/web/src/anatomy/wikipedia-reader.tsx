@@ -104,17 +104,3 @@ export function WikipediaReader({ name, expanded = false, actions }: { name: str
     </div>
   </section>;
 }
-
-export function ReferenceNotice({ compact = false }: { compact?: boolean }) {
-  const { t } = useLanguage();
-  const description = <div className="reference-mapping-description">
-    <p className="reference-notice">{t("wikipedia.notes.disclaimer")}</p>
-  </div>;
-  if (!compact) return description;
-  return <details className="reference-mapping" onToggle={event => {
-    if (event.currentTarget.open) event.currentTarget.scrollIntoView({ block: "nearest" });
-  }}>
-    <summary>{t("wikipedia.notes.short")}</summary>
-    {description}
-  </details>;
-}

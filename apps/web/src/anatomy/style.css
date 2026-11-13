@@ -65,14 +65,11 @@
 .latin-name { color: var(--accent); font-style: italic; }
 .international-name { color: var(--muted); font-size: 13px; margin: 4px 0 0; overflow-wrap: anywhere; }
 .collection-names { color: var(--muted); overflow-wrap: anywhere; }
-.reference-notice { color: var(--muted); font-size: 11px; line-height: 1.6; }
 .wikipedia-reader a, .model-credit a { color: var(--accent); text-underline-offset: 3px; }
 .model-credit a { display: block; width: fit-content; min-height: 28px; padding: 4px; }
 .model-credit { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; flex-shrink: 0; border-top: 1px solid var(--line); margin-top: auto; padding-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; }
-.model-credit > .reference-mapping-description { flex-basis: 100%; }
 .credit-sources { display: flex; align-items: baseline; gap: 8px; flex: 1; min-width: 0; }
 .credit-sources > a { min-width: 0; }
-.reference-mapping-description { margin-top: 8px; }
 #workspace { position: absolute; inset: 0; min-width: 0; min-height: 0; }
 .anatomy-space { position: absolute; inset: 0; overflow: hidden; }
 .model-canvas { position: absolute; inset: 0; isolation: isolate; touch-action: none; overflow: hidden; }
@@ -163,12 +160,7 @@
 .reader-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .reader-actions button, .reader-actions a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 28px; height: 28px; padding: 3px 10px; border: 1px solid var(--line-strong); border-radius: var(--inner-radius); background: var(--surface); color: inherit; font-size: 12px; line-height: 1.5; text-decoration: none; }
 .reader-actions button:hover, .reader-actions a:hover, .reader-expand:hover { background: var(--control-hover); border-color: var(--line-hover); }
-.reference-mapping-description { padding: 1px 10px; border: 1px solid var(--line); border-radius: var(--detail-radius); background: var(--surface); }
 .reader-expand { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 76px; min-height: 28px; height: 28px; margin-top: 3px; padding: 3px 10px; border: 1px solid var(--line-strong); border-radius: var(--inner-radius); background: var(--surface); color: var(--accent); font-size: 12px; line-height: 1.5; text-decoration: none; }
-.reference-mapping { color: var(--muted); font-size: 11px; }
-.reference-mapping summary { width: fit-content; padding: 5px; cursor: pointer; text-underline-offset: 3px; }
-.reference-mapping summary:hover { color: var(--accent); text-decoration: underline; }
-.reference-mapping p { margin: 0; }
 /* Keep 180px for controls and 12px clearance on each side of the 3D area. */
 .information-panel.reader-expanded { z-index: 5; width: min(960px, calc(100% - var(--panel-width) - var(--panel-inset) - var(--panel-inset) - 204px)); background: var(--panel-bg); box-shadow: 0 28px 80px rgba(var(--shadow-rgb),.24), 0 4px 16px rgba(var(--shadow-rgb),.08); }
 .reader-expanded .wikipedia-reader { animation: reader-reveal .32s ease-out; }
@@ -178,7 +170,6 @@
 .information-panel:not(.reader-expanded) .wikipedia-reader { flex: 1 1 0; min-height: 120px; }
 .information-panel:not(.reader-expanded) .wikipedia-article { min-height: 0; }
 .information-panel:not(.reader-expanded) .reader-actions { flex-shrink: 0; gap: 6px; }
-.information-panel:not(.reader-expanded) .reference-mapping[open] { flex-basis: 100%; }
 @keyframes reader-reveal { from { opacity: .5; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
   .information-panel, .catalog-panel { transition: none; }
