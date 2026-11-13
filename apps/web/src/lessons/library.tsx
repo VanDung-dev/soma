@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import type { Ref } from "react";
+import type { ReactNode, Ref } from "react";
 import { useLanguage } from "../i18n";
 import { LineIcon } from "../icons";
 import { AlertCard } from "../pages/alert-card";
@@ -10,6 +10,16 @@ import { lessonPlainText } from "./shared/rich-text";
 import "./library.css";
 
 const searchable = (value: string) => value.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replaceAll("đ", "d");
+
+function renderLessonEmptyHint(text: string): ReactNode {
+  const parts = text.split(".lesson.br");
+  if (parts.length <= 1) return text;
+  return parts.reduce<ReactNode[]>((acc, part, index) => {
+    if (index > 0) acc.push(<strong key={`br-${index}`}>.lesson.br</strong>);
+    acc.push(part);
+    return acc;
+  }, []);
+}
 
 export function LessonLibrary({ lessons, loading, saving, importing, error, exportingId, titleRef, dragging, onDraggingChange, onCreate, onImport, onStart, onEdit, onExport, onRemove }: {
   lessons: Lesson[]; loading: boolean; saving: boolean; importing: boolean; error?: string; exportingId?: string; titleRef: Ref<HTMLHeadingElement>;
@@ -130,9 +140,8 @@ export function LessonLibrary({ lessons, loading, saving, importing, error, expo
       {importing ? <><progress aria-label={t("lessons.importing")} />{t("lessons.importing")}</> : notice}
     </div>
     {loading ? <p role="status">{t("lessons.loading")}</p> : !matching.length ? <div className="lesson-library-empty" role="status">
-      <span className="lesson-empty-mark" aria-hidden="true">{lessons.length ? "⌕" : "+"}</span>
       <h3>{t(lessons.length ? "lessons.noLessonMatches" : "lessons.empty")}</h3>
-      <p>{t(lessons.length ? "lessons.searchHint" : "lessons.emptyHint")}</p>
+      <p>{lessons.length ? t("lessons.searchHint") : renderLessonEmptyHint(t("lessons.emptyHint"))}</p>
       {lessons.length > 0 && <button type="button" className="lesson-button" onClick={() => setQuery("")}>{t("lessons.clearSearch")}</button>}
     </div> : <ul className="lesson-library">
       {matching.map((lesson, index) => {
