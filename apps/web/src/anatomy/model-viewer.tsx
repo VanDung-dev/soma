@@ -192,7 +192,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         <div className="tree-actions">
           <button disabled={building || error} onClick={() => session.changeVisibility(structureIds, true)}>{t("catalog.showAll")}</button>
           <button disabled={building || error} onClick={() => session.changeVisibility(structureIds, false)}>{t("catalog.hideAll")}</button>
-          <StructureSearch catalog={catalog} disabled={building || error} onSelect={chooseSearchResult} />
+          <StructureSearch catalog={catalog} disabled={building || error} label={t("search.submit")} onSelect={chooseSearchResult} />
         </div>
         <div className="catalog-tree">
           <StructureTree catalog={catalog} visibleIds={visibleIds} selected={selected} targetId={targetId} reveal={reveal} disabled={building || error}

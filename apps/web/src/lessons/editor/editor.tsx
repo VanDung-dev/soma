@@ -478,7 +478,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
     </nav>
     <p className="sr-only" role="status">{orderStatus}</p>
 
-    <div className="lesson-author-center" data-model={showModel}>
+    <div className="lesson-author-center" data-step={!!active} data-model={showModel}>
       {(saveFailed || error) && <div className="lesson-author-alerts">
         {saveFailed && <p className="model-status model-error" role="alert">{t("lessons.saveError")}</p>}
         {error && <p className="model-status model-error" role="alert">{error}</p>}
