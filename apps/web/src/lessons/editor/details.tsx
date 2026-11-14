@@ -167,7 +167,7 @@ export function LessonCoverEditor({ lesson, onChange }: {
         data-dragging={dragOver}
       >
         <LessonCoverView src={coverUrl} crop={lesson.coverCrop} alt={t("lessons.cover")}>
-          <span className="lesson-cover-badge" aria-label={t("lessons.coverRatio")}>16:9</span>
+          <span className="lesson-cover-badge" aria-label={t("lessons.coverRatio")}>21:9</span>
           {dragOver && (
             <div className="lesson-cover-drop-replace" aria-hidden="true">
               <span>{t("lessons.coverDropActive")}</span>

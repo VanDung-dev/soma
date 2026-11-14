@@ -14,7 +14,7 @@ import { LessonImageProvider } from "./shared/image-context";
 import { checkImageCollection, loadLessonImages, retainLessonImages, storeLessonImages } from "./shared/images";
 import { lessonJob } from "./shared/archive";
 import { lessonImagePaths } from "./shared/rich-text";
-import { LessonLibrary } from "./library";
+import { LessonLibrary } from "./library/library";
 import { LessonConfirmProvider, useLessonConfirm } from "./shared/confirm";
 
 export function LessonsPage({ editId, viewId, navigate }: { editId?: string; viewId?: string; navigate: (path: string) => void }) {

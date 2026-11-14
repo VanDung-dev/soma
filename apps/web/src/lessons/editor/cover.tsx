@@ -4,7 +4,7 @@ import type { Lesson, LessonCoverCrop } from "../shared/contract";
 import { loadLessonImage } from "../shared/images";
 
 export function getCoverDimensions(aspect: number | undefined) {
-  const containerAspect = 16 / 9;
+  const containerAspect = 21 / 9;
   const currentAspect = aspect && !isNaN(aspect) && aspect > 0 ? aspect : containerAspect;
   if (currentAspect >= containerAspect) {
     return {

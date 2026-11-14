@@ -1,12 +1,12 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { ReactNode, Ref } from "react";
-import { useLanguage } from "../i18n";
-import { LineIcon } from "../icons";
-import { AlertCard } from "../pages/alert-card";
-import { LessonCover } from "./editor/cover";
-import type { Lesson } from "./shared/contract";
-import { lessonLanguageTag, lessonText } from "./shared/contract";
-import { lessonPlainText } from "./shared/rich-text";
+import { useLanguage } from "../../i18n";
+import { LineIcon } from "../../icons";
+import { AlertCard } from "../../pages/alert-card";
+import { LessonCover } from "../editor/cover";
+import type { Lesson } from "../shared/contract";
+import { lessonLanguageTag, lessonText } from "../shared/contract";
+import { lessonPlainText } from "../shared/rich-text";
 import "./library.css";
 
 const searchable = (value: string) => value.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replaceAll("đ", "d");
@@ -101,7 +101,6 @@ export function LessonLibrary({ lessons, loading, saving, importing, error, expo
       <div className="lesson-library-intro">
         <span className="lesson-library-eyebrow">SOMA / LESSONS</span>
         <h1 id="lesson-library-title" ref={titleRef} tabIndex={-1}>{t("lessons.libraryTitle")}</h1>
-        <p>{t("home.lessons.description")}</p>
         <div className="lesson-library-actions">
           <button type="button" className="lesson-button lesson-primary" disabled={busy} onClick={onCreate}>
             <span aria-hidden="true">+</span>{t("lessons.create")}
@@ -147,16 +146,16 @@ export function LessonLibrary({ lessons, loading, saving, importing, error, expo
       {matching.map((lesson, index) => {
         const tag = lessonLanguageTag(lesson).replace("/", " / ").toUpperCase();
         const name = lessonText(lesson.title, language) || t("lessons.untitled");
+        const summary = lessonPlainText(lesson.summary, language) || t("lessons.noDescription");
         const badge = <span className="lesson-cover-badge" aria-label={`${t("lessons.languages")}: ${tag}`}>{tag}</span>;
         return <li className="lesson-card" key={lesson.id}>
           {lesson.cover ? <LessonCover lesson={lesson}>{badge}</LessonCover> : <div className="lesson-cover lesson-cover-empty">
             <span className="lesson-card-number" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>{badge}
           </div>}
           <div className="lesson-card-content">
-            <span className="lesson-card-meta">{t("lessons.sectionCount", { count: lesson.steps.length })}</span>
             <h3>{name}</h3>
-            {lesson.author?.trim() && <p className="lesson-card-author">{t("lessons.author")}: {lesson.author}</p>}
-            <p className="lesson-card-summary">{lessonPlainText(lesson.summary, language) || t("lessons.noDescription")}</p>
+            <p className="lesson-card-summary">{summary}</p>
+            <p className="lesson-card-author">{t("lessons.author")}: {lesson.author?.trim() || t("lessons.authorUnknown")}</p>
             <div className="lesson-card-actions">
               <button type="button" className="lesson-button lesson-primary" onClick={() => onStart(lesson)}>{t("lessons.start")}<LineIcon name="arrow-small-right" /></button>
               <button type="button" className="lesson-button" onClick={() => onEdit(lesson)}>{t("lessons.edit")}</button>
