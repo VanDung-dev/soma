@@ -102,7 +102,7 @@ export async function checkLessonQuestions(page) {
     await student.evaluate(async lesson => {
       const [{ default: { createElement } }, { default: { createRoot } }, { getCatalog }, { LessonPlayer }, { LessonImageProvider }] = await Promise.all([
         import('/node_modules/.vite/deps/react.js'), import('/node_modules/.vite/deps/react-dom_client.js'),
-        import('/src/anatomy/core.ts'), import('/src/lessons/player.tsx'), import('/src/lessons/image-context.tsx'),
+        import('/src/anatomy/core.ts'), import('/src/lessons/view/player.tsx'), import('/src/lessons/shared/image-context.tsx'),
       ]);
       const host = document.createElement('main'); host.id = 'student-test'; host.className = 'lessons-screen'; host.dataset.player = 'true';
       document.getElementById('root').replaceChildren(host);

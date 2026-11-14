@@ -7,7 +7,7 @@ test('image compression preserves WebP, animated PNG and originals on unsupporte
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   const previous = { OffscreenCanvas: globalThis.OffscreenCanvas, createImageBitmap: globalThis.createImageBitmap };
   try {
-    const { compressLessonImage } = await server.ssrLoadModule('/src/lessons/compress-image.ts');
+    const { compressLessonImage } = await server.ssrLoadModule('/src/lessons/shared/compress-image.ts');
     const png = new Uint8Array(await readFile(new URL('../public/home/anatomy.png', import.meta.url)));
     delete globalThis.OffscreenCanvas;
     assert.equal(await compressLessonImage(png, 'image/png'), png);

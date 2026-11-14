@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { LessonPackage } from './lesson-wasm.fixture.mjs';
-import { lessonLanguageTag, lessonMode, lessonQuestions, updateLessonQuestions, lessonPreviewIssues, lessonSceneStep, lessonText, readLesson, validateLessonTargets } from '../src/lessons/contract.ts';
-import { lessonModels } from '../src/lessons/targets.ts';
+import { lessonLanguageTag, lessonMode, lessonQuestions, updateLessonQuestions, lessonPreviewIssues, lessonSceneStep, lessonText, readLesson, validateLessonTargets } from '../src/lessons/shared/contract.ts';
+import { lessonModels } from '../src/lessons/shared/targets.ts';
 
 const text = en => ({ vi: '', en });
 const draft = { id: 'lesson-test', version: 1, title: text(''), summary: text(''), modelId: '', steps: [] };
