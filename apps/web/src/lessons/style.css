@@ -68,7 +68,7 @@ dialog.lesson-cover-modal {
   transform: translate(-50%, -50%);
   margin: 0;
   width: min(720px, calc(100vw - var(--panel-inset) * 2));
-  max-height: calc(100dvh - var(--panel-inset) * 2);
+  max-height: calc(var(--scaled-viewport-height) - var(--panel-inset) * 2);
   padding: var(--panel-padding);
   border: 0;
   border-radius: var(--panel-radius);

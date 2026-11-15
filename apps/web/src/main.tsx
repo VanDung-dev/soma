@@ -6,6 +6,7 @@ import { loadSettings } from "./settings/storage";
 import { initializeShortcuts } from "./shortcuts";
 import "./style.css";
 import "./pages.css";
+import "./fixed-ui-scale.css";
 import "./fonts.css";
 
 void loadSettings().then(() => {

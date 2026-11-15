@@ -10,6 +10,7 @@ import { ModuleLayout } from "./pages/module-layout";
 import { ThemeProvider } from "./theme";
 import { SourceDocument } from "./source-document";
 import { SettingsPage, settingsHref, settingsSectionAt, type SettingsSection } from "./settings/page";
+import { useFontSize } from "./settings/font-size";
 import { GraphicsSettingsContext, useGraphicsSettings } from "./pages/use-graphics-settings";
 import { CameraDevicesContext, useCameraDevices } from "./anatomy/camera-devices";
 import { shortcutAction } from "./shortcuts";
@@ -45,6 +46,7 @@ function AppRoute() {
   const workspace = workspacePath ? pageAtPath(workspacePath) : null;
   const settings = page === "settings";
   const desktop = isTauri();
+  const fontSize = useFontSize();
   const graphics = useGraphicsSettings();
   const cameras = useCameraDevices(settings || workspace === "anatomy");
   const [documentPath, setDocumentPath] = useState<string | null>(null);
@@ -118,7 +120,7 @@ function AppRoute() {
     event.currentTarget.querySelector<HTMLAnchorElement>(`.module-nav a[href="/${nextPage}"]`)?.focus({ preventScroll: true });
   };
   return <GraphicsSettingsContext value={graphics}><CameraDevicesContext value={cameras}>
-    <ModuleLayout page={page} onClick={navigate} settings={settings ? <SettingsPage section={section} /> : undefined}>
+    <ModuleLayout page={page} onClick={navigate} settings={settings ? <SettingsPage section={section} fontSize={fontSize} /> : undefined}>
     {Page ? <Page /> : workspace === "lessons" ? <LessonsPage editId={lessonEditId(workspacePath)} viewId={lessonViewId(workspacePath)} navigate={goTo} /> : null}
     </ModuleLayout>
     {documentPath && <SourceDocument key={documentPath} path={documentPath} onClose={() => setDocumentPath(null)} />}

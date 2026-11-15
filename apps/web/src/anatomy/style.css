@@ -1,4 +1,4 @@
-.structure-search-popover { position: fixed; inset: 50% auto auto 50%; transform: translate(-50%, -50%); margin: 0; width: min(640px, calc(100vw - var(--panel-inset) * 2)); height: min(588px, calc(100dvh - var(--panel-inset) * 2)); max-height: calc(100dvh - var(--panel-inset) * 2); overflow-y: auto; padding: var(--panel-padding); border: 0; border-radius: var(--panel-radius); background: var(--panel-bg); color: var(--text); box-shadow: 0 16px 50px rgba(var(--shadow-rgb),.22), inset 0 0 0 1px var(--line); }
+.structure-search-popover { position: fixed; inset: 50% auto auto 50%; transform: translate(-50%, -50%); margin: 0; width: min(640px, calc(100vw - var(--panel-inset) * 2)); height: min(588px, calc(var(--scaled-viewport-height) - var(--panel-inset) * 2)); max-height: calc(var(--scaled-viewport-height) - var(--panel-inset) * 2); overflow-y: auto; padding: var(--panel-padding); border: 0; border-radius: var(--panel-radius); background: var(--panel-bg); color: var(--text); box-shadow: 0 16px 50px rgba(var(--shadow-rgb),.22), inset 0 0 0 1px var(--line); }
 .study-shell { --panel-width: calc(300px + var(--workspace-panel-growth)); }
 .model-orientation { position: absolute; top: 12px; right: 12px; display: flex; flex-direction: column; align-items: center; gap: 12px; pointer-events: none; -webkit-user-select: none; user-select: none; cursor: default; }
 .orientation-axes { display: block; width: 80px; height: 80px; overflow: visible; border-radius: 50%; pointer-events: auto; touch-action: none; cursor: grab; }
@@ -30,7 +30,7 @@
 :root[data-theme="dark"] .hand-camera-toggle[data-camera-active="true"] .line-md-icon { color: #3cff7b; }
 .hand-camera-scene[hidden] { display: none; }
 .hand-camera-scene-overlay { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; container-type: size; pointer-events: none; }
-.hand-visual-overlay { position: fixed; inset: 0; width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0; overflow: hidden; border: 0; background: transparent; pointer-events: none; }
+.hand-visual-overlay { position: fixed; inset: 0; width: 100vw; height: var(--scaled-viewport-height); max-width: none; max-height: none; margin: 0; padding: 0; overflow: hidden; border: 0; background: transparent; pointer-events: none; }
 .hand-camera-image-area { position: relative; }
 .hand-interaction-overlay { position: absolute; z-index: 1; inset: 0; pointer-events: none; color: var(--text); }
 .hand-virtual-layer { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; filter: drop-shadow(0 1px 3px rgba(var(--shadow-rgb), .3)); }
@@ -166,7 +166,7 @@
 /* Keep 180px for controls and 12px clearance on each side of the 3D area. */
 .information-panel.reader-expanded { z-index: 5; width: min(calc(600px + var(--workspace-panel-growth)), calc(100% - var(--panel-width) - var(--panel-inset) - var(--panel-inset) - 204px)); background: var(--panel-bg); box-shadow: 0 28px 80px rgba(var(--shadow-rgb),.24), 0 4px 16px rgba(var(--shadow-rgb),.08); }
 .reader-expanded .wikipedia-reader { animation: reader-reveal .32s ease-out; }
-.reader-expanded .wikipedia-article { min-height: clamp(120px, calc(100dvh - 500px), 360px); }
+.reader-expanded .wikipedia-article { min-height: clamp(120px, calc(var(--scaled-viewport-height) - 500px), 360px); }
 .information-heading h2 { min-width: 0; }
 .information-panel:not(.reader-expanded) .information-content { gap: 8px; }
 .information-panel:not(.reader-expanded) .wikipedia-reader { flex: 1 1 0; min-height: 120px; }
