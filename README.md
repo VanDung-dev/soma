@@ -27,50 +27,55 @@ npm install
 WASM builds before dev/build. Web and desktop dev share port 5173; run one at a time.
 Desktop requires [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/).
 
-### Manual desktop build on GitHub Actions
+### Desktop builds and releases on GitHub Actions
 
-Once the workflow is on the default branch, open **Actions → Build desktop → Run workflow** and select `all` to build both packages. Download the ZIP files from **Artifacts** on the completed run.
+After the workflow reaches the default branch, pushing a `v*` tag builds Windows and macOS installers and uploads them as workflow artifacts. The tag must match the app version, for example `v0.1.0-dev1`. This does not create a GitHub Release.
 
-- `Soma-windows.zip` contains an x64 installer. The app runs natively on x64 and under emulation on Windows 11 Arm64.
-- `Soma-macos.zip` contains a universal app for Intel and Apple Silicon and requires macOS 15 or later.
+- `Soma-windows-x64-setup.exe` is the Windows x64 installer. It installs on x64 Windows and on Windows 11 Arm64, where the app runs through x64 emulation.
+- `Soma-macos-arm64.dmg` is for Apple Silicon Macs and requires macOS 15 or later.
 
-With GitHub CLI, request both builds from the repository root.
+To create a GitHub Release, manually run **Actions → Build desktop → Run workflow** with the tag selected as the ref, `all` platforms selected, and `create_release` enabled. This rebuilds both installers and attaches them to the release. Tags containing `-dev` are published as pre-releases.
+
+To build artifacts without publishing, leave `create_release` disabled. For a single platform, select `windows` or `macos`.
+
+### Installer artwork
+
+On macOS, regenerate the DMG PNG and Windows NSIS BMP files from their SVG sources with:
 
 ```sh
-gh workflow run desktop-build.yml -f platform=all
+brew install librsvg
+.venv/bin/python scripts/render_installer_assets.py
 ```
 
-For a single package, use `windows` or `macos`. The workflow runs only on manual request.
-
-### macOS universal app and ZIP
+### macOS Apple Silicon DMG
 
 Run from the repository root on macOS.
 
 ```sh
-rustup target add aarch64-apple-darwin x86_64-apple-darwin
-npm exec --workspace apps/web -- tauri build \
-  --bundles app --target universal-apple-darwin &&
-ditto -c -k --sequesterRsrc --keepParent \
-  target/universal-apple-darwin/release/bundle/macos/Soma.app \
-  target/Soma-macos.zip
+rustup target add aarch64-apple-darwin
+npm exec --workspace apps/web -- tauri build --bundles app --target aarch64-apple-darwin
+version=$(node -p "require('./apps/web/src-tauri/tauri.conf.json').version")
+dmgbuild -s scripts/macos-dmg-settings.py \
+  -D "app=target/aarch64-apple-darwin/release/bundle/macos/Soma.app" \
+  -D "icon=apps/web/src-tauri/icons/icon.icns" \
+  -D "background=apps/web/src-tauri/installer-assets/dmg-background.png" \
+  Soma "target/aarch64-apple-darwin/release/bundle/dmg/Soma_${version}_aarch64.dmg"
 ```
 
-Extract `target/Soma-macos.zip` and open `Soma.app` in Finder.
+Install the pinned DMG tool into the repository virtual environment with
+`.venv/bin/python -m pip install -r scripts/requirements-dmg.txt` first. The
+installer appears under `target/aarch64-apple-darwin/release/bundle/dmg/`.
 
-### Windows x64 installer and ZIP
+### Windows x64 installer
 
 Run in PowerShell from the repository root on Windows with the x64 MSVC Rust toolchain and the [Windows Tauri prerequisites](https://v2.tauri.app/start/prerequisites/#windows).
 
 ```powershell
 npm.cmd exec --workspace apps/web -- tauri build --bundles nsis --target x86_64-pc-windows-msvc
 if ($LASTEXITCODE -ne 0) { throw 'Soma build failed' }
-
-$version = (Get-Content apps/web/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
-$installer = "target/x86_64-pc-windows-msvc/release/bundle/nsis/Soma_${version}_x64-setup.exe"
-Compress-Archive -LiteralPath $installer -DestinationPath target/Soma-Windows-x64.zip -Force
 ```
 
-Extract `target/Soma-Windows-x64.zip` and run the setup executable.
+Run the setup executable under `target/x86_64-pc-windows-msvc/release/bundle/nsis/`.
 
 Desktop builds include the compressed models and source notices in a separate
 `models/` resource directory. The packaged app reads those files offline.
