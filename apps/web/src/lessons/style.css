@@ -353,7 +353,7 @@ dialog.lesson-cover-modal:not([open]) {
 .lesson-editor-scene > .lesson-structure-tools .lesson-part-actions { justify-content: flex-start; }
 .lesson-editor-scene > .lesson-structure-tools .lesson-part-card .lesson-button { max-width: none; }
 .lesson-editor-scene > .lesson-structure-tools .lesson-restore-region { position: static; }
-.lesson-author-center { --lesson-document-width: var(--lesson-author-width); grid-column: 2; grid-row: 1; display: grid; min-width: 0; min-height: 0; grid-template-columns: minmax(0, 11fr) minmax(var(--lesson-document-width), 9fr); grid-template-rows: minmax(0, 1fr); gap: var(--panel-gap); transition: grid-template-columns .32s cubic-bezier(.22,1,.36,1), column-gap .32s cubic-bezier(.22,1,.36,1); }
+.lesson-author-center { --lesson-document-width: var(--lesson-author-width); grid-column: 2; grid-row: 1; display: grid; min-width: 0; min-height: 0; grid-template-columns: minmax(0, 11fr) minmax(var(--lesson-document-width), 0fr); grid-template-rows: minmax(0, 1fr); gap: var(--panel-gap); transition: grid-template-columns .32s cubic-bezier(.22,1,.36,1), column-gap .32s cubic-bezier(.22,1,.36,1); }
 .lesson-author-center[data-step="true"] { --lesson-document-width: var(--lesson-step-width); }
 .lesson-author-center:has(.lesson-author-alerts) { grid-template-rows: auto minmax(0, 1fr); }
 .lesson-author-center[data-model="false"] { grid-template-columns: minmax(0, 0fr) minmax(var(--lesson-document-width), 20fr); column-gap: 0; }
