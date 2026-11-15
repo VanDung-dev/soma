@@ -36,11 +36,13 @@ test('settings render as a page and guides respect manipulation and camera capab
     const { defaultGraphics } = await server.ssrLoadModule('/src/anatomy/viewer/graphics.ts');
     const { translateMessage } = await server.ssrLoadModule('/src/i18n.tsx');
     const t = key => translateMessage(key, 'vi');
-    const settings = renderToStaticMarkup(h(SettingsPage));
+    const fontSize = { fontSize: '12', setFontSize() {}, failed: false };
+    const settings = renderToStaticMarkup(h(SettingsPage, { fontSize }));
     assert(settings.includes('<main class="settings-page"') && !settings.includes('popover='));
     assert(settings.includes('<nav class="settings-navigation" aria-labelledby="settings-title"><h1 id="settings-title">'));
     assert(settings.includes('id="settings-language"') && settings.includes('id="settings-theme"'));
-    const graphicsPage = renderToStaticMarkup(h(SettingsPage, { section: 'graphics' }));
+    assert.match(settings, /<input id="settings-font-size"[^>]* value="12"/);
+    const graphicsPage = renderToStaticMarkup(h(SettingsPage, { section: 'graphics', fontSize }));
     for (const field of ['show-axes', 'show-fps', 'grid']) {
       assert(graphicsPage.includes(`for="settings-graphics-${field}"`));
       assert(graphicsPage.includes(`id="settings-graphics-${field}"`));
@@ -54,10 +56,10 @@ test('settings render as a page and guides respect manipulation and camera capab
     assert.equal((anatomy.match(/class="settings-switch"/g) ?? []).length, 3);
     const legacy = renderToStaticMarkup(h(GraphicsControls, { id: 'legacy', graphics: { ...defaultGraphics, frameRate: 'display' }, onChange() {}, buttons: true }));
     assert(legacy.includes('data-value="display" aria-pressed="true"'));
-    const guidePage = renderToStaticMarkup(h(SettingsPage, { section: 'guide' }));
+    const guidePage = renderToStaticMarkup(h(SettingsPage, { section: 'guide', fontSize }));
     assert(guidePage.includes('controls-guide') && !guidePage.includes('popover=') && !guidePage.includes('<kbd>'));
     assert(guidePage.includes(t('controls.mouse.zoomAtCursor')) && guidePage.includes(t('controls.hand.rightPinch')));
-    const keys = renderToStaticMarkup(h(SettingsPage, { section: 'shortcuts' }));
+    const keys = renderToStaticMarkup(h(SettingsPage, { section: 'shortcuts', fontSize }));
     assert(keys.includes('data-shortcut="settings"') && keys.includes('data-shortcut="camera:r"'));
   } finally { await server.close(); }
 });

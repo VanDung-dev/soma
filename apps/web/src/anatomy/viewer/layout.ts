@@ -47,8 +47,9 @@ export function measureViewport(elements: {
   const desktop = window.matchMedia(desktopPanelQuery).matches;
   const catalogArea = desktop ? catalog.getBoundingClientRect() : undefined;
   const informationArea = desktop ? information.getBoundingClientRect() : undefined;
-  const left = Math.min(area.width - 1, Math.max(0, catalogArea?.width ? catalogArea.right - area.left + 12 : 12));
-  const right = Math.min(area.width, Math.max(left + 1, informationArea?.width ? informationArea.left - area.left - 12 : area.width - 12));
+  const left = Math.min(area.width - 1, Math.max(12, catalogArea?.width ? catalogArea.right - area.left + 12 : 12));
+  const rightEdge = informationArea?.width ? informationArea.left - area.left - 12 : area.width - 12;
+  const right = Math.max(left + 1, Math.min(area.width - 12, rightEdge));
   const panelArea = catalogArea?.width ? catalogArea : informationArea?.width ? informationArea : undefined;
   const frameTop = Math.min(area.height - 1, Math.max(0, (panelArea?.top ?? menu.getBoundingClientRect().bottom + 12) - area.top));
   const frameBottom = Math.min(area.height, Math.max(frameTop + 1, panelArea ? panelArea.bottom - area.top : area.height - 16));
