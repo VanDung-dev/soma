@@ -20,7 +20,6 @@ export function useFontSize() {
       else {
         document.documentElement.style.zoom = String(zoom);
         document.documentElement.style.width = "";
-        document.documentElement.style.height = `${100 / zoom}%`;
         document.documentElement.style.setProperty("--scaled-viewport-height", `${100 / zoom}dvh`);
       }
       document.documentElement.style.setProperty("--fixed-ui-zoom", String(1 / zoom));
