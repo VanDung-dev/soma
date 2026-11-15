@@ -2,6 +2,8 @@ import { useEffect, useId, useState } from "react";
 import { useLanguage } from "./i18n";
 import { PopoverPanel } from "./popover-panel";
 import { fetchModelAsset, usesBundledModels } from "./model-assets";
+import licenseText from "../../../LICENSE?raw";
+import noticeText from "../../../NOTICE?raw";
 
 export function SourceDocument({ path, onClose }: { path: string; onClose: () => void }) {
   const { t } = useLanguage();
@@ -9,6 +11,11 @@ export function SourceDocument({ path, onClose }: { path: string; onClose: () =>
   const [text, setText] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
+    if (path === "/LICENSE" || path === "/NOTICE") {
+      setFailed(false);
+      setText(path === "/LICENSE" ? licenseText : noticeText);
+      return;
+    }
     const abort = new AbortController();
     const options = { signal: abort.signal };
     const bundled = usesBundledModels && path.startsWith("/models/");
@@ -23,7 +30,7 @@ export function SourceDocument({ path, onClose }: { path: string; onClose: () =>
     }).then(setText, () => { if (!abort.signal.aborted) setFailed(true); });
     return () => { abort.abort(); };
   }, [path]);
-  return <PopoverPanel id={id} className="source-document" title={t("credit.link")} closeLabel={t("document.close")} autoOpen onClose={onClose}>
+  return <PopoverPanel id={id} className="source-document" title={path === "/LICENSE" || path === "/NOTICE" ? path.slice(1) : t("credit.link")} closeLabel={t("document.close")} autoOpen onClose={onClose}>
     {failed ? <p role="alert">{t("document.error")}</p>
       : text === null ? <p role="status">{t("document.loading")}</p> : <pre tabIndex={0}>{text}</pre>}
   </PopoverPanel>;

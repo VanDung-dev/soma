@@ -6,7 +6,36 @@ impl AnatomyViewer {
     pub(crate) fn draw_sphere(&self) {
         let gl = &self.gpu.gl;
         let u = &self.sphere_uniforms;
-        let matrix = self.camera.matrix();
+        let background = self.background_camera.as_ref().map(|camera| {
+            let mut camera = camera.clone();
+            camera.yaw = self.camera.yaw;
+            camera.pitch = self.camera.pitch;
+            camera
+        });
+        let camera = background.as_ref().unwrap_or(&self.camera);
+        let mut matrix = camera.matrix();
+        if background.is_some() {
+            let focus = if self
+                .scene
+                .parts
+                .iter()
+                .any(|part| part.active && part.visible)
+            {
+                self.camera.matrix().project_point3(self.camera.target)
+            } else {
+                [0.0, 0.0, 0.0].into()
+            };
+            let origin = matrix.project_point3(camera.enclosure_center());
+            let offset = (focus - origin).with_z(0.0).extend(0.0);
+            for axis in [
+                &mut matrix.x_axis,
+                &mut matrix.y_axis,
+                &mut matrix.z_axis,
+                &mut matrix.w_axis,
+            ] {
+                *axis += offset * axis.w;
+            }
+        }
         gl.use_program(self.gpu.sphere_program.as_ref());
         gl.bind_vertex_array(self.gpu.vaos.first());
         gl.disable(Gl::CULL_FACE);
@@ -22,13 +51,13 @@ impl AnatomyViewer {
             false,
             &matrix.inverse().to_cols_array(),
         );
-        let center = self.camera.enclosure_center();
+        let center = camera.enclosure_center();
         gl.uniform4f(
             Some(&u.origin),
             center.x,
             center.y,
             center.z,
-            self.camera.enclosure_radius(),
+            camera.enclosure_radius(),
         );
         // The enclosure is a backdrop; it never occludes anatomy or participates in picking.
         gl.depth_mask(false);

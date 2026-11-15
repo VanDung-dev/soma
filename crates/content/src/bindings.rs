@@ -2,7 +2,7 @@ use serde::{Serialize, de::DeserializeOwned};
 use std::collections::{HashMap, HashSet};
 use wasm_bindgen::prelude::*;
 
-fn value<T: Serialize>(data: &T) -> Result<JsValue, JsValue> {
+pub(crate) fn value<T: Serialize>(data: &T) -> Result<JsValue, JsValue> {
     data.serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
         .map_err(|e| JsValue::from_str(&e.to_string()))
 }
@@ -74,6 +74,31 @@ impl CatalogData {
     }
     pub fn search(&self, query: &str, language: &str, limit: usize) -> Result<JsValue, JsValue> {
         value(&self.data.search(query, language, limit))
+    }
+    pub fn search_targets(
+        &self,
+        query: &str,
+        language: &str,
+        limit: usize,
+        ids: JsValue,
+    ) -> Result<JsValue, JsValue> {
+        let ids: Vec<String> = read(ids)?;
+        value(
+            &self
+                .data
+                .search_targets(query, language, limit, &ids)
+                .map_err(|e| JsValue::from_str(&e))?,
+        )
+    }
+    pub fn search_structures(
+        &self,
+        query: &str,
+        language: &str,
+        limit: usize,
+        ids: JsValue,
+    ) -> Result<JsValue, JsValue> {
+        let ids: Vec<String> = read(ids)?;
+        value(&self.data.search_structures(query, language, limit, &ids))
     }
     pub fn reveal(&self, id: &str) -> Result<JsValue, JsValue> {
         value(&self.data.reveal(id))

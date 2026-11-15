@@ -2,71 +2,68 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 
-test('model loading streams in order, bounds prefetch and cleans up cancellation and worker failure', async () => {
+test('one GLB and one JSON supply ordered metadata and clean up cancellation and worker failure', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   const original = { fetch: globalThis.fetch, Worker: globalThis.Worker };
   const requests = [], signals = [], workers = [], posted = [];
   const roots = Array.from({ length: 5 }, (_, id) => ({
-    id: String(id), model: { path: `models/${id}.glb${id % 2 ? '.br' : ''}`, structure_ids: [String(id)] },
+    id: String(id), model: { path: 'models/z-anatomy/z-anatomy.glb.br' },
   }));
-  let workerFailure = false;
+  let workerFailure = false, badMetadata = false;
   try {
-    const { loadModels: load } = await server.ssrLoadModule('/src/anatomy/viewer/loader.ts');
-    const loadModels = (roots, signal, progress) => load(roots, signal, progress, (_root, json) => JSON.parse(json).structures.map(part => part.source_id));
+    const { loadModels } = await server.ssrLoadModule('/src/anatomy/viewer/loader.ts');
     globalThis.fetch = async (url, { signal }) => {
       requests.push(url); signals.push(signal);
-      const id = url.match(/\/(\d+)\.(glb(?:\.br)?|json)$/)[1];
-      return { ok: true,
-        text: async () => JSON.stringify({ structures: [{ source_id: id, source_name: id, source_object: id, latin: '', laterality: '', collections: [] }] }),
-        arrayBuffer: async () => new Uint8Array([Number(id)]).buffer,
-      };
+      if (url.endsWith('.json')) return Response.json({
+        manifest: { models: roots.map(root => ({ source_ids: [root.id] })) },
+        metadata: badMetadata ? {} : Object.fromEntries(roots.map(root => [root.id, { structures: [{ source_id: root.id }] }])),
+      });
+      return new Response(new Uint8Array([5]));
     };
     globalThis.Worker = class {
       constructor() { this.terminated = false; workers.push(this); }
       postMessage(data, transfers) {
-        posted.push(data.packages[0][0]);
-        assert.equal(transfers[0], data.packages[0].buffer);
+        posted.push(data.selected);
+        assert.equal(transfers[0], data.bytes.buffer);
         queueMicrotask(() => {
           if (workerFailure) this.onerror({ message: 'Preparation failed' });
-          else this.onmessage({ data: { prepared: [new Float32Array([data.packages[0][0]]), new Uint32Array([0]), '{}'] } });
+          else this.onmessage({ data: {
+            prepared: [new Float32Array([5]), new Uint32Array([0]), '{}'],
+          } });
         });
       }
       terminate() { this.terminated = true; }
     };
-    const controller = new AbortController(), progress = [];
-    const stream = loadModels(roots, controller.signal, count => progress.push(count));
-    const first = await stream.next();
-    assert.equal(first.value[0][0], 0);
-    assert.equal(requests.filter(url => /\.glb(?:\.br)?$/.test(url)).length, 2, 'Prefetch only two systems');
-    assert.deepEqual(posted, [0], 'Yield the first package before preparing the next');
-    const second = await stream.next();
-    assert.equal(second.value[0][0], 1);
-    assert.equal(requests.filter(url => /\.glb(?:\.br)?$/.test(url)).length, 3);
-    assert.deepEqual(progress, [1, 2]);
-    await stream.return();
+    const controller = new AbortController(), progress = [], ingested = [], completed = [];
+    for await (const prepared of loadModels(roots, controller.signal, count => progress.push(count), (root, json) => {
+      const ids = JSON.parse(json).structures.map(part => part.source_id);
+      assert.deepEqual(ids, [root.id]); ingested.push(root.id); return ids;
+    })) completed.push(prepared[0][0]);
+    assert.deepEqual(completed, [5]);
+    assert.equal(requests.length, 2, 'Download one GLB and one JSON');
+    assert.deepEqual(posted, [roots.map(root => root.id)]);
+    assert.deepEqual(ingested, roots.map(root => root.id));
+    assert.deepEqual(progress, [1, 2, 3, 4, 5]);
     assert(workers[0].terminated);
-    assert(signals.every(signal => signal.aborted), 'Closing the stream cancels prefetched downloads');
-    assert(!controller.signal.aborted, 'Stream cleanup must not abort its caller');
-
-    const completed = [], completedProgress = [];
-    for await (const prepared of loadModels(roots, controller.signal, count => completedProgress.push(count))) {
-      completed.push(prepared[0][0]);
-    }
-    assert.deepEqual(completed, [0, 1, 2, 3, 4]);
-    assert.deepEqual(completedProgress, [1, 2, 3, 4, 5]);
-    assert(workers[1].terminated);
+    assert(signals.every(signal => signal.aborted));
+    assert(!controller.signal.aborted);
 
     const cancelled = new AbortController();
-    const cancelling = loadModels(roots, cancelled.signal, () => cancelled.abort());
+    const cancelling = loadModels(roots, cancelled.signal, () => cancelled.abort(), () => []);
     await assert.rejects(cancelling.next(), { name: 'AbortError' });
-    assert(workers[2].terminated);
+    assert(workers[1].terminated);
     assert(signals.every(signal => signal.aborted));
 
     workerFailure = true;
-    const failing = loadModels(roots, controller.signal, () => {});
-    await assert.rejects(failing.next(), /Preparation failed/);
+    await assert.rejects(loadModels(roots, controller.signal, () => {}, () => []).next(), /Preparation failed/);
+    assert(workers[2].terminated);
+    workerFailure = false; badMetadata = true;
+    await assert.rejects(loadModels(roots, controller.signal, () => {}, () => []).next(), /Missing system metadata/);
     assert(workers[3].terminated);
-    assert(signals.every(signal => signal.aborted));
+
+    globalThis.fetch = async () => new Response('', { status: 503 });
+    await assert.rejects(loadModels(roots, controller.signal, () => {}, () => []).next(), /HTTP 503/);
+    assert(workers[4].terminated);
   } finally {
     for (const [name, value] of Object.entries(original)) {
       if (value === undefined) delete globalThis[name]; else globalThis[name] = value;
@@ -100,26 +97,26 @@ test('model cache reuses unchanged files, replaces changed versions and tolerate
         return transaction;
       },
     };
-    globalThis.indexedDB = { open() {
+    globalThis.indexedDB = { deleteDatabase() {}, open() {
       const request = { result: database };
       queueMicrotask(() => { request.onupgradeneeded(); request.onsuccess(); });
       return request;
     } };
     globalThis.fetch = async url => {
-      if (url.endsWith('manifest.json')) return Response.json({ models: [{ file: 'test.glb.br', sha256: version }] });
-      if (url.endsWith('.json')) return Response.json({ structures: [] });
+      if (url.endsWith('.json')) return Response.json({ manifest: { models: [{ source_ids: ['test'] }] }, metadata: { test: { structures: [] } } });
       modelRequests++;
       return new Response(new Uint8Array([version === 'first' ? 1 : 2]));
     };
     globalThis.Worker = class {
       postMessage(data) {
-        const copied = structuredClone(data, { transfer: [data.packages[0].buffer] });
-        queueMicrotask(() => this.onmessage({ data: { prepared: [new Float32Array([copied.packages[0][0]]), new Uint32Array(), '{}'] } }));
+        const copied = structuredClone(data, { transfer: [data.bytes.buffer] });
+        queueMicrotask(() => this.onmessage({ data: { prepared: [new Float32Array([copied.bytes[0]]), new Uint32Array(), '{}'] } }));
       }
       terminate() {}
     };
-    const roots = [{ model: { path: 'models/z-anatomy/test.glb.br' } }];
+    const roots = [{ id: 'test', model: { path: 'models/z-anatomy/z-anatomy.glb.br', sha256: version } }];
     const load = async () => {
+      roots[0].model.sha256 = version;
       const result = [];
       for await (const prepared of loadModels(roots, new AbortController().signal, () => {}, () => [])) result.push(prepared[0][0]);
       return result;
@@ -127,6 +124,7 @@ test('model cache reuses unchanged files, replaces changed versions and tolerate
     assert.deepEqual(await load(), [1]);
     assert.deepEqual(await load(), [1]);
     assert.equal(modelRequests, 1);
+    assert(entries.get(roots[0].model.path).bytes instanceof Blob, 'Large models must use Blob storage to avoid IndexedDB value-size limits');
     version = 'second';
     assert.deepEqual(await load(), [2]);
     assert.equal(modelRequests, 2);

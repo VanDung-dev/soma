@@ -1,3 +1,5 @@
+import { readSetting } from "../../settings/storage";
+
 export type GraphicsQuality = "low" | "high";
 export type GraphicsSettings = {
   shadowQuality: "off" | "low" | "high";
@@ -9,7 +11,6 @@ export type GraphicsSettings = {
   showAxes: boolean;
 };
 
-export const graphicsStorageKey = "human-atlas-graphics";
 export const defaultGraphics: GraphicsSettings = {
   shadowQuality: "off", lightingQuality: "high", modelQuality: "high", frameRate: 60, grid: true, showFps: false, showAxes: true,
 };
@@ -22,7 +23,7 @@ function readQuality(value: unknown): GraphicsQuality {
 
 export function readGraphicsSettings(): GraphicsSettings {
   try {
-    const value = JSON.parse(window.localStorage.getItem(graphicsStorageKey) ?? "null");
+    const value = readSetting("graphics") as (Partial<GraphicsSettings> & { quality?: string }) | null;
     const legacyShadow = value?.quality === "balanced" ? "low" : value?.quality === "high" ? "high" : "off";
     const shadowQuality = value?.shadowQuality ?? legacyShadow;
     return {

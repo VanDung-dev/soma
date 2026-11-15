@@ -144,7 +144,6 @@ async function trial(dpr, repetition) {
       blockedRequests.push(url.href); return route.abort();
     });
     await context.addInitScript(instrument);
-    await context.addInitScript(() => localStorage.setItem('anatomy-onboarding:v1', 'dismissed'));
     const page = await context.newPage();
     const errors = [], consoleMessages = [];
     page.on('pageerror', e => errors.push(e.message));
@@ -166,7 +165,7 @@ async function trial(dpr, repetition) {
       const app = await page.evaluate(() => {
         const b = window.__benchmark; b.drain();
         const canvas = document.querySelector('.model-canvas canvas');
-        return { mainWasmLinearBytes: b.memories.reduce((n, m) => n + m.buffer.byteLength, 0), webglBufferBytes: [...b.buffers.values()].reduce((a, v) => a + v, 0), canvas: canvas && { width: canvas.width, height: canvas.height }, renderer: b.contexts.map(c => c.renderer), gpuTimerSupported: b.contexts.every(c => !!c.ext), status: document.querySelector('.model-status')?.textContent, settings: [...document.querySelectorAll('.settings-popover select')].map(s => s.value), domNodes: document.querySelectorAll('*').length };
+        return { mainWasmLinearBytes: b.memories.reduce((n, m) => n + m.buffer.byteLength, 0), webglBufferBytes: [...b.buffers.values()].reduce((a, v) => a + v, 0), canvas: canvas && { width: canvas.width, height: canvas.height }, renderer: b.contexts.map(c => c.renderer), gpuTimerSupported: b.contexts.every(c => !!c.ext), status: document.querySelector('.model-status')?.textContent, settings: JSON.parse(localStorage.getItem('human-atlas-graphics') ?? 'null'), domNodes: document.querySelectorAll('*').length };
       });
       return { heap, ...app };
     };
@@ -189,15 +188,18 @@ async function trial(dpr, repetition) {
     assert(phases[0].memory.webglBufferBytes > 200 * 1024 * 1024, 'Full anatomy geometry must be uploaded');
     assert(phases[0].memory.gpuTimerSupported, 'GPU timer query required');
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').filter(e => /\.(glb|wasm)(\?|$)/.test(e.name)).map(e => ({ url: new URL(e.name).pathname, duration: e.duration, transferSize: e.transferSize, decodedBodySize: e.decodedBodySize })));
-    assert.equal(resources.filter(r => r.url.endsWith('.glb.br')).length, 9);
+    assert.equal(resources.filter(r => r.url.endsWith('.glb.br')).length, 1);
     const canvas = page.locator('.model-canvas canvas');
     const focus = async () => { await canvas.focus(); };
     const hold = async (key, ms) => { await focus(); await page.keyboard.down(key); try { await delay(ms); } finally { await page.keyboard.up(key); } };
     const reset = async () => { await focus(); await page.keyboard.press('r'); await delay(1400); };
     const settings = async (name, value) => {
-      const id = await page.locator('.settings-popover').getAttribute('id');
-      const trigger = page.locator(`button[popovertarget="${id}"]:not([popovertargetaction="hide"])`);
-      await trigger.click(); await page.locator(`.settings-popover select[id$="-${name}"]`).selectOption(value); await trigger.click(); await delay(700);
+      await page.locator('.module-settings').click();
+      await page.locator('.settings-navigation a[href="/settings#graphics"]').click();
+      await page.locator(`.settings-page [aria-labelledby="settings-graphics-${name}-label"] [data-value="${value}"]`).click();
+      await page.locator('.module-settings').click();
+      await page.locator('.settings-page').waitFor({ state: 'detached' });
+      await delay(700);
     };
     const explode = async value => {
       await page.locator('.explode-control input').evaluate((input, value) => {

@@ -28,6 +28,7 @@ pub struct AnatomyViewer {
     pub(crate) gpu: Resources,
     pub(crate) scene: Scene,
     pub(crate) camera: Camera,
+    pub(crate) background_camera: Option<Camera>,
     pub(crate) exploding: bool,
     pub(crate) explosion_camera: Option<Camera>,
     pub(crate) explosion_target: Vec<String>,
@@ -68,10 +69,19 @@ impl AnatomyViewer {
         vertices: Float32Array,
         indices: Uint32Array,
     ) -> Result<Self, JsValue> {
+        // Only prepare_packages output crosses this internal worker interface; GLB validation runs there.
         packed
             .validate(vertices.length() as usize, indices.length() as usize)
             .map_err(js_error)?;
-        // Only prepare_packages output crosses this internal worker interface; GLB validation runs there.
+        Self::build(canvas, packed, vertices, indices)
+    }
+
+    fn build(
+        canvas: HtmlCanvasElement,
+        packed: PackedScene,
+        vertices: Float32Array,
+        indices: Uint32Array,
+    ) -> Result<Self, JsValue> {
         let PackedScene { scene, draws, .. } = packed;
         let gl: Gl = canvas
             .get_context("webgl2")?
@@ -126,6 +136,7 @@ impl AnatomyViewer {
             gpu,
             scene,
             camera,
+            background_camera: None,
             exploding: false,
             explosion_camera: None,
             explosion_target: Vec::new(),

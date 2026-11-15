@@ -16,7 +16,8 @@ export function createWebServer(directory = dist) {
       try {
         if (!['GET', 'HEAD'].includes(req.method)) { res.writeHead(405, { Allow: 'GET, HEAD' }).end(); return; }
         const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
-        const page = ['/', '/home', '/anatomy', '/lessons', '/games'].includes(pathname.replace(/\/+$/, '') || '/');
+        const page = ['/', '/home', '/anatomy', '/lessons', '/games', '/settings'].includes(pathname.replace(/\/+$/, '') || '/') ||
+          /^\/lessons\/[a-z0-9]+(?:-[a-z0-9]+)*\/edit\/?$/.test(pathname);
         const file = path.resolve(directory, '.' + (page ? '/index.html' : pathname));
         if (!file.startsWith(path.resolve(directory) + path.sep)) { res.writeHead(403).end(); return; }
         if (!(await stat(file)).isFile()) { res.writeHead(404).end(); return; }

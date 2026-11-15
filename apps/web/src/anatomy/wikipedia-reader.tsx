@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { anatomy_names, wikipedia_reference } from "../content/content";
 import { useLanguage } from "../i18n";
-import { isTauri } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
+import { frameShortcuts, useShortcutBindings } from "../shortcuts";
 
 export function wikipediaReference(name: string) {
   const article = wikipedia_reference(name) as { url: string; status: string } | undefined;
@@ -30,8 +31,22 @@ export function WikipediaReader({ name, expanded = false, actions }: { name: str
   const [reload, setReload] = useState(0);
   const [currentUrl, setReadingUrl] = useState(article?.url);
   const [loading, setLoading] = useState(!!article);
+  const configuredProxy = import.meta.env.VITE_WIKIPEDIA_PROXY_URL;
+  const desktopProxy = !configuredProxy && isTauri() && !import.meta.env.DEV;
+  const [proxy, setProxy] = useState<string | null | undefined>(desktopProxy ? undefined : configuredProxy || "/wikipedia");
   const frame = useRef<HTMLIFrameElement>(null);
   const homePage = useRef<string | undefined>(undefined);
+  const bindings = useShortcutBindings();
+  const sendShortcuts = () => frame.current?.contentWindow?.postMessage({ type: "wikipedia:bindings", bindings: frameShortcuts() }, "*");
+  useEffect(sendShortcuts, [bindings]);
+  useEffect(() => {
+    if (!desktopProxy || !article) return;
+    let cancelled = false;
+    void invoke<string | null>("wikipedia_proxy_url").catch(() => null).then(url => {
+      if (!cancelled) setProxy(url);
+    });
+    return () => { cancelled = true; };
+  }, [desktopProxy, article?.url]);
   useEffect(() => {
     const receive = (event: MessageEvent) => {
       if (event.source !== frame.current?.contentWindow || !["wikipedia:ready", "wikipedia:location", "wikipedia:loading"].includes(event.data?.type)) return;
@@ -57,20 +72,21 @@ export function WikipediaReader({ name, expanded = false, actions }: { name: str
     };
     panel?.addEventListener("transitionend", resized);
     return () => panel?.removeEventListener("transitionend", resized);
-  }, [article?.url, currentUrl]);
+  }, [article?.url, currentUrl, proxy]);
   const search = `https://en.wikipedia.org/w/index.php?title=Special:Search&fulltext=1&search=${encodeURIComponent(name.replace(/^[1-9]:\s*/, ""))}`;
-  const proxy = import.meta.env.VITE_WIKIPEDIA_PROXY_URL || "/wikipedia";
   return <section className="wikipedia-reader" aria-label={t("wikipedia.section.label", { name: label })}>
     {article ? <div className="wikipedia-frame">
-      <iframe key={reload} className="wikipedia-article" ref={frame}
+      {proxy && <iframe key={reload} className="wikipedia-article" ref={frame}
       src={`${proxy}?url=${encodeURIComponent(article.url)}${new URL(article.url).hash}`}
       title={t("wikipedia.frame.title", { name: label })} aria-busy={loading}
       sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer"
       onLoad={() => {
         setLoading(false);
+        sendShortcuts();
         if (isTauri() && import.meta.env.DEV) frame.current?.contentWindow?.postMessage({ type: "wikipedia:contextmenu", blocked: true }, "*");
-      }} />
-      {loading && <div className="wikipedia-skeleton" role="status">
+      }} />}
+      {proxy === null && <p role="alert">{t("wikipedia.unavailable")}</p>}
+      {loading && proxy !== null && <div className="wikipedia-skeleton" role="status">
         <span className="sr-only">{t("wikipedia.loading")}</span>
         <div className="wikipedia-skeleton-content" aria-hidden="true">
           <span className="skeleton-title" /><span /><span /><span className="skeleton-short" />
@@ -87,18 +103,4 @@ export function WikipediaReader({ name, expanded = false, actions }: { name: str
       {actions}
     </div>
   </section>;
-}
-
-export function ReferenceNotice({ compact = false }: { compact?: boolean }) {
-  const { t } = useLanguage();
-  const description = <div className="reference-mapping-description">
-    <p className="reference-notice">{t("wikipedia.notes.disclaimer")}</p>
-  </div>;
-  if (!compact) return description;
-  return <details className="reference-mapping" onToggle={event => {
-    if (event.currentTarget.open) event.currentTarget.scrollIntoView({ block: "nearest" });
-  }}>
-    <summary>{t("wikipedia.notes.short")}</summary>
-    {description}
-  </details>;
 }

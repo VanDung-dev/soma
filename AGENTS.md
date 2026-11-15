@@ -11,6 +11,7 @@
 
 ## Project constraints
 
+- Before starting a change, read `AGENTS.md`, the applicable rules in `.agents/rules/`, and relevant skills in `.agents/skills/`; follow them throughout the task.
 - Keep browser and desktop behavior aligned where they share the WASM viewer, while accounting for host-specific behavior in the web app and Tauri shell.
 - Do not add explanatory comments, doc comments, or other source-code annotations unless the user requests them. Keep existing comments when making unrelated changes; add comments only when requested or when required by an established project convention.
 - Preserve source identity and licensing for anatomy models and catalog data. Check `NOTICE` and the relevant attribution files before changing or redistributing source-derived assets.

@@ -1,10 +1,122 @@
-use ::renderer::Camera;
+use ::renderer::{Camera, CameraPose};
+use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
 use super::{AnatomyViewer, util::js_error};
 
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct SceneView {
+    camera: CameraPose,
+    explosion: f32,
+}
+
 #[wasm_bindgen]
 impl AnatomyViewer {
+    pub fn camera_pose(&self) -> Result<JsValue, JsValue> {
+        let camera = self
+            .camera_transition
+            .as_ref()
+            .map_or(&self.camera, |(goal, _)| goal);
+        serde_wasm_bindgen::to_value(&camera.pose()).map_err(js_error)
+    }
+
+    pub fn set_camera_pose(&mut self, pose: JsValue) -> Result<(), JsValue> {
+        let pose: CameraPose = super::util::read(pose)?;
+        pose.validate().map_err(js_error)?;
+        self.cancel_camera_transition();
+        self.stop_explosion_follow();
+        self.camera.apply_pose(&pose).map_err(js_error)?;
+        self.shadow_cached.set(false);
+        Ok(())
+    }
+
+    pub fn align_viewport(&mut self, fit: Option<bool>) -> Result<(), JsValue> {
+        let fitted = if fit == Some(true) {
+            Some(
+                Camera::layout(self.orbit_bounds()?, self.camera.aspect, self.layout_frame)
+                    .map_err(js_error)?,
+            )
+        } else {
+            None
+        };
+        match (&mut self.camera_transition, fitted) {
+            (Some((goal, _)), Some(fitted)) => *goal = fitted,
+            (None, Some(fitted)) => self.camera = fitted,
+            (Some((goal, _)), None) => goal.align_viewport(),
+            (None, None) => {}
+        }
+        self.camera.align_viewport();
+        self.shadow_cached.set(false);
+        Ok(())
+    }
+
+    pub fn capture_view(&mut self) -> Result<JsValue, JsValue> {
+        self.finish_explosion()?;
+        self.finish_camera_transition();
+        let view = SceneView {
+            camera: self.camera.pose(),
+            explosion: self.explosion.amount() * 100.0,
+        };
+        serde_wasm_bindgen::to_value(&view).map_err(js_error)
+    }
+
+    pub fn apply_scene(
+        &mut self,
+        ids: JsValue,
+        view: Option<JsValue>,
+        now: Option<f64>,
+    ) -> Result<(), JsValue> {
+        let ids: Vec<String> = super::util::read(ids)?;
+        let view: Option<SceneView> = view.map(super::util::read).transpose()?;
+        if now.is_some_and(|time| !time.is_finite() || time < 0.0) {
+            return Err(js_error("Invalid scene timestamp"));
+        }
+        if let Some(view) = &view {
+            view.camera.validate().map_err(js_error)?;
+            if !view.explosion.is_finite() || !(0.0..=100.0).contains(&view.explosion) {
+                return Err(js_error("Invalid scene explosion"));
+            }
+        }
+        self.scene.set_visibility(&ids).map_err(js_error)?;
+        let before = self.camera.clone();
+        let previous_explosion = self.explosion.displayed_amount();
+        self.clear_selection();
+        self.view_center = None;
+        self.uncentered_camera = None;
+        self.restore_structure("", None)?;
+        self.set_explode_mode(false)?;
+        self.reconstruction
+            .set_visibility(&self.scene.parts, None)
+            .map_err(js_error)?;
+        self.camera = Camera::new(self.scene.bounds);
+        self.camera
+            .resize(self.canvas.width(), self.canvas.height());
+        self.camera.reframe(self.layout_frame).map_err(js_error)?;
+        if !ids.is_empty() {
+            self.focus_ids(&ids, self.layout_frame)?;
+        }
+        let amount = view.as_ref().map_or(0.0, |view| view.explosion / 100.0);
+        if amount > 0.0 {
+            self.set_explode_mode(true)?;
+            self.set_explode(amount, now.unwrap_or(0.0), false, Some(true), None)?;
+        }
+        self.stop_explosion_follow();
+        if let Some(view) = &view {
+            self.camera.apply_pose(&view.camera).map_err(js_error)?;
+        }
+        if let Some(now) = now {
+            if amount > 0.0 || previous_explosion > 0.0 {
+                self.set_explode_mode(true)?;
+                self.set_explode(previous_explosion, now, false, Some(false), None)?;
+                self.set_explode(amount, now, true, Some(false), None)?;
+            }
+        }
+        self.transition_camera(before, now);
+        self.shadow_cached.set(false);
+        Ok(())
+    }
+
     pub fn camera_axes(&self) -> Vec<f32> {
         let basis = self.camera.light_basis().transpose();
         [basis.z_axis, basis.x_axis, basis.y_axis]
@@ -48,9 +160,10 @@ impl AnatomyViewer {
         self.cancel_camera_transition();
         if self.exploding {
             let frame = [left, top, width, height];
-            Camera::layout(self.scene.bounds, self.camera.aspect, frame).map_err(js_error)?;
             self.layout_frame = frame;
-            self.relayout_explosion()?;
+            self.camera.reframe(frame).map_err(js_error)?;
+            self.camera.align_viewport();
+            self.shadow_cached.set(false);
             return Ok(());
         }
         self.camera
@@ -97,9 +210,14 @@ impl AnatomyViewer {
                     .map(|part| part.source_id.clone())
                     .collect();
                 if let Some(bounds) = self.display_bounds(&ids.into_iter().collect::<Vec<_>>())? {
-                    self.camera
-                        .focus(bounds, self.layout_frame)
-                        .map_err(js_error)?;
+                    if self.background_camera.is_some() {
+                        self.camera = Camera::layout(bounds, self.camera.aspect, self.layout_frame)
+                            .map_err(js_error)?;
+                    } else {
+                        self.camera
+                            .focus(bounds, self.layout_frame)
+                            .map_err(js_error)?;
+                    }
                 }
             }
         } else {
@@ -250,9 +368,17 @@ impl AnatomyViewer {
     pub fn zoom_at(&mut self, x: f32, y: f32, factor: f32) -> Result<(), JsValue> {
         self.cancel_camera_transition();
         self.stop_explosion_follow();
+        let distance = self.camera.distance;
         self.camera
             .zoom_at(2.0 * x - 1.0, 1.0 - 2.0 * y, factor)
             .map_err(js_error)?;
+        if let Some(camera) = &mut self.background_camera {
+            camera.yaw = self.camera.yaw;
+            camera.pitch = self.camera.pitch;
+            camera
+                .zoom(self.camera.distance / distance)
+                .map_err(js_error)?;
+        }
         // The shadow frustum fits the viewed region, so zooming refits it.
         self.shadow_cached.set(false);
         Ok(())

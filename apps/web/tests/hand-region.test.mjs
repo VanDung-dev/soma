@@ -2,6 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 
+test('focus frames remain inside the canvas when the lesson workspace scrolls', async () => {
+  const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
+  try {
+    const { viewportInFrame } = await server.ssrLoadModule('/src/anatomy/viewer/layout.ts');
+    const box = (left, top, width, height) => ({ getBoundingClientRect: () => ({ left, top, width, height, right: left + width, bottom: top + height }) });
+    const host = box(100, 50, 1000, 800);
+    assert.deepEqual(viewportInFrame(host, box(300, 100, 600, 600)), [0.2, 0.0625, 0.6, 0.75]);
+    assert.deepEqual(viewportInFrame(host, box(50, -100, 1200, 1000)), [0, 0, 1, 1]);
+    assert.deepEqual(viewportInFrame(host, box(1200, 1000, 100, 100)), [0.999, 0.99875, 0.001, 0.00125]);
+    assert.deepEqual(viewportInFrame(host, box(0, 0, 0, 0)), [0, 0, 1, 1]);
+  } finally { await server.close(); }
+});
+
 test('hand start region follows the letterboxed image and excludes visible panels', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {

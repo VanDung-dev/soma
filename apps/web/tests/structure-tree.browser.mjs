@@ -11,7 +11,7 @@ export async function checkStructureTree() {
     throw Error(message);
   };
   const catalog = JSON.parse((await getContent()).get_catalog());
-  const target = catalog.targets.find(target => target.model?.path.endsWith('/muscular-insertions.glb.br'));
+  const target = catalog.targets.find(target => target.source_name === '2: Muscular insertions');
   const nested = new Set(catalog.targets.filter(child => child.parent_id === target.id).flatMap(child => child.structure_ids));
   const ids = target.model.structure_ids.filter(id => !nested.has(id));
   const root = document.querySelector('[data-target-id="' + target.id + '"]');
@@ -57,7 +57,8 @@ export async function checkStructureTree() {
     const beforeScroll = rows().length;
     scroll.scrollTop = scroll.scrollHeight;
     await waitFor(() => rows().length > beforeScroll, 'Scrolling must load more structures');
-    const metadata = await (await fetch('/' + target.model.path.replace(/\.glb(?:\.br)?$/, '.json'))).json();
+    const bundle = await (await fetch('/' + target.model.path.replace(/\.glb(?:\.br)?$/, '.json'))).json();
+    const metadata = bundle.metadata[target.id];
     const last = metadata.structures.find(part => part.source_id === ids.at(-1));
     document.querySelector('.structure-search-field').click(); await frames();
     const input = search.querySelector('input');

@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
 import { checkOrientationPointer } from '../tests/orientation-pointer.mjs';
+import { checkLessons } from '../tests/lessons.browser.mjs';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.BENCHMARK_PLAYWRIGHT_MODULE || 'playwright');
@@ -18,7 +19,6 @@ try {
   const baseURL = server.resolvedUrls.local[0];
   browser = await chromium.launch({ executablePath: process.env.BENCHMARK_BROWSER, headless: true, chromiumSandbox: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, baseURL });
-  await context.addInitScript(() => { if (window.top === window) localStorage.setItem('anatomy-onboarding:v1', 'dismissed'); });
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -43,6 +43,11 @@ try {
     console.log(name, JSON.stringify(result));
     if (name === 'checkOrientationAxes') console.log('checkOrientationPointer', JSON.stringify(await checkOrientationPointer(page)));
   }
+  await page.goto('/lessons');
+  console.log('checkLessonLibrary', JSON.stringify(await page.evaluate(async () =>
+    (await import('/tests/lesson-library.browser.mjs')).checkLessonLibrary())));
+  await checkLessons(page);
+  console.log('checkLessons passed');
   assert.deepEqual(errors, [], 'Browser checks must not raise uncaught errors');
   await context.close();
   const blocked = await browser.newContext({ viewport: { width: 1440, height: 900 }, baseURL });
@@ -60,7 +65,7 @@ try {
   }
   assert.deepEqual(errors, [], 'Blocked storage must not break startup or preference controls');
   await blocked.close();
-  console.log('Browser checks passed: 22');
+  console.log('Browser checks passed: 23');
 } finally {
   await browser?.close();
   await server.close();

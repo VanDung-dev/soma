@@ -53,6 +53,9 @@ impl AnatomyViewer {
         if width == 0 || height == 0 || width > limit || height > limit {
             return Err(js_error("Invalid viewport dimensions"));
         }
+        if let Some(camera) = &mut self.background_camera {
+            camera.aspect = width as f32 / height as f32;
+        }
         self.canvas.set_width(width);
         self.shadow_cached.set(false);
         self.canvas.set_height(height);

@@ -2,6 +2,41 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 
+test('student input permits camera controls while blocking picking, marquee, hiding and separation', async t => {
+  const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
+  const previousWindow = globalThis.window;
+  let unbind;
+  try {
+    const { bindViewerInput } = await server.ssrLoadModule('/src/anatomy/viewer/input.ts');
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    globalThis.window = Object.assign(new EventTarget(), { setTimeout, clearTimeout });
+    const canvas = Object.assign(new EventTarget(), { width: 300, height: 300, clientWidth: 300, clientHeight: 300,
+      dataset: {}, focus() {}, setPointerCapture() {}, getBoundingClientRect: () => ({ left: 0, top: 0, width: 300, height: 300 }) });
+    const calls = [];
+    const forbidden = () => assert.fail('Student mode cannot select or change lesson structures');
+    const viewer = { rotate: () => calls.push('rotate'), pan: () => calls.push('pan'), zoom_at: () => calls.push('zoom'),
+      selected_id: () => '', selection_ids: () => [], clear_selection() {}, pick: forbidden, select_region: forbidden, move_structure: forbidden };
+    unbind = bindViewerInput(canvas, { enabled: () => true, selectable: () => false,
+      operate: action => { action(viewer); return true; }, redraw() {}, pick: forbidden,
+      detachable: () => true, detach: forbidden, hide: forbidden, beginGroup: forbidden });
+    const pointer = (type, values = {}) => canvas.dispatchEvent(Object.assign(new Event(type, { cancelable: true }), {
+      clientX: 100, clientY: 100, pointerId: 1, pointerType: 'mouse', button: 0,
+      buttons: type === 'pointerup' ? 0 : 1, shiftKey: false, ...values,
+    }));
+    for (const values of [{}, { shiftKey: true }, { button: 2, buttons: 2 }]) {
+      pointer('pointerdown', values); t.mock.timers.tick(1500);
+      pointer('pointermove', { ...values, clientX: 150 }); pointer('pointerup', { ...values, clientX: 150, buttons: 0 });
+      pointer('pointerdown', values); pointer('pointerup', { ...values, buttons: 0 });
+    }
+    canvas.dispatchEvent(Object.assign(new Event('wheel', { cancelable: true }), { clientX: 100, clientY: 100, deltaY: 100, deltaMode: 0 }));
+    assert.deepEqual(calls, ['rotate', 'rotate', 'pan', 'zoom']);
+  } finally {
+    unbind?.(); t.mock.timers.reset();
+    if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow;
+    await server.close();
+  }
+});
+
 test('Shift-left marquee selects a temporary group and left hold moves it together with cancellation', async t => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   const previousWindow = globalThis.window;
@@ -79,7 +114,7 @@ test('Shift-left marquee selects a temporary group and left hold moves it togeth
     canvas.dispatchEvent(escape); t.mock.timers.tick(1000);
     assert(escape.defaultPrevented); assert.deepEqual(selection, []); assert.equal(starts, 2);
     const settings = Object.assign(new Event('keydown', { cancelable: true }), { key: 'Escape' });
-    canvas.dispatchEvent(settings); assert(!settings.defaultPrevented, 'Escape keeps the Settings shortcut when no group or gesture is active');
+    canvas.dispatchEvent(settings); assert(!settings.defaultPrevented, 'Escape remains available when no group or gesture is active');
     for (const shiftKey of [false, true]) {
       pointer('pointerdown', { clientX: 300, button: 2, buttons: 2, shiftKey });
       pointer('pointermove', { clientX: 80, button: -1, buttons: 2, shiftKey });

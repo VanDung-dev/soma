@@ -1,3 +1,4 @@
+import { modelMetadata } from './model.fixture.mjs';
 import { initCatalogWasm, createCatalogFixture } from './catalog.fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -54,7 +55,6 @@ test('structure search matches names, Latin and laterality, and reveals the sele
     assert.match(html, /role="combobox"/);
     assert.match(html, /role="listbox"/);
     assert.doesNotMatch(html, /class="controls-info"/);
-    assert.match(html, /A–Z/);
     const alphabetical = renderToStaticMarkup(createElement(StructureSearch, {
       catalog: fixture([part('unknown', '???', ''), part('z', 'ZzzAtlas', ''), part('a', 'AaaAtlas', ''), part('m', 'MmmAtlas', '')]).store,
       disabled: false, onSelect() {},
@@ -68,11 +68,11 @@ test('structure search matches names, Latin and laterality, and reveals the sele
     assert.deepEqual(find('Clavicula').map(part => part.source_id), ['clavicle']);
 
     const catalog = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
-    const metadata = JSON.parse(await readFile(new URL('../public/models/z-anatomy/skeletal-system.json', import.meta.url)));
+    const metadata = modelMetadata('skeletal-system');
     const femur = metadata.structures.find(p => p.source_name === 'Femur');
     assert(femur);
     const tree = renderToStaticMarkup(createElement(StructureTree, {
-      catalog: await createCatalogFixture(server, catalog, [[catalog.targets.find(target => target.model?.path.endsWith('/skeletal-system.glb.br')), metadata]]), visibleIds: new Set([femur.source_id]), selected: femur.source_id,
+      catalog: await createCatalogFixture(server, catalog, [[catalog.targets.find(target => target.source_name === '1: Skeletal system'), metadata]]), visibleIds: new Set([femur.source_id]), selected: femur.source_id,
       reveal: { id: femur.source_id }, disabled: false,
       onVisibility() {}, onSelect() {}, onTarget() {}, onFocus() {},
     }));
