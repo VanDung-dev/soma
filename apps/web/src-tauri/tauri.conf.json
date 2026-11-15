@@ -42,6 +42,7 @@
     "copyright": "© 2026 Nguyễn Lê Văn Dũng",
     "license": "Apache-2.0",
     "macOS": {
+      "signingIdentity": "-",
       "minimumSystemVersion": "15.0"
     },
     "windows": {

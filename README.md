@@ -32,7 +32,7 @@ Desktop requires [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/
 Run **Actions → Build desktop → Run workflow** to build installers. Select the version tag as the ref (for example, `v0.1.0-dev1`) and choose `all` to build both platforms. Creating a tag alone does not start a build.
 
 - `Soma-windows-x64-setup.exe` is the Windows x64 installer. It installs on x64 Windows and on Windows 11 Arm64, where the app runs through x64 emulation.
-- `Soma-macos-arm64.dmg` is for Apple Silicon Macs and requires macOS 15 or later.
+- `Soma-macos-arm64.dmg` is for Apple Silicon Macs and requires macOS 15 or later. The app is ad-hoc signed; macOS may still require approval in Privacy & Security, and the signature does not provide notarization.
 
 To create a GitHub Release, enable `create_release` in the same workflow run. This rebuilds both installers and attaches them to the release. Tags containing `-dev` are published as pre-releases.
 
