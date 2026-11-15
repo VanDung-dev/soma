@@ -27,11 +27,17 @@ jobs:
       fail-fast: false
       matrix:
         platform: ${{ fromJSON(inputs.platform == 'windows' && '["windows"]' || inputs.platform == 'macos' && '["macos"]' || '["windows","macos"]') }}
-    runs-on: ${{ matrix.platform == 'windows' && 'windows-2025' || 'macos-15' }}
+    runs-on: ${{ matrix.platform == 'windows' && 'windows-2025' || 'xcode-27' }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - name: Select Xcode 27.2
+        if: runner.os == 'macOS'
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_27.2.app/Contents/Developer
+          xcodebuild -version
+          xcrun --sdk macosx --show-sdk-version
       - name: Validate manual release request
         if: github.event_name == 'workflow_dispatch' && inputs.create_release
         shell: bash
