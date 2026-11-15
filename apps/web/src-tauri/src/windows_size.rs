@@ -95,6 +95,15 @@ pub fn configure(window: &WebviewWindow) -> tauri::Result<()> {
                             .lock()
                             .unwrap()
                             .finish_dpi_change(scale_factor, work_area);
+                        let minimum = crate::window_minimum::refresh(&window).ok().flatten();
+                        let desired = desired.map(|size| {
+                            minimum.map_or(size, |minimum| {
+                                PhysicalSize::new(
+                                    size.width.max(minimum.width),
+                                    size.height.max(minimum.height),
+                                )
+                            })
+                        });
                         if let Some(desired) = desired
                             && is_normal(&window)
                             && window.inner_size().ok() != Some(desired)

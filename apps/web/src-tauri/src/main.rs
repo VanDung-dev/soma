@@ -5,6 +5,8 @@ mod lessons;
 mod settings;
 mod storage;
 mod wikipedia;
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+mod window_minimum;
 #[cfg(any(target_os = "windows", test))]
 mod windows_size;
 
@@ -175,6 +177,7 @@ fn main() -> Result<(), tauri::Error> {
             app.manage(wikipedia::Proxy::start());
             #[cfg(any(target_os = "macos", target_os = "windows"))]
             if let Some(window) = app.get_webview_window("main") {
+                window_minimum::configure(&window);
                 #[cfg(target_os = "windows")]
                 {
                     if let Err(error) = windows_size::configure(&window) {

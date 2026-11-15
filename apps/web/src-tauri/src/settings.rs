@@ -10,14 +10,19 @@ use tauri::{AppHandle, Manager};
 type Settings = Map<String, Value>;
 const LIMIT: usize = 64 * 1024;
 
+fn font_pt(value: &Value) -> Option<u16> {
+    value
+        .as_str()?
+        .parse::<u16>()
+        .ok()
+        .filter(|size| (6..=18).contains(size))
+}
+
 fn valid(name: &str, value: &Value) -> bool {
     match name {
         "language" => matches!(value.as_str(), Some("vi" | "en")),
         "theme" => matches!(value.as_str(), Some("auto" | "light" | "dark")),
-        "fontSize" => value
-            .as_str()
-            .and_then(|size| size.parse::<u16>().ok())
-            .is_some_and(|size| (6..=18).contains(&size)),
+        "fontSize" => font_pt(value).is_some(),
         "graphics" | "shortcuts" => value.is_object(),
         "camera" => value.as_str().is_some_and(|id| id.len() <= 1024),
         _ => false,
@@ -65,7 +70,13 @@ pub async fn load_settings(app: AppHandle, legacy: Settings) -> Result<Settings,
         .path()
         .app_local_data_dir()
         .map_err(|error| error.to_string())?;
-    update_settings(&root, legacy, false).map_err(|error| error.to_string())
+    let settings = update_settings(&root, legacy, false).map_err(|error| error.to_string())?;
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    crate::window_minimum::set_font_size(
+        &app,
+        settings.get("fontSize").and_then(font_pt).unwrap_or(10),
+    );
+    Ok(settings)
 }
 
 #[tauri::command]
@@ -77,9 +88,15 @@ pub async fn save_setting(app: AppHandle, name: String, value: Value) -> Result<
         .path()
         .app_local_data_dir()
         .map_err(|error| error.to_string())?;
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    let size = (name == "fontSize").then(|| font_pt(&value)).flatten();
     update_settings(&root, Settings::from_iter([(name, value)]), true)
-        .map(|_| ())
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    if let Some(size) = size {
+        crate::window_minimum::set_font_size(&app, size);
+    }
+    Ok(())
 }
 
 #[cfg(test)]
