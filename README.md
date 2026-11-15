@@ -29,12 +29,12 @@ Desktop requires [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/
 
 ### Desktop builds and releases on GitHub Actions
 
-After the workflow reaches the default branch, pushing a `v*` tag builds Windows and macOS installers and uploads them as workflow artifacts. The tag must match the app version, for example `v0.1.0-dev1`. This does not create a GitHub Release.
+Run **Actions → Build desktop → Run workflow** to build installers. Select the version tag as the ref (for example, `v0.1.0-dev1`) and choose `all` to build both platforms. Creating a tag alone does not start a build.
 
 - `Soma-windows-x64-setup.exe` is the Windows x64 installer. It installs on x64 Windows and on Windows 11 Arm64, where the app runs through x64 emulation.
 - `Soma-macos-arm64.dmg` is for Apple Silicon Macs and requires macOS 15 or later.
 
-To create a GitHub Release, manually run **Actions → Build desktop → Run workflow** with the tag selected as the ref, `all` platforms selected, and `create_release` enabled. This rebuilds both installers and attaches them to the release. Tags containing `-dev` are published as pre-releases.
+To create a GitHub Release, enable `create_release` in the same workflow run. This rebuilds both installers and attaches them to the release. Tags containing `-dev` are published as pre-releases.
 
 To build artifacts without publishing, leave `create_release` disabled. For a single platform, select `windows` or `macos`.
 
