@@ -75,8 +75,12 @@ jobs:
           npm.cmd exec --workspace apps/web -- tauri build --bundles nsis --target x86_64-pc-windows-msvc
           if ($LASTEXITCODE -ne 0) { throw 'Soma build failed' }
           $version = (Get-Content apps/web/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
-          $installer = "target/x86_64-pc-windows-msvc/release/bundle/nsis/Soma_${version}_x64-setup.exe"
-          Copy-Item -LiteralPath $installer -Destination "Soma-windows-x64-setup.exe"
+          $workspace = $env:GITHUB_WORKSPACE
+          $installer = Join-Path $workspace "target/x86_64-pc-windows-msvc/release/bundle/nsis/Soma_${version}_x64-setup.exe"
+          $artifact = Join-Path $workspace "Soma-windows-x64-setup.exe"
+          if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) { throw "Installer was not created: $installer" }
+          Copy-Item -LiteralPath $installer -Destination $artifact -Force
+          if (-not (Test-Path -LiteralPath $artifact -PathType Leaf)) { throw "Artifact copy failed: $artifact" }
       - name: Package macOS app
         if: runner.os == 'macOS'
         run: |
@@ -96,7 +100,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: Soma-${{ matrix.platform }}
-          path: Soma-${{ matrix.platform }}.*
+          path: ${{ matrix.platform == 'windows' && 'Soma-windows-x64-setup.exe' || 'Soma-macos-arm64.dmg' }}
           archive: false
           if-no-files-found: error
 
