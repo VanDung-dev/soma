@@ -27,58 +27,58 @@ npm install
 WASM builds before dev/build. Web and desktop dev share port 5173; run one at a time.
 Desktop requires [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/).
 
-### Manual desktop build on GitHub Actions
+### Desktop builds and releases on GitHub Actions
 
-Once the workflow is on the default branch, open **Actions → Build desktop → Run workflow** and select `all` to build both packages. Download the ZIP files from **Artifacts** on the completed run.
+Run **Actions → Build desktop → Run workflow** to build installers. Select the version tag as the ref (for example, `v0.1.0-dev1`) and choose `all` to build both platforms. Creating a tag alone does not start a build.
 
-- `Soma-windows.zip` contains an x64 installer for x64 Windows.
-- `Soma-macos-arm64.zip` contains an Apple Silicon app and requires macOS 15 or later.
+- `Soma-windows-x64-setup.exe` is the Windows x64 installer. It installs on x64 Windows and on Windows 11 Arm64, where the app runs through x64 emulation.
+- `Soma-macos-arm64.dmg` is for Apple Silicon Macs and requires macOS 15 or later.
 
-Intel Mac and Windows ARM packages are not provided.
+To create a GitHub Release, enable `create_release` in the same workflow run. This rebuilds both installers and attaches them to the release. Tags containing `-dev` are published as pre-releases.
 
-With GitHub CLI, request both builds from the repository root.
+To build artifacts without publishing, leave `create_release` disabled. For a single platform, select `windows` or `macos`.
+
+### Installer artwork
+
+On macOS, regenerate the DMG PNG and Windows NSIS BMP files from their SVG sources with:
 
 ```sh
-gh workflow run desktop-build.yml -f platform=all
+brew install librsvg
+.venv/bin/python scripts/render_installer_assets.py
 ```
 
-For a single package, use `windows` or `macos`. The workflow runs only on manual request.
-
-### macOS ARM app and ZIP
+### macOS Apple Silicon DMG
 
 Run from the repository root on macOS.
-The `CARGO_PROFILE_RELEASE_STRIP=none` setting avoids a macOS linker issue that
-breaks release proc-macros on macOS 26/27.
 
 ```sh
 rustup target add aarch64-apple-darwin
-CARGO_PROFILE_RELEASE_STRIP=none npm exec --workspace apps/web -- tauri build \
-  --bundles app --target aarch64-apple-darwin &&
-ditto -c -k --sequesterRsrc --keepParent \
-  target/aarch64-apple-darwin/release/bundle/macos/Soma.app \
-  target/Soma-macos-arm64.zip
+npm exec --workspace apps/web -- tauri build --bundles app --target aarch64-apple-darwin
+version=$(node -p "require('./apps/web/src-tauri/tauri.conf.json').version")
+dmgbuild -s scripts/macos-dmg-settings.py \
+  -D "app=target/aarch64-apple-darwin/release/bundle/macos/Soma.app" \
+  -D "icon=apps/web/src-tauri/icons/icon.icns" \
+  -D "background=apps/web/src-tauri/installer-assets/dmg-background.png" \
+  Soma "target/aarch64-apple-darwin/release/bundle/dmg/Soma_${version}_aarch64.dmg"
 ```
 
-Extract `target/Soma-macos-arm64.zip` and open `Soma.app` in Finder.
+Install the pinned DMG tool into the repository virtual environment with
+`.venv/bin/python -m pip install -r scripts/requirements-dmg.txt` first. The
+installer appears under `target/aarch64-apple-darwin/release/bundle/dmg/`.
 
-### Windows x64 installer and ZIP
+### Windows x64 installer
 
 Run in PowerShell from the repository root on Windows with the x64 MSVC Rust toolchain and the [Windows Tauri prerequisites](https://v2.tauri.app/start/prerequisites/#windows).
 
 ```powershell
 npm.cmd exec --workspace apps/web -- tauri build --bundles nsis --target x86_64-pc-windows-msvc
 if ($LASTEXITCODE -ne 0) { throw 'Soma build failed' }
-
-$version = (Get-Content apps/web/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
-$installer = "target/x86_64-pc-windows-msvc/release/bundle/nsis/Soma_${version}_x64-setup.exe"
-Compress-Archive -LiteralPath $installer -DestinationPath target/Soma-Windows-x64.zip -Force
 ```
 
-Extract `target/Soma-Windows-x64.zip` and run the setup executable on x64 Windows.
+Run the setup executable under `target/x86_64-pc-windows-msvc/release/bundle/nsis/`.
 
-Desktop builds include one compressed GLB containing all nine anatomy systems,
-one combined JSON containing metadata and provenance, and readable source notices
-in a separate `models/` resource directory. The packaged app reads those files offline.
+Desktop builds include the compressed models and source notices in a separate
+`models/` resource directory. The packaged app reads those files offline.
 For `npm run desktop:build`, keep the generated `models/` directory alongside
 the executable when running from `target/release/`.
 
@@ -115,34 +115,9 @@ npm run models:import
 
 Blender exports use its bundled Python.
 
-## Lessons
-
-Lessons combine localized reading, optional anatomy scenes and questions in ordered
-learning steps. Each step can own its model selection and scene; preview follows the
-same completion rules as the learner.
-
-The desktop app stores each lesson as `lesson.json`, `content/`, and `images/` under
-`~/Library/Application Support/io.github.vandung-dev.soma/lessons/` on macOS or
-`%LOCALAPPDATA%\io.github.vandung-dev.soma\lessons\` on Windows. Older drafts are
-copied when the current WebView can still read them. The browser version stores
-lesson structure in localStorage, with HTML content blocks and images in IndexedDB.
-Rich text blocks are content-addressed files in `content/`; `lesson.json` retains
-the lesson structure and references those files. Existing lessons migrate when
-they are next saved. Export `.lesson.br` packages to
-back up or share lessons offline. New packages store HTML blocks separately and
-imports continue to read packages with inline HTML. Imports validate package
-contents before replacing a draft; legacy `.soma.br` packages remain readable.
-Rich text is sanitized locally, and images are not uploaded. Rust owns lesson
-validation and package processing; the web app owns editing, display and browser
-storage. See [Architecture](ARCHITECTURE.md)
-for module boundaries.
-
-Desktop preferences are stored in `settings.json` alongside the `lessons/`
-directory. The browser version stores its preferences in localStorage.
-
 ## Wikipedia proxy
 
-`npm run serve` and the packaged desktop app each include a Wikipedia proxy. Static hosting needs a deployed proxy:
+`npm run serve` includes the proxy. Static hosting and packaged desktop need a deployed proxy:
 
 ```sh
 VITE_WIKIPEDIA_PROXY_URL=https://your-server.example/wikipedia npm run build
@@ -157,4 +132,4 @@ No backend. Future server work: Rust, with API/data contracts agreed first.
 - The anatomy information panel links to related sections of [OpenStax, Anatomy and Physiology 2e](https://openstax.org/details/books/anatomy-and-physiology-2e) (OpenStax, Rice University, 2022) alongside Wikipedia. These English web readings provide context for the selected structure or group; they do not imply that the book covers each model separately. The curated mappings live in `content/openstax-references.json`, ordered from specific topics to system overviews. No book text, images or PDF are bundled.
 - [Architecture](ARCHITECTURE.md)
 - Educational reference only; Vietnamese terminology and Wikipedia mappings await medical review.
-- Original Soma code: [Soma Community and Commercial Use License](LICENSE). Third-party model, data, and dependency terms: [NOTICE](NOTICE), [attribution](apps/web/public/models/z-anatomy/ATTRIBUTION.md).
+- Code: [Apache-2.0](LICENSE). Model/data terms: [NOTICE](NOTICE), [attribution](apps/web/public/models/z-anatomy/ATTRIBUTION.md).

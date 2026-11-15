@@ -511,7 +511,7 @@ dependencies = [
 
 [[package]]
 name = "content"
-version = "0.1.0"
+version = "0.1.0-dev1"
 dependencies = [
  "brotli",
  "core",
@@ -541,7 +541,7 @@ dependencies = [
 
 [[package]]
 name = "core"
-version = "0.1.0"
+version = "0.1.0-dev1"
 dependencies = [
  "html5ever",
  "serde",
@@ -3067,7 +3067,7 @@ checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
 name = "renderer"
-version = "0.1.0"
+version = "0.1.0-dev1"
 dependencies = [
  "brotli-decompressor",
  "glam",
@@ -3539,7 +3539,7 @@ dependencies = [
 
 [[package]]
 name = "soma"
-version = "0.1.0"
+version = "0.1.0-dev1"
 dependencies = [
  "block2",
  "content",
@@ -4522,7 +4522,7 @@ dependencies = [
 
 [[package]]
 name = "wasm"
-version = "0.1.0"
+version = "0.1.0-dev1"
 dependencies = [
  "js-sys",
  "renderer",
