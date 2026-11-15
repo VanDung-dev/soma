@@ -3,6 +3,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 const settingsKeys = {
   language: "human-atlas-language",
   theme: "human-atlas-theme",
+  fontSize: "soma-font-size",
   graphics: "human-atlas-graphics",
   shortcuts: "soma-shortcuts",
   camera: "soma-camera-device",

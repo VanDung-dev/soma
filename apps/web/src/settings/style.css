@@ -18,6 +18,11 @@
 .settings-section :is(.settings-row > label, .graphics-options-label) { padding: 0; font-size: 13px; }
 .settings-section .graphics-options { margin-inline-start: auto; }
 .settings-section .settings-select { max-width: 100%; }
+.settings-font-size-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+.settings-font-size-row .settings-number-control { justify-self: end; }
+.settings-number-range { color: var(--muted); font-size: 12px; opacity: .65; text-align: center; white-space: nowrap; }
+.settings-number-control { display: inline-flex; align-items: center; gap: 6px; margin-inline-start: auto; }
+.settings-number { width: 48px; height: var(--settings-control-size); padding: 3px 6px; border: 1px solid var(--line-strong); border-radius: var(--inner-radius); background: var(--surface); color: var(--text); font: inherit; text-align: end; }
 .settings-guide-content { padding: 0 var(--panel-padding); font-size: 13px; line-height: 1.5; }
 .settings-guide-content > h3 { margin: 14px 0 10px; font-size: 15px; }
 .settings-guide-content > h3:first-child { margin-top: 0; }

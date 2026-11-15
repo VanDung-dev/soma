@@ -1,10 +1,11 @@
-import { useContext, useEffect, useRef } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { CameraDevicesContext } from "../anatomy/camera-devices";
 import { useLanguage } from "../i18n";
 import { useTheme } from "../theme";
 import { ControlsGuide } from "./guide";
 import { ShortcutControls } from "./shortcut-controls";
 import { GraphicsControls } from "./graphics-controls";
+import { type useFontSize } from "./font-size";
 import { useGraphicsSettings } from "../pages/use-graphics-settings";
 import "./style.css";
 
@@ -36,7 +37,33 @@ function LicenseRow({ label, path }: { label: string; path: string }) {
   </div>;
 }
 
-export function SettingsPage({ section = "interface" }: { section?: SettingsSection }) {
+function SettingsNumber({ id, value, min, max, unit, integer, onChange }: {
+  id: string; value: string; min: number; max: number; unit: string; integer?: boolean; onChange: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  const update = (input: string) => {
+    setDraft(input);
+    const normalized = input.replace(",", ".");
+    const number = Number(normalized);
+    if (normalized && Number.isFinite(number) && number >= min && number <= max && (!integer || Number.isInteger(number))) {
+      onChange(normalized);
+    }
+  };
+  const resetInvalid = () => {
+    const number = Number(draft.replace(",", "."));
+    if (!Number.isFinite(number) || number < min || number > max || (integer && !Number.isInteger(number))) setDraft(value);
+  };
+  return <div className="settings-number-control">
+    <input id={id} className="settings-number" type="text" inputMode={integer ? "numeric" : "decimal"} value={draft}
+      onChange={event => update(event.currentTarget.value)} onBlur={resetInvalid} />
+    <span aria-hidden="true">{unit}</span>
+  </div>;
+}
+
+export function SettingsPage({ section = "interface", fontSize }: {
+  section?: SettingsSection; fontSize: ReturnType<typeof useFontSize>;
+}) {
   const { language, setLanguage, t } = useLanguage();
   const { theme, setTheme } = useTheme();
   const [graphics, setGraphics] = useGraphicsSettings();
@@ -71,6 +98,13 @@ export function SettingsPage({ section = "interface" }: { section?: SettingsSect
                   data-value={option} aria-pressed={theme === option} onClick={() => setTheme(option)}>{t(`appearance.mode.${option}`)}</button>)}
               </div>
             </div>
+            <div className="settings-row graphics-options-row settings-font-size-row">
+              <label htmlFor="settings-font-size">{t("settings.fontSize")}</label>
+              <span className="settings-number-range">{t("settings.fontSize.range")}</span>
+              <SettingsNumber id="settings-font-size" value={fontSize.fontSize} min={6} max={18} unit="pt" integer
+                onChange={fontSize.setFontSize} />
+            </div>
+            {fontSize.failed && <p className="shortcut-status" role="status">{t("settings.fontSize.error")}</p>}
           </>}
           {section === "graphics" && <GraphicsControls id="settings-graphics" graphics={graphics} onChange={setGraphics} buttons />}
           {section === "camera" && cameras && <>
