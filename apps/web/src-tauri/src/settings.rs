@@ -14,6 +14,10 @@ fn valid(name: &str, value: &Value) -> bool {
     match name {
         "language" => matches!(value.as_str(), Some("vi" | "en")),
         "theme" => matches!(value.as_str(), Some("auto" | "light" | "dark")),
+        "fontSize" => value
+            .as_str()
+            .and_then(|size| size.parse::<u16>().ok())
+            .is_some_and(|size| (6..=18).contains(&size)),
         "graphics" | "shortcuts" => value.is_object(),
         "camera" => value.as_str().is_some_and(|id| id.len() <= 1024),
         _ => false,

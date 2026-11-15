@@ -10,6 +10,7 @@
       "minWidth": 800,
       "minHeight": 520,
       "preventOverflow": true,
+      "visible": false,
       "resizable": true,
       "decorations": false,
       "shadow": true
