@@ -1,5 +1,5 @@
-.home-page { display: grid; place-items: center; height: 100%; padding: clamp(16px, 3.5vw, 48px); overflow: auto; overscroll-behavior: contain; }
-.home-content { width: min(1100px, 100%); }
+.home-page { display: grid; place-items: center; height: 100%; padding: clamp(16px, calc((100% - 1200px) / 2), 40px); overflow: auto; overscroll-behavior: contain; }
+.home-content { width: 100%; max-width: 1200px; margin-inline: auto; }
 .home-heading { margin-bottom: 24px; }
 .home-heading h1 { margin: 0; font-size: clamp(28px, 3.5vw, 42px); line-height: 1.2; letter-spacing: -.8px; padding-left: 10px; padding-right: 10px }
 .home-heading p { margin: 10px 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; padding-left: 10px; padding-right: 10px }

@@ -217,7 +217,6 @@ dialog.lesson-cover-modal:not([open]) {
 .lessons-screen:is([data-player="true"], [data-editor="true"]) {
   --lesson-reader-outline-width: calc(280px + var(--workspace-panel-growth));
   --lesson-author-outline-width: calc(280px + var(--workspace-panel-growth));
-  --lesson-model-settings-width: calc(320px + var(--workspace-panel-growth));
   --lesson-author-width: calc(600px + var(--workspace-panel-growth));
   --lesson-step-width: calc(var(--lesson-author-width) - 140px);
 }
@@ -239,7 +238,7 @@ dialog.lesson-cover-modal:not([open]) {
 .lesson-reader-outline .catalog-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 5px; }
 .lesson-reader-outline .catalog-heading h2 { margin: 0; font-size: 17px; }
 .lesson-reader-outline .catalog-tree { flex: 1; min-height: 0; overflow-y: auto; }
-.lesson-workspace { grid-column: 2; grid-row: 1; display: grid; flex: 1; min-width: 0; min-height: 0; grid-template-columns: minmax(0, 11fr) minmax(var(--lesson-step-width), 9fr); gap: var(--panel-gap); transition: grid-template-columns .32s cubic-bezier(.22,1,.36,1), column-gap .32s cubic-bezier(.22,1,.36,1); }
+.lesson-workspace { grid-column: 2; grid-row: 1; display: grid; flex: 1; min-width: 0; min-height: 0; grid-template-columns: minmax(0, 11fr) minmax(var(--lesson-step-width), 0fr); grid-template-rows: minmax(0, 1fr); gap: var(--panel-gap); transition: grid-template-columns .32s cubic-bezier(.22,1,.36,1), column-gap .32s cubic-bezier(.22,1,.36,1); }
 .lesson-model { position: relative; min-width: 0; min-height: 0; overflow: hidden; border-radius: var(--panel-radius); background: var(--workspace-bg); box-shadow: inset 0 0 0 1px var(--line-hover); }
 .lesson-player .lesson-model { grid-column: 1; display: grid; grid-template-rows: minmax(80px, 1fr) auto; gap: 8px; padding: var(--panel-padding); overflow: visible; border-radius: 0; background: transparent; box-shadow: none; opacity: 1; transition: opacity .24s ease, display .32s allow-discrete; }
 .lesson-player .lesson-model[hidden] { display: none; opacity: 0; }
@@ -247,7 +246,7 @@ dialog.lesson-cover-modal:not([open]) {
 .lesson-player .lesson-model > .model-focus-frame { position: relative; min-width: 0; min-height: 0; }
 .lesson-player .lesson-player-hud { position: relative; z-index: 2; bottom: auto; left: auto; transform: none; width: 100%; min-width: 0; }
 .lesson-player-hud .lesson-model-tools { position: static; padding: 0; width: 100%; }
-.lesson-player .lesson-step { grid-column: 2; display: flex; flex-direction: column; width: min(100%, var(--lesson-step-width)); justify-self: center; gap: var(--panel-padding); min-width: 0; min-height: 0; overflow: hidden; padding: var(--panel-padding); pointer-events: auto; }
+.lesson-player .lesson-step { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; width: min(100%, var(--lesson-step-width)); justify-self: center; gap: var(--panel-padding); min-width: 0; min-height: 0; overflow: hidden; padding: var(--panel-padding); pointer-events: auto; }
 .lesson-reader-body { display: block; overflow-wrap: anywhere; }
 .lesson-reader-body > :first-child { margin-top: 0; }
 .lesson-reader-body h2 { line-height: 1.35; }
@@ -497,7 +496,7 @@ body:has(.lesson-rich-editor) .tox .tox-dialog__busy-spinner::after { content: a
 .lesson-scene-tree > h3 { margin: 0 0 8px; font-size: 14px; }
 .lesson-scene-tree > p { margin: 0 0 12px; font-size: 13px; line-height: 1.5; }
 .lesson-scene-tree > .lesson-inspector-actions { margin-bottom: 12px; }
-.lesson-model-settings { grid-column: 2; grid-row: 1; z-index: 1; display: flex; flex-direction: column; gap: var(--panel-padding); width: min(100%, var(--lesson-model-settings-width)); justify-self: center; min-width: 0; min-height: 0; overflow: hidden; padding: var(--panel-padding); background: var(--panel-bg); backdrop-filter: none; visibility: visible; opacity: 1; translate: 0 0; pointer-events: auto; transition: translate .28s cubic-bezier(.22,1,.36,1), opacity .28s ease, visibility .28s; }
+.lesson-model-settings { grid-column: 2; grid-row: 1; z-index: 1; display: flex; flex-direction: column; gap: var(--panel-padding); width: min(100%, var(--lesson-document-width)); justify-self: center; min-width: 0; min-height: 0; overflow: hidden; padding: var(--panel-padding); background: var(--panel-bg); backdrop-filter: none; visibility: visible; opacity: 1; translate: 0 0; pointer-events: auto; transition: translate .28s cubic-bezier(.22,1,.36,1), opacity .28s ease, visibility .28s; }
 .lesson-model-settings[data-open="false"] { visibility: hidden; opacity: 0; translate: calc(100% + var(--panel-gap)) 0; pointer-events: none; }
 .lesson-author-center:has(.lesson-author-alerts) > :is(.lesson-author-document, .lesson-model-settings) { grid-row: 2; }
 .lesson-model-settings > .guide-heading { flex-shrink: 0; margin-bottom: 0; }
