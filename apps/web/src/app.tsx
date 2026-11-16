@@ -8,7 +8,6 @@ import { lessonEditId, lessonViewId } from "./lessons/routes";
 import { AnatomyPage } from "./anatomy/page";
 import { ModuleLayout } from "./pages/module-layout";
 import { ThemeProvider } from "./theme";
-import { SourceDocument } from "./source-document";
 import { SettingsPage, settingsHref, settingsSectionAt, type SettingsSection } from "./settings/page";
 import { useFontSize } from "./settings/font-size";
 import { GraphicsSettingsContext, useGraphicsSettings } from "./pages/use-graphics-settings";
@@ -49,7 +48,6 @@ function AppRoute() {
   const fontSize = useFontSize();
   const graphics = useGraphicsSettings();
   const cameras = useCameraDevices(settings || workspace === "anatomy");
-  const [documentPath, setDocumentPath] = useState<string | null>(null);
   useEffect(() => {
     const sync = () => {
       const next = window.location.pathname;
@@ -100,16 +98,14 @@ function AppRoute() {
     if (url.protocol !== window.location.protocol || url.host !== window.location.host || url.search) return;
     if (desktop && url.pathname.startsWith("/licenses/")) {
       event.preventDefault();
-      const documentPath = url.pathname === "/licenses/LICENSE.txt" ? "/LICENSE"
-        : url.pathname === "/licenses/NOTICE.txt" ? "/NOTICE" : url.pathname;
-      void invoke("open_attribution", { path: url.pathname }).catch(() => setDocumentPath(documentPath));
+      void invoke("open_attribution", { path: url.pathname });
       return;
     }
     const nextPage = pageAtPath(url.pathname);
     if (url.hash && (nextPage !== "settings" || settingsSectionAt(url.hash) === "interface")) return;
     if (desktop && url.pathname.endsWith("/ATTRIBUTION.md")) {
       event.preventDefault();
-      void invoke("open_attribution", { path: url.pathname }).catch(() => setDocumentPath(url.pathname));
+      void invoke("open_attribution", { path: url.pathname });
       return;
     }
     if (link.target && link.target !== "_self") return;
@@ -123,7 +119,6 @@ function AppRoute() {
     <ModuleLayout page={page} onClick={navigate} settings={settings ? <SettingsPage section={section} fontSize={fontSize} /> : undefined}>
     {Page ? <Page /> : workspace === "lessons" ? <LessonsPage editId={lessonEditId(workspacePath)} viewId={lessonViewId(workspacePath)} navigate={goTo} /> : null}
     </ModuleLayout>
-    {documentPath && <SourceDocument key={documentPath} path={documentPath} onClose={() => setDocumentPath(null)} />}
   </CameraDevicesContext></GraphicsSettingsContext>;
 }
 

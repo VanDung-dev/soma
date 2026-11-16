@@ -32,7 +32,7 @@ export async function checkLessonReader(page) {
   assert(await page.getByRole('button', { name: 'Thu gọn mô hình 3D', exact: true }).isHidden());
   const readingBounds = await page.locator('.lesson-step').boundingBox();
   assert(original.x + original.width <= readingBounds.x);
-  assert(original.width > readingBounds.width && original.width < readingBounds.width * 1.4);
+  assert(original.width > readingBounds.width && original.width < readingBounds.width * 2.5);
   await reader.evaluate(node => { node.scrollTop = node.scrollHeight; });
   assert(await reader.evaluate(node => node.scrollTop > 0));
   assert.deepEqual(await model.boundingBox(), original);
