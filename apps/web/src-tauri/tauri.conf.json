@@ -40,7 +40,13 @@
       "../public/home/ATTRIBUTION.md": "home/ATTRIBUTION.md",
       "../public/icons/ATTRIBUTION.md": "icons/ATTRIBUTION.md",
       "../public/hand-input/ATTRIBUTION.md": "hand-input/ATTRIBUTION.md",
-      "../dist-desktop/licenses/": "licenses/"
+      "../../../LICENSE": "licenses/LICENSE.txt",
+      "../../../NOTICE": "licenses/NOTICE.txt",
+      "../../../licenses/brotli.txt": "licenses/brotli.txt",
+      "../../../licenses/lesson-content.txt": "licenses/lesson-content.txt",
+      "../../../licenses/squoosh.txt": "licenses/squoosh.txt",
+      "../../../node_modules/tinymce/license.md": "licenses/tinymce.md",
+      "../../../node_modules/dompurify/LICENSE": "licenses/dompurify.txt"
     },
     "publisher": "Nguyễn Lê Văn Dũng",
     "copyright": "© 2026 Nguyễn Lê Văn Dũng",
