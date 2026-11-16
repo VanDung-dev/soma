@@ -1,0 +1,20 @@
+.lesson-rich-content {
+  margin: 0;
+  color: var(--text);
+  font: 10pt/1.6 var(--font-ui, Lato, sans-serif);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.lesson-rich-content > :first-child { margin-top: 0; }
+.lesson-rich-content > :last-child { margin-bottom: 0; }
+.lesson-rich-content p { margin: 0 0 12px; line-height: inherit; }
+.lesson-rich-content :is(h2, h3, h4) { margin: 20px 0 10px; font-family: var(--font-ui, Lato, sans-serif); font-weight: 700; }
+.lesson-rich-content h2 { font-size: 16pt; line-height: 1.3; }
+.lesson-rich-content h3 { font-size: 13pt; line-height: 1.35; }
+.lesson-rich-content h4 { font-size: 11pt; line-height: 1.4; }
+.lesson-rich-content :is(ul, ol) { margin: 0 0 12px; padding-inline-start: 24px; }
+.lesson-rich-content blockquote { margin: 0 0 12px; padding-inline-start: 12px; border-inline-start: 3px solid var(--accent); }
+.lesson-rich-content table { width: 100%; margin: 0 0 12px; border-collapse: collapse; }
+.lesson-rich-content :is(td, th) { padding: 6px; border: 1px solid var(--line-strong); }
+.lesson-rich-content a { color: var(--accent); }
+.lesson-rich-content img { max-width: 100%; height: auto; }

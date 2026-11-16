@@ -10,6 +10,7 @@ import { LessonPlayer } from "./view/player";
 import { lessonEditPath, lessonViewPath } from "./routes";
 import { exportLesson, importLesson, listLessons, newLessonId, removeLesson, saveLesson } from "./shared/source";
 import "./style.css";
+import "./shared/rich-content.css";
 import { LessonImageProvider } from "./shared/image-context";
 import { checkImageCollection, loadLessonImages, retainLessonImages, storeLessonImages } from "./shared/images";
 import { lessonJob } from "./shared/archive";

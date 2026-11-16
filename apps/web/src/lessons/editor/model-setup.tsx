@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Catalog } from "../../anatomy/catalog/types";
 import { StructureSearch } from "../../anatomy/structure-search";
@@ -36,13 +36,21 @@ export function LessonModelSetup({ catalog, modelIds, targetId, visibleIds, sele
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const closeButton = useRef<HTMLButtonElement>(null);
+  const closeSettings = useEffectEvent(onCloseSettings);
   useEffect(() => {
-    if (!settingsOpen) return;
+    if (!settingsOpen || !settingsHost) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      closeSettings();
+    };
+    settingsHost.addEventListener("keydown", onKeyDown);
     const frame = requestAnimationFrame(() => {
-      if (window.matchMedia("(max-width: 900px)").matches) settingsHost?.scrollIntoView({ block: "start", inline: "nearest" });
+      if (window.matchMedia("(max-width: 900px)").matches) settingsHost.scrollIntoView({ block: "start", inline: "nearest" });
       closeButton.current?.focus({ preventScroll: true });
     });
-    return () => cancelAnimationFrame(frame);
+    return () => { cancelAnimationFrame(frame); settingsHost.removeEventListener("keydown", onKeyDown); };
   }, [settingsOpen, settingsHost]);
   const shown = useMemo(() => new Set(visibleIds), [visibleIds]);
   const reveal = useMemo(() => ({ id: selectedPart || targetId }), [selectedPart, targetId]);

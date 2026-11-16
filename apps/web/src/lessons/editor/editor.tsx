@@ -384,6 +384,10 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
 
   const title = active?.title ?? draft.title;
   const body = active?.instruction ?? draft.summary;
+  const writingLabel = active
+    ? writingText("lessons.stepHeading", { current: index + 1,
+      title: lessonText(active.title, editorLanguage) || writingText("lessons.untitledSection") })
+    : writingText("lessons.details");
   const sceneTargetId = scene && targets.some(target => target.id === scene.targetId) ? scene.targetId : primarySceneModelId;
   const displayModelIds = previewScene?.modelIds ?? modelIds;
   const displayTargetId = previewScene?.targetId ?? sceneTargetId;
@@ -499,8 +503,8 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
         </div>}
         </div>
       </div>
-      <section className="lesson-author-document workspace-panel-surface" id="lesson-author-writing" inert={modelSettingsOpen}
-        aria-label={t("lessons.writing")}>
+      <section className={`lesson-author-document workspace-panel-surface lesson-author-document--${active ? "step" : "details"}`} id="lesson-author-writing" inert={modelSettingsOpen}
+        aria-label={writingLabel}>
         <div className="lesson-editor-stepbar">
           {active && <button className="lesson-button lesson-step-previous" disabled={index === 0}
             onClick={() => select(draft.steps[index - 1]?.id)}>{t("lessons.previous")}</button>}
@@ -543,9 +547,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
       </section>
       <section className="lesson-model-settings workspace-panel-surface" ref={setModelSettingsHost} data-open={modelSettingsOpen}
         aria-hidden={!modelSettingsOpen} inert={!modelSettingsOpen}
-        role="region" aria-label={t("lessons.modelSettings")} onKeyDown={event => {
-          if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closeModelSettings(); }
-        }} />
+        role="region" aria-label={t("lessons.modelSettings")} />
     </div>
 
     </div>

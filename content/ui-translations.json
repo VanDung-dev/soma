@@ -188,6 +188,7 @@
     "lessons.clearSearch": {"vi":"Xóa tìm kiếm","en":"Clear search"},
     "lessons.exit": {"vi": "Thoát", "en": "Exit"},
     "lessons.step": {"vi": "Mục {current} / {total}", "en": "Section {current} of {total}"},
+    "lessons.stepHeading": {"vi": "Mục {current} · {title}", "en": "Section {current} · {title}"},
     "lessons.previous": {"vi": "Mục trước", "en": "Previous section"},
     "lessons.next": {"vi": "Mục tiếp theo", "en": "Next section"},
     "lessons.finish": {"vi": "Hoàn thành", "en": "Finish lesson"},

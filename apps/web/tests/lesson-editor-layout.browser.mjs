@@ -9,7 +9,7 @@ export async function checkLessonEditorLayout(page) {
     steps: ['Một', 'Hai', 'Ba'].map((name, i) => ({ id: 'step-' + i, kind: 'observe',
       title: text(name), instruction: text('Nội dung ' + name), targetId: 'collection:cc46df69f8495544' })),
   };
-  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.setViewportSize({ width: 1280, height: 800 });
   await page.evaluate(lesson => {
     localStorage.setItem('soma.lesson:' + lesson.id, JSON.stringify(lesson));
     for (const name of ['editorOutline', 'readerOutline']) localStorage.removeItem('soma.lessons.panel:' + name);
@@ -23,12 +23,36 @@ export async function checkLessonEditorLayout(page) {
   const choose = name => outline.locator('.lesson-outline-row').filter({ hasText: name }).click();
   await page.getByLabel('Tên bài học').waitFor();
   assert(await outline.isVisible());
+  assert.deepEqual(await document.evaluate(node => [...node.classList].filter(name => name.startsWith('lesson-author-document--'))), ['lesson-author-document--details']);
   assert.equal(await settings.count(), 0);
   assert(await model.isHidden(), 'Lesson details keep the model controls hidden');
   await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
   await page.evaluate(() => { window.editorCanvas = document.querySelector('.lesson-editor > .model-canvas canvas'); });
   await choose('Một');
   await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
+  assert.deepEqual(await document.evaluate(node => [...node.classList].filter(name => name.startsWith('lesson-author-document--'))), ['lesson-author-document--step']);
+  await page.waitForFunction(() => {
+    const scene = document.querySelector('.lesson-scene-region');
+    return !!scene && Math.abs(scene.getBoundingClientRect().width - 476) < 0.5;
+  });
+  assert.deepEqual(await page.evaluate(() => ['#lesson-author-outline', '.lesson-scene-region', '#lesson-author-writing']
+    .map(selector => Math.round(document.querySelector(selector).getBoundingClientRect().width))), [240, 476, 500]);
+  const stepLabel = await document.getAttribute('aria-label');
+  assert.match(stepLabel, /^(Mục|Section) 1 · Một$/);
+  assert.deepEqual(await document.evaluate(node => [...node.classList].filter(name => name.startsWith('lesson-author-document--'))), ['lesson-author-document--step']);
+  await page.locator('#lesson-toggle-outline').click();
+  await outline.waitFor({ state: 'hidden' });
+  assert(await outline.isHidden());
+  assert.equal(await document.getAttribute('aria-label'), stepLabel);
+  assert.deepEqual(await document.evaluate(node => [...node.classList].filter(name => name.startsWith('lesson-author-document--'))), ['lesson-author-document--step']);
+  await page.locator('#lesson-toggle-outline').click();
+  await page.getByRole('button', { name: 'Thiết lập 3D', exact: true }).click();
+  const closeModelSettings = page.getByRole('button', { name: 'Đóng thiết lập 3D', exact: true });
+  await closeModelSettings.waitFor();
+  await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Đóng thiết lập 3D');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.querySelector('.lesson-model-settings')?.dataset.open === 'false'
+    && document.activeElement === document.querySelector('.lesson-model-toolbar > .lesson-button'));
   assert(await page.evaluate(() => window.editorCanvas === document.querySelector('.lesson-editor > .model-canvas canvas')));
   await lessonBody(page).fill('Đã sửa nội dung Một');
   await choose('Hai');
