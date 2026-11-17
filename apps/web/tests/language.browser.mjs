@@ -13,12 +13,19 @@ export async function checkLanguage() {
   };
   try {
     for (const language of ['en', 'vi', 'en', 'vi', 'en']) await choose(language);
-    const control = settings.querySelector('button[lang="en"]');
+    const control = settings.querySelector('button[lang="vi"]');
+    const probe = document.createElement('span');
+    probe.style.backgroundColor = 'var(--selected-bg)';
+    document.body.append(probe);
+    const selectedBackground = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    const initialBackground = getComputedStyle(control).backgroundColor;
     control.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
     control.focus();
     const style = getComputedStyle(control);
-    assert(document.activeElement === control && style.outlineStyle === 'none' && style.textDecorationLine.includes('underline'),
-      'Keep keyboard focus visible without a focus ring');
+    assert(document.activeElement === control && style.outlineStyle === 'none'
+      && initialBackground !== selectedBackground && style.backgroundColor === selectedBackground,
+      'Keep language focus ring-free with a visible selected background');
     return { bothLanguages: true, settingsPage: true, accessibleLabel: true, focus: true };
   } finally { await choose(original); await closeSettings(); }
 }
