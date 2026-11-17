@@ -2,7 +2,7 @@ import { lessonBody, selectLessonModel } from './lesson-editor-tools.mjs';
 import assert from 'node:assert/strict';
 import { checkLessonReader } from './lesson-reader.browser.mjs';
 import { checkLessonScenes } from './lesson-scenes.browser.mjs';
-import { checkLessonEditorLayout } from './lesson-editor-layout.browser.mjs';
+import { checkLessonEditorLayout, checkLessonResponsiveLayout } from './lesson-editor-layout.browser.mjs';
 import { checkLessonRichText } from './lesson-rich-text.browser.mjs';
 import { checkLessonOutlineTouch } from './lesson-outline-touch.browser.mjs';
 import { checkLessonImages } from './lesson-images.browser.mjs';
@@ -141,7 +141,7 @@ export async function checkLessons(page) {
   const added = await page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:' + location.pathname.split('/')[2])));
   assert.equal(added.steps[2].targetId, added.modelId);
   assert(await compose.isEnabled());
-  for (const check of [checkLessonPlayerExit, checkLessonBackgroundStability, checkLessonPlayerBackground, checkLessonBackground, checkLessonCanvas, checkLessonReader, checkLessonScenes, checkLessonEditorLayout, checkLessonRichText,
+  for (const check of [checkLessonResponsiveLayout, checkLessonPlayerExit, checkLessonBackgroundStability, checkLessonPlayerBackground, checkLessonBackground, checkLessonCanvas, checkLessonReader, checkLessonScenes, checkLessonEditorLayout, checkLessonRichText,
     checkLessonOutlineTouch, checkLessonOutlineDelete, checkLessonEditorExperience, checkLessonQuestions, checkLessonImageProgress, checkLessonImages, checkLessonModelRemoval, checkLessonCorruptStorage]) {
     console.log(check.name);
     await check(page);
