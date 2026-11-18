@@ -1,4 +1,4 @@
-use ::renderer::{PackedScene, Scene};
+use ::renderer::{Camera, PackedScene, Scene};
 use js_sys::{Float32Array, Uint32Array};
 use wasm_bindgen::prelude::*;
 
@@ -47,7 +47,7 @@ fn load_package_ids(packages: js_sys::Array, ids: Vec<Vec<String>>) -> Result<Sc
 
 #[wasm_bindgen]
 pub fn prepare_packages(packages: js_sys::Array, ids_json: &str) -> Result<js_sys::Array, JsValue> {
-    pack(load_packages(packages, ids_json)?)
+    pack(load_packages(packages, ids_json)?, false)
 }
 
 #[wasm_bindgen]
@@ -55,10 +55,13 @@ pub fn prepare_package_ids(
     packages: js_sys::Array,
     ids: JsValue,
 ) -> Result<js_sys::Array, JsValue> {
-    pack(load_package_ids(
-        packages,
-        serde_wasm_bindgen::from_value(ids).map_err(js_error)?,
-    )?)
+    pack(
+        load_package_ids(
+            packages,
+            serde_wasm_bindgen::from_value(ids).map_err(js_error)?,
+        )?,
+        false,
+    )
 }
 
 #[wasm_bindgen]
@@ -66,17 +69,25 @@ pub fn prepare_model(
     bytes: js_sys::Uint8Array,
     ids: JsValue,
     selected: JsValue,
+    overview: Option<bool>,
 ) -> Result<js_sys::Array, JsValue> {
     let expected: Vec<String> = serde_wasm_bindgen::from_value(ids).map_err(js_error)?;
     let selected: Vec<String> = serde_wasm_bindgen::from_value(selected).map_err(js_error)?;
     let mut scene = Scene::from_glb(&bytes.to_vec(), &expected).map_err(js_error)?;
     scene.subset(&selected).map_err(js_error)?;
     scene.parts.retain(|part| part.active);
-    pack(Scene::merge(vec![scene]).map_err(js_error)?)
+    pack(
+        Scene::merge(vec![scene]).map_err(js_error)?,
+        overview.unwrap_or(false),
+    )
 }
 
-fn pack(scene: Scene) -> Result<js_sys::Array, JsValue> {
-    let (packed, vertices, indices) = scene.pack().map_err(js_error)?;
+fn pack(scene: Scene, overview: bool) -> Result<js_sys::Array, JsValue> {
+    let framing = overview
+        .then(|| Camera::new(scene.bounds).overview_framing(&scene.parts))
+        .flatten();
+    let (mut packed, vertices, indices) = scene.pack().map_err(js_error)?;
+    packed.overview_framing = framing;
     let result = js_sys::Array::new();
     result.push(&Float32Array::from(vertices.as_slice()));
     result.push(&Uint32Array::from(indices.as_slice()));

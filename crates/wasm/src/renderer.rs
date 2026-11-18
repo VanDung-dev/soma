@@ -33,6 +33,8 @@ pub struct AnatomyViewer {
     pub(crate) explosion_camera: Option<Camera>,
     pub(crate) explosion_target: Vec<String>,
     pub(crate) layout_frame: [f32; 4],
+    pub(crate) overview_window: Option<[f32; 3]>,
+    pub(crate) overview_framing: Option<[f32; 3]>,
     pub(crate) view_center: Option<[f32; 2]>,
     pub(crate) uncentered_camera: Option<Camera>,
     pub(crate) camera_transition: Option<(Camera, f64)>,
@@ -82,7 +84,12 @@ impl AnatomyViewer {
         vertices: Float32Array,
         indices: Uint32Array,
     ) -> Result<Self, JsValue> {
-        let PackedScene { scene, draws, .. } = packed;
+        let PackedScene {
+            scene,
+            draws,
+            overview_framing,
+            ..
+        } = packed;
         let gl: Gl = canvas
             .get_context("webgl2")?
             .ok_or_else(|| js_error("WebGL2 is unavailable"))?
@@ -141,6 +148,8 @@ impl AnatomyViewer {
             explosion_camera: None,
             explosion_target: Vec::new(),
             layout_frame: [0.0, 0.0, 1.0, 1.0],
+            overview_window: None,
+            overview_framing,
             view_center: None,
             uncentered_camera: None,
             camera_transition: None,

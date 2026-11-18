@@ -24,6 +24,7 @@ impl AnatomyViewer {
                 draws: Vec::new(),
                 vertex_count: 0,
                 index_count: 0,
+                overview_framing: None,
             },
             js_sys::Float32Array::new_with_length(0),
             js_sys::Uint32Array::new_with_length(0),
@@ -99,6 +100,7 @@ impl AnatomyViewer {
         self.reconstruction
             .append(&self.scene.parts[first..], self.scene.bounds, now, animate)
             .map_err(js_error)?;
+        self.overview_framing = None;
         self.camera = Camera::new(self.scene.bounds);
         self.explosion = Explosion::default();
         self.shadow_cached.set(false);

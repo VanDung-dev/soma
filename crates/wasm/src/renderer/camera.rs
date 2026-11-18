@@ -175,6 +175,25 @@ impl AnatomyViewer {
         Ok(())
     }
 
+    pub fn set_overview_window(&mut self, height: f32, x: f32, y: f32) -> Result<(), JsValue> {
+        let window = [height, x, y];
+        if height <= 0.0 || window.iter().any(|value| !value.is_finite()) {
+            return Err(js_error("Invalid overview window"));
+        }
+        self.overview_window = Some(window);
+        self.camera.update_overview_window(window);
+        for camera in [&mut self.explosion_camera, &mut self.uncentered_camera]
+            .into_iter()
+            .flatten()
+        {
+            camera.aspect = self.camera.aspect;
+            camera.update_overview_window(window);
+        }
+        self.center_camera()?;
+        self.shadow_cached.set(false);
+        Ok(())
+    }
+
     pub fn inspect(&mut self, action: &str, now: Option<f64>) -> Result<(), JsValue> {
         if now.is_some_and(|time| !time.is_finite() || time < 0.0) {
             return Err(js_error("Invalid camera transition timestamp"));
@@ -218,6 +237,16 @@ impl AnatomyViewer {
                             .focus(bounds, self.layout_frame)
                             .map_err(js_error)?;
                     }
+                }
+                if let Some((framing, window)) = self.overview_framing.zip(self.overview_window)
+                    && self.separation.is_empty()
+                    && self
+                        .scene
+                        .parts
+                        .iter()
+                        .all(|part| part.active && part.visible)
+                {
+                    self.camera.fit_overview(framing, window);
                 }
             }
         } else {
