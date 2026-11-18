@@ -3,7 +3,7 @@ import type { PreparedGeometry } from "./contracts";
 import { fetchModelAsset, usesBundledModels } from "../../model-assets";
 
 export async function* loadModels(roots: StudyTarget[], signal: AbortSignal, onProgress: (loaded: number) => void,
-  ingest: (root: StudyTarget, json: string) => string[]) {
+  ingest: (root: StudyTarget, json: string) => string[], overview?: boolean) {
   signal.throwIfAborted();
   if (!roots.length) return;
   const model = roots[0]!.model!;
@@ -78,7 +78,7 @@ export async function* loadModels(roots: StudyTarget[], signal: AbortSignal, onP
       worker.onmessage = ({ data }) => data.error ? reject(new Error(data.error)) : resolve(data.prepared);
       worker.onerror = event => reject(new Error(event.message));
       worker.onmessageerror = () => reject(new Error("Cannot transfer prepared geometry"));
-      worker.postMessage({ bytes: new Uint8Array(bytes), ids: bundle.manifest.models.flatMap(model => model.source_ids), selected }, [bytes]);
+      worker.postMessage({ bytes: new Uint8Array(bytes), ids: bundle.manifest.models.flatMap(model => model.source_ids), selected, overview }, [bytes]);
     });
     cancelPreparation = undefined;
     signal.throwIfAborted();

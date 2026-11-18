@@ -69,7 +69,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   useEffect(() => {
     let active = true;
     let hiddenIds: string[] | null = null;
-    const viewer = new ViewerRuntime(host.current!, { viewport: focusViewport,
+    const viewer = new ViewerRuntime(host.current!, { viewport: focusViewport, frameOverviewToWindow: true,
       onState: patch => {
         session.updateViewer(patch);
         if (!restoredVisibility.current && patch.structureIds?.length) {

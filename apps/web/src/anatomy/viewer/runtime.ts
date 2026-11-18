@@ -39,6 +39,7 @@ export class ViewerRuntime implements StudyViewer {
   constructor(private host: HTMLElement, private options: {
     viewport: () => Viewport;
     viewportElement?: HTMLElement;
+    frameOverviewToWindow?: boolean;
     onState: (patch: Partial<ViewerState>) => void;
     onPick: (id: string) => void;
     onHide: (ids: string[]) => boolean;
@@ -115,7 +116,7 @@ export class ViewerRuntime implements StudyViewer {
       const packages = loadModels(roots, request.signal, loadedSystems => {
         if (this.loadAbort !== request) return;
         this.options.onState({ loadedSystems, status: "preparing" });
-      }, (root, json) => { request.signal.throwIfAborted(); return catalog.ingestMetadata(root, json); });
+      }, (root, json) => { request.signal.throwIfAborted(); return catalog.ingestMetadata(root, json); }, this.options.frameOverviewToWindow);
       // Fit every system before the first frame so reconstruction cannot change the scale.
       const started = performance.now();
       const animate = !this.motion.matches && this.options.animateInitialReconstruction !== false;
@@ -223,12 +224,16 @@ export class ViewerRuntime implements StudyViewer {
 
   private resizeCanvas() {
     this.resizePending = false;
-    const { width, height } = this.host.getBoundingClientRect();
+    const { left, top, width, height } = this.host.getBoundingClientRect();
     if (width > 0 && height > 0) {
       const pose = this.options.preserveCameraOnResize && !this.loading ? this.viewer!.camera_pose() : undefined;
       const [renderWidth, renderHeight] = this.renderSize(width, height);
       if (this.canvas.width !== renderWidth || this.canvas.height !== renderHeight) this.viewer!.resize(renderWidth, renderHeight);
       this.viewer!.reframe(...this.options.viewport());
+      if (this.options.frameOverviewToWindow) {
+        this.viewer!.set_overview_window(window.innerHeight / height,
+          (window.innerWidth - 2 * left) / width - 1, 1 - (window.innerHeight - 2 * top) / height);
+      }
       if (this.options.viewportElement) this.viewer!.align_viewport();
       if (pose) this.viewer!.set_camera_pose(pose);
     }

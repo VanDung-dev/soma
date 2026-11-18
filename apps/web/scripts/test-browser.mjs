@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
-import { checkOrientationPointer } from '../tests/orientation-pointer.mjs';
+import { checkAnatomyOverviewResize, checkOrientationPointer } from '../tests/orientation-pointer.mjs';
 import { checkLessons } from '../tests/lessons.browser.mjs';
 
 const require = createRequire(import.meta.url);
@@ -24,6 +24,7 @@ try {
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/anatomy');
   await page.waitForSelector('.model-canvas[aria-busy="false"]', { timeout: 60000 });
+  console.log('checkAnatomyOverviewResize', JSON.stringify(await checkAnatomyOverviewResize(page)));
   for (const [file, name] of [['orientation-axes.browser.mjs', 'checkDefaultFrontView'], ['inventory-switch.browser.mjs', 'checkInventorySwitch'], ['visibility-camera.browser.mjs', 'checkExplosionEntry'], ['visibility-camera.browser.mjs', 'checkVisibilityCamera'], ['selection.browser.mjs', 'checkSelectionOutline'], ['selection.browser.mjs', 'checkMarqueeInput'],
     ['language.browser.mjs', 'checkLanguage'], ['theme.browser.mjs', 'checkTheme'],
     ['orientation-axes.browser.mjs', 'checkAxesVisibility'],
@@ -65,7 +66,7 @@ try {
   }
   assert.deepEqual(errors, [], 'Blocked storage must not break startup or preference controls');
   await blocked.close();
-  console.log('Browser checks passed: 23');
+  console.log('Browser checks passed: 24');
 } finally {
   await browser?.close();
   await server.close();
