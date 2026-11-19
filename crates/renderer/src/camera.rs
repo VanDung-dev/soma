@@ -1,5 +1,5 @@
 use crate::{Bounds, Primitive};
-use glam::{Mat3, Mat4, Vec3};
+use glam::{Mat3, Mat4, Vec2, Vec3};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -152,6 +152,49 @@ impl Camera {
         camera.align_viewport();
         Ok(camera)
     }
+
+    pub fn fit_scene_frame(
+        aspect: f32,
+        frame: [f32; 4],
+        parts: impl Iterator<Item = Bounds> + Clone,
+    ) -> Result<Option<Self>, String> {
+        let Some(bounds) = parts.clone().reduce(Bounds::union) else {
+            return Ok(None);
+        };
+        let mut camera = Self::layout(bounds, aspect, frame)?;
+        let aperture = 19_f32.to_radians().tan();
+        let fit = Vec2::new(aspect * frame[2], frame[3]) * (0.85 * aperture);
+        let target = camera.target;
+        camera.distance = parts
+            .clone()
+            .map(|part| {
+                let extent = (part.min - target)
+                    .truncate()
+                    .abs()
+                    .max((part.max - target).truncate().abs())
+                    / fit;
+                (part.max.z - target.z) + extent.x.max(extent.y)
+            })
+            .fold(
+                bounds.max.z - target.z + (bounds.radius() / 100.0).max(1e-6),
+                f32::max,
+            );
+        camera.radius = camera.radius.max(camera.distance / 4.0);
+
+        let mut min = Vec2::splat(f32::INFINITY);
+        let mut max = Vec2::splat(f32::NEG_INFINITY);
+        for part in parts {
+            let near = camera.distance - (part.max.z - target.z);
+            let far = camera.distance - (part.min.z - target.z);
+            let low = (part.min - target).truncate();
+            let high = (part.max - target).truncate();
+            min = min.min((low / near).min(low / far));
+            max = max.max((high / near).max(high / far));
+        }
+        camera.pan_offset = (-(min + max) * 0.5 / (Vec2::new(aspect, 1.0) * aperture)).extend(0.0);
+        Ok(Some(camera))
+    }
+
     pub fn align_viewport(&mut self) {
         if self.overview_fit.is_some() {
             return;

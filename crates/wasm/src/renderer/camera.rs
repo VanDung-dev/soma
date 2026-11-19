@@ -51,6 +51,28 @@ impl AnatomyViewer {
         Ok(())
     }
 
+    pub fn fit_scene_frame(&mut self) -> Result<(), JsValue> {
+        let parts = self
+            .scene
+            .parts
+            .iter()
+            .filter(|part| part.active && part.visible)
+            .map(|part| part.bounds);
+        let Some(fitted) = Camera::fit_scene_frame(self.camera.aspect, self.layout_frame, parts)
+            .map_err(js_error)?
+        else {
+            return self.align_viewport(None);
+        };
+        if let Some((goal, _)) = &mut self.camera_transition {
+            *goal = fitted;
+            self.camera.align_viewport();
+        } else {
+            self.camera = fitted;
+        }
+        self.shadow_cached.set(false);
+        Ok(())
+    }
+
     pub fn capture_view(&mut self) -> Result<JsValue, JsValue> {
         self.finish_explosion()?;
         self.finish_camera_transition();
