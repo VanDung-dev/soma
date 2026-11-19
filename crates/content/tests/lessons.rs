@@ -1,5 +1,6 @@
 use catalog::lesson::{self, ARCHIVE_LIMIT, IMAGE_LIMIT, JSON_LIMIT};
 use content::lessons::{self, Files, Package, tar};
+use serde_json::{Value, json};
 use std::io::Write;
 
 fn draft() -> String {
@@ -81,33 +82,111 @@ fn tar_and_brotli_enforce_bounds_before_unbounded_expansion() {
 }
 
 #[test]
-fn package_round_trip_preserves_identity_and_old_soma_packages_and_rejects_json() {
+fn package_round_trip_preserves_identity_and_rejects_old_versions() {
     let pack = Package::new(&draft()).unwrap();
     let bytes = pack.export().unwrap();
-    for name in ["Renamed.lesson.br", "legacy.soma.br"] {
-        let opened = Package::open(name, &bytes).unwrap();
-        assert_eq!(opened.lesson, pack.lesson);
-    }
+    assert_eq!(
+        Package::open("Renamed.lesson.br", &bytes).unwrap().lesson,
+        pack.lesson
+    );
+    assert!(Package::open("old.soma.br", &bytes).is_err());
     assert!(Package::open("draft.json", draft().as_bytes()).is_err());
     assert!(Package::open("draft.JSON", &bytes).is_err());
     assert!(Package::open("raw.lesson.br", draft().as_bytes()).is_err());
     let mut files = tar::unpack(&lessons::decompress(&bytes).unwrap()).unwrap();
-    files.insert(
-        "manifest.json".into(),
-        br#"{"format":"soma","version":1}"#.to_vec(),
-    );
-    assert!(
-        Package::open(
-            "old.soma.br",
-            &lessons::compress(&tar::pack(&files).unwrap()).unwrap()
-        )
-        .is_ok()
-    );
+    for version in 1..6 {
+        files.insert(
+            "manifest.json".into(),
+            serde_json::to_vec(&json!({"format":"soma-lesson","version":version})).unwrap(),
+        );
+        let outdated = lessons::compress(&tar::pack(&files).unwrap()).unwrap();
+        assert_eq!(
+            Package::open("old.lesson.br", &outdated).err().as_deref(),
+            Some("Unsupported lesson archive format")
+        );
+    }
     assert!(Package::open("wrong.game.br", &bytes).is_err());
     assert_eq!(
         lesson::filename(&pack.lesson, "vi"),
         "Học giải phẫu.lesson.br"
     );
+}
+
+#[test]
+fn package_recovers_each_scene_independently() {
+    let view = json!({"camera":{"target":[1,2,3],"yaw":0,"pitch":0,"distance":4,"pan":[0,0]},"explosion":30});
+    let mut lesson: Value = serde_json::from_str(&draft()).unwrap();
+    lesson["modelId"] = json!("bones");
+    lesson["scene"] = json!({"targetId":"overview"});
+    lesson["steps"] = json!([
+        {"id":"read","kind":"text","title":lesson["title"],"instruction":lesson["summary"]},
+        {"id":"a","kind":"observe","title":lesson["title"],"instruction":lesson["summary"],
+            "modelIds":["bones"],"targetId":"jaw","visibleIds":["jaw"],"view":view},
+        {"id":"b","kind":"observe","title":lesson["title"],"instruction":lesson["summary"],
+            "modelIds":["muscles"],"targetId":"head","visibleIds":["masseter"]},
+        {"id":"c","kind":"observe","title":lesson["title"],"instruction":lesson["summary"],"showModel":false,
+            "modelIds":["bones"],"targetId":"jaw","visibleIds":["jaw"],"view":view}
+    ]);
+    let bytes = Package::new(&lesson.to_string()).unwrap().export().unwrap();
+    let files = tar::unpack(&lessons::decompress(&bytes).unwrap()).unwrap();
+    let stored: Value = serde_json::from_slice(&files["lesson.json"]).unwrap();
+    assert_eq!(stored["preloadModelIds"], json!(["bones", "muscles"]));
+    for field in ["modelIds", "targetId", "visibleIds", "view"] {
+        assert!(stored["steps"][1].get(field).is_none());
+    }
+    let scene_ref = |index: usize| stored["steps"][index]["sceneRef"].as_str().unwrap();
+    let table = std::str::from_utf8(&files["scenes.jsonl"]).unwrap();
+    let rows: Vec<Value> = table
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(rows.len(), 4);
+    assert_eq!(
+        rows.iter().find(|row| row["section"] == "a").unwrap()["record"]["view"],
+        view
+    );
+    assert_ne!(scene_ref(1), scene_ref(3));
+    assert!(!files.keys().any(|path| path.starts_with("scenes/")));
+
+    let open = |files: &Files| {
+        let bytes = lessons::compress(&tar::pack(files).unwrap()).unwrap();
+        Package::open("scenes.lesson.br", &bytes)
+    };
+    let opened = open(&files).unwrap();
+    assert_eq!(opened.lesson, lesson);
+    assert_eq!(opened.preload_model_ids.unwrap(), ["bones", "muscles"]);
+
+    for broken in [b"".as_slice(), b"{broken json\n", b"\xff\n"] {
+        let mut damaged = files.clone();
+        let reference = scene_ref(2);
+        let mut bytes = broken.to_vec();
+        for (line, row) in table.lines().zip(&rows) {
+            if row["section"] != "b" {
+                bytes.extend_from_slice(line.as_bytes());
+                bytes.push(b'\n');
+            }
+        }
+        damaged.insert("scenes.jsonl".into(), bytes);
+        let opened = open(&damaged).unwrap();
+        assert_eq!(opened.preload_model_ids, None);
+        assert_eq!(opened.lesson["steps"][2]["sceneRef"], reference);
+        assert_eq!(opened.lesson["steps"][2]["targetId"], "");
+        assert_eq!(
+            opened.lesson["steps"][2]["title"],
+            lesson["steps"][2]["title"]
+        );
+        assert_eq!(opened.lesson["steps"][1], lesson["steps"][1]);
+        assert_eq!(opened.lesson["steps"][3], lesson["steps"][3]);
+        assert_eq!(lesson::scene_index(&opened.lesson, 2), None);
+        assert_eq!(lesson::scene_index(&opened.lesson, 1), Some(1));
+        let resaved = Package::open("scenes.lesson.br", &opened.export().unwrap()).unwrap();
+        assert_eq!(resaved.lesson, opened.lesson);
+    }
+    let mut invalid_preload = files.clone();
+    let mut invalid = stored.clone();
+    invalid["preloadModelIds"] = json!(["bones"]);
+    invalid_preload.insert("lesson.json".into(), invalid.to_string().into_bytes());
+    assert!(open(&invalid_preload).is_err());
 }
 
 #[test]

@@ -13,7 +13,7 @@ image = { version = "=0.25.10", default-features = false, features = ["png", "jp
 sha2 = "0.10.9"
 catalog.workspace = true
 serde.workspace = true
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["float_roundtrip", "raw_value"] }
 icu_normalizer = "=2.3.0"
 icu_properties = "=2.3.0"
 icu_collator = "=2.3.0"

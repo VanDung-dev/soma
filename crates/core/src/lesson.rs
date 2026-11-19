@@ -165,24 +165,38 @@ fn strings(value: &Value) -> bool {
     })
 }
 
-fn scene(value: &Value) -> bool {
+pub fn scene(value: &Value) -> bool {
     value["targetId"].is_string()
         && value.get("modelIds").is_none_or(strings)
         && value.get("view").is_none_or(view)
         && value.get("visibleIds").is_none_or(strings)
 }
 
+pub fn section_reference(reference: &str) -> bool {
+    reference.len() == 64
+        && reference
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+}
+
+fn has_scene_ref(value: &Value) -> bool {
+    value["sceneRef"].as_str().is_some_and(section_reference)
+}
+
+fn has_question_ref(value: &Value) -> bool {
+    value["questionRef"].as_str().is_some_and(section_reference)
+}
+
 fn questions_enabled(step: &Value) -> bool {
     step["mode"] != "content"
         && (step["mode"] == "questions"
             || step["mode"] == "content_questions"
-            || step["kind"] == "identify_structure"
             || step["questions"]
                 .as_array()
                 .is_some_and(|questions| !questions.is_empty()))
 }
 
-fn questions(value: &Value, required: bool) -> bool {
+pub fn questions(value: &Value, required: bool) -> bool {
     let Some(questions) = value.as_array() else {
         return false;
     };
@@ -224,7 +238,11 @@ pub fn validate(lesson: &Value, draft: bool) -> Result<(), ValidationError> {
             .is_some_and(|cover| !cover.as_str().is_some_and(image_path))
         || !lesson["modelId"].is_string()
         || lesson.get("modelIds").is_some_and(|value| !strings(value))
+        || lesson
+            .get("preloadModelIds")
+            .is_some_and(|value| !strings(value))
         || lesson.get("scene").is_some_and(|value| !scene(value))
+        || lesson.get("sceneRef").is_some() && !has_scene_ref(lesson)
         || !lesson["steps"].is_array()
         || !draft && lesson["steps"].as_array().is_none_or(Vec::is_empty)
     {
@@ -239,6 +257,7 @@ pub fn validate(lesson: &Value, draft: bool) -> Result<(), ValidationError> {
         let number = index + 1;
         if !step.is_object()
             || !slug(&step["id"])
+            || !matches!(step["kind"].as_str(), Some("text" | "observe"))
             || !ids.insert(step["id"].as_str().unwrap())
             || !localized(&step["title"], !draft)
             || !localized(&step["instruction"], !draft && step["mode"] != "questions")
@@ -251,6 +270,8 @@ pub fn validate(lesson: &Value, draft: bool) -> Result<(), ValidationError> {
             || step
                 .get("showModel")
                 .is_some_and(|value| !value.is_boolean())
+            || step.get("sceneRef").is_some() && !has_scene_ref(step)
+            || step.get("questionRef").is_some() && !has_question_ref(step)
         {
             return Err(error(
                 "stepText",
@@ -262,8 +283,8 @@ pub fn validate(lesson: &Value, draft: bool) -> Result<(), ValidationError> {
             .get("questions")
             .is_some_and(|value| !questions(value, !draft && questions_enabled(step)))
             || !draft
+                && !has_question_ref(step)
                 && questions_enabled(step)
-                && step["kind"] != "identify_structure"
                 && step.get("questions").is_none()
         {
             return Err(error(
@@ -275,6 +296,7 @@ pub fn validate(lesson: &Value, draft: bool) -> Result<(), ValidationError> {
         if step["kind"] != "text"
             && (!scene(step)
                 || !draft
+                    && !has_scene_ref(step)
                     && step["showModel"] != false
                     && (step["targetId"] == ""
                         || if let Some(models) = step.get("modelIds") {
@@ -288,30 +310,6 @@ pub fn validate(lesson: &Value, draft: bool) -> Result<(), ValidationError> {
                 "target",
                 number,
                 format!("Step {number} needs a model and a structure."),
-            ));
-        }
-        if step["kind"] == "identify_structure" && step["showModel"] == false {
-            return Err(error(
-                "target",
-                number,
-                "Identification needs a visible model.",
-            ));
-        }
-        if step["kind"] != "text"
-            && step["kind"] != "observe"
-            && (step["kind"] != "identify_structure"
-                || !strings(&step["choiceIds"])
-                || !step["answerId"].is_string()
-                || !localized(&step["explanation"], false)
-                || !draft
-                    && step["choiceIds"].as_array().is_none_or(|choices| {
-                        choices.len() < 2 || !choices.contains(&step["answerId"])
-                    }))
-        {
-            return Err(error(
-                "choices",
-                number,
-                format!("Step {number} needs at least two choices and a correct answer."),
             ));
         }
     }
@@ -336,7 +334,7 @@ pub fn validate_targets(
     let model: HashSet<_> = ids.iter().collect();
     let empty = Vec::new();
     for (index, step) in lesson["steps"].as_array().into_iter().flatten().enumerate() {
-        if step["kind"] == "text" || step["showModel"] == false {
+        if step["kind"] == "text" || step["showModel"] == false || has_scene_ref(step) {
             continue;
         }
         let target = members
@@ -373,34 +371,6 @@ pub fn validate_targets(
                 format!("Step {}: unavailable structure.", index + 1),
             ));
         }
-        if step["kind"] != "identify_structure" {
-            continue;
-        }
-        let visible: HashSet<_> = scene.iter().collect();
-        let mut choices = HashSet::new();
-        for id in step["choiceIds"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(Value::as_str)
-        {
-            let choice = members.get(id).unwrap_or(&empty);
-            if choice.is_empty()
-                || !choice
-                    .iter()
-                    .all(|id| visible.contains(id) && !choices.contains(id))
-            {
-                return Err(error(
-                    "overlap",
-                    index + 1,
-                    format!(
-                        "Step {}: choices must be visible and cannot overlap.",
-                        index + 1
-                    ),
-                ));
-            }
-            choices.extend(choice.iter());
-        }
     }
     Ok(())
 }
@@ -433,11 +403,11 @@ pub fn scene_index(lesson: &Value, index: usize) -> Option<usize> {
     let steps = lesson["steps"].as_array()?;
     if steps
         .get(index)
-        .is_some_and(|step| step["showModel"] == false)
+        .is_some_and(|step| step["showModel"] == false || has_scene_ref(step))
     {
         return None;
     }
-    let scene = |(_, step): &(usize, &Value)| step["kind"] != "text";
+    let scene = |(_, step): &(usize, &Value)| step["kind"] != "text" && !has_scene_ref(step);
     steps
         .iter()
         .enumerate()
@@ -451,9 +421,6 @@ pub fn image_paths(lesson: &Value) -> BTreeSet<String> {
     let mut texts = vec![&lesson["title"], &lesson["summary"]];
     for step in lesson["steps"].as_array().into_iter().flatten() {
         texts.extend([&step["title"], &step["instruction"]]);
-        if step["kind"] == "identify_structure" {
-            texts.push(&step["explanation"]);
-        }
         for question in step["questions"].as_array().into_iter().flatten() {
             texts.extend([&question["prompt"], &question["explanation"]]);
             for choice in question["choices"].as_array().into_iter().flatten() {

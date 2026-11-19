@@ -15,6 +15,58 @@ fn json(data: &str) -> Result<Value, JsValue> {
     serde_json::from_str(data).map_err(js_error)
 }
 
+fn text_files(files: lessons::Files) -> Result<Vec<(String, String)>, JsValue> {
+    files
+        .into_iter()
+        .map(|(path, bytes)| {
+            String::from_utf8(bytes)
+                .map(|text| (path, text))
+                .map_err(js_error)
+        })
+        .collect()
+}
+
+#[wasm_bindgen]
+pub fn split_lesson_draft(data: &str, previous: Option<String>) -> Result<JsValue, JsValue> {
+    let mut lesson = lesson::parse(data, true).map_err(js_error)?;
+    let mut previous = previous
+        .as_deref()
+        .map(|data| lesson::parse(data, true))
+        .transpose()
+        .map_err(js_error)?;
+    let (current, retained) =
+        lessons::externalize_lesson_tables(&mut lesson, previous.as_mut()).map_err(js_error)?;
+    let content = lessons::externalize_lesson_content(&mut lesson).map_err(js_error)?;
+    value(&(
+        serde_json::to_string(&lesson).map_err(js_error)?,
+        text_files(current)?,
+        text_files(retained)?,
+        text_files(content)?,
+    ))
+}
+
+#[wasm_bindgen]
+pub fn lesson_draft_paths(data: &str) -> Result<Vec<String>, JsValue> {
+    let lesson = json(data)?;
+    Ok(lessons::lesson_content_paths(&lesson)
+        .into_iter()
+        .chain(lessons::lesson_table_paths(&lesson).map(str::to_owned))
+        .collect())
+}
+
+#[wasm_bindgen]
+pub fn restore_lesson_draft(data: &str, files: JsValue) -> Result<String, JsValue> {
+    let mut lesson = json(data)?;
+    let records: Vec<(String, String)> = read(files)?;
+    let (contents, tables) = records
+        .into_iter()
+        .map(|(path, text)| (path, text.into_bytes()))
+        .partition(|(path, _)| lessons::is_content_path(path));
+    lessons::hydrate_lesson_content_recovering(&mut lesson, contents);
+    lessons::hydrate_lesson_tables(&mut lesson, tables).map_err(js_error)?;
+    serde_json::to_string(&lesson).map_err(js_error)
+}
+
 #[wasm_bindgen]
 pub fn validate_lesson(data: &str, draft: bool) -> Result<(), JsValue> {
     lesson::validate(&json(data)?, draft).map_err(validation_error)
@@ -115,6 +167,9 @@ impl LessonPackage {
     pub fn lesson_json(&self) -> Result<String, JsValue> {
         serde_json::to_string(&self.data.lesson).map_err(js_error)
     }
+    pub fn preload_model_ids(&self) -> Option<Vec<String>> {
+        self.data.preload_model_ids.clone()
+    }
     pub fn image_paths(&self) -> Result<JsValue, JsValue> {
         value(&self.data.images.keys().collect::<Vec<_>>())
     }
@@ -137,8 +192,8 @@ impl LessonPackage {
     pub fn add_image(&mut self, path: String, bytes: &[u8]) -> Result<(), JsValue> {
         self.data.add_image(path, bytes.to_vec()).map_err(js_error)
     }
-    pub fn export(&self) -> Result<Vec<u8>, JsValue> {
-        self.data.export().map_err(js_error)
+    pub fn export(&self, model_ids: Option<Vec<String>>) -> Result<Vec<u8>, JsValue> {
+        self.data.export_with_models(model_ids).map_err(js_error)
     }
     pub fn file_name(&self, language: &str) -> String {
         lesson::filename(&self.data.lesson, language)

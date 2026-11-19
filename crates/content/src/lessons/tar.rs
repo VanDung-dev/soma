@@ -1,17 +1,24 @@
-use super::{CONTENT_COUNT_LIMIT, CONTENT_LIMIT, Files, content_hash};
+use super::{CONTENT_COUNT_LIMIT, CONTENT_LIMIT, Files, content_hash, tables};
 use catalog::lesson::{self, ARCHIVE_LIMIT, IMAGE_COUNT_LIMIT, IMAGE_LIMIT, JSON_LIMIT};
 
 fn block(size: usize) -> usize {
     size.div_ceil(512) * 512
 }
+
+fn section_path(path: &str) -> bool {
+    path == tables::SCENES.path || path == tables::QUESTIONS.path
+}
 fn valid_path(path: &str) -> bool {
     matches!(path, "manifest.json" | "lesson.json")
         || lesson::image_path(path)
+        || section_path(path)
         || content_hash(path).is_some()
 }
 
 fn entry_limit(path: &str) -> usize {
-    if lesson::image_path(path) {
+    if section_path(path) {
+        ARCHIVE_LIMIT
+    } else if lesson::image_path(path) {
         IMAGE_LIMIT
     } else if content_hash(path).is_some() {
         CONTENT_LIMIT
@@ -21,7 +28,7 @@ fn entry_limit(path: &str) -> usize {
 }
 
 fn entry_count_limit() -> usize {
-    IMAGE_COUNT_LIMIT + CONTENT_COUNT_LIMIT + 2
+    IMAGE_COUNT_LIMIT + CONTENT_COUNT_LIMIT + 4
 }
 
 fn validate(files: &Files) -> Result<usize, String> {
@@ -38,7 +45,10 @@ fn validate(files: &Files) -> Result<usize, String> {
     }
     let mut size = 1024;
     for (path, bytes) in files {
-        if !valid_path(path) || bytes.is_empty() || bytes.len() > entry_limit(path) {
+        if !valid_path(path)
+            || bytes.is_empty() && !section_path(path)
+            || bytes.len() > entry_limit(path)
+        {
             return Err("Invalid lesson entry".into());
         }
         size += 512 + block(bytes.len());
@@ -130,7 +140,7 @@ pub fn unpack(bytes: &[u8]) -> Result<Files, String> {
             || !field(header, 345, 155)?.is_empty()
             || !valid_path(path)
             || files.contains_key(path)
-            || size == 0
+            || size == 0 && !section_path(path)
             || size > entry_limit(path)
             || files.len() >= entry_count_limit()
             || (content_hash(path).is_some()

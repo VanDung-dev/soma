@@ -5,9 +5,57 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{Cursor, Read, Write};
 
+mod questions;
+mod scenes;
+mod tables;
 pub mod tar;
+use scenes::{externalize_lesson_scenes, hydrate_lesson_scenes};
 
 pub type Files = BTreeMap<String, Vec<u8>>;
+
+pub const LESSON_TABLE_FILES: [&str; 2] = [tables::SCENES.path, tables::QUESTIONS.path];
+pub const DRAFT_TABLE_LIMIT: usize = 2 * ARCHIVE_LIMIT;
+const ARCHIVE_VERSION: u64 = 6;
+
+pub fn lesson_table_paths(lesson: &Value) -> impl Iterator<Item = &'static str> + '_ {
+    [tables::SCENES, tables::QUESTIONS]
+        .into_iter()
+        .filter(move |table| table.is_referenced(lesson))
+        .map(|table| table.path)
+}
+
+pub fn externalize_lesson_tables(
+    lesson: &mut Value,
+    previous: Option<&mut Value>,
+) -> Result<(Files, Files), String> {
+    let mut sections = externalize_lesson_sections(lesson)?;
+    let mut retained = Files::new();
+    if let Some(previous) = previous {
+        let mut older = externalize_lesson_sections(previous)?;
+        older.retain(|path, _| !sections.contains_key(path));
+        tables::SCENES.pack_draft(previous, &mut older, &mut retained)?;
+        tables::QUESTIONS.pack_draft(previous, &mut older, &mut retained)?;
+    }
+    let mut current = Files::new();
+    tables::SCENES.pack_draft(lesson, &mut sections, &mut current)?;
+    tables::QUESTIONS.pack_draft(lesson, &mut sections, &mut current)?;
+    Ok((current, retained))
+}
+
+pub fn hydrate_lesson_tables(lesson: &mut Value, files: Files) -> Result<Vec<String>, String> {
+    let bytes = |name| files.get(name).map(Vec::as_slice).unwrap_or_default();
+    let scenes = tables::SCENES.unpack_draft(lesson, bytes(tables::SCENES.path))?;
+    let questions = tables::QUESTIONS.unpack_draft(lesson, bytes(tables::QUESTIONS.path))?;
+    let mut missing = hydrate_lesson_scenes(lesson, scenes);
+    missing.extend(questions::hydrate_lesson_questions(lesson, questions));
+    Ok(missing)
+}
+
+fn externalize_lesson_sections(lesson: &mut Value) -> Result<Files, String> {
+    let mut files = questions::externalize_lesson_questions(lesson)?;
+    files.extend(externalize_lesson_scenes(lesson)?);
+    Ok(files)
+}
 
 pub const CONTENT_LIMIT: usize = JSON_LIMIT;
 pub const CONTENT_COUNT_LIMIT: usize = 2048;
@@ -194,7 +242,7 @@ pub fn is_content_path(path: &str) -> bool {
 
 pub fn check_file(name: &str, size: usize) -> Result<(), String> {
     let name = name.to_lowercase();
-    if !name.ends_with(".lesson.br") && !name.ends_with(".soma.br") {
+    if !name.ends_with(".lesson.br") {
         return Err("Invalid .lesson.br file".into());
     } else if size > ARCHIVE_LIMIT {
         return Err("Lesson archive exceeds 64 MiB".into());
@@ -328,6 +376,7 @@ pub fn decompress(bytes: &[u8]) -> Result<Vec<u8>, String> {
 pub struct Package {
     pub lesson: Value,
     pub images: Files,
+    pub preload_model_ids: Option<Vec<String>>,
 }
 
 impl Package {
@@ -335,6 +384,7 @@ impl Package {
         Ok(Self {
             lesson: lesson::parse(json, true).map_err(|cause| cause.to_string())?,
             images: Files::new(),
+            preload_model_ids: None,
         })
     }
 
@@ -347,17 +397,26 @@ impl Package {
                 .ok_or("Missing lesson manifest")?,
         )
         .map_err(|cause| cause.to_string())?;
-        let version = manifest["version"]
-            .as_u64()
-            .ok_or("Unsupported lesson archive format")?;
-        if !matches!(version, 1 | 2)
-            || !matches!(manifest["format"].as_str(), Some("soma-lesson" | "soma"))
+        if manifest["version"].as_u64() != Some(ARCHIVE_VERSION)
+            || manifest["format"] != "soma-lesson"
         {
             return Err("Unsupported lesson archive format".into());
         }
         let json = files.remove("lesson.json").ok_or("Missing lesson JSON")?;
         files.remove("manifest.json");
         let mut lesson: Value = serde_json::from_slice(&json).map_err(|cause| cause.to_string())?;
+        let scene_file = files.remove(tables::SCENES.path);
+        let question_file = files.remove(tables::QUESTIONS.path);
+        let preload: Vec<String> = serde_json::from_value(
+            lesson
+                .as_object_mut()
+                .and_then(|root| root.remove("preloadModelIds"))
+                .ok_or("Missing lesson model preload list")?,
+        )
+        .map_err(|cause| cause.to_string())?;
+        let scenes = tables::SCENES.unpack(&lesson, scene_file.as_deref().unwrap_or_default())?;
+        let missing = hydrate_lesson_scenes(&mut lesson, scenes);
+        scenes::check_models(&scenes::declared_models(&lesson), &preload)?;
         let content_paths: Vec<_> = files
             .keys()
             .filter(|path| content_hash(path).is_some())
@@ -367,14 +426,13 @@ impl Package {
         for path in content_paths {
             contents.insert(path.clone(), files.remove(&path).unwrap());
         }
-        if version == 1 && !contents.is_empty() {
-            return Err("Invalid lesson text content entries".into());
-        }
-        if version == 2 {
-            hydrate_lesson_content(&mut lesson, contents)?;
-        }
+        hydrate_lesson_content(&mut lesson, contents)?;
+        let questions =
+            tables::QUESTIONS.unpack(&lesson, question_file.as_deref().unwrap_or_default())?;
+        questions::hydrate_lesson_questions(&mut lesson, questions);
         let json = serde_json::to_string(&lesson).map_err(|cause| cause.to_string())?;
         let mut package = Self::new(&json)?;
+        package.preload_model_ids = missing.is_empty().then_some(preload);
         for (path, bytes) in files {
             let image = image_info(&bytes)?;
             if image.path != path {
@@ -412,20 +470,39 @@ impl Package {
     }
 
     pub fn export(&self) -> Result<Vec<u8>, String> {
+        self.export_with_models(None)
+    }
+
+    pub(crate) fn export_with_models(
+        &self,
+        model_ids: Option<Vec<String>>,
+    ) -> Result<Vec<u8>, String> {
         lesson::validate(&self.lesson, true).map_err(|cause| cause.to_string())?;
         self.check_resources()?;
         let mut lesson_data = self.lesson.clone();
+        let mut section_files = questions::externalize_lesson_questions(&mut lesson_data)?;
         let contents = externalize_lesson_content(&mut lesson_data)?;
-        let mut files = Files::from([
-            (
-                "manifest.json".into(),
-                br#"{"format":"soma-lesson","version":2}"#.to_vec(),
-            ),
-            (
-                "lesson.json".into(),
-                serde_json::to_vec_pretty(&lesson_data).map_err(|cause| cause.to_string())?,
-            ),
-        ]);
+        let declared = scenes::declared_models(&lesson_data);
+        let preload = model_ids
+            .or_else(|| self.preload_model_ids.clone())
+            .unwrap_or_else(|| declared.clone());
+        scenes::check_models(&declared, &preload)?;
+        lesson_data["preloadModelIds"] =
+            serde_json::to_value(preload).map_err(|cause| cause.to_string())?;
+        section_files.extend(externalize_lesson_scenes(&mut lesson_data)?);
+        let mut files = Files::from([(
+            "manifest.json".into(),
+            serde_json::to_vec(
+                &serde_json::json!({"format":"soma-lesson","version":ARCHIVE_VERSION}),
+            )
+            .map_err(|cause| cause.to_string())?,
+        )]);
+        tables::SCENES.pack(&lesson_data, &mut section_files, &mut files)?;
+        tables::QUESTIONS.pack(&lesson_data, &mut section_files, &mut files)?;
+        files.insert(
+            "lesson.json".into(),
+            serde_json::to_vec_pretty(&lesson_data).map_err(|cause| cause.to_string())?,
+        );
         files.extend(contents);
         for path in lesson::image_paths(&self.lesson) {
             let bytes = self.images.get(&path).ok_or("Missing lesson image")?;
