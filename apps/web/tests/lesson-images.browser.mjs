@@ -3,14 +3,14 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { brotliCompressSync, brotliDecompressSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import { packLessonTar, readLessonMetadata, unpackLessonTar } from './lesson-package.fixture.mjs';
-import { lessonBody, savedLesson } from './lesson-editor-tools.mjs';
+import { lessonBody, savedLesson, saveLessonDraft } from './lesson-editor-tools.mjs';
 
 export async function checkLessonImages(page) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/lessons');
   await page.getByRole('button', { name: 'Tạo bài học', exact: true }).click();
   await page.getByLabel('Tên bài học').fill('Bài học có ảnh');
-  await page.locator('#lesson-author-writing').getByRole('button', { name: 'Thêm bước học', exact: true }).click();
+  await page.locator('#lesson-author-writing').getByRole('button', { name: 'Thêm mục', exact: true }).click();
   await page.getByLabel('Tên mục').fill('Quan sát ảnh');
   await lessonBody(page).fill('Hình minh họa được lưu cùng bài học.');
   const id = new URL(page.url()).pathname.split('/')[2];
@@ -67,6 +67,10 @@ export async function checkLessonImages(page) {
     } else assert.deepEqual(stored, bytes, 'Existing WebP is not recompressed');
   }
   assert.equal(await lessonBody(page).locator('img').count(), 3);
+  assert.deepEqual(await page.evaluate(async () =>
+    (await indexedDB.databases()).filter(({ name }) => name?.startsWith('soma-lesson-images'))),
+  [{ name: 'soma-lesson-images-v1', version: 1 }]);
+  await saveLessonDraft(page);
   const original = await saved();
   assert(original.steps[0].instruction.vi.includes(path));
   assert(!original.steps[0].instruction.vi.includes('blob:'));
@@ -85,7 +89,9 @@ export async function checkLessonImages(page) {
   if (process.env.SOMA_PACKAGE_SCREENSHOT) await page.screenshot({ path: process.env.SOMA_PACKAGE_SCREENSHOT });
   await page.setViewportSize({ width: 320, height: 700 });
   assert(await page.locator('.lessons-screen').evaluate(node => node.scrollWidth <= node.clientWidth));
-  assert(await rendered.evaluateAll(images => images.every(img => img.getBoundingClientRect().width <= img.parentElement.clientWidth)));
+  const widths = await rendered.evaluateAll(images => images.map(img => [img.getBoundingClientRect().width, img.parentElement.clientWidth]));
+  assert(widths.every(([imageWidth, contentWidth]) => imageWidth <= contentWidth + 0.5),
+    `Reader images must fit within their content at 320px: ${JSON.stringify(widths)}`);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
   const downloadEvent = page.waitForEvent('download');
@@ -97,14 +103,14 @@ export async function checkLessonImages(page) {
   const files = unpackLessonTar(tar);
   assert.deepEqual(Buffer.from(files.get(path)), storedImage);
   assert.deepEqual(readLessonMetadata(files), original);
-  assert.deepEqual(JSON.parse(new TextDecoder().decode(files.get('manifest.json'))), { format: 'soma-lesson', version: 6 });
+  assert.deepEqual(JSON.parse(new TextDecoder().decode(files.get('manifest.json'))), { format: 'soma-lesson', version: 1 });
   assert.equal([...files.keys()].filter(path => path.startsWith('images/')).length, 3);
   if (process.env.SOMA_PACKAGE_ARTIFACT) await writeFile(process.env.SOMA_PACKAGE_ARTIFACT, compressed);
-  await page.getByRole('button', { name: 'Danh sách bài học', exact: true }).click();
+  await page.getByRole('button', { name: 'Thoát', exact: true }).click();
   const card = page.locator('.lesson-card').filter({ has: page.getByRole('heading', { name: 'Bài học có ảnh', exact: true }) });
-  const deletion = page.waitForEvent('dialog').then(dialog => dialog.accept());
-  await card.getByRole('button', { name: 'Xóa bài học', exact: true }).click();
-  await deletion;
+  const confirm = page.getByRole('dialog', { name: 'Xác nhận' });
+  await card.getByRole('button', { name: 'Xóa', exact: true }).click();
+  await confirm.getByRole('button', { name: 'Xóa', exact: true }).click();
   await card.waitFor({ state: 'hidden' });
   const upload = { name: 'renamed.lesson.br', mimeType: 'application/octet-stream', buffer: compressed };
   await page.locator('input[type=file]').setInputFiles(upload);
@@ -115,10 +121,9 @@ export async function checkLessonImages(page) {
   await lessonBody(page).locator('img').evaluateAll(images => Promise.all(images.map(img => img.decode())));
   assert(await lessonBody(page).locator('img').evaluateAll(images => images.every(img => img.complete && img.naturalWidth > 0)));
   assert.deepEqual(await saved(), original);
-  await page.getByRole('button', { name: 'Danh sách bài học', exact: true }).click();
-  const cancelled = page.waitForEvent('dialog').then(dialog => dialog.dismiss());
+  await page.getByRole('button', { name: 'Thoát', exact: true }).click();
   await page.locator('input[type=file]').setInputFiles(upload);
-  await cancelled;
+  await confirm.getByRole('button', { name: 'Hủy', exact: true }).click();
   assert.deepEqual(await saved(), original);
   const invalid = new Map(files); invalid.delete(path);
   await page.locator('input[type=file]').setInputFiles({ ...upload, buffer: brotliCompressSync(packLessonTar(invalid)) });
@@ -141,6 +146,7 @@ export async function checkLessonImages(page) {
   try {
     const imported = await fresh.newPage();
     await imported.goto('/lessons');
+    await imported.getByRole('status').filter({ hasText: 'Chưa có bài học' }).waitFor();
     await imported.locator('input[type=file]').setInputFiles(upload);
     await imported.getByRole('button', { name: 'Chỉnh sửa', exact: true }).click();
     await imported.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: 'Quan sát ảnh' }).click();

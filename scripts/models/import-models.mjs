@@ -41,7 +41,7 @@ let catalogText = await readFile(join(stage, 'catalog.json'), 'utf8');
 const catalog = JSON.parse(catalogText);
 assert.equal(manifest.models.length, 9);
 assert.equal(catalog.groups.length, 9);
-assert.equal(catalog.schema_version, 4);
+assert.equal(catalog.schema_version, 1);
 assert.equal(catalog.targets.filter(t => !t.parent_id).length, 9);
 const availableIds = new Set(manifest.models.flatMap(model => model.source_ids));
 for (const target of catalog.targets) {

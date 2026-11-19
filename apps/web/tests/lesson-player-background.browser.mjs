@@ -19,7 +19,7 @@ export async function checkLessonPlayerBackground(page) {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.goto('/home');
     await page.evaluate(lesson => {
-      localStorage.setItem('soma.lesson:' + lesson.id, JSON.stringify(lesson));
+      localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson));
       localStorage.setItem('soma.lessons.panel:readerOutline', 'false');
     }, lesson);
     await page.goto('/lessons/' + lesson.id + (mode === 'preview' ? '/edit' : ''));
@@ -133,17 +133,17 @@ export async function checkLessonPlayerBackground(page) {
       await settle();
       assert(await model.isHidden());
       assert(await original.evaluate(canvas => canvas === document.querySelector('.lesson-player > .model-canvas canvas')));
-      assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:player-background'))), lesson);
+      assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson-v1:player-background'))), lesson);
     } finally { await page.evaluate(() => window.restorePlayer()); }
   }
   const readingOnly = { ...lesson, id: 'player-reading-only', modelId: '', steps: [lesson.steps[0]] };
-  await page.evaluate(lesson => localStorage.setItem('soma.lesson:' + lesson.id, JSON.stringify(lesson)), readingOnly);
+  await page.evaluate(lesson => localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson)), readingOnly);
   await page.goto('/lessons/' + readingOnly.id);
   await page.locator('.lesson-player > .model-canvas[aria-busy="false"]').waitFor();
   assert(await page.locator('.lesson-player > .model-canvas canvas').isVisible());
   assert(await page.locator('.lesson-player .lesson-model').isHidden());
   const empty = { ...readingOnly, id: 'player-empty-preview', steps: [] };
-  await page.evaluate(lesson => localStorage.setItem('soma.lesson:' + lesson.id, JSON.stringify(lesson)), empty);
+  await page.evaluate(lesson => localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson)), empty);
   await page.goto('/lessons/' + empty.id + '/edit');
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   await page.locator('.lesson-player > .model-canvas[aria-busy="false"]').waitFor();

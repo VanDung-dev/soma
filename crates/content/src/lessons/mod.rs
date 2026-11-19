@@ -15,7 +15,7 @@ pub type Files = BTreeMap<String, Vec<u8>>;
 
 pub const LESSON_TABLE_FILES: [&str; 2] = [tables::SCENES.path, tables::QUESTIONS.path];
 pub const DRAFT_TABLE_LIMIT: usize = 2 * ARCHIVE_LIMIT;
-const ARCHIVE_VERSION: u64 = 6;
+const ARCHIVE_VERSION: u64 = 1;
 
 pub fn lesson_table_paths(lesson: &Value) -> impl Iterator<Item = &'static str> + '_ {
     [tables::SCENES, tables::QUESTIONS]

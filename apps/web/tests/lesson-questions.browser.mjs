@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { brotliDecompressSync } from 'node:zlib';
 import { readLessonMetadata, unpackLessonTar } from './lesson-package.fixture.mjs';
-import { lessonBody, savedLesson } from './lesson-editor-tools.mjs';
+import { lessonBody, savedLesson, saveLessonDraft } from './lesson-editor-tools.mjs';
 import { checkLessonHeader } from './lesson-editor-experience.browser.mjs';
 
 export async function checkLessonQuestions(page) {
@@ -13,9 +13,9 @@ export async function checkLessonQuestions(page) {
   const url = page.url();
   const saved = () => savedLesson(page);
   const writing = page.locator('#lesson-author-writing');
-  await writing.getByRole('button', { name: 'Thêm bước học', exact: true }).click();
+  await writing.getByRole('button', { name: 'Thêm mục', exact: true }).click();
   await page.getByLabel('Tên mục').fill('Hai câu hỏi');
-  await page.getByLabel('Hiển thị mô hình 3D ở bước này', { exact: true }).uncheck();
+  await page.getByLabel('Hiển thị mô hình 3D ở mục này', { exact: true }).uncheck();
   await lessonBody(page).fill('Nội dung phải còn sau khi chuyển chế độ.');
   const mode = page.getByRole('group', { name: 'Hiển thị trong mục', exact: true });
   const selectMode = value => mode.getByRole('button', { name: { content: 'Nội dung', questions: 'Câu hỏi', content_questions: 'Nội dung và câu hỏi' }[value], exact: true }).click();
@@ -31,16 +31,17 @@ export async function checkLessonQuestions(page) {
   }
   await questions.nth(1).getByRole('button', { name: 'Thêm phương án trả lời', exact: true }).click();
   await questions.nth(1).getByLabel('Phương án 3', { exact: true }).fill('Một lựa chọn khác');
+  await saveLessonDraft(page);
   const both = (await saved()).steps[0];
   for (const value of ['content', 'questions', 'content_questions']) {
     await selectMode(value);
+    await saveLessonDraft(page);
     assert.equal(await mode.getByRole('button', { pressed: true }).count(), 1);
     assert.deepEqual((await saved()).steps[0].questions, both.questions);
     assert.deepEqual((await saved()).steps[0].instruction, both.instruction);
     assert.equal(await page.locator('.tox-tinymce').count(), value === 'questions' ? 0 : 1);
     assert.equal(await questions.count(), value === 'content' ? 0 : 2);
   }
-  await writing.getByRole('button', { name: 'Lưu bước', exact: true }).click();
   await page.reload();
   await page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: 'Hai câu hỏi' }).click();
   await lessonBody(page).waitFor();
@@ -79,7 +80,7 @@ export async function checkLessonQuestions(page) {
     assert(await question(2).getByRole('radio', { name: 'Đúng 2', exact: true }).isChecked(), 'Review preserves completed answers');
   };
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
-  await exercise(page.locator('.lesson-player'));
+  assert.equal(await page.locator('.lesson-player').getByRole('region', { name: /Câu hỏi \d/ }).count(), 2);
   for (const width of [320, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await checkLessonHeader(page, '.lesson-player-header', '.lesson-player-heading');
@@ -99,18 +100,10 @@ export async function checkLessonQuestions(page) {
   try {
     const student = await studentContext.newPage();
     await student.goto('/home');
-    await student.evaluate(async lesson => {
-      const [{ default: { createElement } }, { default: { createRoot } }, { getCatalog }, { LessonPlayer }, { LessonImageProvider }] = await Promise.all([
-        import('/node_modules/.vite/deps/react.js'), import('/node_modules/.vite/deps/react-dom_client.js'),
-        import('/src/anatomy/core.ts'), import('/src/lessons/view/player.tsx'), import('/src/lessons/shared/image-context.tsx'),
-      ]);
-      const host = document.createElement('main'); host.id = 'student-test'; host.className = 'lessons-screen'; host.dataset.player = 'true';
-      document.getElementById('root').replaceChildren(host);
-      const catalog = await getCatalog();
-      createRoot(host).render(createElement(LessonImageProvider, { lesson }, createElement(LessonPlayer, { lesson, catalog, onBack() {} })));
-    }, original);
+    await student.evaluate(lesson => localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson)), original);
+    await student.goto('/lessons/' + original.id);
     await student.getByRole('heading', { name: 'Hai câu hỏi', exact: true }).waitFor();
-    await exercise(student.locator('#student-test'));
+    await exercise(student.locator('.lesson-player'));
   } finally { await studentContext.close(); }
   assert.equal(page.url(), url);
 }
@@ -149,7 +142,7 @@ export async function checkLessonImageProgress(page) {
     await release();
     await page.locator('.lesson-cover').waitFor();
     assert.equal(await page.locator('.lesson-image-progress').count(), 0);
-    await page.locator('#lesson-author-writing').getByRole('button', { name: 'Thêm bước học', exact: true }).click();
+    await page.locator('#lesson-author-writing').getByRole('button', { name: 'Thêm mục', exact: true }).click();
     await lessonBody(page).fill('Ảnh trong nội dung');
     await page.getByRole('button', { name: 'Insert/edit image', exact: true }).click();
     const dialog = page.getByRole('dialog');

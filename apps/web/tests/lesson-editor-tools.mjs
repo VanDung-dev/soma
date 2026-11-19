@@ -1,5 +1,16 @@
 export const lessonBody = page => page.frameLocator('#lesson-write-body_ifr').locator('body[contenteditable="true"]');
 
+export async function createLesson(page) {
+  await page.getByRole('button', { name: 'Tạo bài học', exact: true }).click();
+  await page.waitForURL(/\/lessons\/[a-z0-9]+\/edit$/);
+  return new URL(page.url()).pathname.split('/')[2];
+}
+
+export async function saveLessonDraft(page) {
+  await page.getByRole('button', { name: 'Lưu bài học', exact: true }).click();
+  await page.getByRole('button', { name: 'Đã lưu', exact: true }).waitFor();
+}
+
 export const savedLesson = (page, id) => page.evaluate(async id => {
   const { listLessons } = await import('/src/lessons/shared/source.ts');
   const { lessons } = await listLessons();

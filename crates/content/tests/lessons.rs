@@ -82,29 +82,30 @@ fn tar_and_brotli_enforce_bounds_before_unbounded_expansion() {
 }
 
 #[test]
-fn package_round_trip_preserves_identity_and_rejects_old_versions() {
+fn package_round_trip_preserves_identity_and_rejects_unsupported_versions() {
     let pack = Package::new(&draft()).unwrap();
     let bytes = pack.export().unwrap();
     assert_eq!(
         Package::open("Renamed.lesson.br", &bytes).unwrap().lesson,
         pack.lesson
     );
-    assert!(Package::open("old.soma.br", &bytes).is_err());
     assert!(Package::open("draft.json", draft().as_bytes()).is_err());
     assert!(Package::open("draft.JSON", &bytes).is_err());
     assert!(Package::open("raw.lesson.br", draft().as_bytes()).is_err());
     let mut files = tar::unpack(&lessons::decompress(&bytes).unwrap()).unwrap();
-    for version in 1..6 {
-        files.insert(
-            "manifest.json".into(),
-            serde_json::to_vec(&json!({"format":"soma-lesson","version":version})).unwrap(),
-        );
-        let outdated = lessons::compress(&tar::pack(&files).unwrap()).unwrap();
-        assert_eq!(
-            Package::open("old.lesson.br", &outdated).err().as_deref(),
-            Some("Unsupported lesson archive format")
-        );
-    }
+    assert_eq!(
+        serde_json::from_slice::<Value>(&files["manifest.json"]).unwrap(),
+        json!({"format":"soma-lesson","version":1})
+    );
+    files.insert(
+        "manifest.json".into(),
+        br#"{"format":"soma-lesson","version":0}"#.to_vec(),
+    );
+    let unsupported = lessons::compress(&tar::pack(&files).unwrap()).unwrap();
+    assert_eq!(
+        Package::open("unsupported.lesson.br", &unsupported).err().as_deref(),
+        Some("Unsupported lesson archive format")
+    );
     assert!(Package::open("wrong.game.br", &bytes).is_err());
     assert_eq!(
         lesson::filename(&pack.lesson, "vi"),

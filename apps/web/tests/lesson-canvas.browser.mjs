@@ -13,9 +13,10 @@ export async function checkLessonCanvas(page) {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/anatomy');
   await page.locator('.model-canvas[aria-busy="false"]').waitFor({ timeout: 60000 });
-  await page.evaluate(lesson => localStorage.setItem('soma.lesson:' + lesson.id, JSON.stringify(lesson)), lesson);
+  await page.evaluate(lesson => localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson)), lesson);
   await page.evaluate(() => new Promise((resolve, reject) => {
-    const request = indexedDB.deleteDatabase('anatomy-models-v2');
+    const request = indexedDB.deleteDatabase('anatomy-models-v1');
+    request.onblocked = () => reject(new Error('Model cache is still open'));
     request.onsuccess = resolve; request.onerror = () => reject(request.error);
   }));
   let release;

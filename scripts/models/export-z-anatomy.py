@@ -270,7 +270,7 @@ scene.unit_settings.system = 'METRIC'
 scene.unit_settings.scale_length = 1
 bpy.context.window.scene = scene
 addon_utils.enable('io_scene_gltf2')
-catalog = {'schema_version': 4, 'groups': [], 'targets': []}
+catalog = {'schema_version': 1, 'groups': [], 'targets': []}
 covered = set()
 all_exported = []
 manifest = {'source': 'Z-Anatomy', 'source_file': 'Z-Anatomy/Startup.blend', 'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(), 'selections_sha256': hashlib.sha256(selection_bytes).hexdigest(), 'blender': bpy.app.version_string, 'units': 'metres', 'up_axis': 'Y', 'license': 'CC BY-SA 4.0; upstream third-party notices also apply', 'excluded_objects': excluded, 'models': []}

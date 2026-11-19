@@ -80,19 +80,28 @@ export async function checkOrientationPointer(page, { touch = false } = {}) {
       };
     }
   });
-  const reset = async () => {
-    await page.locator('.model-canvas canvas').press('r');
-    await page.waitForFunction(() => {
-      const y = document.querySelector('.orientation-axes [data-axis="Y"][data-direction="1"] circle');
-      const z = document.querySelector('.orientation-axes [data-axis="Z"][data-direction="1"] circle');
-      return Math.abs(Number(y.getAttribute('cx')) - 56 - Math.cos(-0.32) * 38) < 1e-4
-        && Math.abs(Number(z.getAttribute('cy')) - 56 + Math.cos(0.12) * 38) < 1e-4;
-    });
-    await page.evaluate(() => { window.__orientationPointer.views = []; window.__orientationPointer.rotations = 0; });
-  };
   const point = async (axis, direction) => {
     const area = await page.locator(`.orientation-axes [data-axis="${axis}"][data-direction="${direction}"] circle:not(.orientation-hit-target)`).boundingBox();
     return { x: area.x + area.width / 2, y: area.y + area.height / 2 };
+  };
+  const reset = async () => {
+    await page.locator('.model-canvas canvas').press('r');
+    await page.waitForFunction(() => {
+      const endpoint = document.querySelector('.orientation-axes [data-axis="X"][data-direction="1"]');
+      const marker = endpoint?.querySelector('circle');
+      return marker && Number(marker.getAttribute('cx')) === 56 && Number(marker.getAttribute('cy')) === 56
+        && Number(endpoint.getAttribute('opacity')) === 1;
+    });
+    const front = await point('X', 1);
+    await page.mouse.move(front.x, front.y);
+    await page.mouse.down();
+    await page.mouse.move(front.x - 55, front.y + 55, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForFunction(() => {
+      const marker = document.querySelector('.orientation-axes [data-axis="X"][data-direction="1"] circle');
+      return Math.abs(Number(marker.getAttribute('cx')) - 56) > 15;
+    });
+    await page.evaluate(() => { window.__orientationPointer.views = []; window.__orientationPointer.rotations = 0; });
   };
   try {
     await reset();

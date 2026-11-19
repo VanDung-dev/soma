@@ -1,6 +1,8 @@
 import * as content from "../../content/content.js";
 import type { SceneView } from "../../anatomy/viewer/contracts";
 
+export const LESSON_STORAGE_PREFIX = "soma.lesson-v1:";
+
 export type LessonText = { vi: string; en: string; html?: ("vi" | "en")[] };
 export type LessonMode = "content" | "questions" | "content_questions";
 export type LessonQuestion = {

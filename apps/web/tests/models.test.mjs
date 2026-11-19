@@ -107,7 +107,7 @@ test('Z-Anatomy preserves geometry, structure identity, names and materials', as
 });
 
 test('navigation follows nine source roots and keeps deep, scoped categories', async () => {
-  assert.equal(catalog.schema_version, 4);
+  assert.equal(catalog.schema_version, 1);
   assert.equal(catalog.targets.length, 1981);
   const roots = catalog.targets.filter(t => !t.parent_id);
   assert.deepEqual(roots.map(t => t.source_name), Object.values(selections).map(s => s.source_collection));

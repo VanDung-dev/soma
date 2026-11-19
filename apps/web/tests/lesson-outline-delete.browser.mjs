@@ -6,7 +6,7 @@ export async function checkLessonOutlineDelete(page) {
     steps: ['one', 'two'].map(id => ({ id, kind: 'text', title: text(id), instruction: text('Nội dung') })) };
   await page.goto('/home');
   await page.evaluate(lesson => {
-    localStorage.setItem('soma.lesson:' + lesson.id, JSON.stringify(lesson));
+    localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson));
     localStorage.setItem('soma.lessons.panel:editorOutline', 'true');
   }, lesson);
   await page.goto('/lessons/' + lesson.id + '/edit');
@@ -26,6 +26,6 @@ export async function checkLessonOutlineDelete(page) {
   await dialog.getByRole('button', { name: 'Xóa mục', exact: true }).click();
   assert.equal(await page.locator('[data-lesson-step="one"]').count(), 0);
   assert.equal(await page.locator('[data-lesson-step="two"]').count(), 1);
-  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:outline-delete-test')).steps.length), 2,
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson-v1:outline-delete-test')).steps.length), 2,
     'Removing a section remains a draft until the lesson is saved');
 }

@@ -76,6 +76,7 @@ test('model cache reuses unchanged files, replaces changed versions and tolerate
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   const original = { fetch: globalThis.fetch, Worker: globalThis.Worker, indexedDB: globalThis.indexedDB };
   const entries = new Map();
+  const openedDatabases = [];
   let version = 'first', modelRequests = 0, storageFails = false;
   try {
     const { loadModels } = await server.ssrLoadModule('/src/anatomy/viewer/loader.ts');
@@ -97,9 +98,14 @@ test('model cache reuses unchanged files, replaces changed versions and tolerate
         return transaction;
       },
     };
-    globalThis.indexedDB = { deleteDatabase() {}, open() {
+    globalThis.indexedDB = { open(name, schemaVersion) {
+      openedDatabases.push({ name, schemaVersion });
       const request = { result: database };
-      queueMicrotask(() => { request.onupgradeneeded(); request.onsuccess(); });
+      const firstOpen = openedDatabases.length === 1;
+      queueMicrotask(() => {
+        if (firstOpen) request.onupgradeneeded();
+        request.onsuccess();
+      });
       return request;
     } };
     globalThis.fetch = async url => {
@@ -132,6 +138,7 @@ test('model cache reuses unchanged files, replaces changed versions and tolerate
     storageFails = true;
     assert.deepEqual(await load(), [2]);
     assert.equal(modelRequests, 3);
+    assert.deepEqual(openedDatabases, Array.from({ length: 4 }, () => ({ name: 'anatomy-models-v1', schemaVersion: 1 })));
   } finally {
     for (const [name, value] of Object.entries(original)) {
       if (value === undefined) delete globalThis[name]; else globalThis[name] = value;

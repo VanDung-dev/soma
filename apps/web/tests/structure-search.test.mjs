@@ -17,7 +17,7 @@ test('structure search matches names, Latin and laterality, and reveals the sele
       const ids = parts.map((_, i) => 'za:' + i.toString(16).padStart(16, '0'));
       const targets = parts.length ? [{ id: 'fixture', title: 'Fixture', source_name: 'Fixture', group_id: 'g', structure_ids: ids,
         model: { path: 'models/z-anatomy/fixture.glb', scope: 'fixture', structure_ids: ids } }] : [];
-      const raw = { schema_version: 4, groups: parts.length ? [{ id: 'g', title: 'Fixture' }] : [], targets };
+      const raw = { schema_version: 1, groups: parts.length ? [{ id: 'g', title: 'Fixture' }] : [], targets };
       const store = new Catalog(wasm.CatalogData.from_json(JSON.stringify(raw)));
       if (parts.length) store.ingestMetadata(store.roots[0], JSON.stringify({ structures: parts.map((part, i) => ({ ...part, source_id: ids[i] })) }));
       store.finish();

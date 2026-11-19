@@ -10,7 +10,7 @@ export async function checkLessonPlayerExit(page) {
   page.on('pageerror', onError); page.on('dialog', onDialog);
   try {
     await page.goto('/home');
-    await page.evaluate(lesson => localStorage.setItem('soma.lesson:' + lesson.id, JSON.stringify(lesson)), lesson);
+    await page.evaluate(lesson => localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson)), lesson);
     for (const width of [1440, 390]) for (const preview of [false, true]) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/lessons/' + lesson.id + (preview ? '/edit' : ''));
@@ -35,14 +35,14 @@ export async function checkLessonPlayerExit(page) {
     await page.waitForURL(/\/lessons$/);
     assert.equal(dialogs.length, 0);
     assert.deepEqual(errors, []);
-    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:player-exit'))), lesson, 'Discarding preview edits must preserve the saved lesson');
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson-v1:player-exit'))), lesson, 'Discarding preview edits must preserve the saved lesson');
     await page.goto('/lessons/' + lesson.id + '/edit');
     await page.getByLabel('Tên bài học', { exact: true }).fill('Bản đã lưu');
     await page.getByRole('button', { name: 'Thoát', exact: true }).click();
     await page.locator('.lesson-confirm-dialog').getByRole('button', { name: 'Lưu và thoát' }).click();
     await page.waitForURL(/\/lessons$/);
-    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:player-exit')).title.vi), 'Bản đã lưu');
-    await page.evaluate(lesson => localStorage.setItem('soma.lesson:player-exit-empty', JSON.stringify({ ...lesson, id: 'player-exit-empty', steps: [] })), lesson);
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson-v1:player-exit')).title.vi), 'Bản đã lưu');
+    await page.evaluate(lesson => localStorage.setItem('soma.lesson-v1:player-exit-empty', JSON.stringify({ ...lesson, id: 'player-exit-empty', steps: [] })), lesson);
     await page.goto('/lessons/player-exit-empty');
     await page.getByRole('button', { name: 'Tiếp tục soạn bài', exact: true }).click();
     await page.waitForURL(/\/lessons$/);

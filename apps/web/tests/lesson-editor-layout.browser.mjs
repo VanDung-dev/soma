@@ -17,7 +17,7 @@ export async function checkLessonResponsiveLayout(page) {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.evaluate(lesson => {
-    localStorage.setItem('soma.lesson:' + lesson.id, JSON.stringify(lesson));
+    localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson));
     for (const panel of ['editorOutline', 'readerOutline']) localStorage.setItem(`soma.lessons.panel:${panel}`, 'true');
   }, lesson);
   const observeCamera = () => page.evaluate(async () => {
@@ -159,7 +159,7 @@ export async function checkLessonEditorLayout(page) {
   };
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.evaluate(lesson => {
-    localStorage.setItem('soma.lesson:' + lesson.id, JSON.stringify(lesson));
+    localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson));
     for (const name of ['editorOutline', 'readerOutline']) localStorage.removeItem('soma.lessons.panel:' + name);
   }, lesson);
   await page.goto('/lessons/' + lesson.id + '/edit');

@@ -20,7 +20,7 @@ export async function checkLessonReader(page) {
     ],
   };
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.evaluate(lesson => localStorage.setItem('soma.lesson:' + lesson.id, JSON.stringify(lesson)), lesson);
+  await page.evaluate(lesson => localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson)), lesson);
   await page.goto('/lessons/' + lesson.id + '/edit');
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   const model = page.locator('.lesson-model');
@@ -37,7 +37,7 @@ export async function checkLessonReader(page) {
   await reader.evaluate(node => { node.scrollTop = node.scrollHeight; });
   assert(await reader.evaluate(node => node.scrollTop > 0));
   assert.deepEqual(await model.boundingBox(), original);
-  assert(await page.getByRole('button', { name: 'Bước tiếp theo', exact: true }).isVisible());
+  assert(await page.getByRole('button', { name: 'Mục tiếp theo', exact: true }).isVisible());
 
   const jump = async title => {
     if (await page.locator('.lesson-reader-outline').isHidden()) await page.getByRole('button', { name: 'Mục lục', exact: true }).click();
@@ -54,10 +54,10 @@ export async function checkLessonReader(page) {
   const choices = page.locator('.lesson-step input[type=radio]');
   await choices.nth(1).check();
   await page.getByRole('button', { name: 'Kiểm tra đáp án', exact: true }).click();
-  assert(await page.getByRole('button', { name: 'Bước tiếp theo', exact: true }).isDisabled());
+  assert(await page.getByRole('button', { name: 'Mục tiếp theo', exact: true }).isDisabled());
   await choices.first().check();
   await page.getByRole('button', { name: 'Kiểm tra đáp án', exact: true }).click();
-  assert(await page.getByRole('button', { name: 'Bước tiếp theo', exact: true }).isEnabled());
+  assert(await page.getByRole('button', { name: 'Mục tiếp theo', exact: true }).isEnabled());
   await jump('Tổng kết');
   assert(await canvasUnchanged());
   await page.getByRole('button', { name: 'Đóng mục lục', exact: true }).click();
@@ -77,19 +77,19 @@ export async function checkLessonReader(page) {
   await page.getByRole('heading', { name: 'Đã hoàn thành bài học', exact: true }).waitFor();
   assert(await model.isVisible());
   assert(await canvasUnchanged());
-  assert.deepEqual(await page.evaluate(id => JSON.parse(localStorage.getItem('soma.lesson:' + id)), lesson.id), lesson);
+  assert.deepEqual(await page.evaluate(id => JSON.parse(localStorage.getItem('soma.lesson-v1:' + id)), lesson.id), lesson);
 
   const unfinished = { ...lesson, id: 'unfinished-reader-check', steps: [{ ...lesson.steps[5], questions: [{ ...lesson.steps[5].questions[0], choices: [], answerId: '' }] }, lesson.steps[6]] };
-  await page.evaluate(value => localStorage.setItem('soma.lesson:' + value.id, JSON.stringify(value)), unfinished);
+  await page.evaluate(value => localStorage.setItem('soma.lesson-v1:' + value.id, JSON.stringify(value)), unfinished);
   await page.goto('/lessons/' + unfinished.id + '/edit');
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   await page.getByRole('heading', { name: 'Nhận diện', exact: true }).waitFor();
   assert(await page.getByRole('button', { name: 'Kiểm tra đáp án', exact: true }).isDisabled());
   await page.getByRole('status').filter({ hasText: 'thêm ít nhất hai phương án' }).waitFor();
-  assert(await page.getByRole('button', { name: 'Bước tiếp theo', exact: true }).isDisabled(), 'Preview follows the same completion requirements as student learning');
+  assert(await page.getByRole('button', { name: 'Mục tiếp theo', exact: true }).isDisabled(), 'Preview follows the same completion requirements as student learning');
   await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Xuất .lesson.br', exact: true }).click();
   assert((await download).suggestedFilename().endsWith('.lesson.br'), 'Unfinished drafts can be exported as portable packages for testing');
-  assert.deepEqual(await page.evaluate(id => JSON.parse(localStorage.getItem('soma.lesson:' + id)), unfinished.id), unfinished);
+  assert.deepEqual(await page.evaluate(id => JSON.parse(localStorage.getItem('soma.lesson-v1:' + id)), unfinished.id), unfinished);
 }

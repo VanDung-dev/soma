@@ -20,11 +20,8 @@ export async function* loadModels(roots: StudyTarget[], signal: AbortSignal, onP
     try {
       if (!usesBundledModels && globalThis.indexedDB && model.sha256) {
         cache = await new Promise<IDBDatabase>((resolve, reject) => {
-          const request = indexedDB.open("anatomy-models-v3", 1);
-          request.onupgradeneeded = () => {
-            request.result.createObjectStore("models");
-            indexedDB.deleteDatabase("anatomy-models-v2");
-          };
+          const request = indexedDB.open("anatomy-models-v1", 1);
+          request.onupgradeneeded = () => request.result.createObjectStore("models");
           request.onsuccess = () => resolve(request.result);
           request.onerror = () => reject(request.error);
         });

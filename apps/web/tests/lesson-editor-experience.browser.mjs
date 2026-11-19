@@ -2,13 +2,12 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { brotliDecompressSync } from 'node:zlib';
 import { readLessonMetadata, unpackLessonTar } from './lesson-package.fixture.mjs';
-import { lessonBody, savedLesson } from './lesson-editor-tools.mjs';
+import { createLesson, lessonBody, savedLesson } from './lesson-editor-tools.mjs';
 
 export async function checkLessonEditorExperience(page) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/lessons');
-  await page.getByRole('button', { name: 'Tạo bài học', exact: true }).click();
-  const id = new URL(page.url()).pathname.split('/')[2];
+  const id = await createLesson(page);
   const saved = () => savedLesson(page, id);
   const writing = page.locator('#lesson-author-writing');
   const frame = page.locator('.lesson-scene-region');
@@ -32,7 +31,7 @@ export async function checkLessonEditorExperience(page) {
   await card.getByRole('button', { name: 'Chỉnh sửa', exact: true }).click();
   assert.equal(await page.getByLabel('Mô tả ngắn').inputValue(), details.summary.vi);
   assert.equal(await page.locator('.tox-tinymce').count(), 0);
-  await writing.getByRole('button', { name: 'Thêm bước học', exact: true }).click();
+  await writing.getByRole('button', { name: 'Thêm mục', exact: true }).click();
   await page.getByLabel('Tên mục').fill('Hai dòng');
   assert.equal(await page.locator('#lesson-author-inspector, #lesson-toggle-inspector, #lesson-scene-structures').count(), 0);
   assert.equal(await page.locator('.structure-search-field').count(), 1, 'The editor has one structure search');
@@ -40,7 +39,7 @@ export async function checkLessonEditorExperience(page) {
   const settingsButton = frame.getByRole('button', { name: 'Thiết lập 3D', exact: true });
   assert(await settingsButton.evaluate(button => !!button.closest('.lesson-editor-hud')));
   await settingsButton.click();
-  const settings = page.locator('#lesson-model-settings:popover-open');
+  const settings = page.locator('.lesson-model-settings[data-open="true"]');
   assert.equal(await settings.locator('.structure-tree > li').count(), 9, 'Model and structure settings share one panel');
   assert(await settings.evaluate(panel => !!panel.closest('.lesson-editor-hud')));
   await page.getByRole('button', { name: 'Đóng thiết lập 3D', exact: true }).click();
@@ -88,14 +87,14 @@ export async function checkLessonEditorExperience(page) {
   const slider = frame.getByRole('slider', { name: 'Mức độ tách', exact: true });
   await slider.focus(); await slider.press('End');
   await writing.getByRole('button', { name: 'Lưu bước', exact: true }).click();
-  await writing.getByRole('status').filter({ hasText: 'Đã lưu bước' }).waitFor();
+  await writing.getByRole('status').filter({ hasText: 'Đã lưu bài học trên thiết bị.' }).waitFor();
   assert.equal(await part.count(), 0, 'Saving must not reopen dismissed part information');
   const first = (await saved()).steps[0];
   assert.equal(first.view.explosion, 100);
-  await writing.getByRole('button', { name: 'Thêm bước học', exact: true }).click();
+  await writing.getByRole('button', { name: 'Thêm mục', exact: true }).click();
   await page.getByLabel('Tên mục').fill('Chỉ nội dung');
   await body.fill('Bước này không hiển thị mô hình.');
-  await page.getByRole('checkbox', { name: 'Hiển thị mô hình 3D ở bước này', exact: true }).uncheck();
+  await page.getByRole('checkbox', { name: 'Hiển thị mô hình 3D ở mục này', exact: true }).uncheck();
   assert(await frame.isHidden());
   await writing.getByRole('button', { name: 'Lưu bước', exact: true }).click();
   const hidden = (await saved()).steps[1];
@@ -124,14 +123,14 @@ export async function checkLessonEditorExperience(page) {
   }
   const viewer = await player.locator('canvas').elementHandle();
   assert(await player.locator('.lesson-model').isVisible());
-  await player.getByRole('button', { name: 'Bước tiếp theo', exact: true }).click();
+  await player.getByRole('button', { name: 'Mục tiếp theo', exact: true }).click();
   assert(await player.locator('.lesson-model').isHidden());
   assert.equal(await player.locator('.lesson-workspace').getAttribute('data-model'), 'false');
-  await player.getByRole('button', { name: 'Bước trước', exact: true }).click();
+  await player.getByRole('button', { name: 'Mục trước', exact: true }).click();
   assert(await player.locator('.lesson-model').isVisible());
   assert(await viewer.evaluate(canvas => canvas === document.querySelector('.lesson-player canvas')), 'Changing model visibility keeps the learner viewer');
   await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
-  await page.getByRole('checkbox', { name: 'Hiển thị mô hình 3D ở bước này', exact: true }).check();
+  await page.getByRole('checkbox', { name: 'Hiển thị mô hình 3D ở mục này', exact: true }).check();
   await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
   assert.equal(await slider.inputValue(), '100');
   for (const width of [320, 768, 1024, 1440]) {
@@ -168,7 +167,7 @@ export async function checkLessonEditorExperience(page) {
     await imported.locator('input[type=file]').setInputFiles({ name: 'cover.lesson.br', mimeType: 'application/octet-stream', buffer: bytes });
     await imported.locator('.lesson-card img').waitFor();
     assert(await imported.locator('.lesson-card img').evaluate(img => img.decode().then(() => img.naturalWidth > 0)));
-    await imported.evaluate(lesson => localStorage.setItem('soma.lesson:hidden-only', JSON.stringify({
+    await imported.evaluate(lesson => localStorage.setItem('soma.lesson-v1:hidden-only', JSON.stringify({
       ...lesson, id: 'hidden-only', cover: undefined, modelId: '', steps: [{ ...lesson.steps[1], showModel: false }],
     })), expected);
     await imported.goto('/lessons/hidden-only/edit');
@@ -187,21 +186,21 @@ export async function checkLessonEditorExperience(page) {
   await page.evaluate(() => {
     const set = Storage.prototype.setItem;
     Storage.prototype.setItem = function(key, value) {
-      if (key.startsWith('soma.lesson:')) throw new DOMException('Full', 'QuotaExceededError');
+      if (key.startsWith('soma.lesson-v1:')) throw new DOMException('Full', 'QuotaExceededError');
       return set.call(this, key, value);
     };
   });
   await page.getByLabel('Tên mục').fill('Chưa ghi được');
   await writing.getByRole('button', { name: 'Lưu bước', exact: true }).click();
   assert.deepEqual(await saved(), expected);
-  assert.equal(await writing.getByRole('status').filter({ hasText: 'Đã lưu bước' }).count(), 0);
+  assert.equal(await writing.getByRole('status').filter({ hasText: 'Đã lưu bài học trên thiết bị.' }).count(), 0);
   await page.reload();
   await page.getByLabel('Tên bài học').waitFor();
   if (await page.locator('#lesson-author-outline').isHidden()) await page.locator('#lesson-toggle-outline').click();
   await page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: 'Chỉ nội dung' }).click();
   await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
   const external = await saved(); external.title.vi = 'Đã sửa ở tab khác';
-  await page.evaluate(lesson => localStorage.setItem('soma.lesson:' + lesson.id, JSON.stringify(lesson)), external);
+  await page.evaluate(lesson => localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson)), external);
   await page.getByLabel('Tên mục').fill('Không ghi đè tab khác');
   await writing.getByRole('button', { name: 'Lưu bước', exact: true }).click();
   assert.deepEqual(await saved(), external);
@@ -213,21 +212,27 @@ export async function checkLessonHeader(page, selector, headingSelector) {
   const geometry = await page.locator(selector).evaluate((header, headingSelector) => {
     const box = header.getBoundingClientRect();
     const title = header.querySelector(headingSelector).getBoundingClientRect();
-    return { height: box.height, radius: getComputedStyle(header).borderRadius,
+    const style = getComputedStyle(header);
+    return { height: box.height, radius: style.borderRadius, editor: header.classList.contains('lesson-author-bar'),
+      inset: Math.min(parseFloat(style.paddingLeft), parseFloat(style.paddingRight)),
+      titleContained: title.left >= box.left && title.right <= box.right,
       center: title.x + title.width / 2 - box.x - box.width / 2,
       buttons: [...header.querySelectorAll('.lesson-button, .controls-info')].filter(button => button.getBoundingClientRect().width).map(button => {
         const child = button.getBoundingClientRect();
         return { height: child.height, radius: getComputedStyle(button).borderRadius, inset: Math.min(child.x - box.x, box.right - child.right),
+          overlapsTitle: child.left < title.right && child.right > title.left && child.top < title.bottom && child.bottom > title.top,
           contained: child.top >= box.top && child.bottom <= box.bottom };
       }) };
   }, headingSelector);
   assert(geometry.height >= 48);
   assert.equal(geometry.radius, '24px');
-  assert(Math.abs(geometry.center) <= 1, 'The title is centered between equal side columns');
+  assert(geometry.titleContained, 'Keep the title within the header');
+  if (geometry.editor) assert(Math.abs(geometry.center) <= 1, 'Center the editor title');
   for (const button of geometry.buttons) {
     assert.equal(button.height, 28);
     assert.equal(button.radius, '14px');
     assert(button.contained, 'Wrapped toolbar controls stay inside the header');
-    assert(button.inset >= 9.5, 'Toolbar controls respect the outer 10px inset');
+    assert(button.inset >= geometry.inset - 0.5, 'Toolbar controls respect the header padding');
+    assert(!button.overlapsTitle, 'Toolbar controls must not overlap the title');
   }
 }

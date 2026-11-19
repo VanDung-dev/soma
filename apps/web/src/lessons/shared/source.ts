@@ -1,5 +1,5 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { readLesson } from "./contract";
+import { LESSON_STORAGE_PREFIX, readLesson } from "./contract";
 import type { Lesson } from "./contract";
 import { lessonJob } from "./archive";
 import { lesson_draft_paths, restore_lesson_draft, split_lesson_draft, validate_lesson_file } from "../../content/content.js";
@@ -9,8 +9,6 @@ import { loadBrowserLessonContent, loadLessonImages, removeLessonImages, retainB
 import type { LessonImages } from "./images";
 import { lessonImagePaths } from "./rich-text";
 import { lessonModels } from "./targets";
-
-const LESSON_PREFIX = "soma.lesson:";
 
 function comparableLesson(lesson: Lesson) {
   return JSON.stringify(lesson, (_key, value: unknown) => value && typeof value === "object" && !Array.isArray(value)
@@ -56,16 +54,16 @@ export async function listLessons() {
     }
     return { lessons, invalidKeys };
   }
-  const keys = Object.keys(localStorage).filter(key => key.startsWith(LESSON_PREFIX));
+  const keys = Object.keys(localStorage).filter(key => key.startsWith(LESSON_STORAGE_PREFIX));
   for (const key of keys) {
     try {
-      const id = key.slice(LESSON_PREFIX.length);
+      const id = key.slice(LESSON_STORAGE_PREFIX.length);
       const lesson = await withLessonLock(id, async () => {
         const raw = localStorage.getItem(key);
         return raw === null ? undefined : readStoredLesson(id, raw);
       });
       if (!lesson) continue;
-      if (key !== LESSON_PREFIX + lesson.id) throw new Error("Lesson ID does not match its storage key");
+      if (key !== LESSON_STORAGE_PREFIX + lesson.id) throw new Error("Lesson ID does not match its storage key");
       lessons.push(lesson);
     } catch {
       invalidKeys.push(key);
@@ -78,7 +76,7 @@ export async function saveLesson(lesson: Lesson, previous?: Lesson) {
   readLesson(lesson, true);
   if (isTauri()) return invoke<void>("save_lesson", { id: lesson.id, json: JSON.stringify(lesson), expected: previous ? JSON.stringify(previous) : null });
   return withLessonLock(lesson.id, async () => {
-    const key = LESSON_PREFIX + lesson.id;
+    const key = LESSON_STORAGE_PREFIX + lesson.id;
     const current = localStorage.getItem(key);
     if (current === null ? previous !== undefined : !previous || comparableLesson(await readStoredLesson(lesson.id, current)) !== comparableLesson(previous)) {
       throw new Error("The lesson changed in another tab.");
@@ -101,13 +99,13 @@ export async function saveLesson(lesson: Lesson, previous?: Lesson) {
 }
 
 function withLessonLock<T>(id: string, action: () => Promise<T>) {
-  return navigator.locks ? navigator.locks.request(LESSON_PREFIX + id, action) : action();
+  return navigator.locks ? navigator.locks.request(LESSON_STORAGE_PREFIX + id, action) : action();
 }
 
 export async function removeLesson(lesson: Lesson) {
   if (isTauri()) return invoke<void>("remove_lesson", { id: lesson.id, expected: JSON.stringify(lesson) });
   return withLessonLock(lesson.id, async () => {
-    const key = LESSON_PREFIX + lesson.id;
+    const key = LESSON_STORAGE_PREFIX + lesson.id;
     const current = localStorage.getItem(key);
     if (!current || comparableLesson(await readStoredLesson(lesson.id, current)) !== comparableLesson(lesson)) throw new Error("The lesson changed in another tab.");
     localStorage.removeItem(key);

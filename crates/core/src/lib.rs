@@ -68,7 +68,7 @@ pub enum CatalogError {
 impl Catalog {
     pub fn from_json(json: &str) -> Result<Self, CatalogError> {
         let catalog: Self = serde_json::from_str(json)?;
-        if catalog.schema_version != 4 {
+        if catalog.schema_version != 1 {
             return Err(CatalogError::UnsupportedVersion(catalog.schema_version));
         }
         let mut ids = HashSet::new();
@@ -245,8 +245,8 @@ mod tests {
     #[test]
     fn rejects_incompatible_and_ambiguous_data() {
         assert!(matches!(
-            changed(|v| v["schema_version"] = 1.into()),
-            Err(CatalogError::UnsupportedVersion(1))
+            changed(|v| v["schema_version"] = 4.into()),
+            Err(CatalogError::UnsupportedVersion(4))
         ));
         assert!(matches!(
             changed(|v| v["targets"][1]["id"] = v["targets"][0]["id"].clone()),

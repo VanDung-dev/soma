@@ -12,7 +12,7 @@ export async function checkLessonLibrary() {
   const { default: init, LessonPackage } = await import('../src/content/content.js');
   await init();
   const id = `library-drop-${crypto.randomUUID()}`;
-  const key = 'soma.lesson:' + id;
+  const key = 'soma.lesson-v1:' + id;
   const lesson = { id, version: 1, author: 'Nguyễn An', title: { vi: 'Kiểm tra kéo thả', en: 'Drop import check' },
     summary: { vi: 'Bài kiểm tra thư viện', en: '' }, modelId: '', steps: [] };
   const file = value => {
@@ -28,7 +28,7 @@ export async function checkLessonLibrary() {
     window.dispatchEvent(event);
     assert(event.defaultPrevented, 'Dropping a file must not navigate away from the library');
   };
-  const initialCount = Object.keys(localStorage).filter(key => key.startsWith('soma.lesson:')).length;
+  const initialCount = Object.keys(localStorage).filter(key => key.startsWith('soma.lesson-v1:')).length;
   try {
     const accept = document.querySelector('input[type="file"]').accept;
     assert(accept.includes('.lesson.br') && !accept.includes('.json'), 'Picker must only offer lesson packages');
@@ -44,7 +44,7 @@ export async function checkLessonLibrary() {
     await wait(() => !document.querySelector('.lesson-library-drop-overlay'), 'Drop overlay did not close');
     drop(new File(['{}'], 'unsupported.json'));
     await wait(() => !!document.querySelector('[role="alert"]'), 'JSON rejection was not announced');
-    assert(Object.keys(localStorage).filter(key => key.startsWith('soma.lesson:')).length === initialCount, 'JSON must not create a lesson');
+    assert(Object.keys(localStorage).filter(key => key.startsWith('soma.lesson-v1:')).length === initialCount, 'JSON must not create a lesson');
     drop(file(lesson), file(lesson));
     await new Promise(requestAnimationFrame);
     assert(!localStorage.getItem(key), 'Multiple files must not cause a partial import');
@@ -68,7 +68,7 @@ export async function checkLessonLibrary() {
     await wait(() => JSON.parse(localStorage.getItem(key)).version === 2, 'Confirmed replacement failed');
     drop(new File(['not a package'], 'broken.lesson.br'));
     await wait(() => !!document.querySelector('[role="alert"]'), 'Corrupt package was not rejected');
-    assert(Object.keys(localStorage).filter(key => key.startsWith('soma.lesson:')).length === initialCount + 1, 'Corrupt files must not create a lesson');
+    assert(Object.keys(localStorage).filter(key => key.startsWith('soma.lesson-v1:')).length === initialCount + 1, 'Corrupt files must not create a lesson');
     return { jsonRejected: true, multipleFilesRejected: true, dropped: true, replacementConfirmed: true, corruptRejected: true };
   } finally {
     localStorage.removeItem(key);

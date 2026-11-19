@@ -11,7 +11,7 @@ export async function checkLessonScenes(page) {
   const saved = () => savedLesson(page);
   const add = async (title, instruction) => {
     assert.equal(await page.getByRole('button', { name: 'Quan sát 3D', exact: true }).count(), 0);
-    await page.locator('#lesson-author-writing').getByRole('button', { name: 'Thêm bước học', exact: true }).click();
+    await page.locator('#lesson-author-writing').getByRole('button', { name: 'Thêm mục', exact: true }).click();
     await page.getByLabel('Tên mục').fill(title);
     await lessonBody(page).fill(instruction);
   };
@@ -49,7 +49,7 @@ export async function checkLessonScenes(page) {
   await page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: 'Mặt bên' }).click();
   await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
   assert.equal(await slider.inputValue(), '30');
-  await frame.getByRole('button', { name: 'Về cảnh của bước', exact: true }).click();
+  await frame.getByRole('button', { name: 'Về cảnh của mục', exact: true }).click();
   await frame.getByRole('button', { name: 'Lưu cảnh cho bước', exact: true }).click();
   const restored = (await saved()).steps[0].view;
   for (const key of ['yaw', 'pitch', 'distance']) assert(Math.abs(restored.camera[key] - first.view.camera[key]) < 1e-4);
@@ -87,14 +87,14 @@ export async function checkLessonScenes(page) {
   }
   await page.mouse.wheel(0, -150);
   assert(!(await playerCanvas.screenshot()).equals(initialImage), 'Student camera controls must remain interactive');
-  await player.getByRole('button', { name: 'Về cảnh của bước', exact: true }).click();
+  await player.getByRole('button', { name: 'Về cảnh của mục', exact: true }).click();
   await page.mouse.move(1400, 5);
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   const restoredImage = await playerModel.locator('canvas').screenshot();
   assert(await sameRender(page, initialImage, restoredImage), 'Reset must restore the authored render within one color rounding level');
-  await player.getByRole('button', { name: 'Bước tiếp theo', exact: true }).click();
+  await player.getByRole('button', { name: 'Mục tiếp theo', exact: true }).click();
   assert(!(await playerCanvas.screenshot()).equals(initialImage), 'Each step applies its own authored explosion and camera');
-  await player.getByRole('button', { name: 'Bước trước', exact: true }).click();
+  await player.getByRole('button', { name: 'Mục trước', exact: true }).click();
   assert.deepEqual(await saved(), beforeLearning, 'Learner interactions must not edit the saved lesson');
   await page.setViewportSize({ width: 390, height: 844 });
   assert(await page.locator('.lessons-screen').evaluate(node => node.scrollWidth <= node.clientWidth));

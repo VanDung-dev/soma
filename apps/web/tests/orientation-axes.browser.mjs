@@ -113,9 +113,17 @@ export async function checkOrientationAxes() {
       previousDepth = depth;
     }
     const gl = canvas.getContext('webgl2');
-    viewer.render();
-    const program = gl.getParameter(gl.CURRENT_PROGRAM);
-    const basis = gl.getUniform(program, gl.getUniformLocation(program, 'light_basis'));
+    const useProgram = gl.useProgram;
+    const programs = new Set();
+    gl.useProgram = function(program) {
+      if (program) programs.add(program);
+      return useProgram.call(this, program);
+    };
+    try { viewer.render(); } finally { gl.useProgram = useProgram; }
+    const uniforms = [...programs].map(program => [program, gl.getUniformLocation(program, 'light_basis')]);
+    const modelUniform = uniforms.find(([, location]) => location);
+    assert(modelUniform, 'The model shader must expose its light basis');
+    const basis = gl.getUniform(...modelUniform);
     const worldAxes = [2, 0, 1];
     assert(axes.every((value, i) => Math.abs(value - basis[(i % 3) * 3 + worldAxes[Math.floor(i / 3)]]) < 1e-6),
       'Show X facing the model front, Y sideways, and Z upright');
@@ -153,6 +161,12 @@ export async function checkOrientationAxes() {
     assert(samples === sampled, 'Orientation must not keep rendering while idle');
     const visible = viewer.visible_count(), selected = viewer.selected_id();
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const probe = document.createElement('span');
+    probe.style.backgroundColor = 'var(--selected-bg)';
+    probe.style.color = 'var(--text)';
+    document.body.append(probe);
+    const { backgroundColor: focusBackground, color: focusText } = getComputedStyle(probe);
+    probe.remove();
     for (const [index, axis] of [...'XYZ'].entries()) for (const direction of [-1, 1]) {
       const endpoint = widget.querySelector(`[data-axis="${axis}"][data-direction="${direction}"]`);
       assert(endpoint.getAttribute('role') === 'button' && endpoint.tabIndex === 0 && endpoint.getAttribute('aria-label'),
@@ -163,9 +177,12 @@ export async function checkOrientationAxes() {
       const basis = viewer.camera_axes();
       assert(Math.abs(basis[index * 3 + 2] - direction) < 1e-5, 'Axis buttons must align the camera with each signed world axis');
       assert(endpoint.getAttribute('aria-pressed') === 'true', 'Mark the aligned axis selected for keyboard and screen readers');
-      assert(getComputedStyle(endpoint.querySelector('text')).fill === 'rgb(16, 24, 39)', 'Keyboard focus must not change the selected label color');
-      assert(getComputedStyle(endpoint.querySelector('.orientation-hit-target')).stroke === getComputedStyle(endpoint).color,
-        'Keep keyboard focus visible around the endpoint');
+      const marker = getComputedStyle(endpoint.querySelector('circle:not(.orientation-hit-target)'));
+      assert(document.activeElement === endpoint && endpoint.matches(':focus-visible')
+        && marker.fill === focusBackground && marker.stroke === focusBackground
+        && getComputedStyle(endpoint.querySelector('text')).fill === focusText
+        && getComputedStyle(endpoint.querySelector('.orientation-hit-target')).stroke === 'none',
+        'Show keyboard focus through the theme background and label colors without a ring');
       matchesCamera();
       assert(viewer.visible_count() === visible && viewer.selected_id() === selected, 'Axis views must preserve selection and visible anatomy');
     }

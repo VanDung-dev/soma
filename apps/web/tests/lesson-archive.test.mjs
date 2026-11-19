@@ -127,7 +127,7 @@ test('Rust exports title.lesson.br with internal identity and lossless images, r
     stored.preloadModelIds = [];
     stored.steps[0].instruction.vi = `lesson-content:${hash}`;
     assert.deepEqual(JSON.parse(new TextDecoder().decode(files.get('lesson.json'))), stored);
-    assert.deepEqual(JSON.parse(new TextDecoder().decode(files.get('manifest.json'))), { format: 'soma-lesson', version: 6 });
+    assert.deepEqual(JSON.parse(new TextDecoder().decode(files.get('manifest.json'))), { format: 'soma-lesson', version: 1 });
     assert.equal([...files.keys()].some(path => path.startsWith('scenes/')), false);
     assert.deepEqual(files.get(`content/${hash}.html`), encoder.encode(draft.steps[0].instruction.vi));
     assert.deepEqual(files.get(info.path), image);

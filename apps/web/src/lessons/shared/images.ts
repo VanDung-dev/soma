@@ -2,13 +2,14 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import * as content from "../../content/content.js";
 import { lessonJob } from "./archive";
 import type { LessonImageStage } from "./archive";
+import { LESSON_STORAGE_PREFIX } from "./contract";
 import type { Lesson } from "./contract";
 
 export type LessonImages = Map<string, Blob>;
 
 async function database() {
   return new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open("soma-lesson-images", 2);
+    const request = indexedDB.open("soma-lesson-images-v1", 1);
     request.onupgradeneeded = () => {
       if (!request.result.objectStoreNames.contains("images")) request.result.createObjectStore("images");
       if (!request.result.objectStoreNames.contains("content")) request.result.createObjectStore("content");
@@ -164,7 +165,7 @@ export async function removeLessonImages(id: string, canRemove: () => boolean) {
 export async function retainLessonImages(id: string, paths: ReadonlySet<string>, expected?: Lesson | string) {
   const expectedJson = typeof expected === "string" ? expected : expected ? JSON.stringify(expected) : null;
   if (isTauri()) return invoke<void>("retain_lesson_images", { id, keep: [...paths], expected: expectedJson });
-  const key = `soma.lesson:${id}`;
+  const key = LESSON_STORAGE_PREFIX + id;
   const db = await database();
   try {
     await new Promise<void>((resolve, reject) => {
