@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 export async function checkLessonResponsiveLayout(page) {
   const text = vi => ({ vi, en: '' });
-  const modelId = 'collection:cc46df69f8495544';
+  const modelId = 'collection:baf3076d0495a617';
   const lesson = {
     id: 'responsive-lesson-check', version: 1, title: text('Bài học co giãn'), summary: text(''), modelId,
     steps: [
@@ -26,6 +26,7 @@ export async function checkLessonResponsiveLayout(page) {
     const reframe = AnatomyViewer.prototype.reframe;
     AnatomyViewer.prototype.reframe = function (...frame) {
       window.responsiveLessonViewer = this;
+      window.responsiveLessonFrame = frame;
       return reframe.apply(this, frame);
     };
   });
@@ -36,16 +37,33 @@ export async function checkLessonResponsiveLayout(page) {
   const content = editor => page.locator(editor ? '#lesson-author-writing' : '.lesson-player .lesson-step');
   const choose = (editor, title) => outline(editor).locator('.lesson-outline-row').filter({ hasText: title }).click();
   const bounds = async locator => Object.values(await locator.boundingBox()).map(value => Math.round(value));
+  const requireAutoFit = async () => {
+    const result = await page.evaluate(async () => {
+      for (let i = 0; i < 4; i++) await new Promise(requestAnimationFrame);
+      const canvas = document.querySelector('.model-canvas canvas');
+      const gl = canvas.getContext('webgl2');
+      const { width, height } = canvas;
+      window.responsiveLessonViewer.render();
+      const pixels = new Uint8Array(width * height * 4);
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      let left = width, right = -1, top = height, bottom = -1;
+      for (let i = 3; i < pixels.length; i += 4) {
+        if (pixels[i] !== 255) continue;
+        const pixel = (i - 3) / 4;
+        const x = pixel % width, y = height - 1 - Math.floor(pixel / width);
+        left = Math.min(left, x); right = Math.max(right, x);
+        top = Math.min(top, y); bottom = Math.max(bottom, y);
+      }
+      const [x, y, w, h] = window.responsiveLessonFrame;
+      return { center: [((left + right + 1) / (2 * width) - x) / w, ((top + bottom + 1) / (2 * height) - y) / h],
+        fill: Math.max((right - left + 1) / (width * w), (bottom - top + 1) / (height * h)) };
+    });
+    assert(result.center.every(value => Math.abs(value - 0.5) < 0.04), `Fit centered within the 3D frame: ${JSON.stringify(result)}`);
+    assert(result.fill > 0.77 && result.fill <= 0.86, `Fit within 85% of the 3D frame, allowing for geometry and rasterization: ${JSON.stringify(result)}`);
+  };
   const measure = async editor => {
     await page.locator('.model-canvas[aria-busy="false"] canvas').waitFor({ state: 'attached' });
     const frame = model(editor).locator('.model-focus-frame');
-    const camera = async () => {
-      return page.evaluate(async () => {
-        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-        return window.responsiveLessonViewer.camera_pose();
-      });
-    };
-    const initialCamera = await camera();
     const toggle = page.locator(editor ? '#lesson-toggle-outline' : '.lesson-player-header .sidebar-toggle');
     const results = [];
     for (const [width, height, outlineWidth, modelWidth, contentWidth] of [...sizes, ...sizes.slice(0, -1).reverse()]) {
@@ -70,12 +88,14 @@ export async function checkLessonResponsiveLayout(page) {
       const closed = await Promise.all([model(editor), content(editor), frame].map(bounds));
       assert.equal(closed[0][2], modelWidth + outlineWidth + 16, 'The model takes the space freed by the outline');
       assert.deepEqual(closed[1], panels[2]);
-      const pose = await camera();
-      for (const key of ['yaw', 'pitch', 'distance']) assert(Math.abs(pose[key] - initialCamera[key]) < 1e-4);
+      if (width === 1280) await requireAutoFit();
       await toggle.click();
       results.push({ panels, closed });
     }
-    await page.setViewportSize({ width: 1920, height: 1200 });
+    for (const [width, height] of [[912, 570], [800, 500], [1280, 800], [1920, 1200]]) {
+      await page.setViewportSize({ width, height });
+      await requireAutoFit();
+    }
     const workspace = page.locator(editor ? '.lesson-editor' : '.lesson-player');
     await workspace.evaluate(node => { node.style.width = 'calc(100% - 480px)'; });
     assert.deepEqual(await Promise.all([outline(editor), model(editor), content(editor)].map(async panel => (await bounds(panel))[2])),

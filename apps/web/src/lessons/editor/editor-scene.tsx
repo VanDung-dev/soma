@@ -61,7 +61,7 @@ function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inacti
     hiddenIds => {
       const hidden = new Set(hiddenIds);
       onChangeScene(ids.filter(id => !hidden.has(id)));
-    }, !inactive, false, true);
+    }, !inactive, false, true, onSceneChange);
   const ready = !state.building && !state.error;
   const snapPart = useMemo(() => catalog.detail(snapTarget), [catalog, snapTarget, state.structureIds]);
   const separated = !!state.movingId || !!state.separatedIds.size;
@@ -104,8 +104,7 @@ function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inacti
     }
   }, [ready, inactive, session, ids, revealPart]);
 
-  return createPortal(<div className="lesson-editor-scene" inert={inactive} data-active={!inactive} aria-hidden={inactive} aria-label={t("viewer.section.label")} role="group"
-    onPointerDownCapture={onSceneChange} onWheelCapture={onSceneChange} onKeyDownCapture={onSceneChange}>
+  return createPortal(<div className="lesson-editor-scene" inert={inactive} data-active={!inactive} aria-hidden={inactive} aria-label={t("viewer.section.label")} role="group">
     {createPortal(<div className="model-canvas" ref={host} inert={inactive} aria-busy={state.building && !state.error} />,
       frame.closest(".lesson-editor")!)}
     <div className="model-focus-frame" ref={focusFrame}>
@@ -130,7 +129,7 @@ function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inacti
         </div>
         <div className="lesson-model-tools-row">
           <button className="lesson-button" disabled={!ready || !modelIds.length}
-            onClick={() => { if (session.control([{ kind: "reset" }])) onSceneChange?.(); }}>{t("lessons.resetModelScene")}</button>
+            onClick={() => session.control([{ kind: "reset" }])}>{t("lessons.resetModelScene")}</button>
           <ExplodeControls value={state.explosionAmount} disabled={!ready || separated} locked={separated} onChange={amount => {
             session.changeExplosion(amount);
             onSceneChange?.();

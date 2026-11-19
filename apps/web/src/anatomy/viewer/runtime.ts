@@ -24,6 +24,7 @@ export class ViewerRuntime implements StudyViewer {
   private reassembling = false;
   private renderFrame = 0;
   private resizePending = false;
+  private autoFitScene = false;
   private lastRenderTime = -Infinity;
   private graphics: GraphicsSettings = defaultGraphics;
   private fpsFrames = 0;
@@ -41,6 +42,7 @@ export class ViewerRuntime implements StudyViewer {
     viewportElement?: HTMLElement;
     frameOverviewToWindow?: boolean;
     onState: (patch: Partial<ViewerState>) => void;
+    onCameraChange?: () => void;
     onPick: (id: string) => void;
     onHide: (ids: string[]) => boolean;
     allowSeparation?: boolean;
@@ -64,6 +66,7 @@ export class ViewerRuntime implements StudyViewer {
     this.unbindInput = bindViewerInput(this.canvas, {
       enabled: () => !this.loading && !this.animating && !this.restoration && !this.failed,
       operate: this.operate, redraw: this.scheduleRender,
+      onCameraChange: this.cameraChanged,
       pick: options.onPick,
       selectable: options.canSelect,
       moving: () => this.movingId || this.separatedIds.values().next().value || "",
@@ -95,6 +98,7 @@ export class ViewerRuntime implements StudyViewer {
     this.loadAbort?.abort();
     const request = this.loadAbort = new AbortController();
     this.loading = true;
+    this.autoFitScene = false;
     this.options.onState({ building: true, loadedSystems: 0, structureIds: [], selected: "", error: false, status: "loading" });
     try {
       const wasm = await getWasm();
@@ -168,6 +172,11 @@ export class ViewerRuntime implements StudyViewer {
     }
   };
 
+  private cameraChanged = () => {
+    this.autoFitScene = false;
+    this.options.onCameraChange?.();
+  };
+
   private scheduleRender = () => {
     if (this.loading || !this.viewer || this.renderFrame || this.failed || this.disposed) return;
     this.renderFrame = requestAnimationFrame(() => {
@@ -226,7 +235,8 @@ export class ViewerRuntime implements StudyViewer {
     this.resizePending = false;
     const { left, top, width, height } = this.host.getBoundingClientRect();
     if (width > 0 && height > 0) {
-      const pose = this.options.preserveCameraOnResize && !this.loading ? this.viewer!.camera_pose() : undefined;
+      const pose = this.options.preserveCameraOnResize && !this.loading && !this.autoFitScene
+        ? this.viewer!.camera_pose() : undefined;
       const [renderWidth, renderHeight] = this.renderSize(width, height);
       if (this.canvas.width !== renderWidth || this.canvas.height !== renderHeight) this.viewer!.resize(renderWidth, renderHeight);
       this.viewer!.reframe(...this.options.viewport());
@@ -234,7 +244,8 @@ export class ViewerRuntime implements StudyViewer {
         this.viewer!.set_overview_window(window.innerHeight / height,
           (window.innerWidth - 2 * left) / width - 1, 1 - (window.innerHeight - 2 * top) / height);
       }
-      if (this.options.viewportElement) this.viewer!.align_viewport();
+      if (this.autoFitScene) this.viewer!.fit_scene_frame();
+      else if (this.options.viewportElement) this.viewer!.align_viewport();
       if (pose) this.viewer!.set_camera_pose(pose);
     }
   }
@@ -319,6 +330,7 @@ export class ViewerRuntime implements StudyViewer {
     }
     if (id && (this.loading || this.animating || this.exploding || !this.structureIds.includes(id))) return false;
     if (!this.operate(viewer => viewer.select(id || viewer.selected_id()))) return false;
+    if (id) this.autoFitScene = false;
     this.movingId = id;
     this.canvas.dataset.moving = id ? "true" : "false";
     this.canvas.dataset.draggable = "false";
@@ -363,17 +375,20 @@ export class ViewerRuntime implements StudyViewer {
 
   applyScene(ids: string[], view?: SceneView) {
     const reassembling = this.exploding && !view?.explosion && !this.motion.matches;
+    const fit = !!this.options.viewportElement && !view && ids.length > 0;
     const success = this.operate(viewer => {
       const reveal = this.options.background && !viewer.visible_count();
       if (this.options.viewportElement) viewer.reframe(...this.options.viewport());
       viewer.apply_scene(ids, view, this.animationTime());
-      if (this.options.viewportElement) viewer.align_viewport(!view);
+      if (fit) viewer.fit_scene_frame();
+      else if (this.options.viewportElement) viewer.align_viewport();
       if (reveal) {
         viewer.set_visibility([]);
         viewer.change_visibility(ids, true, this.animationTime());
       }
     });
     if (success) {
+      this.autoFitScene = fit;
       this.exploding = !!view?.explosion || reassembling;
       this.reassembling = reassembling;
       this.restoration = undefined;
@@ -405,12 +420,14 @@ export class ViewerRuntime implements StudyViewer {
       if (motionTime === undefined) viewer.focus(ids, ...this.options.viewport());
       else viewer.focus_animated(ids, ...this.options.viewport(), motionTime);
       viewer.select(!folder && ids.length === 1 ? ids[0]! : "");
+      this.cameraChanged();
     });
   }
 
   setExplosion(value: number, ids: string[]) {
     if (this.movingId || this.separatedIds.size) return false;
     return this.operate(viewer => {
+      if (value > 0) this.autoFitScene = false;
       viewer.clear_selection();
       if (value > 0 && !this.exploding) {
         viewer.set_explode_mode(true); this.exploding = true;
@@ -446,6 +463,7 @@ export class ViewerRuntime implements StudyViewer {
       }
       const now = this.animationTime();
       viewer.change_visibility(this.structureIds, true, now); viewer.inspect("reset", now);
+      this.cameraChanged();
     });
     if (success) { this.exploding = false; this.reassembling = false;
       this.restoration = undefined;
@@ -464,6 +482,7 @@ export class ViewerRuntime implements StudyViewer {
           case "reset": viewer.inspect("reset", this.animationTime()); break;
         }
       }
+      if (commands.length) this.cameraChanged();
     });
   }
 

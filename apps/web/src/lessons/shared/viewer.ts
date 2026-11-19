@@ -10,7 +10,7 @@ import { ViewerRuntime } from "../../anatomy/viewer/runtime";
 import { shortcutAction } from "../../shortcuts";
 
 export function useLessonViewer(catalog: Catalog, graphics: GraphicsSettings, modelId: string | readonly string[], onPick?: (id: string) => void, frame?: HTMLElement | RefObject<HTMLElement | null>,
-  onEditVisibility?: (hiddenIds: string[]) => void, allowSeparation = true, animateInitialReconstruction = true, background = false) {
+  onEditVisibility?: (hiddenIds: string[]) => void, allowSeparation = true, animateInitialReconstruction = true, background = false, onCameraChange?: () => void) {
   const host = useRef<HTMLDivElement>(null);
   const orientation = useRef<OrientationAxesHandle>(null);
   const runtime = useRef<ViewerRuntime | null>(null);
@@ -19,6 +19,7 @@ export function useLessonViewer(catalog: Catalog, graphics: GraphicsSettings, mo
   const [snapTarget, setSnapTarget] = useState("");
   const modelKey = typeof modelId === "string" ? modelId : modelId.join(",");
   const canSelect = useEffectEvent(() => allowSeparation);
+  const cameraChanged = useEffectEvent(() => onCameraChange?.());
   const sessionKey = modelKey;
   const session = useMemo(() => new StudySession(catalog), [catalog, sessionKey]);
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
@@ -37,6 +38,7 @@ export function useLessonViewer(catalog: Catalog, graphics: GraphicsSettings, mo
       viewport: () => viewportFrame ? viewportInFrame(canvasHost, viewportFrame) : [0.04, 0.04, 0.92, 0.92],
       viewportElement: viewportFrame ?? undefined,
       onState: session.updateViewer,
+      onCameraChange: cameraChanged,
       onPick: id => { session.pick(id); onPick?.(id); },
       onHide: ids => hide(ids),
       onHold: setHold,
