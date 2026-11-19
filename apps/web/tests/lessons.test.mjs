@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { LessonPackage } from './lesson-wasm.fixture.mjs';
-import { lessonLanguageTag, lessonMode, lessonQuestions, updateLessonQuestions, lessonPreviewIssues, lessonSceneStep, lessonText, readLesson, validateLessonTargets } from '../src/lessons/shared/contract.ts';
+import { lessonLanguageTag, lessonMode, updateLessonQuestions, lessonPreviewIssues, lessonSceneStep, lessonText, readLesson, validateLessonTargets } from '../src/lessons/shared/contract.ts';
 import { lessonModels } from '../src/lessons/shared/targets.ts';
 
 const text = en => ({ vi: '', en });
 const draft = { id: 'lesson-test', version: 1, title: text(''), summary: text(''), modelId: '', steps: [] };
 
-test('multiple questions validate active modes and preserve inactive drafts and legacy answers', () => {
+test('multiple questions validate active modes and preserve inactive drafts', () => {
   const question = { id: 'question-one', prompt: text('Which part?'), choices: [
     { id: 'a', text: text('First') }, { id: 'b', text: text('Second') },
   ], answerId: 'b', explanation: text('Because it is second.') };
@@ -31,16 +31,9 @@ test('multiple questions validate active modes and preserve inactive drafts and 
   assert.throws(() => readLesson({ ...lesson, steps: [{ ...step, mode: 'content_questions' }] }), /instructions/);
   const inactive = { ...step, mode: 'content', instruction: text('Read'), questions: [{ ...question, prompt: text(''), choices: [], answerId: '' }] };
   assert.deepEqual(readLesson({ ...lesson, steps: [inactive] }).steps[0], inactive);
-  const legacy = { ...step, kind: 'identify_structure', mode: undefined, questions: undefined, targetId: 'scene',
-    choiceIds: ['a', 'b'], answerId: 'b', explanation: question.explanation };
-  assert.equal(lessonMode(legacy), 'content_questions');
-  const adapted = lessonQuestions(legacy, id => text(id));
-  assert.equal(adapted[0].answerId, 'b');
-  assert.deepEqual(adapted[0].choices.map(choice => choice.id), legacy.choiceIds);
-  const converted = updateLessonQuestions(legacy, 'content', adapted);
-  assert.equal(converted.kind, 'observe');
-  assert.deepEqual(updateLessonQuestions(converted, 'questions', adapted).questions, adapted);
-  assert.equal(converted.targetId, legacy.targetId);
+  assert.equal(lessonMode(inactive), 'content');
+  assert.deepEqual(updateLessonQuestions(inactive, 'questions', [question]).questions, [question]);
+
 });
 
 test('lesson models include every system needed by setup and authored scenes without duplicating shared parts', () => {
@@ -51,6 +44,7 @@ test('lesson models include every system needed by setup and authored scenes wit
   assert.deepEqual(lessonModels(catalog, { ...lesson, steps: [{ kind: 'observe', targetId: 'joints', visibleIds: ['joint'] }] }), ['bones', 'muscles', 'joints']);
   assert.deepEqual(lessonModels(catalog, { ...lesson, scene: { targetId: 'bones', visibleIds: [] } }), ['bones']);
   assert.deepEqual(lessonModels(catalog, { ...lesson, modelIds: ['bones', 'joints'] }), ['bones', 'joints', 'muscles']);
+  assert.deepEqual(lessonModels(catalog, { ...lesson, preloadModelIds: ['joints', 'bones'] }), ['joints', 'bones', 'muscles']);
   assert.deepEqual(lessonModels(catalog, { ...lesson, modelId: '', modelIds: [], scene: undefined }), []);
   assert.deepEqual(lessonModels(catalog, draft), []);
 });
@@ -106,7 +100,7 @@ test('reading sections inherit the preceding scene with a stable initial fallbac
   const intro = { id: 'intro', kind: 'text' };
   const skull = { id: 'skull', kind: 'observe', targetId: 'skull', visibleIds: ['1', '2'] };
   const notes = { id: 'notes', kind: 'text' };
-  const quiz = { id: 'quiz', kind: 'identify_structure', targetId: 'jaw' };
+  const quiz = { id: 'quiz', kind: 'observe', targetId: 'jaw' };
   const summary = { id: 'summary', kind: 'text' };
   const lesson = { ...draft, steps: [intro, skull, notes, quiz, summary] };
   assert.equal(lessonSceneStep(lesson, 0), skull);
@@ -129,7 +123,6 @@ test('step visibility hides only the requested scene and retains its authored da
   assert.doesNotThrow(() => readLesson(textOnly));
   assert.doesNotThrow(() => validateLessonTargets(textOnly, [], () => []));
   for (const showModel of [null, 'false', 0]) assert.throws(() => readLesson({ ...lesson, steps: [{ ...scene, showModel }] }, true));
-  assert.throws(() => readLesson({ ...lesson, steps: [{ ...hidden, kind: 'identify_structure', choiceIds: [], answerId: '', explanation: text('') }] }, true));
 });
 
 test('cover paths are validated independently of the plain summary', () => {
@@ -144,7 +137,7 @@ test('draft preview identifies unfinished sections without changing content or e
   const lesson = { ...draft, title: text('Draft'), steps: [
     { id: 'read', kind: 'text', title: text('Read'), instruction: text('Notes') },
     { id: 'observe', kind: 'observe', title: text(''), instruction: text(''), targetId: '' },
-    { id: 'quiz', kind: 'identify_structure', title: text('Quiz'), instruction: text('Pick'), targetId: '', choiceIds: [], answerId: '', explanation: text('') },
+    { id: 'quiz', kind: 'observe', title: text('Quiz'), instruction: text('Pick'), targetId: '' },
   ] };
   const original = structuredClone(lesson);
   const issues = lessonPreviewIssues(lesson, [], () => []);
@@ -170,21 +163,7 @@ test('draft validation preserves unfinished lessons while complete validation re
 
 });
 
-test('an exercise must have distinct selectable structures inside its visible target', () => {
-  const lesson = {
-    ...draft, title: text('Practice'), modelId: 'model',
-    steps: [{ id: 'identify', kind: 'identify_structure', title: text('Identify'), instruction: text('Pick a part.'),
-      targetId: 'scene', answerId: 'a', choiceIds: ['a', 'b'], explanation: text('') }],
-  };
-  assert.deepEqual(readLesson(lesson), lesson);
-  const members = { model: ['1', '2'], scene: ['1', '2'], a: ['1'], b: ['2'] };
-  const catalogMembers = id => members[id] ?? [];
-  validateLessonTargets(lesson, ['1', '2'], catalogMembers);
-  assert.throws(() => validateLessonTargets(lesson, ['1'], catalogMembers), /unavailable structure/);
-  assert.throws(() => validateLessonTargets(lesson, ['1', '2'], id => id === 'b' ? ['1'] : catalogMembers(id)), /cannot overlap/);
-});
-
-test('custom scenes persist exact model members and bound exercise choices', () => {
+test('custom scenes persist exact model members', () => {
   const lesson = {
     ...draft, title: text('Custom skull'), modelId: 'model',
     steps: [{ id: 'observe', kind: 'observe', title: text('Head'), instruction: text('Explore.'),
@@ -203,10 +182,7 @@ test('custom scenes persist exact model members and bound exercise choices', () 
     assert.deepEqual(readLesson(value, true), value);
     assert.throws(() => validate(value), /unavailable structure/);
   }
-  const exercise = { ...lesson, steps: [{ ...lesson.steps[0], kind: 'identify_structure',
-    choiceIds: ['a', 'b'], answerId: 'b', explanation: text('') }] };
-  validate(readLesson(exercise));
-  assert.throws(() => validate({ ...exercise, steps: [{ ...exercise.steps[0], visibleIds: ['1', '2'] }] }), /cannot overlap/);
+
 });
 
 test('lesson language tag identifies single and bilingual configurations', () => {

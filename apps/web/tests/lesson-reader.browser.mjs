@@ -13,8 +13,9 @@ export async function checkLessonReader(page) {
       { ...content, id: 'reading', kind: 'text', title: text('Đọc về thân não') },
       { ...content, id: 'pons', kind: 'observe', title: text('Quan sát cầu não'), targetId: pons },
       { ...content, id: 'details', kind: 'text', title: text('Đọc về cầu não') },
-      { ...content, id: 'quiz', kind: 'identify_structure', title: text('Nhận diện'), targetId: brainstem, choiceIds: [pons, 'collection:a6f4bb7246cd6e74'],
-        answerId: pons, explanation: text('Đã chọn đúng cấu trúc.') },
+      { ...content, id: 'quiz', kind: 'observe', title: text('Nhận diện'), targetId: brainstem, mode: 'content_questions',
+        questions: [{ id: 'identify-pons', prompt: text('Hãy nhận diện cầu não'), answerId: 'pons',
+          explanation: text('Đã chọn đúng cấu trúc.'), choices: [{ id: 'pons', text: text('Cầu não') }, { id: 'medulla', text: text('Hành não') }] }] },
       { ...content, id: 'summary', kind: 'text', title: text('Tổng kết') },
     ],
   };
@@ -78,7 +79,7 @@ export async function checkLessonReader(page) {
   assert(await canvasUnchanged());
   assert.deepEqual(await page.evaluate(id => JSON.parse(localStorage.getItem('soma.lesson:' + id)), lesson.id), lesson);
 
-  const unfinished = { ...lesson, id: 'unfinished-reader-check', steps: [{ ...lesson.steps[5], choiceIds: [], answerId: '' }, lesson.steps[6]] };
+  const unfinished = { ...lesson, id: 'unfinished-reader-check', steps: [{ ...lesson.steps[5], questions: [{ ...lesson.steps[5].questions[0], choices: [], answerId: '' }] }, lesson.steps[6]] };
   await page.evaluate(value => localStorage.setItem('soma.lesson:' + value.id, JSON.stringify(value)), unfinished);
   await page.goto('/lessons/' + unfinished.id + '/edit');
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();

@@ -11,14 +11,9 @@ export type LessonQuestion = {
   explanation: LessonText;
 };
 
-type StepContent = { id: string; title: LessonText; instruction: LessonText; showModel?: boolean; mode?: LessonMode; questions?: LessonQuestion[] };
+type StepContent = { id: string; title: LessonText; instruction: LessonText; showModel?: boolean; mode?: LessonMode; questions?: LessonQuestion[]; sceneRef?: string; questionRef?: string };
 export type LessonScene = { modelIds?: string[]; targetId: string; visibleIds?: string[]; view?: SceneView };
-export type LessonStep = StepContent & ({ kind: "text" } | LessonScene & { kind: "observe" } | LessonScene & {
-  kind: "identify_structure";
-  choiceIds: string[];
-  answerId: string;
-  explanation: LessonText;
-});
+export type LessonStep = StepContent & ({ kind: "text" } | LessonScene & { kind: "observe" });
 export type LessonCoverCrop = { zoom: number; x: number; y: number };
 export type Lesson = {
   id: string;
@@ -30,12 +25,14 @@ export type Lesson = {
   coverCrop?: LessonCoverCrop;
   modelId: string;
   modelIds?: string[];
+  preloadModelIds?: string[];
   scene?: LessonScene;
+  sceneRef?: string;
   steps: LessonStep[];
   languages?: ("vi" | "en")[];
 };
 
-type ValidationReason = "details" | "stepText" | "target" | "choices" | "scope" | "overlap";
+type ValidationReason = "details" | "stepText" | "target" | "choices" | "scope";
 export class LessonValidationError extends Error {
   readonly reason: ValidationReason;
   readonly step: number;
@@ -67,19 +64,11 @@ export function lessonLanguageTag(lesson: Lesson): "vi" | "en" | "vi/en" {
 }
 
 export function lessonMode(step: LessonStep): LessonMode {
-  return step.mode ?? (step.kind === "identify_structure" || step.questions?.length ? "content_questions" : "content");
-}
-
-export function lessonQuestions(step: LessonStep, names: (id: string) => { vi: string; en: string } | undefined): LessonQuestion[] {
-  if (step.questions) return step.questions;
-  return step.kind === "identify_structure" ? [{ id: step.id, prompt: step.title, answerId: step.answerId,
-    explanation: step.explanation, choices: step.choiceIds.map(id => ({ id, text: names(id) ?? { vi: id, en: id } })) }] : [];
+  return step.mode ?? (step.questions?.length ? "content_questions" : "content");
 }
 
 export function updateLessonQuestions(step: LessonStep, mode: LessonMode, questions: LessonQuestion[]): LessonStep {
-  if (step.kind !== "identify_structure") return { ...step, mode, questions };
-  const { choiceIds, answerId, explanation, ...base } = step;
-  return { ...base, kind: "observe", mode, questions };
+  return { ...step, mode, questions, questionRef: undefined };
 }
 
 export function lessonSceneStep(lesson: Lesson, index: number) {
@@ -104,8 +93,7 @@ export function readLesson(value: unknown, draft = false): Lesson {
 
 function membership(lesson: Lesson, members: (id: string) => readonly string[]) {
   const ids = new Set([
-    ...lesson.steps.flatMap(step => step.kind === "text" ? [] : [step.targetId,
-      ...(step.modelIds ?? []), ...(step.kind === "identify_structure" ? step.choiceIds : [])]),
+    ...lesson.steps.flatMap(step => step.kind === "text" ? [] : [step.targetId, ...(step.modelIds ?? [])]),
     ...(lesson.scene?.modelIds ?? []), ...(lesson.modelIds ?? []), lesson.modelId,
   ]);
   return Object.fromEntries([...ids].map(id => [id, members(id)]));

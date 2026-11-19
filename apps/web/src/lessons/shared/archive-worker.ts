@@ -14,7 +14,8 @@ self.onmessage = async ({ data }: MessageEvent<LessonJob>) => {
       result = { image: bytes === data.bytes ? original : lesson_image_info(bytes), bytes };
     } else if (data.operation === "open") {
       pack = LessonPackage.open(data.name, data.bytes);
-      result = { json: pack.lesson_json(), images: (pack.image_paths() as string[]).map(path => [path, pack!.image_bytes(path) as Uint8Array<ArrayBuffer>, pack!.image_mime(path)]) };
+      result = { json: pack.lesson_json(), preloadModelIds: pack.preload_model_ids(),
+        images: (pack.image_paths() as string[]).map(path => [path, pack!.image_bytes(path) as Uint8Array<ArrayBuffer>, pack!.image_mime(path)]) };
     } else if (data.operation === "deduplicate") {
       const canonical = new Map<string, string>();
       for (const [path, bytes] of data.existing) canonical.set(lesson_image_fingerprint(bytes), path);
@@ -29,7 +30,7 @@ self.onmessage = async ({ data }: MessageEvent<LessonJob>) => {
     } else {
       pack = new LessonPackage(data.json);
       for (const [path, bytes] of data.images) pack.add_image(path, bytes);
-      result = { bytes: pack.export() as Uint8Array<ArrayBuffer>, name: pack.file_name(data.language) };
+      result = { bytes: pack.export(data.modelIds) as Uint8Array<ArrayBuffer>, name: pack.file_name(data.language) };
     }
     const buffers = [...(result.bytes ? [result.bytes.buffer] : []), ...(result.images?.map(([, bytes]) => bytes.buffer) ?? [])];
     self.postMessage({ result }, { transfer: buffers });

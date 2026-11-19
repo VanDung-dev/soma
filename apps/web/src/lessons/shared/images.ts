@@ -161,10 +161,10 @@ export async function removeLessonImages(id: string, canRemove: () => boolean) {
   } finally { db.close(); }
 }
 
-export async function retainLessonImages(id: string, paths: ReadonlySet<string>, expected?: Lesson) {
-  if (isTauri()) return invoke<void>("retain_lesson_images", { id, keep: [...paths], expected: expected ? JSON.stringify(expected) : null });
+export async function retainLessonImages(id: string, paths: ReadonlySet<string>, expected?: Lesson | string) {
+  const expectedJson = typeof expected === "string" ? expected : expected ? JSON.stringify(expected) : null;
+  if (isTauri()) return invoke<void>("retain_lesson_images", { id, keep: [...paths], expected: expectedJson });
   const key = `soma.lesson:${id}`;
-  const expectedJson = expected ? JSON.stringify(expected) : null;
   const db = await database();
   try {
     await new Promise<void>((resolve, reject) => {

@@ -1,6 +1,6 @@
 export type LessonJob =
   | { operation: "open"; name: string; bytes: Uint8Array<ArrayBuffer> }
-  | { operation: "export"; json: string; language: string; images: [string, Uint8Array<ArrayBuffer>][] }
+  | { operation: "export"; json: string; language: string; modelIds: string[]; images: [string, Uint8Array<ArrayBuffer>][] }
   | { operation: "deduplicate"; incoming: [string, Uint8Array<ArrayBuffer>][]; existing: [string, Uint8Array<ArrayBuffer>][] }
   | { operation: "image"; bytes: Uint8Array<ArrayBuffer> };
 
@@ -8,6 +8,7 @@ export type LessonResult = {
   json?: string;
   bytes?: Uint8Array<ArrayBuffer>;
   name?: string;
+  preloadModelIds?: string[];
   images?: [string, Uint8Array<ArrayBuffer>, string][];
   aliases?: [string, string][];
   image?: { path: string; mime: string };

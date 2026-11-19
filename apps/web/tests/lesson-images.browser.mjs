@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { brotliCompressSync, brotliDecompressSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
-import { packLessonTar, unpackLessonTar } from './lesson-package.fixture.mjs';
-import { lessonBody } from './lesson-editor-tools.mjs';
+import { packLessonTar, readLessonMetadata, unpackLessonTar } from './lesson-package.fixture.mjs';
+import { lessonBody, savedLesson } from './lesson-editor-tools.mjs';
 
 export async function checkLessonImages(page) {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -14,7 +14,7 @@ export async function checkLessonImages(page) {
   await page.getByLabel('Tên mục').fill('Quan sát ảnh');
   await lessonBody(page).fill('Hình minh họa được lưu cùng bài học.');
   const id = new URL(page.url()).pathname.split('/')[2];
-  const saved = () => page.evaluate(id => JSON.parse(localStorage.getItem('soma.lesson:' + id)), id);
+  const saved = () => savedLesson(page, id);
   const image = await readFile(new URL('../public/home/anatomy.png', import.meta.url));
   const insert = async upload => {
     await lessonBody(page).press('ControlOrMeta+End');
@@ -96,8 +96,8 @@ export async function checkLessonImages(page) {
   const tar = brotliDecompressSync(compressed);
   const files = unpackLessonTar(tar);
   assert.deepEqual(Buffer.from(files.get(path)), storedImage);
-  assert.deepEqual(JSON.parse(new TextDecoder().decode(files.get('lesson.json'))), original);
-  assert.deepEqual(JSON.parse(new TextDecoder().decode(files.get('manifest.json'))), { format: 'soma-lesson', version: 1 });
+  assert.deepEqual(readLessonMetadata(files), original);
+  assert.deepEqual(JSON.parse(new TextDecoder().decode(files.get('manifest.json'))), { format: 'soma-lesson', version: 6 });
   assert.equal([...files.keys()].filter(path => path.startsWith('images/')).length, 3);
   if (process.env.SOMA_PACKAGE_ARTIFACT) await writeFile(process.env.SOMA_PACKAGE_ARTIFACT, compressed);
   await page.getByRole('button', { name: 'Danh sách bài học', exact: true }).click();

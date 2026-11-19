@@ -3,7 +3,7 @@ import type { Catalog } from "../../anatomy/catalog/types";
 import { translateMessage, useLanguage } from "../../i18n";
 import type { Language } from "../../i18n";
 import { LineIcon } from "../../icons";
-import { LessonValidationError, lessonMode, lessonQuestions, lessonSceneStep, lessonText, readLesson, updateLessonQuestions } from "../shared/contract";
+import { LessonValidationError, lessonMode, lessonSceneStep, lessonText, readLesson, updateLessonQuestions } from "../shared/contract";
 import type { Lesson, LessonScene, LessonStep, LessonText } from "../shared/contract";
 import { EditorScene } from "./editor-scene";
 import type { EditorSceneHandle } from "./editor-scene";
@@ -99,8 +99,10 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
     setError("");
     setSaveNotice("");
     setDraftDirty(true);
-    setDraft(next);
-    onDraftChange?.(next);
+    const edited = { ...next, preloadModelIds: undefined };
+    setDraft(edited);
+    onDraftChange?.(edited);
+    return edited;
   }
 
   function resetScene() {
@@ -110,7 +112,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
     const savedStep = saved.steps[savedIndex];
     const savedScene = savedStep?.kind === "text" ? lessonSceneStep(saved, savedIndex) : savedStep;
     const baseline = savedStep ? savedScene ?? saved.scene : undefined;
-    const next = { ...draft, steps: draft.steps.map(step => step.id === active.id
+    const next = { ...draft, preloadModelIds: undefined, steps: draft.steps.map(step => step.id === active.id
       ? restoreSavedScene(step, baseline, savedStep ? lessonSceneModels(catalog, saved, baseline) : []) : step) };
     setDraft(next);
     onDraftChange?.(next);
@@ -123,26 +125,24 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
   }
 
   function updateDraft(patch: Partial<Lesson>) {
-    const next = { ...draft, ...patch };
-    stage(next);
-    return next;
+    return stage({ ...draft, ...patch });
   }
 
   function captureSceneDraft(): Lesson | undefined {
     if (!sceneDirty || !showModel || !hasModel) return draft;
     const snapshot = sceneHandle.current?.capture();
     if (!snapshot) { setError(t("lessons.sceneSaveUnavailable")); return; }
-    const patch = { modelIds, targetId: sceneTargetId, visibleIds: snapshot.visibleIds, view: snapshot.view };
-    if (!active) return { ...draft, scene: patch };
+    const patch = { modelIds, targetId: sceneTargetId, visibleIds: snapshot.visibleIds, view: snapshot.view, sceneRef: undefined };
+    if (!active) return { ...draft, scene: patch, sceneRef: undefined };
     return { ...draft, steps: draft.steps.map(step => step.id === active.id
-      ? (step.kind === "identify_structure" ? { ...step, ...patch } : { ...step, kind: "observe", ...patch })
+      ? { ...step, kind: "observe", ...patch }
       : step) };
   }
 
   function stageSceneDraft() {
-    const next = captureSceneDraft();
+    let next = captureSceneDraft();
     if (next && sceneDirty) {
-      if (next !== draft) stage(next);
+      if (next !== draft) next = stage(next);
       setSceneDirty(false);
     }
     return next;
@@ -171,18 +171,16 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
       setSceneDirty(false);
     }
     const next = { ...draft, steps: draft.steps.map(step => step.id === value.id ? nextValue : step) };
-    stage(next);
-    return next;
+    return stage(next);
   }
 
   function updateScene(visibleIds: string[], view: SceneView | undefined = scene?.view) {
     const live = sceneDirty ? sceneHandle.current?.capture() : undefined;
     if (sceneDirty && !live) { setError(t("lessons.sceneSaveUnavailable")); return; }
-    const patch = { modelIds, targetId: sceneTargetId, visibleIds, view: live?.view ?? view };
+    const patch = { modelIds, targetId: sceneTargetId, visibleIds, view: live?.view ?? view, sceneRef: undefined };
     setSceneDirty(false);
     if (!active) return updateDraft({ scene: patch });
-    return updateActive(active.kind === "identify_structure" ? { ...active, ...patch }
-      : { ...active, kind: "observe", ...patch });
+    return updateActive({ ...active, kind: "observe", ...patch });
   }
 
   function reloadModel() {
@@ -204,10 +202,10 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
       targetId: previewScene.targetId,
       visibleIds: previewScene.visibleIds,
       view: live?.view ?? previewScene.view,
+      sceneRef: undefined,
     };
     setSceneDirty(false);
-    updateActive(active.kind === "identify_structure" ? { ...active, ...patch }
-      : { ...active, kind: "observe", ...patch });
+    updateActive({ ...active, kind: "observe", ...patch });
     return true;
   }
 
@@ -260,12 +258,11 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
     const targetId = scene && newModelIds.some(id => lessonTargets(catalog, id).some(target => target.id === scene.targetId))
       ? scene.targetId : rootsForIds[0] ?? newModelIds[0] ?? "";
     if (!targetId) { setError(t("lessons.targetError")); return; }
-    const patch = { modelIds: newModelIds, targetId,
+    const patch = { modelIds: newModelIds, targetId, sceneRef: undefined,
       view: live?.view ?? scene?.view,
       visibleIds: [...new Set([...(live?.visibleIds ?? scene?.visibleIds ?? catalog.members(targetId)), ...ids])] };
     setSceneDirty(false);
-    updateActive(active.kind === "identify_structure" ? { ...active, ...patch }
-      : { ...active, kind: "observe", ...patch });
+    updateActive({ ...active, kind: "observe", ...patch });
   }
 
   function select(id?: string) {
@@ -300,9 +297,9 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
       targetId: source.targetId,
       visibleIds: [...(source.visibleIds ?? catalog.members(source.targetId))],
       view: source.view && structuredClone(source.view),
+      sceneRef: undefined,
     };
-    updateActive(active.kind === "identify_structure" ? { ...active, ...patch }
-      : { ...active, kind: "observe", ...patch });
+    updateActive({ ...active, kind: "observe", ...patch });
   }
 
   async function save() {
@@ -312,18 +309,19 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
     if (showModel && hasModel) {
       const snapshot = sceneHandle.current?.capture();
       if (!snapshot) { setError(t("lessons.sceneSaveUnavailable")); return; }
-      const patch = { modelIds, targetId: sceneTargetId, visibleIds: snapshot.visibleIds, view: snapshot.view };
+      const patch = { modelIds, targetId: sceneTargetId, visibleIds: snapshot.visibleIds, view: snapshot.view, sceneRef: undefined };
       if (!active) {
-        nextDraft = { ...draft, scene: patch };
+        nextDraft = { ...draft, scene: patch, sceneRef: undefined };
       } else {
         nextDraft = {
           ...draft,
           steps: draft.steps.map(step => step.id === active.id
-            ? (step.kind === "identify_structure" ? { ...step, ...patch } : { ...step, kind: "observe", ...patch })
+            ? { ...step, kind: "observe", ...patch }
             : step),
         };
       }
     }
+    if (nextDraft !== draft) nextDraft = { ...nextDraft, preloadModelIds: undefined };
     const success = await onChange(nextDraft);
     if (success && editRevision.current === revision) {
       setDraft(nextDraft);
@@ -373,7 +371,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
       if (!current) return;
       readLesson(current, true);
       setError("");
-      await exportLesson(current, language);
+      await exportLesson(current, language, catalog);
     } catch (cause) {
       if (cause instanceof LessonValidationError) {
         select(cause.step ? draft.steps[cause.step - 1]?.id : undefined);
@@ -483,9 +481,10 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
     <p className="sr-only" role="status">{orderStatus}</p>
 
     <div className="lesson-author-center" data-step={!!active} data-model={showModel}>
-      {(saveFailed || error) && <div className="lesson-author-alerts">
+      {(saveFailed || error || (active ? active.sceneRef : draft.sceneRef)) && <div className="lesson-author-alerts">
         {saveFailed && <p className="model-status model-error" role="alert">{t("lessons.saveError")}</p>}
         {error && <p className="model-status model-error" role="alert">{error}</p>}
+        {(active ? active.sceneRef : draft.sceneRef) && <p className="model-status model-error" role="status">{t("lessons.sceneFileUnavailable")}</p>}
       </div>}
       <div className="lesson-scene-region lesson-model" hidden={!showModel} inert={!showModel} aria-hidden={!showModel}>
         <div className="lesson-scene-viewport" ref={setSceneFrame}>
@@ -535,13 +534,14 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
                 else updateDraft({ summary: value });
               }} />
           </Suspense> : !active && <LessonDetails lesson={draft} language={editorLanguage} onChange={updateDraft} />}
+          {active?.questionRef && <p className="model-status model-error" role="status">{t("lessons.questionFileUnavailable")}</p>}
           {active && lessonMode(active) !== "content" && <LessonQuestionEditor
-            questions={lessonQuestions(active, id => catalog.target(id)?.names)} locale={editorLanguage}
+            questions={active.questions ?? []} locale={editorLanguage}
             onChange={questions => updateActive(updateLessonQuestions(active, lessonMode(active), questions))} />}
           {!active && !draft.steps.length && <p className="lesson-document-hint">{t("lessons.firstBlock")}</p>}
         </div>
         {active && <div className="lesson-management">
-          <LessonStepOptions catalog={catalog} active={active} onChange={updateActive} />
+          <LessonStepOptions active={active} onChange={updateActive} />
           <button type="button" className="lesson-button lesson-remove-block" onClick={remove}>{t("lessons.removeStep")}</button>
         </div>}
       </section>

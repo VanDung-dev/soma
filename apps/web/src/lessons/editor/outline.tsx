@@ -119,7 +119,7 @@ export function LessonOutline({ steps, selected, onSelect, onMove, onRemove }: {
           <button className="lesson-outline-row" aria-current={step.id === selected ? "true" : undefined}
             aria-keyshortcuts={step.id === selected ? "Delete Backspace" : undefined} onClick={() => onSelect(step.id)}>
             <span className="lesson-block-icon" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
-            <span><strong>{name}</strong>{step.kind === "identify_structure" && <small>{t("lessons.kind.identify")}</small>}</span>
+            <span><strong>{name}</strong></span>
           </button>
         </li>;
       })}
@@ -131,7 +131,7 @@ export function LessonOutline({ steps, selected, onSelect, onMove, onRemove }: {
       <div className="lesson-outline-row">
         <span className="lesson-block-icon">{String(drag.from + 1).padStart(2, "0")}</span>
         <span><strong>{lessonText(draggedStep.title, language) || t("lessons.untitledSection")}</strong>
-          {draggedStep.kind === "identify_structure" && <small>{t("lessons.kind.identify")}</small>}</span>
+          </span>
       </div>
     </div>, document.body)}
     <p className="sr-only" role="status">{drag ? t("lessons.dragPosition", { position: drag.to + 1, total: steps.length }) : ""}</p>

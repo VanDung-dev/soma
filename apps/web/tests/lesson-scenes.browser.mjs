@@ -1,4 +1,4 @@
-import { lessonBody, selectLessonModel } from './lesson-editor-tools.mjs';
+import { lessonBody, savedLesson, selectLessonModel } from './lesson-editor-tools.mjs';
 import assert from 'node:assert/strict';
 
 export async function checkLessonScenes(page) {
@@ -8,7 +8,7 @@ export async function checkLessonScenes(page) {
   await page.getByRole('button', { name: 'Tạo bài học', exact: true }).click();
   await page.getByLabel('Tên bài học').fill('Bài học cảnh 3D');
   const url = page.url();
-  const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:' + location.pathname.split('/')[2])));
+  const saved = () => savedLesson(page);
   const add = async (title, instruction) => {
     assert.equal(await page.getByRole('button', { name: 'Quan sát 3D', exact: true }).count(), 0);
     await page.locator('#lesson-author-writing').getByRole('button', { name: 'Thêm bước học', exact: true }).click();

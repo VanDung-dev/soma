@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { checkLessonResetFocus } from './lesson-background-stability.browser.mjs';
-import { selectLessonModel } from './lesson-editor-tools.mjs';
+import { savedLesson, selectLessonModel } from './lesson-editor-tools.mjs';
 
 export async function checkLessonBackground(page) {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -89,7 +89,7 @@ export async function checkLessonBackground(page) {
     await page.locator('.orientation-axes [data-axis="Y"][data-direction="1"] .orientation-hit-target').click();
     await page.getByRole('button', { name: 'Lưu bài học', exact: true }).click();
     await page.getByRole('button', { name: 'Đã lưu', exact: true }).waitFor();
-    const authored = await page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:' + location.pathname.split('/')[2])).steps[0].view);
+    const authored = (await savedLesson(page)).steps[0].view;
     await details();
     await step();
     await page.waitForFunction(view => {

@@ -407,7 +407,7 @@ dialog.lesson-cover-modal:not([open]) {
   .lesson-model-tools-row .explode-control input { width: 0; min-width: 0; }
 }
 .lesson-author-center > :is(.lesson-author-document, .lesson-model-settings) { grid-column: 2; grid-row: 1; width: min(100%, var(--lesson-document-width)); justify-self: center; min-width: 0; min-height: 0; padding: var(--panel-padding); pointer-events: auto; }
-.lesson-author-document { display: flex; flex-direction: column; overflow: hidden; }
+.lesson-author-document { display: flex; flex-direction: column; overflow: hidden; isolation: isolate; }
 .lesson-author-document > .information-content { gap: 8px; }
 .lesson-writing-language { flex-shrink: 0; margin: 0 0 8px; text-align: center; color: var(--muted); font-size: 12px; }
 .lesson-writing-language strong { color: var(--accent); }

@@ -71,12 +71,124 @@ fn current_lesson(path: &Path) -> io::Result<Option<String>> {
                     path.display()
                 );
             }
+            let mut sections = content::lessons::Files::new();
+            for name in content::lessons::lesson_table_paths(&lesson) {
+                if let Ok(bytes) = read_file(
+                    &path.parent().unwrap_or(path).join(name),
+                    content::lessons::DRAFT_TABLE_LIMIT,
+                ) {
+                    sections.insert(name.into(), bytes);
+                }
+            }
+            let missing = content::lessons::hydrate_lesson_tables(&mut lesson, sections)
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+            if !missing.is_empty() {
+                eprintln!(
+                    "Could not read lesson section files in {}: {missing:?}",
+                    path.display()
+                );
+            }
             serde_json::to_string(&lesson)
                 .map(Some)
                 .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
         }
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(error) => Err(error),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::{Value, json};
+
+    #[test]
+    fn saved_lesson_recovers_scene_and_question_files_independently() {
+        let directory = tempfile::tempdir().unwrap();
+        let title = json!({"vi":"Cảnh 3D","en":""});
+        let mut lesson = json!({"id":"scene-recovery","version":1,"title":title,"summary":title,"modelId":"",
+        "steps":[
+            {"id":"first","kind":"observe","title":title,"instruction":title,"targetId":"bones","modelIds":["bones"]},
+            {"id":"second","kind":"observe","title":title,"instruction":title,"targetId":"muscles","modelIds":["muscles"]}
+        ]});
+        let question = json!({"id":"quiz","prompt":title,"explanation":title,"answerId":"a",
+            "choices":[{"id":"a","text":title},{"id":"b","text":title}]});
+        lesson["steps"][0]["questions"] = json!([question]);
+        lesson["steps"][1]["questions"] = json!([question]);
+        let (mut files, _) =
+            content::lessons::externalize_lesson_tables(&mut lesson, None).unwrap();
+        let path = directory.path().join("lesson.json");
+        write_file(&path, lesson.to_string().as_bytes()).unwrap();
+        for (name, lost_section) in [("scenes.jsonl", "first"), ("questions.jsonl", "second")] {
+            let bytes = files.get_mut(name).unwrap();
+            let kept = std::str::from_utf8(bytes)
+                .unwrap()
+                .lines()
+                .filter(|line| {
+                    serde_json::from_str::<Value>(line).unwrap()["section"] != lost_section
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            *bytes = kept.into_bytes();
+        }
+        for (name, bytes) in files {
+            write_file(&directory.path().join(name), &bytes).unwrap();
+        }
+        let first = &lesson["steps"][0]["sceneRef"];
+        let second = &lesson["steps"][1]["questionRef"];
+        let restored: Value =
+            serde_json::from_str(&current_lesson(&path).unwrap().unwrap()).unwrap();
+        assert_eq!(&restored["steps"][0]["sceneRef"], first);
+        assert_eq!(restored["steps"][0]["instruction"], title);
+        assert_eq!(restored["steps"][0]["questions"], json!([question]));
+        assert_eq!(restored["steps"][1]["targetId"], "muscles");
+        assert!(restored["steps"][1].get("sceneRef").is_none());
+        assert_eq!(&restored["steps"][1]["questionRef"], second);
+        assert!(lesson::validate(&restored, false).is_ok());
+    }
+
+    #[test]
+    fn draft_tables_keep_previous_rows_until_metadata_is_committed() {
+        let directory = tempfile::tempdir().unwrap();
+        let dir = directory.path();
+        let path = dir.join("lesson.json");
+        let text = json!({"vi":"Kiểm tra","en":""});
+        let old = json!({"id":"table-save","version":1,"title":text,"summary":text,"modelId":"",
+            "steps":[{"id":"part","kind":"observe","title":text,"instruction":text,
+                "targetId":"bones","modelIds":["bones"],"questions":[]}]});
+        let mut metadata = old.clone();
+        let (tables, retained) =
+            content::lessons::externalize_lesson_tables(&mut metadata, None).unwrap();
+        stage_lesson_tables(dir, &tables, retained).unwrap();
+        write_file(&path, metadata.to_string().as_bytes()).unwrap();
+        let read =
+            || serde_json::from_str::<Value>(&current_lesson(&path).unwrap().unwrap()).unwrap();
+        assert_eq!(read(), old);
+
+        let mut next = old.clone();
+        next["steps"][0]["visibleIds"] = json!(["jaw"]);
+        next["steps"][0]["questions"] = json!([{"id":"quiz","prompt":text,"explanation":text,
+            "answerId":"a","choices":[{"id":"a","text":text},{"id":"b","text":text}]}]);
+        let mut metadata = next.clone();
+        let (tables, retained) =
+            content::lessons::externalize_lesson_tables(&mut metadata, Some(&mut old.clone()))
+                .unwrap();
+        let retained_paths = retained.keys().cloned().collect();
+        stage_lesson_tables(dir, &tables, retained).unwrap();
+        assert_eq!(read(), old);
+        write_file(&path, metadata.to_string().as_bytes()).unwrap();
+        assert_eq!(read(), next);
+        compact_lesson_tables(dir, &tables, &retained_paths).unwrap();
+        assert_eq!(read(), next);
+        assert_eq!(
+            read_file(&dir.join("scenes.jsonl"), 4096).unwrap(),
+            tables["scenes.jsonl"]
+        );
+        assert_eq!(
+            read_file(&dir.join("questions.jsonl"), 4096).unwrap(),
+            tables["questions.jsonl"]
+        );
+        assert_eq!(fs::read_dir(dir).unwrap().count(), 3);
     }
 }
 
@@ -91,6 +203,53 @@ fn retain_lesson_content(dir: &Path, keep: &BTreeSet<String>) -> io::Result<()> 
         let path = format!("content/{}", entry.file_name().to_string_lossy());
         if content::lessons::is_content_path(&path) && !keep.contains(&path) {
             fs::remove_file(entry.path())?;
+        }
+    }
+    Ok(())
+}
+
+fn stage_lesson_tables(
+    dir: &Path,
+    tables: &content::lessons::Files,
+    mut retained: content::lessons::Files,
+) -> io::Result<()> {
+    for name in content::lessons::LESSON_TABLE_FILES {
+        let current = tables.get(name).map(Vec::as_slice).unwrap_or_default();
+        let bytes = match retained.remove(name) {
+            Some(mut previous) => {
+                previous.extend_from_slice(current);
+                if previous.len() > content::lessons::DRAFT_TABLE_LIMIT {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "Lesson table exceeds its size limit",
+                    ));
+                }
+                write_file(&dir.join(name), &previous)?;
+                continue;
+            }
+            None => current,
+        };
+        if !bytes.is_empty() {
+            write_file(&dir.join(name), bytes)?;
+        }
+    }
+    Ok(())
+}
+
+fn compact_lesson_tables(
+    dir: &Path,
+    tables: &content::lessons::Files,
+    retained: &BTreeSet<String>,
+) -> io::Result<()> {
+    for name in content::lessons::LESSON_TABLE_FILES {
+        if let Some(bytes) = tables.get(name) {
+            if retained.contains(name) {
+                write_file(&dir.join(name), bytes)?;
+            }
+        } else if let Err(error) = fs::remove_file(dir.join(name))
+            && error.kind() != io::ErrorKind::NotFound
+        {
+            return Err(error);
         }
     }
     Ok(())
@@ -191,9 +350,20 @@ pub async fn save_lesson(
     let paths: HashSet<_> = retained.into_iter().map(|(path, _)| path).collect();
     lesson::validate_resources(&value, &paths)?;
     let mut stored_lesson = value.clone();
+    let mut previous = expected
+        .as_deref()
+        .map(|json| lesson::parse(json, true))
+        .transpose()
+        .map_err(message)?;
+    let (tables, retained) =
+        content::lessons::externalize_lesson_tables(&mut stored_lesson, previous.as_mut())?;
     let contents = content::lessons::externalize_lesson_content(&mut stored_lesson)?;
-    let text_bytes = contents.values().map(Vec::len).sum::<usize>();
-    if image_bytes + text_bytes > catalog::lesson::ARCHIVE_LIMIT - 4 * 1024 * 1024 {
+    let resource_bytes = contents
+        .values()
+        .chain(tables.values())
+        .map(Vec::len)
+        .sum::<usize>();
+    if image_bytes + resource_bytes > catalog::lesson::ARCHIVE_LIMIT - 4 * 1024 * 1024 {
         return Err("Lesson resources exceed 60 MiB".into());
     }
     let stored_json = serde_json::to_vec(&stored_lesson).map_err(message)?;
@@ -203,7 +373,12 @@ pub async fn save_lesson(
     for (content_path, bytes) in &contents {
         write_file(&dir.join(content_path), bytes).map_err(message)?;
     }
+    let retained_paths = retained.keys().cloned().collect();
+    stage_lesson_tables(&dir, &tables, retained).map_err(message)?;
     write_file(&path, &stored_json).map_err(message)?;
+    if let Err(error) = compact_lesson_tables(&dir, &tables, &retained_paths) {
+        eprintln!("Could not compact lesson tables: {error}");
+    }
     if let Err(error) = retain_lesson_content(
         &dir,
         &content::lessons::lesson_content_paths(&stored_lesson),

@@ -5,7 +5,7 @@ import { ViewerStatusNotice } from "../../anatomy/viewer-status";
 import { useLanguage } from "../../i18n";
 import { LineIcon } from "../../icons";
 import type { Lesson, LessonStep } from "../shared/contract";
-import { lessonMode, lessonPreviewIssues, lessonQuestions, lessonSceneStep, lessonText, validateLessonTargets } from "../shared/contract";
+import { lessonMode, lessonPreviewIssues, lessonSceneStep, lessonText, validateLessonTargets } from "../shared/contract";
 import { useLessonViewer } from "../shared/viewer";
 import { LessonQuestions } from "./questions";
 import { useLessonPanel } from "../shared/panels";
@@ -51,13 +51,13 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
       return true;
     } catch { return false; }
   }, [catalog, lesson, scene, modelMembers]);
-  const mode = lessonMode(step);
-  const questions = mode === "content" ? [] : lessonQuestions(step, id => catalog.target(id)?.names);
+  const mode = step.questionRef ? "content" : lessonMode(step);
+  const questions = mode === "content" ? [] : step.questions ?? [];
   const instruction = lessonHtml(step.instruction, language, images.urls);
   const solved = passed.has(step.id);
   const ready = !state.building && !state.error && !failed;
   const modelMissing = modelIds.some(id => !catalog.roots.some(root => root.id === id));
-  const boundary = lesson.steps.findIndex(item => issues.has(item.id) || (lessonMode(item) !== "content" && !passed.has(item.id)));
+  const boundary = lesson.steps.findIndex(item => issues.has(item.id) || (!item.questionRef && lessonMode(item) !== "content" && !passed.has(item.id)));
 
   useEffect(() => {
     const element = body.current;
@@ -178,10 +178,12 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
           <h2 id="lesson-step-title" ref={heading} tabIndex={-1}>{t("lessons.completed")}</h2>
         </> : <>
         <h2 id="lesson-step-title" ref={heading} tabIndex={-1}>{lessonText(step.title, language) || t(lesson.steps.length ? "lessons.untitledSection" : "lessons.addContent")}</h2>
+        {step.sceneRef && <p className="model-status" role="status">{t("lessons.sceneFileUnavailable")}</p>}
+        {step.questionRef && <p className="model-status" role="status">{t("lessons.questionFileUnavailable")}</p>}
         {issue && <p className="model-status lesson-preview-issue" role="status">{t(`lessons.validation.${issue.reason}`, { step: issue.step })}</p>}
         {mode !== "questions" && (lessonPlainText(step.instruction, language) || instruction.includes("<img ")
           ? <div className="lesson-instructions lesson-rich-content" dangerouslySetInnerHTML={{ __html: instruction }} />
-          : <p className="lesson-instructions">{t("lessons.previewNoContent")}</p>)}
+          : !step.questionRef && <p className="lesson-instructions">{t("lessons.previewNoContent")}</p>)}
         {!lesson.steps.length && <button className="lesson-button lesson-primary" onClick={() => (onEdit ?? onBack)()}>{t("lessons.continueEditing")}</button>}
         </>}
         <div hidden={complete}><LessonQuestions stepId={step.id} questions={questions} disabled={!!issue}

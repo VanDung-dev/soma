@@ -1,4 +1,4 @@
-import { lessonBody } from './lesson-editor-tools.mjs';
+import { lessonBody, savedLesson } from './lesson-editor-tools.mjs';
 import assert from 'node:assert/strict';
 
 export async function checkLessonOutlineTouch(page) {
@@ -24,7 +24,7 @@ export async function checkLessonOutlineTouch(page) {
     await lessonBody(mobile).waitFor();
     await mobile.evaluate(()=>document.fonts.ready);
     const cdp = await context.newCDPSession(mobile);
-    const saved = () => mobile.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:touch-outline-check')));
+    const saved = () => savedLesson(mobile, 'touch-outline-check');
     const area = outline.locator('.catalog-tree');
     await area.evaluate(node => { node.scrollTop = node.querySelector('[data-lesson-step]').offsetTop; });
     const handle = outline.locator('[data-lesson-step="touch-0"] .lesson-drag-handle');

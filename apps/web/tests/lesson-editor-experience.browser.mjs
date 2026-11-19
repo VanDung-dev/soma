@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { brotliDecompressSync } from 'node:zlib';
-import { unpackLessonTar } from './lesson-package.fixture.mjs';
-import { lessonBody } from './lesson-editor-tools.mjs';
+import { readLessonMetadata, unpackLessonTar } from './lesson-package.fixture.mjs';
+import { lessonBody, savedLesson } from './lesson-editor-tools.mjs';
 
 export async function checkLessonEditorExperience(page) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/lessons');
   await page.getByRole('button', { name: 'Tạo bài học', exact: true }).click();
   const id = new URL(page.url()).pathname.split('/')[2];
-  const saved = () => page.evaluate(id => JSON.parse(localStorage.getItem('soma.lesson:' + id)), id);
+  const saved = () => savedLesson(page, id);
   const writing = page.locator('#lesson-author-writing');
   const frame = page.locator('.lesson-scene-region');
   assert.equal(await page.locator('.lesson-model:visible, .tox-tinymce, .structure-search-field:visible').count(), 0, 'Lesson details are a simple card form');
@@ -149,7 +149,11 @@ export async function checkLessonEditorExperience(page) {
   const bytes = await readFile(await download.path());
   const files = unpackLessonTar(brotliDecompressSync(bytes));
   assert(files.has(expected.cover), 'Export includes the lesson cover');
-  const exported = JSON.parse(new TextDecoder().decode(files.get('lesson.json')));
+  const metadata = JSON.parse(new TextDecoder().decode(files.get('lesson.json')));
+  assert.equal(metadata.steps[0].targetId, undefined);
+  assert.match(metadata.steps[0].sceneRef, /^[a-f0-9]{64}$/);
+  for (const id of expected.steps.flatMap(step => step.modelIds ?? [])) assert(metadata.preloadModelIds.includes(id));
+  const exported = readLessonMetadata(files);
   expected.steps.forEach((step, index) => {
     if (!step.view) return;
     const camera = exported.steps[index].view.camera;

@@ -30,3 +30,36 @@ export function unpackLessonTar(bytes) {
   }
   return files;
 }
+
+export function readLessonMetadata(files) {
+  const lesson = JSON.parse(decoder.decode(files.get('lesson.json')));
+  delete lesson.preloadModelIds;
+  const rows = path => files.has(path) ? decoder.decode(files.get(path)).trimEnd().split('\n').map(JSON.parse) : [];
+  const scenes = new Map(rows('scenes.jsonl').map(row => [row.section, row.record]));
+  const sceneAt = section => {
+    const { id, ...scene } = scenes.get(section);
+    return scene;
+  };
+  if (lesson.sceneRef) {
+    lesson.scene = sceneAt('');
+    delete lesson.sceneRef;
+  }
+  lesson.steps = lesson.steps.map(({ sceneRef, ...step }) => sceneRef ? { ...step, ...sceneAt(step.id) } : step);
+  const hydrate = node => {
+    if (!node || typeof node !== 'object') return;
+    for (const locale of node.html ?? []) {
+      const hash = /^lesson-content:([a-f0-9]{64})$/.exec(node[locale])?.[1];
+      if (hash) node[locale] = decoder.decode(files.get('content/' + hash + '.html'));
+    }
+    Object.values(node).forEach(hydrate);
+  };
+  hydrate(lesson);
+  const table = rows('questions.jsonl');
+  lesson.steps = lesson.steps.map(({ questionRef, ...step }) => {
+    if (!questionRef) return step;
+    const questions = table.filter(row => row.section === step.id).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      .flatMap(row => row.record === null ? [] : [row.record]);
+    return { ...step, questions };
+  });
+  return lesson;
+}

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { brotliDecompressSync } from 'node:zlib';
-import { unpackLessonTar } from './lesson-package.fixture.mjs';
-import { lessonBody } from './lesson-editor-tools.mjs';
+import { readLessonMetadata, unpackLessonTar } from './lesson-package.fixture.mjs';
+import { lessonBody, savedLesson } from './lesson-editor-tools.mjs';
 import { checkLessonHeader } from './lesson-editor-experience.browser.mjs';
 
 export async function checkLessonQuestions(page) {
@@ -11,7 +11,7 @@ export async function checkLessonQuestions(page) {
   await page.getByRole('button', { name: 'Tạo bài học', exact: true }).click();
   await page.getByLabel('Tên bài học').fill('Bài học nhiều câu hỏi');
   const url = page.url();
-  const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:' + location.pathname.split('/')[2])));
+  const saved = () => savedLesson(page);
   const writing = page.locator('#lesson-author-writing');
   await writing.getByRole('button', { name: 'Thêm bước học', exact: true }).click();
   await page.getByLabel('Tên mục').fill('Hai câu hỏi');
@@ -56,7 +56,7 @@ export async function checkLessonQuestions(page) {
   await page.getByRole('button', { name: 'Xuất .lesson.br', exact: true }).click();
   const bytes = await readFile(await (await downloadEvent).path());
   const files = unpackLessonTar(brotliDecompressSync(bytes));
-  assert.deepEqual(JSON.parse(new TextDecoder().decode(files.get('lesson.json'))), original);
+  assert.deepEqual(readLessonMetadata(files), original);
   const exercise = async root => {
     const finish = root.getByRole('button', { name: 'Hoàn thành', exact: true });
     const question = index => root.getByRole('region', { name: `Câu hỏi ${index}`, exact: true });

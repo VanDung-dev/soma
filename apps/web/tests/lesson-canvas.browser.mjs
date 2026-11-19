@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { savedLesson } from './lesson-editor-tools.mjs';
 
 export async function checkLessonCanvas(page) {
   const text = vi => ({ vi, en: vi });
@@ -41,7 +42,7 @@ export async function checkLessonCanvas(page) {
   const choose = title => page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: title }).click();
   const settled = () => page.waitForFunction(() => window.lessonCanvasViewer && !window.lessonCanvasViewer.advance_camera(performance.now()));
   const pose = () => page.evaluate(() => window.lessonCanvasViewer.camera_pose());
-  const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:canvas-consistency')));
+  const saved = () => savedLesson(page, 'canvas-consistency');
   const geometry = async () => {
     await page.waitForFunction(() => {
       const region = document.querySelector('.lesson-editor-scene');

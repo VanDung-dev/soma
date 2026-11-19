@@ -22,6 +22,7 @@ export function lessonSceneModels(catalog: Catalog, lesson: Lesson, scene?: Less
 export function lessonModels(catalog: Catalog, lesson: Lesson): string[] {
   const scenes = [...(lesson.scene ? [lesson.scene] : []), ...lesson.steps.filter(step => step.kind !== "text")];
   return [...new Set([
+    ...(lesson.preloadModelIds ?? []),
     ...lessonSceneModels(catalog, lesson),
     ...scenes.flatMap(scene => lessonSceneModels(catalog, lesson, scene)),
   ])];

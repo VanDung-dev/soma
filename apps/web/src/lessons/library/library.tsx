@@ -42,7 +42,7 @@ export function LessonLibrary({ lessons, loading, saving, importing, error, expo
   async function receiveFiles(files: File[]) {
     if (busy) return;
     setNotice("");
-    if (files.length !== 1 || !/\.(lesson|soma)\.br$/i.test(files[0]!.name)) {
+    if (files.length !== 1 || !/\.lesson\.br$/i.test(files[0]!.name)) {
       setFileError(t("lessons.importFileError"));
       return;
     }
@@ -115,7 +115,7 @@ export function LessonLibrary({ lessons, loading, saving, importing, error, expo
         <span><strong>{t(importing ? "lessons.importing" : "lessons.import")}</strong><small>{t("lessons.dropOrChoose")}</small></span>
         <span className="lesson-import-open" aria-hidden="true"><LineIcon name="arrow-small-right" size={18} /></span>
       </button>
-      <input ref={picker} className="sr-only" type="file" accept=".lesson.br,.soma.br" disabled={busy} tabIndex={-1}
+      <input ref={picker} className="sr-only" type="file" accept=".lesson.br" disabled={busy} tabIndex={-1}
         aria-label={t("lessons.import")} onChange={event => {
           const files = Array.from(event.currentTarget.files ?? []);
           event.currentTarget.value = "";

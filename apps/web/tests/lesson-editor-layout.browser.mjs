@@ -1,4 +1,4 @@
-import { lessonBody } from './lesson-editor-tools.mjs';
+import { lessonBody, savedLesson } from './lesson-editor-tools.mjs';
 import assert from 'node:assert/strict';
 
 export async function checkLessonResponsiveLayout(page) {
@@ -167,7 +167,7 @@ export async function checkLessonEditorLayout(page) {
   const settings = page.locator('.lesson-step-options');
   const document = page.locator('#lesson-author-writing');
   const model = page.locator('.lesson-scene-region');
-  const saved = () => page.evaluate(id => JSON.parse(localStorage.getItem('soma.lesson:' + id)), lesson.id);
+  const saved = () => savedLesson(page, lesson.id);
   const outlineOrder = () => outline.locator('[data-lesson-step]').evaluateAll(rows => rows.map(row => row.dataset.lessonStep));
   const waitForOutlineOrder = order => page.waitForFunction(order => {
     const rows = [...document.querySelectorAll('#lesson-author-outline [data-lesson-step]')];
@@ -208,6 +208,21 @@ export async function checkLessonEditorLayout(page) {
   const closeModelSettings = page.getByRole('button', { name: 'Đóng thiết lập 3D', exact: true });
   await closeModelSettings.waitFor();
   await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Đóng thiết lập 3D');
+  await document.locator('.tox-editor-header').waitFor();
+  const coversToolbar = await page.locator('.lesson-model-settings[data-open="true"]').evaluate(async panel => {
+    await Promise.all(panel.getAnimations().map(animation => animation.finished));
+    const writing = window.document.getElementById('lesson-author-writing');
+    const toolbar = writing.querySelector('.tox-editor-header');
+    const { x, y, width, height } = toolbar.getBoundingClientRect();
+    const wasInert = writing.inert;
+    writing.inert = false;
+    try {
+      return panel.contains(window.document.elementFromPoint(x + width / 2, y + height / 2));
+    } finally {
+      writing.inert = wasInert;
+    }
+  });
+  assert(coversToolbar, '3D settings cover the writing toolbar');
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => document.querySelector('.lesson-model-settings')?.dataset.open === 'false'
     && document.activeElement === document.querySelector('.lesson-model-toolbar > .lesson-button'));

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { brotliCompressSync, brotliDecompressSync } from 'node:zlib';
-import { packLessonTar, unpackLessonTar } from './lesson-package.fixture.mjs';
-import { lessonBody } from './lesson-editor-tools.mjs';
+import { packLessonTar, readLessonMetadata, unpackLessonTar } from './lesson-package.fixture.mjs';
+import { lessonBody, savedLesson } from './lesson-editor-tools.mjs';
 
 export async function checkLessonRichText(page) {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -12,7 +12,7 @@ export async function checkLessonRichText(page) {
   await page.locator('#lesson-author-writing').getByRole('button', { name: 'Thêm bước học', exact: true }).click();
   await page.getByLabel('Tên mục').fill('Định dạng');
   const id = new URL(page.url()).pathname.split('/')[2];
-  const saved = () => page.evaluate(id => JSON.parse(localStorage.getItem('soma.lesson:' + id)), id);
+  const saved = () => savedLesson(page, id);
   await lessonBody(page).fill('Quan sát mô hình');
   await lessonBody(page).press('ControlOrMeta+a');
   await page.getByRole('button', { name: 'Bold', exact: true }).click();
@@ -39,11 +39,11 @@ export async function checkLessonRichText(page) {
   const files = unpackLessonTar(brotliDecompressSync(await readFile(await download.path())));
   const json = new TextDecoder().decode(files.get('lesson.json'));
   assert(json.includes('\n  "id":'), 'Export should be readable, indented JSON');
-  const exported = JSON.parse(json);
+  const exported = readLessonMetadata(files);
   assert.deepEqual(exported, await saved());
   const edited = { ...exported, title: { vi: 'Bài chỉnh trực tiếp gói', en: '' } };
   await page.getByRole('button', { name: 'Danh sách bài học', exact: true }).click();
-  files.set('lesson.json', new TextEncoder().encode(JSON.stringify(edited, null, 2)));
+  files.set('lesson.json', new TextEncoder().encode(JSON.stringify({ ...JSON.parse(json), title: edited.title }, null, 2)));
   const upload = { name: 'edited-lesson.lesson.br', mimeType: 'application/octet-stream', buffer: brotliCompressSync(packLessonTar(files)) };
   const cancelled = page.waitForEvent('dialog').then(dialog => dialog.dismiss());
   await page.locator('input[type="file"]').setInputFiles(upload);
