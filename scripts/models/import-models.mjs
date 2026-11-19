@@ -140,18 +140,3 @@ for (const file of await readdir(output)) {
   if (/^[a-z-]+\.(glb(?:\.br)?|json)$/.test(file) && !['z-anatomy.glb.br', 'z-anatomy.json'].includes(file)) await unlink(join(output, file));
 }
 console.log(`z-anatomy.glb.br: ${ids.length} structures; ${bytes.length} raw bytes; ${compressed.length} compressed bytes; combined GLB validation passed`);
-
-const inventory = new Map();
-for (const model of manifest.models) {
-  const pkg = metadata[model.root_id];
-  for (const part of pkg.structures) {
-    const entry = inventory.get(part.source_name) ?? { name: part.source_name, structure_ids: new Set() };
-    entry.structure_ids.add(part.source_id);
-    inventory.set(part.source_name, entry);
-  }
-}
-await writeFile(join(root, 'content/anatomy-names.jsonl'), [...inventory.values()]
-  .map(entry => ({ name: entry.name, structure_ids: [...entry.structure_ids].sort() }))
-  .sort((a, b) => a.name.localeCompare(b.name, 'en'))
-  .map(entry => JSON.stringify(entry))
-  .join('\n') + '\n');
