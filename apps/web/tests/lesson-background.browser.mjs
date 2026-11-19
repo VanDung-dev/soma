@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { checkLessonResetFocus } from './lesson-background-stability.browser.mjs';
+import { selectLessonModel } from './lesson-editor-tools.mjs';
 
 export async function checkLessonBackground(page) {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -9,7 +10,7 @@ export async function checkLessonBackground(page) {
   await page.getByLabel('Tên bài học', { exact: true }).fill('Nền liên tục');
   const canvas = page.locator('.lesson-editor > .model-canvas canvas');
   await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
-  const original = await canvas.elementHandle();
+  const emptyCanvas = await canvas.elementHandle();
   assert(await page.evaluate(async () => {
     const { AnatomyViewer } = await (await import('/src/anatomy/core.ts')).getWasm();
     const canvas = document.createElement('canvas');
@@ -27,15 +28,13 @@ export async function checkLessonBackground(page) {
   const writing = page.locator('#lesson-author-writing');
   await writing.locator('.lesson-editor-stepbar-actions > button').click();
   await page.getByLabel('Tên mục', { exact: true }).fill('Bước đầu tiên');
-  assert(await original.evaluate(canvas => canvas === document.querySelector('.lesson-editor > .model-canvas canvas')));
+  assert(await emptyCanvas.evaluate(canvas => canvas === document.querySelector('.lesson-editor > .model-canvas canvas')));
   assert(await page.locator('.lesson-scene-placeholder').isVisible());
-  await page.locator('.lesson-scene-placeholder').getByRole('button', { name: 'Thiết lập 3D', exact: true }).click();
-  await page.locator('#lesson-model-settings input[value="collection:baf3076d0495a617"]').check();
-  const closeSettings = page.getByRole('button', { name: 'Đóng thiết lập 3D', exact: true });
-  if (await closeSettings.isVisible()) await closeSettings.click();
+  await selectLessonModel(page, 'collection:baf3076d0495a617');
   await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
   await page.locator('.lesson-editor-scene[data-active="true"]').waitFor();
-  assert(await original.evaluate(canvas => canvas === document.querySelector('.lesson-editor > .model-canvas canvas')));
+  await page.getByText('277/277 cấu trúc đang hiện', { exact: true }).waitFor();
+  const original = await canvas.elementHandle();
   await page.evaluate(async () => {
     const { AnatomyViewer } = await (await import('/src/anatomy/core.ts')).getWasm();
     const proto = AnatomyViewer.prototype, original = proto.apply_scene, reframe = proto.reframe;
@@ -59,11 +58,8 @@ export async function checkLessonBackground(page) {
       await step();
       await page.getByLabel('Tên mục', { exact: true }).waitFor();
       const animations = await page.locator('.lesson-author-center').evaluate(node => node.getAnimations().length);
-      assert(reduced ? animations === 0 : animations > 0, 'Animate the document layout unless reduced motion is requested');
-      await page.evaluate(async () => {
-        await Promise.all(document.querySelector('.lesson-author-center').getAnimations().map(animation => animation.finished.catch(() => {})));
-        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      });
+      assert.equal(animations, 0, 'The document layout updates without a grid transition');
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       const after = await writing.boundingBox();
       assert(width > 900 ? after.width < before.width : after.y > before.y);
       assert(await original.evaluate(canvas => canvas === document.querySelector('.lesson-editor > .model-canvas canvas')));
@@ -74,8 +70,8 @@ export async function checkLessonBackground(page) {
         const expected = [(frame.left - host.left) / host.width, (frame.top - host.top) / host.height,
           frame.width / host.width, frame.height / host.height];
         return window.backgroundFrame.every((value, index) => Math.abs(value - expected[index]) < 1e-5);
-      }), 'Fit the model to the final layout rather than an intermediate transition frame');
-      assert(await page.locator('.lesson-editor-hud').isVisible());
+      }), 'Fit the model to the current layout');
+      await page.locator('.lesson-editor-hud').waitFor({ state: 'visible' });
       await checkLessonResetFocus(page, 'backgroundViewer', '.lesson-editor > .model-canvas canvas');
       await page.locator('#lesson-toggle-outline').click();
       await checkLessonResetFocus(page, 'backgroundViewer', '.lesson-editor > .model-canvas canvas');
@@ -92,6 +88,7 @@ export async function checkLessonBackground(page) {
     await step();
     await page.locator('.orientation-axes [data-axis="Y"][data-direction="1"] .orientation-hit-target').click();
     await page.getByRole('button', { name: 'Lưu bài học', exact: true }).click();
+    await page.getByRole('button', { name: 'Đã lưu', exact: true }).waitFor();
     const authored = await page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson:' + location.pathname.split('/')[2])).steps[0].view);
     await details();
     await step();

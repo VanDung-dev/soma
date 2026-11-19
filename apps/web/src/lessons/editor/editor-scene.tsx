@@ -67,15 +67,9 @@ function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inacti
   const separated = !!state.movingId || !!state.separatedIds.size;
   const revealedPart = useRef<{ id: string; target?: boolean }>(undefined);
   useEffect(() => {
-    const workspace = frame.closest(".lesson-author-workspace")!;
     const scroller = frame.closest(".lesson-author-center")!;
-    let animation = 0;
     const resize = () => runtime.current?.resize();
-    const update = () => {
-      resize();
-      if ([workspace, scroller].some(element => element.getAnimations().some(animation => animation.playState === "running"))) animation = requestAnimationFrame(update);
-    };
-    animation = requestAnimationFrame(update);
+    const animation = requestAnimationFrame(resize);
     scroller.addEventListener("scroll", resize);
     return () => { cancelAnimationFrame(animation); scroller.removeEventListener("scroll", resize); };
   }, [frame, outlineOpen, inactive, runtime, session]);
@@ -87,13 +81,7 @@ function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inacti
   useEffect(() => {
     if (!ready) return;
     if (inactive) { session.changeVisibility(state.structureIds, false); return; }
-    const scroller = frame.closest(".lesson-author-center")!;
-    let animation = 0;
-    const apply = () => {
-      if (scroller.getAnimations().some(animation => animation.playState === "running")) animation = requestAnimationFrame(apply);
-      else session.applyScene(ids, view);
-    };
-    animation = requestAnimationFrame(apply);
+    const animation = requestAnimationFrame(() => session.applyScene(ids, view));
     return () => cancelAnimationFrame(animation);
   }, [ready, inactive, session, sectionId, ids, view, state.structureIds, frame, resetVersion]);
   useEffect(() => {

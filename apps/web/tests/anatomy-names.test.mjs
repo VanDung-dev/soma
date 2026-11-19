@@ -5,8 +5,6 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'vite';
 
-const parseJsonl = text => text.split('\n').filter(Boolean).map(line => JSON.parse(line));
-
 test('bilingual names preserve source identity and have safe, explicit fallbacks', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
@@ -21,12 +19,16 @@ test('bilingual names preserve source identity and have safe, explicit fallbacks
     assert.equal(target_name('1: Skeletal system', 'Hệ xương', 'vi'), 'Hệ xương');
     assert.equal(target_name('1: Skeletal system', 'Hệ xương', 'en'), 'Skeletal system');
 
-    const inventory = parseJsonl(await readFile(new URL('../../../content/anatomy-names.jsonl', import.meta.url), 'utf8'));
     const catalog = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
     const glossary = JSON.parse(await readFile(new URL('../../../content/anatomy-terminology.json', import.meta.url)));
-    const sources = new Set([...inventory.map(x => x.name), ...catalog.targets.map(x => x.source_name)]);
+    const sources = new Set(catalog.targets.map(target => target.source_name));
+    const inventory = new Map();
     for (const metadata of Object.values(bundle.metadata)) {
-      for (const part of metadata.structures) for (const name of part.collections) sources.add(name);
+      for (const part of metadata.structures) {
+        inventory.set(part.source_id, part.source_name);
+        sources.add(part.source_name);
+        for (const name of part.collections) sources.add(name);
+      }
     }
     assert.equal(glossary.schema_version, 1);
     assert.equal(glossary.status, 'draft');
@@ -37,9 +39,7 @@ test('bilingual names preserve source identity and have safe, explicit fallbacks
       assert(entry.vi.trim() && entry.en.trim(), source);
       assert.notEqual(entry.vi, entry.en, `Untranslated entry must use the fallback: ${source}`);
     }
-    const translated = inventory.filter(x => Object.hasOwn(glossary.terms, x.name))
-      .reduce((sum, x) => sum + x.structure_ids.length, 0);
-    const total = inventory.reduce((sum, x) => sum + x.structure_ids.length, 0);
-    assert(translated / total >= 0.99, 'Vietnamese coverage must retain at least 99% of model structures');
+    const translated = [...inventory.values()].filter(name => Object.hasOwn(glossary.terms, name)).length;
+    assert(translated / inventory.size >= 0.99, 'Vietnamese coverage must retain at least 99% of model structures');
   } finally { await server.close(); }
 });

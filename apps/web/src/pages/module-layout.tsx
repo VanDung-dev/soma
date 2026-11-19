@@ -7,13 +7,13 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useLanguage } from "../i18n";
 import { LineIcon } from "../icons";
 import { shortcutAriaLabel, shortcutLabel, useShortcutBindings } from "../shortcuts";
+import type { pageAtPath } from "./routes";
 import "./workspace.css";
 
-type ModulePage = "home" | "anatomy" | "lessons" | "games" | "settings";
 export const WorkspaceActiveContext = createContext(true);
 
 export function ModuleLayout({ children, page, onClick, settings }: {
-  children: ReactNode; page: ModulePage | null; onClick?: MouseEventHandler<HTMLDivElement>; settings?: ReactNode;
+  children: ReactNode; page: ReturnType<typeof pageAtPath>; onClick?: MouseEventHandler<HTMLDivElement>; settings?: ReactNode;
 }) {
   const tauri = isTauri();
   const suppressContextMenu = tauri && import.meta.env.DEV;

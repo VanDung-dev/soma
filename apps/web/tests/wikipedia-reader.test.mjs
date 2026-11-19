@@ -17,7 +17,7 @@ test('Wikipedia reader opens mapped articles and leaves unmapped structures expl
       const url = new URL(article.url);
       assert.equal(url.origin, 'https://en.wikipedia.org');
       assert(url.pathname.startsWith('/wiki/') && !url.search);
-      assert.equal(article.status, 'source-link');
+      assert.deepEqual(Object.keys(article), ['url']);
       assert(!('text' in article));
     }
     const html = renderToStaticMarkup(createElement(WikipediaReader, { name: 'Femur' }));

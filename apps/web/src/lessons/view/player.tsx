@@ -26,7 +26,6 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
   const reader = useRef<HTMLDivElement>(null);
   const focusFrame = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
-  const workspace = useRef<HTMLDivElement>(null);
   const outlineId = useId();
   const [outlineOpen, setOutlineOpen] = useLessonPanel("readerOutline", false);
   const modelId = useId();
@@ -37,7 +36,6 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
     focusFrame, undefined, false, false, true);
   const [passed, setPassed] = useState<ReadonlySet<string>>(() => new Set());
   const [failed, setFailed] = useState(false);
-  const [validated, setValidated] = useState(!usesModel);
   const [complete, setComplete] = useState(false);
   const step: LessonStep = lesson.steps[index] ?? { id: "preview-empty", kind: "text", title: { vi: "", en: "" }, instruction: { vi: "", en: "" } };
   const issues = useMemo(() => lessonPreviewIssues(lesson, modelMembers, id => catalog.members(id)), [catalog, lesson, modelMembers]);
@@ -57,7 +55,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
   const questions = mode === "content" ? [] : lessonQuestions(step, id => catalog.target(id)?.names);
   const instruction = lessonHtml(step.instruction, language, images.urls);
   const solved = passed.has(step.id);
-  const ready = validated && !state.building && !state.error && !failed;
+  const ready = !state.building && !state.error && !failed;
   const modelMissing = modelIds.some(id => !catalog.roots.some(root => root.id === id));
   const boundary = lesson.steps.findIndex(item => issues.has(item.id) || (lessonMode(item) !== "content" && !passed.has(item.id)));
 
@@ -72,29 +70,16 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
   }, []);
 
   useEffect(() => {
-    let animation = 0;
-    const update = () => {
-      runtime.current?.resize();
-      if ([body.current, workspace.current].some(element => element?.getAnimations().some(animation => animation.playState === "running"))) animation = requestAnimationFrame(update);
-    };
-    animation = requestAnimationFrame(update);
+    const animation = requestAnimationFrame(() => runtime.current?.resize());
     return () => cancelAnimationFrame(animation);
   }, [outlineOpen, modelVisible, runtime, session]);
 
   useEffect(() => {
-    if (state.building || state.error) return;
-    setValidated(true);
-  }, [state.building, state.error]);
-
-  useEffect(() => {
     if (!ready) return;
     if (!modelVisible || !sceneUsable) { session.changeVisibility(state.structureIds, false); return; }
-    let animation = 0;
-    const apply = () => {
-      if ([body.current, workspace.current].some(element => element?.getAnimations().some(animation => animation.playState === "running"))) animation = requestAnimationFrame(apply);
-      else if (!session.applyScene(sceneIds, scene?.view)) setFailed(true);
-    };
-    animation = requestAnimationFrame(apply);
+    const animation = requestAnimationFrame(() => {
+      if (!session.applyScene(sceneIds, scene?.view)) setFailed(true);
+    });
     return () => cancelAnimationFrame(animation);
   }, [ready, modelVisible, scene, sceneUsable, session, sceneIds, index, complete, state.structureIds]);
 
@@ -148,8 +133,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
           </ol>
         </div>
       </nav>
-      <div className="lesson-workspace" ref={workspace} data-model={modelVisible} data-model-collapsed={modelCollapsed}
-        onScroll={() => runtime.current?.resize()}>
+      <div className="lesson-workspace" data-model={modelVisible} onScroll={() => runtime.current?.resize()}>
       <section className="lesson-model" id={modelId} hidden={!modelVisible} inert={!modelVisible} aria-hidden={!modelVisible} aria-label={t("viewer.section.label")}>
         <div className="model-focus-frame" ref={focusFrame}>
           <div className="model-orientation">

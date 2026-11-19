@@ -1,7 +1,7 @@
 .module-brand { display: inline-flex; align-items: center; flex: none; min-height: 28px; height: 28px; color: var(--text); text-decoration: none; font: 700 14px/1.4 var(--font-ui); white-space: nowrap; }
 .module-preferences { display: flex; align-items: center; }
 .module-page { display: grid; grid-template-rows: auto minmax(0, 1fr); height: var(--scaled-viewport-height); min-width: 0; overflow: hidden; color: var(--text); background: var(--page-bg); }
-.module-header { min-height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 10px; }
+.module-header { min-height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 4px 0 10px; }
 .macos-window .module-header { padding-left: 100px; user-select: none; -webkit-user-select: none; }
 .windows-window .module-header { gap: 10px; padding-right: 0; user-select: none; -webkit-user-select: none; }
 .module-nav { display: flex; align-items: center; gap: 5px; min-width: 0; margin-right: auto; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
@@ -27,7 +27,6 @@
 
 .model-space { --muted: var(--muted-dark); --panel-inset: 10px; --workspace-panel-growth: clamp(0px, calc(15.625vw - 200px), 100px); position: absolute; inset: 0; min-width: 0; min-height: 0; overflow: hidden; border-radius: inherit; background: var(--workspace-bg); }
 .model-space[inert] { visibility: hidden; }
-.module-content:not([data-page="anatomy"], [data-page="lessons"]) .model-space { background: var(--page-bg); }
 .page-message { display: grid; align-content: center; justify-items: start; gap: 12px; min-height: 100%; max-width: 640px; margin-inline: auto; padding: 24px; }
 .page-message h1 { margin: 0; font: 600 clamp(24px, 4vw, 36px)/1.2 var(--font-ui); }
 .page-message p { margin: 0; color: var(--muted); line-height: 1.5; }

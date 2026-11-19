@@ -70,9 +70,11 @@ test('the production server serves module URLs and keeps missing assets as error
     assert.deepEqual(await manifest.json(), { name: 'Soma' });
     assert.equal((await fetch(base + '/assets/missing.js')).status, 404);
     assert.equal((await fetch(base + '/missing')).status, 404);
-    const document404 = await fetch(base + '/missing', { headers: { Accept: 'text/html' } });
-    assert.equal(document404.status, 404);
-    assert.equal(await document404.text(), '<main>Soma</main>');
+    for (const route of ['/missing', '/lessons/invalid_id/edit', '/%68ome']) {
+      const document404 = await fetch(base + route, { headers: { Accept: 'text/html' } });
+      assert.equal(document404.status, 404);
+      assert.equal(await document404.text(), '<main>Soma</main>');
+    }
     const asset404 = await fetch(base + '/assets/missing.js', { headers: { Accept: 'text/html' } });
     assert.equal(asset404.status, 404);
     assert.equal(await asset404.text(), '');

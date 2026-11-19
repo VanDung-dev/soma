@@ -5,6 +5,7 @@ import { pipeline } from 'node:stream/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { wikipediaProxy } from './wikipedia-proxy.mjs';
+import { pageAtPath } from '../src/pages/routes.ts';
 
 const dist = fileURLToPath(new URL('../dist/', import.meta.url));
 const types = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json',
@@ -15,9 +16,9 @@ export function createWebServer(directory = dist) {
     wikipediaProxy(req, res, async () => {
       try {
         if (!['GET', 'HEAD'].includes(req.method)) { res.writeHead(405, { Allow: 'GET, HEAD' }).end(); return; }
-        const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
-        const page = ['/', '/home', '/anatomy', '/lessons', '/games', '/settings'].includes(pathname.replace(/\/+$/, '') || '/') ||
-          /^\/lessons\/[a-z0-9]+(?:-[a-z0-9]+)*(?:\/edit)?\/?$/.test(pathname);
+        const route = new URL(req.url, 'http://localhost').pathname;
+        const pathname = decodeURIComponent(route);
+        const page = pageAtPath(route);
         const index = path.resolve(directory, 'index.html');
         let file = page ? index : path.resolve(directory, '.' + pathname);
         if (!file.startsWith(path.resolve(directory) + path.sep)) { res.writeHead(403).end(); return; }

@@ -7,6 +7,7 @@ import { LessonsPage } from "./lessons/page";
 import { lessonEditId, lessonViewId } from "./lessons/routes";
 import { AnatomyPage } from "./anatomy/page";
 import { ModuleLayout } from "./pages/module-layout";
+import { pageAtPath } from "./pages/routes";
 import { PageMessage } from "./pages/workspace-layout";
 import { ThemeProvider } from "./theme";
 import { SettingsPage, settingsHref, settingsSectionAt, type SettingsSection } from "./settings/page";
@@ -14,26 +15,6 @@ import { useFontSize } from "./settings/font-size";
 import { GraphicsSettingsContext, useGraphicsSettings } from "./pages/use-graphics-settings";
 import { CameraDevicesContext, useCameraDevices } from "./anatomy/camera-devices";
 import { shortcutAction } from "./shortcuts";
-
-function pageAtPath(pathname: string): keyof typeof pages | "lessons" | "settings" | null {
-  const path = pathname.replace(/\/+$/, "");
-  if (path === "" || path === "/home") {
-    return "home";
-  }
-  if (path === "/anatomy") {
-    return "anatomy";
-  }
-  if (path === "/games") {
-    return "games";
-  }
-  if (path === "/settings") {
-    return "settings";
-  }
-  if (path === "/lessons" || lessonEditId(pathname) || lessonViewId(pathname)) {
-    return "lessons";
-  }
-  return null;
-}
 
 const pages = { home: HomePage, anatomy: AnatomyPage, games: GamesPage };
 

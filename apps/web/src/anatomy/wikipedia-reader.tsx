@@ -6,7 +6,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { frameShortcuts, useShortcutBindings } from "../shortcuts";
 
 export function wikipediaReference(name: string) {
-  const article = wikipedia_reference(name) as { url: string; status: string } | undefined;
+  const article = wikipedia_reference(name) as { url: string } | undefined;
   if (!article) return undefined;
   const url = new URL(article.url);
   if (url.protocol !== "https:" || url.host !== "en.wikipedia.org" || !url.pathname.startsWith("/wiki/") || url.search) return undefined;
