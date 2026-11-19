@@ -7,6 +7,7 @@ import { LessonsPage } from "./lessons/page";
 import { lessonEditId, lessonViewId } from "./lessons/routes";
 import { AnatomyPage } from "./anatomy/page";
 import { ModuleLayout } from "./pages/module-layout";
+import { PageMessage } from "./pages/workspace-layout";
 import { ThemeProvider } from "./theme";
 import { SettingsPage, settingsHref, settingsSectionAt, type SettingsSection } from "./settings/page";
 import { useFontSize } from "./settings/font-size";
@@ -78,7 +79,7 @@ function AppRoute() {
   };
   const handleSettingsShortcut = useEffectEvent((event: KeyboardEvent) => {
     const action = shortcutAction(event);
-    if (!page || action !== "settings" || document.querySelector("dialog[open]")) return;
+    if (action !== "settings" || document.querySelector("dialog[open]")) return;
     event.preventDefault();
     if (settings) closeSettings();
     else goTo("/settings");
@@ -88,7 +89,6 @@ function AppRoute() {
     window.addEventListener("keydown", keyDown);
     return () => window.removeEventListener("keydown", keyDown);
   }, []);
-  if (!page) return null;
   const Page = workspace && workspace !== "lessons" && workspace !== "settings" ? pages[workspace] : null;
   const navigate = (event: MouseEvent<HTMLDivElement>) => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -117,7 +117,8 @@ function AppRoute() {
   };
   return <GraphicsSettingsContext value={graphics}><CameraDevicesContext value={cameras}>
     <ModuleLayout page={page} onClick={navigate} settings={settings ? <SettingsPage section={section} fontSize={fontSize} /> : undefined}>
-    {Page ? <Page /> : workspace === "lessons" ? <LessonsPage editId={lessonEditId(workspacePath)} viewId={lessonViewId(workspacePath)} navigate={goTo} /> : null}
+    {Page ? <Page /> : workspace === "lessons" ? <LessonsPage editId={lessonEditId(workspacePath)} viewId={lessonViewId(workspacePath)} navigate={goTo} />
+      : workspacePath && <PageMessage title="app.notFound" description="app.notFoundDescription" />}
     </ModuleLayout>
   </CameraDevicesContext></GraphicsSettingsContext>;
 }

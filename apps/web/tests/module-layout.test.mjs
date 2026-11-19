@@ -19,13 +19,16 @@ test('Home and module routes share one workspace and navigation returns to Home'
       return renderToStaticMarkup(createElement(App));
     };
     assert.equal(render('/'), render('/home'));
-    assert.equal(render('/unknown'), '');
+    assert.match(render('/unknown'), /<h1[^>]*>Không tìm thấy trang<\/h1>.*<a href="\/home">Về trang chủ<\/a>/);
     for (const name of ['home', 'anatomy', 'lessons', 'games']) {
       const markup = render('/' + name);
       assert.equal((markup.match(/class="model-space"/g) ?? []).length, 1);
       assert(markup.includes(`data-page="${name}"`));
       if (name !== 'games') assert(markup.includes(`href="/${name}" aria-current="page"`));
-      else assert(markup.includes('aria-disabled="true" aria-current="page">Games</span>'));
+      else {
+        assert(markup.includes('aria-disabled="true" aria-current="page">Games</span>'));
+        assert(markup.includes('Mục này chưa có trò chơi.'));
+      }
       assert(markup.includes('class="module-brand" href="/home"'));
       assert(!markup.includes('brand-mark'));
       const navigation = markup.match(/<nav class="module-nav"[\s\S]*?<\/nav>/)[0];
@@ -33,7 +36,7 @@ test('Home and module routes share one workspace and navigation returns to Home'
       assert(navigation.includes('aria-disabled="true"') && navigation.includes('Games</span>'));
       assert.equal(render('/' + name + '/'), markup);
       if (name === 'home') {
-        assert(markup.includes('Chọn một phần để bắt đầu.'));
+        assert(markup.includes('Khám phá mô hình giải phẫu 3D hoặc tự soạn bài học.'));
         assert.equal((markup.match(/Chưa có nội dung\./g) ?? []).length, 1);
         assert.deepEqual([...markup.matchAll(/class="home-module[^\"]*" href="([^"]+)"/g)].map(match => match[1]), ['/anatomy', '/lessons']);
         assert.equal((markup.match(/class="home-module-art"/g) ?? []).length, 3);
@@ -56,7 +59,7 @@ test('the production server serves module URLs and keeps missing assets as error
     await writeFile(path.join(directory, 'site.webmanifest'), JSON.stringify({ name: 'Soma' }));
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     const base = `http://127.0.0.1:${server.address().port}`;
-    for (const route of ['/', '/home', '/home/', '/anatomy', '/lessons', '/lessons/example-lesson/edit', '/games', '/anatomy/', '/settings']) {
+    for (const route of ['/', '/home', '/home/', '/anatomy', '/lessons', '/lessons/example-lesson', '/lessons/example-lesson/edit', '/games', '/anatomy/', '/settings']) {
       const response = await fetch(base + route);
       assert.equal(response.status, 200);
       assert.equal(await response.text(), '<main>Soma</main>');
@@ -67,6 +70,12 @@ test('the production server serves module URLs and keeps missing assets as error
     assert.deepEqual(await manifest.json(), { name: 'Soma' });
     assert.equal((await fetch(base + '/assets/missing.js')).status, 404);
     assert.equal((await fetch(base + '/missing')).status, 404);
+    const document404 = await fetch(base + '/missing', { headers: { Accept: 'text/html' } });
+    assert.equal(document404.status, 404);
+    assert.equal(await document404.text(), '<main>Soma</main>');
+    const asset404 = await fetch(base + '/assets/missing.js', { headers: { Accept: 'text/html' } });
+    assert.equal(asset404.status, 404);
+    assert.equal(await asset404.text(), '');
   } finally {
     await new Promise(resolve => server.close(resolve));
     await rm(directory, { recursive: true, force: true });

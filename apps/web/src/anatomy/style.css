@@ -48,8 +48,10 @@
 .hand-mouse-mapped { fill: currentColor; fill-opacity: .35; }
 .hand-zoom-indicator { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: var(--inner-radius); background: var(--panel-bg); color: var(--accent); white-space: nowrap; font-size: 12px; }
 .hand-zoom-symbol { font-size: 22px; line-height: 1; }
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-new(root) { animation: none; }
+.anatomy-title-compact { display: none; }
+@media (max-width: 480px) {
+  .anatomy-title-full { display: none; }
+  .anatomy-title-compact { display: inline; }
 }
 .information-panel, .catalog-panel { position: absolute; z-index: 3; top: calc(var(--panel-inset) + var(--menu-height) + var(--panel-gap)); bottom: var(--panel-inset); min-width: 0; overflow-y: auto; scrollbar-gutter: stable; padding: var(--panel-padding); border: 0; transition: translate .24s cubic-bezier(.22,1,.36,1), opacity .24s ease, display .24s allow-discrete, width .32s cubic-bezier(.22,1,.36,1), box-shadow .32s ease; }
 .catalog-panel { left: var(--panel-inset); width: var(--panel-width); padding: var(--panel-padding); display: flex; flex-direction: column; overflow: hidden; scrollbar-gutter: auto; }
@@ -83,7 +85,7 @@
 @keyframes model-hold-fill { to { stroke-dashoffset: 0; } }
 .model-focus-frame { position: absolute; z-index: 1; border-radius: var(--panel-radius); pointer-events: none; }
 .model-hud { position: absolute; z-index: 2; bottom: 0; left: 50%; transform: translateX(-50%); width: min(780px, 100%); display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
-.model-status { margin: 0; max-width: 100%; overflow-wrap: anywhere; font-size: 12px; color: var(--status); padding: 6px 10px; border-radius: var(--inner-radius); background: rgba(var(--panel-rgb),.86); }
+.model-status { margin: 0; max-width: 100%; overflow-wrap: anywhere; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--status); padding: 6px 10px; border-radius: var(--inner-radius); background: rgba(var(--panel-rgb),.86); }
 .model-error { color: var(--accent); }
 .model-snap-hint { color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .model-progress { width: 180px; height: 4px; accent-color: var(--status); }

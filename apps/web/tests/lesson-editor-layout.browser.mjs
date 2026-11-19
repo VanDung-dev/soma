@@ -96,6 +96,23 @@ export async function checkLessonResponsiveLayout(page) {
       await page.setViewportSize({ width, height });
       await requireAutoFit();
     }
+    for (const [width, height] of [[800, 500], [901, 500], [1024, 640]]) {
+      await page.setViewportSize({ width, height });
+      const [scene, document] = await Promise.all([model(editor).boundingBox(), content(editor).boundingBox()]);
+      assert(scene.width >= 240 && scene.x + scene.width <= document.x, `Usable side-by-side model at ${width}px`);
+      assert(document.y + document.height <= height, `Writing or reading stays within ${width}×${height}`);
+      if (editor) {
+        for (const tool of await model(editor).locator('.lesson-model-tools-row :is(button, .explode-control)').all()) {
+          const button = await tool.boundingBox();
+          if (!button) continue;
+          assert(button.x >= scene.x && button.x + button.width <= scene.x + scene.width + 1,
+            `The 3D toolbar stays inside its pane at ${width}px`);
+        }
+      } else {
+        assert((await page.locator('.lesson-reader-body').boundingBox()).height >= 200, `Usable reading height at ${width}px`);
+      }
+    }
+    await page.setViewportSize({ width: 1920, height: 1200 });
     const workspace = page.locator(editor ? '.lesson-editor' : '.lesson-player');
     await workspace.evaluate(node => { node.style.width = 'calc(100% - 480px)'; });
     assert.deepEqual(await Promise.all([outline(editor), model(editor), content(editor)].map(async panel => (await bounds(panel))[2])),

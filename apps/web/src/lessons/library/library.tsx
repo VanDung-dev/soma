@@ -99,13 +99,11 @@ export function LessonLibrary({ lessons, loading, saving, importing, error, expo
   return <section className="lesson-library-page" aria-labelledby="lesson-library-title" data-dragging={dragging}>
     <header className="lesson-library-header">
       <div className="lesson-library-intro">
-        <span className="lesson-library-eyebrow">SOMA / LESSONS</span>
         <h1 id="lesson-library-title" ref={titleRef} tabIndex={-1}>{t("lessons.libraryTitle")}</h1>
         <div className="lesson-library-actions">
           <button type="button" className="lesson-button lesson-primary" disabled={busy} onClick={onCreate}>
             <span aria-hidden="true">+</span>{t("lessons.create")}
           </button>
-          <span className="lesson-library-total">{t("lessons.lessonCount", { count: lessons.length })}</span>
         </div>
       </div>
       <button type="button" className="lesson-import-zone" disabled={busy} onClick={() => picker.current?.click()} aria-label={t("lessons.import")}>
@@ -143,15 +141,15 @@ export function LessonLibrary({ lessons, loading, saving, importing, error, expo
       <p>{lessons.length ? t("lessons.searchHint") : renderLessonEmptyHint(t("lessons.emptyHint"))}</p>
       {lessons.length > 0 && <button type="button" className="lesson-button" onClick={() => setQuery("")}>{t("lessons.clearSearch")}</button>}
     </div> : <ul className="lesson-library">
-      {matching.map((lesson, index) => {
+      {matching.map(lesson => {
         const tag = lessonLanguageTag(lesson).replace("/", " / ").toUpperCase();
         const name = lessonText(lesson.title, language) || t("lessons.untitled");
         const summary = lessonPlainText(lesson.summary, language) || t("lessons.noDescription");
         const badge = <span className="lesson-cover-badge" aria-label={`${t("lessons.languages")}: ${tag}`}>{tag}</span>;
         return <li className="lesson-card" key={lesson.id}>
-          {lesson.cover ? <LessonCover lesson={lesson}>{badge}</LessonCover> : <div className="lesson-cover lesson-cover-empty">
-            <span className="lesson-card-number" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>{badge}
-          </div>}
+          {lesson.cover ? <LessonCover lesson={lesson}>{badge}</LessonCover> : <span className="lesson-card-language">
+            <span className="sr-only">{t("lessons.languages")}: </span>{tag}
+          </span>}
           <div className="lesson-card-content">
             <h3>{name}</h3>
             <p className="lesson-card-summary">{summary}</p>

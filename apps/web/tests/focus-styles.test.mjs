@@ -8,8 +8,7 @@ test('focus states retain intended indicators without decorative browser rings',
   const root = new URL('../', import.meta.url);
   const indicators = new Map([
     ['.settings-switch:focus-visible + .camera-mode-switch', { background: 'var(--selected-bg)' }],
-    ['.lesson-library-search:focus-within', { 'border-color': 'var(--accent)', 'box-shadow': '0 0 0 2px var(--selected-bg)' }],
-    ['.lesson-library .lesson-card:focus-within, .lesson-library .lesson-card:hover', { 'box-shadow': 'inset 0 0 0 1px var(--line-hover), 0 8px 24px rgba(var(--shadow-rgb), .1)' }],
+    ['.lesson-library-search:has(input:focus-visible)', { 'background-color': 'var(--selected-bg)' }],
   ]);
   const seen = new Set();
   for await (const file of glob('src/**/*.css', { cwd: fileURLToPath(root) })) {

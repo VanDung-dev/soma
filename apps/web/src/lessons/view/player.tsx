@@ -31,7 +31,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
   const [outlineOpen, setOutlineOpen] = useLessonPanel("readerOutline", false);
   const modelId = useId();
   const [modelCollapsed, setModelCollapsed] = useState(false);
-  const [compact, setCompact] = useState(() => window.matchMedia("(max-width: 900px)").matches);
+  const [compact, setCompact] = useState(false);
   const [index, setIndex] = useState(0);
   const { host, orientation, showAxes, fps, session, state, runtime } = useLessonViewer(catalog, graphics, usesModel ? modelIds : "", undefined,
     focusFrame, undefined, false, false, true);
@@ -62,10 +62,13 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
   const boundary = lesson.steps.findIndex(item => issues.has(item.id) || (lessonMode(item) !== "content" && !passed.has(item.id)));
 
   useEffect(() => {
-    const media = window.matchMedia("(max-width: 900px)");
-    const update = () => setCompact(media.matches);
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
+    const element = body.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setCompact(entry.contentRect.width <= 856);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -145,7 +148,8 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
           </ol>
         </div>
       </nav>
-      <div className="lesson-workspace" ref={workspace} data-model={modelVisible} data-model-collapsed={modelCollapsed}>
+      <div className="lesson-workspace" ref={workspace} data-model={modelVisible} data-model-collapsed={modelCollapsed}
+        onScroll={() => runtime.current?.resize()}>
       <section className="lesson-model" id={modelId} hidden={!modelVisible} inert={!modelVisible} aria-hidden={!modelVisible} aria-label={t("viewer.section.label")}>
         <div className="model-focus-frame" ref={focusFrame}>
           <div className="model-orientation">

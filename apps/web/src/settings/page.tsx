@@ -37,8 +37,9 @@ function LicenseRow({ label, path }: { label: string; path: string }) {
   </div>;
 }
 
-function SettingsNumber({ id, value, min, max, unit, integer, onChange }: {
-  id: string; value: string; min: number; max: number; unit: string; integer?: boolean; onChange: (value: string) => void;
+function SettingsNumber({ id, value, min, max, unit, integer, description, onChange }: {
+  id: string; value: string; min: number; max: number; unit: string; integer?: boolean; description?: string;
+  onChange: (value: string) => void;
 }) {
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
@@ -55,7 +56,7 @@ function SettingsNumber({ id, value, min, max, unit, integer, onChange }: {
     if (!Number.isFinite(number) || number < min || number > max || (integer && !Number.isInteger(number))) setDraft(value);
   };
   return <div className="settings-number-control">
-    <input id={id} className="settings-number" type="text" inputMode={integer ? "numeric" : "decimal"} value={draft}
+    <input id={id} className="settings-number" type="text" inputMode={integer ? "numeric" : "decimal"} value={draft} aria-describedby={description}
       onChange={event => update(event.currentTarget.value)} onBlur={resetInvalid} />
     <span aria-hidden="true">{unit}</span>
   </div>;
@@ -100,8 +101,8 @@ export function SettingsPage({ section = "interface", fontSize }: {
             </div>
             <div className="settings-row graphics-options-row settings-font-size-row">
               <label htmlFor="settings-font-size">{t("settings.fontSize")}</label>
-              <span className="settings-number-range">{t("settings.fontSize.range")}</span>
-              <SettingsNumber id="settings-font-size" value={fontSize.fontSize} min={6} max={18} unit="pt" integer
+              <span className="settings-number-range" id="settings-font-size-range">{t("settings.fontSize.range")}</span>
+              <SettingsNumber id="settings-font-size" value={fontSize.fontSize} min={6} max={18} unit="pt" integer description="settings-font-size-range"
                 onChange={fontSize.setFontSize} />
             </div>
             {fontSize.failed && <p className="shortcut-status" role="status">{t("settings.fontSize.error")}</p>}

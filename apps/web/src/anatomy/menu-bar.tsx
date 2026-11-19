@@ -38,5 +38,7 @@ export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForw
         onClick={() => onCameraChange(!cameraEnabled)}>
         <LineIcon name="camera" size={24} /><span className="camera-mode-switch" aria-hidden="true" />
       </button>
-    </>} title={<h1 className="app-menu-title" title={t("app.title")}>{t("app.title")}</h1>} actions={informationToggle} />;
+    </>} title={<h1 className="app-menu-title" title={t("app.title")}>
+      <span className="anatomy-title-full">{t("app.title")}</span><span className="anatomy-title-compact">{t("app.titleCompact")}</span>
+    </h1>} actions={informationToggle} />;
 }

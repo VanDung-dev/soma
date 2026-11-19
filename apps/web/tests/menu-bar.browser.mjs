@@ -13,7 +13,7 @@ export async function checkMenuBar() {
   assert(back.getAttribute('aria-label') === 'Quay lại' && forward.getAttribute('aria-label') === 'Tiến tới'
     && settings.textContent === 'Cài đặt', 'Label Back, Forward and Settings');
   assert(back.disabled, 'Disable Back at the initial overview');
-  assert(document.querySelectorAll('h1').length === 1 && title.textContent === 'Không gian giải phẫu', 'Keep one workspace title');
+  assert(document.querySelectorAll('h1').length === 1 && title.innerText === 'Không gian giải phẫu', 'Keep one workspace title');
   const area = bar.getBoundingClientRect();
   assert(area.left > 0 && area.right < innerWidth && bar.scrollWidth <= bar.clientWidth, 'Keep the toolbar inside the viewport');
   const titleBounds = title.getBoundingClientRect();

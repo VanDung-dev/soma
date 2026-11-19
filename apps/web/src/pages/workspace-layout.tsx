@@ -1,5 +1,5 @@
 import type { HTMLAttributes, ReactNode, Ref } from "react";
-import { useLanguage } from "../i18n";
+import { useLanguage, type MessageKey } from "../i18n";
 import { LineIcon } from "../icons";
 import { shortcutLabel, useShortcutBindings } from "../shortcuts";
 import type { AppShortcut } from "../shortcuts";
@@ -7,6 +7,15 @@ import "./workspace.css";
 
 export function WorkspaceLayout({ className = "", ...props }: HTMLAttributes<HTMLDivElement>) {
   return <div className={`workspace-shell ${className}`.trim()} {...props} />;
+}
+
+export function PageMessage({ title, description }: { title: MessageKey; description: MessageKey }) {
+  const { t } = useLanguage();
+  return <main className="page-message" aria-labelledby="page-message-title">
+    <h1 id="page-message-title">{t(title)}</h1>
+    <p>{t(description)}</p>
+    <a href="/home">{t("app.returnHome")}</a>
+  </main>;
 }
 
 export function WorkspaceMenu({ ref, className = "", actionsClassName = "", layout = "overlay", navigation, title, actions, children }: {

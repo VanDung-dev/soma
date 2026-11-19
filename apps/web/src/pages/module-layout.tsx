@@ -13,7 +13,7 @@ type ModulePage = "home" | "anatomy" | "lessons" | "games" | "settings";
 export const WorkspaceActiveContext = createContext(true);
 
 export function ModuleLayout({ children, page, onClick, settings }: {
-  children: ReactNode; page: ModulePage; onClick?: MouseEventHandler<HTMLDivElement>; settings?: ReactNode;
+  children: ReactNode; page: ModulePage | null; onClick?: MouseEventHandler<HTMLDivElement>; settings?: ReactNode;
 }) {
   const tauri = isTauri();
   const suppressContextMenu = tauri && import.meta.env.DEV;
@@ -23,7 +23,7 @@ export function ModuleLayout({ children, page, onClick, settings }: {
   useShortcutBindings();
   const settingsLink = useRef<HTMLAnchorElement>(null);
   const previousPage = useRef(page);
-  const title = t(page === "settings" ? "app.settings" : `module.${page}`);
+  const title = t(page === "settings" ? "app.settings" : page ? `module.${page}` : "app.notFound");
   useEffect(() => { document.title = `Soma — ${title}`; }, [title]);
   useEffect(() => {
     if (previousPage.current === "settings" && page !== "settings"
