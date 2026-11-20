@@ -118,8 +118,7 @@ export function LessonOutline({ steps, selected, onSelect, onMove, onRemove }: {
             }}><span aria-hidden="true">⠿</span></button>
           <button className="lesson-outline-row" aria-current={step.id === selected ? "true" : undefined}
             aria-keyshortcuts={step.id === selected ? "Delete Backspace" : undefined} onClick={() => onSelect(step.id)}>
-            <span className="lesson-block-icon" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
-            <span><strong>{name}</strong></span>
+            <strong className="lesson-outline-label">{name}</strong>
           </button>
         </li>;
       })}
@@ -129,9 +128,7 @@ export function LessonOutline({ steps, selected, onSelect, onMove, onRemove }: {
       style={{ left: drag.x - drag.preview.offsetX, top: drag.y - drag.preview.offsetY, width: drag.preview.width, height: drag.preview.height }}>
       <span className="lesson-drag-handle"><span>⠿</span></span>
       <div className="lesson-outline-row">
-        <span className="lesson-block-icon">{String(drag.from + 1).padStart(2, "0")}</span>
-        <span><strong>{lessonText(draggedStep.title, language) || t("lessons.untitledSection")}</strong>
-          </span>
+        <strong className="lesson-outline-label">{lessonText(draggedStep.title, language) || t("lessons.untitledSection")}</strong>
       </div>
     </div>, document.body)}
     <p className="sr-only" role="status">{drag ? t("lessons.dragPosition", { position: drag.to + 1, total: steps.length }) : ""}</p>

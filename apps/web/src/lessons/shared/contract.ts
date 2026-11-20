@@ -20,6 +20,8 @@ export type LessonCoverCrop = { zoom: number; x: number; y: number };
 export type Lesson = {
   id: string;
   version: number;
+  createdAt?: number;
+  updatedAt?: number;
   title: LessonText;
   summary: LessonText;
   author?: string;

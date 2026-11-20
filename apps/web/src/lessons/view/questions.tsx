@@ -7,11 +7,12 @@ import { useLessonImages } from "../shared/image-context";
 
 type Answer = { selected: string; correct: boolean; checked: boolean };
 
-export function LessonQuestions({ stepId, questions, disabled, onComplete }: {
+export function LessonQuestions({ stepId, questions, disabled, correctAnswers, onCorrect }: {
   stepId: string;
   questions: LessonQuestion[];
   disabled: boolean;
-  onComplete: () => void;
+  correctAnswers: Record<string, string>;
+  onCorrect: (key: string, choice: string) => void;
 }) {
   const { language, t } = useLanguage();
   const images = useLessonImages();
@@ -19,7 +20,9 @@ export function LessonQuestions({ stepId, questions, disabled, onComplete }: {
   return <div className="lesson-questions">
     {questions.map((question, index) => {
       const key = `${stepId}/${question.id}`;
-      const answer = answers[key];
+      const answer = correctAnswers[key] === question.answerId
+        ? { selected: question.answerId, correct: true, checked: true }
+        : answers[key];
       return <section className="lesson-question" key={key} aria-label={t("lessons.questionNumber", { number: index + 1 })}>
         <fieldset className="lesson-choices" disabled={disabled || answer?.correct}>
           <legend>{lessonText(question.prompt, language) || t("lessons.questionNumber", { number: index + 1 })}</legend>
@@ -32,10 +35,10 @@ export function LessonQuestions({ stepId, questions, disabled, onComplete }: {
         </fieldset>
         {!answer?.correct && <button className="lesson-button lesson-primary" disabled={disabled || !answer?.selected}
           onClick={() => {
-            const correct = answer?.selected === question.answerId;
-            const next = { ...answers, [key]: { selected: answer!.selected, correct, checked: true } };
-            setAnswers(next);
-            if (questions.length && questions.every(value => next[`${stepId}/${value.id}`]?.correct)) onComplete();
+            const selected = answer?.selected;
+            if (!selected) return;
+            if (selected === question.answerId) onCorrect(key, selected);
+            else setAnswers(current => ({ ...current, [key]: { selected, correct: false, checked: true } }));
           }}>{t("lessons.check")}</button>}
         <div className="lesson-feedback" role="status">
           {answer?.checked && <p>{t(answer.correct ? "lessons.correct" : "lessons.incorrect")}</p>}

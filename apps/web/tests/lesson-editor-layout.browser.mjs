@@ -18,6 +18,7 @@ export async function checkLessonResponsiveLayout(page) {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.evaluate(lesson => {
     localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson));
+    localStorage.setItem('soma.lesson-progress-v1:' + lesson.id, JSON.stringify({ read: ['observe'], answers: {} }));
     for (const panel of ['editorOutline', 'readerOutline']) localStorage.setItem(`soma.lessons.panel:${panel}`, 'true');
   }, lesson);
   const observeCamera = () => page.evaluate(async () => {
@@ -292,6 +293,7 @@ export async function checkLessonEditorLayout(page) {
   await page.locator('#lesson-toggle-outline').click();
   assert.equal(await outline.locator('[data-lesson-step]').count(), 4, 'The added draft appears in the outline');
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
+  await page.getByRole('heading', { name: 'Bốn', exact: true }).waitFor();
   const readerOutline = page.locator('.lesson-reader-outline');
   const readerToggle = page.locator('.lesson-player-header .sidebar-toggle');
   await readerToggle.click();
@@ -301,11 +303,13 @@ export async function checkLessonEditorLayout(page) {
   assert(await readerOutline.isVisible());
   await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
   await page.getByLabel('Tên mục').waitFor();
+  assert.equal(await page.getByLabel('Tên mục').inputValue(), 'Bốn');
   assert(await outline.isVisible());
   assert(await settings.isVisible());
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   await readerToggle.waitFor();
   assert(await readerOutline.isVisible(), 'Learner outline preference survives returning to preview');
+  await readerOutline.getByRole('button', { name: 'Một', exact: true }).click();
   await readerToggle.click();
   await page.setViewportSize({ width: 390, height: 844 });
   const playerModel = page.locator('.lesson-player .lesson-model');

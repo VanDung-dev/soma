@@ -11,11 +11,22 @@ import { LessonQuestions } from "./questions";
 import { useLessonPanel } from "../shared/panels";
 import { lessonHtml, lessonPlainText } from "../shared/rich-text";
 import { useLessonImages } from "../shared/image-context";
+import { LessonTimestamps } from "../shared/timestamps";
 import { lessonModels } from "../shared/targets";
 import { useGraphicsSettings } from "../../pages/use-graphics-settings";
 import { SidebarToggle, WorkspaceLayout, WorkspaceMenu } from "../../pages/workspace-layout";
+import { useLessonProgress } from "./progress";
+import { READING_DURATION_MS, useReadingTimer } from "./reading-timer";
 
-export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false }: { lesson: Lesson; catalog: Catalog; onBack: () => void; onEdit?: () => void; preview?: boolean }) {
+export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false, initialStepId, studyVisible = true }: {
+  lesson: Lesson;
+  catalog: Catalog;
+  onBack: () => void;
+  onEdit?: () => void;
+  preview?: boolean;
+  initialStepId?: string;
+  studyVisible?: boolean;
+}) {
   const { language, t } = useLanguage();
   const [graphics] = useGraphicsSettings();
   const images = useLessonImages();
@@ -31,15 +42,29 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
   const modelId = useId();
   const [modelCollapsed, setModelCollapsed] = useState(false);
   const [compact, setCompact] = useState(false);
-  const [index, setIndex] = useState(0);
+  const [progress, updateProgress, progressUnsaved] = useLessonProgress(lesson.id, preview, initialStepId);
   const { host, orientation, showAxes, fps, session, state, runtime } = useLessonViewer(catalog, graphics, usesModel ? modelIds : "", undefined,
     focusFrame, undefined, false, false, true);
-  const [passed, setPassed] = useState<ReadonlySet<string>>(() => new Set());
   const [failed, setFailed] = useState(false);
-  const [complete, setComplete] = useState(false);
-  const step: LessonStep = lesson.steps[index] ?? { id: "preview-empty", kind: "text", title: { vi: "", en: "" }, instruction: { vi: "", en: "" } };
   const issues = useMemo(() => lessonPreviewIssues(lesson, modelMembers, id => catalog.members(id)), [catalog, lesson, modelMembers]);
+  const stepQuestions = (item: LessonStep) => item.questionRef || lessonMode(item) === "content" ? [] : item.questions ?? [];
+  const awaitingAnswers = (item: LessonStep) => stepQuestions(item).some(question => progress.answers[`${item.id}/${question.id}`] !== question.answerId);
+  const boundary = preview ? -1 : lesson.steps.findIndex(item => issues.has(item.id) || !progress.read.includes(item.id) || awaitingAnswers(item));
+  const complete = progress.position === null && boundary === -1 && lesson.steps.length > 0;
+  const savedIndex = lesson.steps.findIndex(item => item.id === progress.position);
+  const resumeIndex = savedIndex < 0 && progress.position !== undefined && boundary >= 0 ? boundary : Math.max(0, savedIndex);
+  const index = complete ? lesson.steps.length - 1 : boundary < 0 ? resumeIndex : Math.min(resumeIndex, boundary);
+  const step: LessonStep = lesson.steps[index] ?? { id: "preview-empty", kind: "text", title: { vi: "", en: "" }, instruction: { vi: "", en: "" } };
   const issue = issues.get(step.id);
+  const read = !preview && progress.read.includes(step.id);
+  const reading = !preview && !complete && lesson.steps.length > 0 && !issue && !read;
+  const readingActive = reading && studyVisible;
+  const readingRestart = useReadingTimer(step.id, readingActive, id => {
+    if (id !== step.id || !readingActive) return;
+    updateProgress(current => ({ ...current, position: id, read: [...new Set([...current.read, id])] }));
+  });
+  const nextDescription = reading ? t("lessons.readingRequired")
+    : !preview && !issue && awaitingAnswers(step) ? t("lessons.answersRequired") : undefined;
   const scene = useMemo(() => lessonSceneStep(lesson, complete ? 0 : index), [complete, index, lesson]);
   const showStepModel = usesModel && !!scene;
   const modelVisible = showStepModel && (!compact || !modelCollapsed);
@@ -52,12 +77,10 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
     } catch { return false; }
   }, [catalog, lesson, scene, modelMembers]);
   const mode = step.questionRef ? "content" : lessonMode(step);
-  const questions = mode === "content" ? [] : step.questions ?? [];
+  const questions = stepQuestions(step);
   const instruction = lessonHtml(step.instruction, language, images.urls);
-  const solved = passed.has(step.id);
   const ready = !state.building && !state.error && !failed;
   const modelMissing = modelIds.some(id => !catalog.roots.some(root => root.id === id));
-  const boundary = lesson.steps.findIndex(item => issues.has(item.id) || (!item.questionRef && lessonMode(item) !== "content" && !passed.has(item.id)));
 
   useEffect(() => {
     const element = body.current;
@@ -88,11 +111,13 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
     heading.current?.focus({ preventScroll: true });
   }, [index, complete]);
 
+  function stepLocked(next: number) {
+    return boundary >= 0 && next > boundary;
+  }
+
   function move(next: number) {
-    if (!preview && boundary >= 0 && next > boundary) return;
-    setComplete(false);
-    setIndex(next);
-    if (!next) heading.current?.focus();
+    if (stepLocked(next)) return;
+    updateProgress(current => ({ ...current, position: lesson.steps[next]?.id }));
   }
 
   return <WorkspaceLayout className="lesson-player">
@@ -107,6 +132,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
       </>} title={<div className="lesson-player-heading">
         <h1>{lessonText(lesson.title, language) || t("lessons.untitled")}</h1>
         <span>{lesson.author?.trim() && `${t("lessons.author")}: ${lesson.author} · `}{preview && `${t("lessons.draftPreview")} · `}{lesson.steps.length ? t(complete ? "lessons.completed" : "lessons.step", { current: index + 1, total: lesson.steps.length }) : t("lessons.addContent")}</span>
+        <LessonTimestamps lesson={lesson} />
       </div>} actions={<>
       {showStepModel && <button className="controls-info lesson-player-model-toggle" aria-controls={modelId} aria-expanded={!modelCollapsed}
         aria-label={t(modelCollapsed ? "lessons.showModel" : "lessons.hideModel")} title={t(modelCollapsed ? "lessons.showModel" : "lessons.hideModel")}
@@ -122,11 +148,13 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
           <ol className="lesson-outline-list">
             {lesson.steps.map((item, i) => {
               const name = lessonText(item.title, language) || t("lessons.untitledSection");
+              const itemRead = progress.read.includes(item.id);
               return <li key={item.id} className="lesson-outline-item">
                 <button className="lesson-outline-row" aria-current={!complete && i === index ? "true" : undefined}
-                  disabled={!preview && boundary >= 0 && i > boundary} onClick={() => move(i)}>
-                  <span className="lesson-block-icon" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
-                  <span><strong>{name}</strong></span>
+                  aria-description={t(itemRead ? "lessons.sectionRead" : "lessons.sectionUnread")}
+                  disabled={stepLocked(i)} onClick={() => move(i)}>
+                  <span className="lesson-outline-status" data-read={itemRead || undefined} aria-hidden="true" />
+                  <strong className="lesson-outline-label">{name}</strong>
                 </button>
               </li>;
             })}
@@ -167,12 +195,16 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
           <div className="lesson-editor-stepbar-actions">
             {complete
               ? <button className="lesson-button" onClick={() => move(0)}>{t("lessons.review")}</button>
-              : <button className="lesson-button lesson-primary" disabled={!!issue && !preview || (mode !== "content" && !solved && !preview)} onClick={() => {
+              : <button key={readingRestart} className="lesson-button lesson-primary" disabled={stepLocked(index + 1)}
+                data-reading={readingActive || undefined} data-read={read || undefined}
+                style={readingActive ? { animationDuration: `${READING_DURATION_MS}ms` } : undefined}
+                title={nextDescription} aria-description={nextDescription} onClick={() => {
                 if (index + 1 < lesson.steps.length) move(index + 1);
-                else setComplete(true);
+                else updateProgress(current => ({ ...current, position: null }));
               }}>{t(index + 1 < lesson.steps.length ? "lessons.next" : "lessons.finish")}</button>}
           </div>
         </div>}
+        {progressUnsaved && <p className="model-status" role="status">{t("lessons.progressUnsaved")}</p>}
         <div className="information-content lesson-reader-body" ref={reader}>
         {complete ? <>
           <h2 id="lesson-step-title" ref={heading} tabIndex={-1}>{t("lessons.completed")}</h2>
@@ -186,8 +218,10 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false 
           : !step.questionRef && <p className="lesson-instructions">{t("lessons.previewNoContent")}</p>)}
         {!lesson.steps.length && <button className="lesson-button lesson-primary" onClick={() => (onEdit ?? onBack)()}>{t("lessons.continueEditing")}</button>}
         </>}
-        <div hidden={complete}><LessonQuestions stepId={step.id} questions={questions} disabled={!!issue}
-          onComplete={() => setPassed(current => new Set([...current, step.id]))} /></div>
+        <div className="lesson-reader-questions" hidden={complete || !questions.length}>
+          <LessonQuestions stepId={step.id} questions={questions} disabled={!preview && !!issue} correctAnswers={progress.answers}
+            onCorrect={(key, choice) => updateProgress(current => ({ ...current, position: step.id, answers: { ...current.answers, [key]: choice } }))} />
+        </div>
         </div>
       </section>
     </div>

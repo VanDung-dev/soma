@@ -7,6 +7,7 @@ import { LessonCover } from "../editor/cover";
 import type { Lesson } from "../shared/contract";
 import { lessonLanguageTag, lessonText } from "../shared/contract";
 import { lessonPlainText } from "../shared/rich-text";
+import { LessonTimestamps } from "../shared/timestamps";
 import "./library.css";
 
 const searchable = (value: string) => value.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replaceAll("đ", "d");
@@ -154,6 +155,7 @@ export function LessonLibrary({ lessons, loading, saving, importing, error, expo
             <h3>{name}</h3>
             <p className="lesson-card-summary">{summary}</p>
             <p className="lesson-card-author">{t("lessons.author")}: {lesson.author?.trim() || t("lessons.authorUnknown")}</p>
+            <LessonTimestamps lesson={lesson} />
             <div className="lesson-card-actions">
               <button type="button" className="lesson-button lesson-primary" onClick={() => onStart(lesson)}>{t("lessons.start")}<LineIcon name="arrow-small-right" /></button>
               <button type="button" className="lesson-button" onClick={() => onEdit(lesson)}>{t("lessons.edit")}</button>

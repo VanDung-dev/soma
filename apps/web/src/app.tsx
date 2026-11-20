@@ -98,7 +98,7 @@ function AppRoute() {
   };
   return <GraphicsSettingsContext value={graphics}><CameraDevicesContext value={cameras}>
     <ModuleLayout page={page} onClick={navigate} settings={settings ? <SettingsPage section={section} fontSize={fontSize} /> : undefined}>
-    {Page ? <Page /> : workspace === "lessons" ? <LessonsPage editId={lessonEditId(workspacePath)} viewId={lessonViewId(workspacePath)} navigate={goTo} />
+    {Page ? <Page /> : workspace === "lessons" ? <LessonsPage editId={lessonEditId(workspacePath)} viewId={lessonViewId(workspacePath)} studyVisible={!settings} navigate={goTo} />
       : workspacePath && <PageMessage title="app.notFound" description="app.notFoundDescription" />}
     </ModuleLayout>
   </CameraDevicesContext></GraphicsSettingsContext>;

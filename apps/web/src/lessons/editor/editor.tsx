@@ -11,6 +11,7 @@ import { LessonModelSetup } from "./model-setup";
 import { LessonDetails } from "./details";
 import { LessonStepOptions } from "./step-options";
 import { LessonQuestionEditor } from "./question-editor";
+import { LessonTimestamps } from "../shared/timestamps";
 import { exportLesson, newLessonId } from "../shared/source";
 import { lessonModels, lessonSceneModels, lessonTargets } from "../shared/targets";
 import type { SceneView } from "../../anatomy/viewer/contracts";
@@ -444,6 +445,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
       </>} title={<div className="lesson-author-heading">
         <h1 className="app-menu-title" ref={heading} tabIndex={-1}>{lessonText(draft.title, language) || t("lessons.editor")}</h1>
         <span>{t(isDirty ? "lessons.unsaved" : "lessons.saved")}</span>
+        <LessonTimestamps lesson={saved} />
       </div>} actions={<>
         <div className="lesson-languages" role="group" aria-label={t("lessons.writingLanguage")}>
           {(["vi", "en"] as const).map(value => {
@@ -468,14 +470,13 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
       <div className="catalog-heading"><h2>{t("lessons.outline")}</h2></div>
       <div className="catalog-tree">
         <button className="lesson-outline-row lesson-outline-details" aria-current={!active ? "true" : undefined} onClick={() => select()}>
-          <span className="lesson-block-icon" aria-hidden="true">≡</span>
-          <span>{t("lessons.details")}</span>
+          <span className="lesson-outline-label">{t("lessons.details")}</span>
         </button>
+        <div className="lesson-outline-section-heading">
+          <h3>{t("lessons.sectionList")}</h3>
+          <button type="button" className="controls-info lesson-outline-add" aria-label={t("lessons.addStep")} title={t("lessons.addStep")} onClick={add} />
+        </div>
         <LessonOutline steps={draft.steps} selected={selected} onSelect={select} onMove={move} onRemove={remove} />
-        <button type="button" className="lesson-outline-row lesson-tool" onClick={add}>
-          <span className="lesson-block-icon" aria-hidden="true">+</span>
-          <span>{t("lessons.addStep")}</span>
-        </button>
       </div>
     </nav>
     <p className="sr-only" role="status">{orderStatus}</p>

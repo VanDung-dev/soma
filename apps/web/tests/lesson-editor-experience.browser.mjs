@@ -109,6 +109,7 @@ export async function checkLessonEditorExperience(page) {
   assert.equal(await body.innerText(), hidden.instruction.vi.replace(/<[^>]+>/g, ''));
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   const player = page.locator('.lesson-player');
+  await player.getByRole('heading', { name: 'Chỉ nội dung', exact: true }).waitFor();
   await player.locator('.model-canvas[aria-busy="false"]').waitFor();
   const headerBounds = await player.locator('.lesson-player-header').boundingBox();
   const headingBounds = await player.locator('.lesson-player-heading').boundingBox();
@@ -122,12 +123,12 @@ export async function checkLessonEditorExperience(page) {
     assert(await player.evaluate(node => node.scrollWidth <= node.clientWidth));
   }
   const viewer = await player.locator('canvas').elementHandle();
-  assert(await player.locator('.lesson-model').isVisible());
-  await player.getByRole('button', { name: 'Mục tiếp theo', exact: true }).click();
   assert(await player.locator('.lesson-model').isHidden());
   assert.equal(await player.locator('.lesson-workspace').getAttribute('data-model'), 'false');
   await player.getByRole('button', { name: 'Mục trước', exact: true }).click();
   assert(await player.locator('.lesson-model').isVisible());
+  await player.getByRole('button', { name: 'Mục tiếp theo', exact: true }).click();
+  assert(await player.locator('.lesson-model').isHidden());
   assert(await viewer.evaluate(canvas => canvas === document.querySelector('.lesson-player canvas')), 'Changing model visibility keeps the learner viewer');
   await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
   await page.getByRole('checkbox', { name: 'Hiển thị mô hình 3D ở mục này', exact: true }).check();

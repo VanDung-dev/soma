@@ -26,19 +26,35 @@ export async function checkLessons(page) {
   await createLesson(page);
   const editorUrl = page.url();
   assert.match(editorUrl, /\/lessons\/[a-z0-9]+\/edit$/);
+  const created = await savedLesson(page);
+  assert(Number.isSafeInteger(created.createdAt));
+  assert.equal(created.updatedAt, created.createdAt);
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   await page.getByText('Nội dung của mục sẽ xuất hiện ở đây khi bạn soạn bài.', { exact: true }).waitFor();
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('soma.lesson-v1:' + location.pathname.split('/')[2])).steps.length), 0);
   await page.getByRole('button', { name: 'Tiếp tục soạn bài', exact: true }).click();
 
   await page.getByLabel('Tên bài học').fill('Bài kiểm thử');
-  await page.locator('#lesson-author-outline').getByRole('button', { name: 'Thêm mục', exact: true }).click();
+  const editorOutline = page.locator('#lesson-author-outline');
+  const sectionHeading = editorOutline.locator('.lesson-outline-details + .lesson-outline-section-heading');
+  await sectionHeading.getByRole('heading', { name: 'Danh sách mục', exact: true }).waitFor();
+  await sectionHeading.getByRole('button', { name: 'Thêm mục', exact: true }).click();
   await page.getByLabel('Tên mục').fill('Đọc phần mở đầu');
+  assert.equal(await editorOutline.locator('.lesson-block-icon').count(), 0);
   await page.getByLabel('Hiển thị mô hình 3D ở mục này', { exact: true }).uncheck();
   await lessonBody(page).fill('Quan sát phần mô tả.');
   await saveLessonDraft(page);
+  const saved = await savedLesson(page);
+  assert.equal(saved.createdAt, created.createdAt);
+  assert(saved.updatedAt > created.updatedAt);
+  const visibleTimestamps = process.env.VITE_DEBUG_LESSON_TIMESTAMPS === '1'
+    ? [saved.createdAt, saved.updatedAt].map(value => new Date(value).toISOString())
+    : [];
+  const timestampsIn = root => root.locator('.lesson-timestamps time').evaluateAll(times => times.map(time => time.dateTime));
+  assert.deepEqual(await timestampsIn(page.locator('.lesson-editor')), visibleTimestamps);
   await page.getByRole('button', { name: 'Xem trước' }).click();
   await page.getByRole('heading', { name: 'Đọc phần mở đầu' }).waitFor();
+  assert.deepEqual(await timestampsIn(page.locator('.lesson-player')), visibleTimestamps);
   await page.locator('.lesson-player .lesson-model').waitFor({ state: 'hidden' });
   assert.equal(await page.locator('.lesson-player > .model-canvas').count(), 1);
   await page.getByRole('button', { name: 'Hoàn thành', exact: true }).click();
@@ -47,6 +63,9 @@ export async function checkLessons(page) {
   await page.reload();
   assert.equal(page.url(), editorUrl);
   await page.getByRole('button', { name: 'Thoát', exact: true }).click();
+  const savedCard = page.locator('.lesson-card').filter({ hasText: 'Bài kiểm thử' });
+  await savedCard.waitFor();
+  assert.deepEqual(await timestampsIn(savedCard), visibleTimestamps);
   const librarySearch = page.getByRole('searchbox', { name: 'Tìm bài học' });
   await librarySearch.fill('khong ton tai');
   await page.getByRole('status').filter({ hasText: 'Không tìm thấy bài học' }).waitFor();
@@ -59,7 +78,6 @@ export async function checkLessons(page) {
   await page.locator('#lesson-author-outline').getByRole('button', { name: 'Thêm mục', exact: true }).click();
   const incomplete = await savedLesson(page);
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
-  await page.getByRole('button', { name: 'Mục tiếp theo', exact: true }).click();
   await page.getByRole('heading', { name: 'Mục chưa đặt tên', exact: true }).waitFor();
   assert(await page.locator('.lesson-preview-issue').isVisible(), 'Preview highlights the unfinished section');
   await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();

@@ -81,6 +81,7 @@ export async function checkLessonQuestions(page) {
   };
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   assert.equal(await page.locator('.lesson-player').getByRole('region', { name: /Câu hỏi \d/ }).count(), 2);
+  assert(await page.getByRole('button', { name: 'Hoàn thành', exact: true }).isEnabled());
   for (const width of [320, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await checkLessonHeader(page, '.lesson-player-header', '.lesson-player-heading');
@@ -91,6 +92,9 @@ export async function checkLessonQuestions(page) {
   await selectMode('questions');
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   assert.equal(await page.locator('.lesson-instructions').count(), 0);
+  const heading = await page.getByRole('heading', { name: 'Hai câu hỏi', exact: true }).boundingBox();
+  const firstQuestion = await page.getByRole('region', { name: 'Câu hỏi 1', exact: true }).boundingBox();
+  assert(firstQuestion.y - heading.y - heading.height >= 12, 'The first question has breathing room below the section title');
   await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
   await selectMode('content');
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
@@ -99,10 +103,14 @@ export async function checkLessonQuestions(page) {
   const studentContext = await page.context().browser().newContext({ baseURL: new URL(page.url()).origin });
   try {
     const student = await studentContext.newPage();
+    await student.clock.install();
     await student.goto('/home');
     await student.evaluate(lesson => localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson)), original);
     await student.goto('/lessons/' + original.id);
     await student.getByRole('heading', { name: 'Hai câu hỏi', exact: true }).waitFor();
+    await student.locator('.lesson-player-stepbar button[data-reading]').waitFor();
+    await student.clock.fastForward(16_000);
+    await student.locator('.lesson-player-stepbar button[data-read][aria-description^="Trả lời đúng"]').waitFor();
     await exercise(student.locator('.lesson-player'));
   } finally { await studentContext.close(); }
   assert.equal(page.url(), url);

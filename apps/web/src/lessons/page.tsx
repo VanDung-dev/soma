@@ -18,11 +18,13 @@ import { lessonImagePaths } from "./shared/rich-text";
 import { LessonLibrary } from "./library/library";
 import { LessonConfirmProvider, useLessonConfirm } from "./shared/confirm";
 
-export function LessonsPage({ editId, viewId, navigate }: { editId?: string; viewId?: string; navigate: (path: string) => void }) {
-  return <LessonConfirmProvider><LessonsPageContent editId={editId} viewId={viewId} navigate={navigate} /></LessonConfirmProvider>;
+type LessonsPageProps = { editId?: string; viewId?: string; studyVisible: boolean; navigate: (path: string) => void };
+
+export function LessonsPage(props: LessonsPageProps) {
+  return <LessonConfirmProvider><LessonsPageContent {...props} /></LessonConfirmProvider>;
 }
 
-function LessonsPageContent({ editId, viewId, navigate }: { editId?: string; viewId?: string; navigate: (path: string) => void }) {
+function LessonsPageContent({ editId, viewId, studyVisible, navigate }: LessonsPageProps) {
   const { language, t } = useLanguage();
   const confirm = useLessonConfirm();
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -56,9 +58,10 @@ function LessonsPageContent({ editId, viewId, navigate }: { editId?: string; vie
   }, []);
 
   const activeId = editId || viewId;
-  const draft = pending?.id === activeId ? pending : lessons.find(item => item.id === activeId);
   const editing = !!editId;
   const viewing = !!viewId && !editing;
+  const savedLesson = lessons.find(item => item.id === activeId);
+  const draft = editing && pending?.id === activeId ? pending : savedLesson;
   useEffect(() => { setSelected(undefined); setPreview(false); }, [editId, viewId]);
   useEffect(() => { title.current?.focus(); }, [editing, viewing, preview]);
 
@@ -68,9 +71,11 @@ function LessonsPageContent({ editId, viewId, navigate }: { editId?: string; vie
     setSaving(true);
     const previous = lessons.find(lesson => lesson.id === next.id);
     const revised = previous ? { ...next, version: previous.version + 1 } : next;
+    const updatedAt = Date.now();
+    const saved = { ...revised, createdAt: previous ? previous.createdAt : updatedAt, updatedAt };
     try {
-      await saveLesson(revised, previous);
-      setLessons(current => previous ? current.map(lesson => lesson.id === revised.id ? revised : lesson) : [...current, revised]);
+      await saveLesson(saved, previous);
+      setLessons(current => previous ? current.map(lesson => lesson.id === saved.id ? saved : lesson) : [...current, saved]);
       setPending(current => current === pending ? undefined : current);
       setError(undefined);
       return true;
@@ -180,17 +185,18 @@ function LessonsPageContent({ editId, viewId, navigate }: { editId?: string; vie
     navigate("/lessons");
   }
 
-  const savedLesson = lessons.find(item => item.id === activeId);
-
   return <><main className="lessons-screen" data-library={!activeId} data-editor={editing && !preview} data-player={viewing || (editing && preview)}>
     {draft ? <>
       <LessonImageProvider key={draft.id} lesson={draft}>
       <WithLessonCatalog key={`${draft.id}/${viewing ? "view" : preview ? "preview" : "editor"}`}>{catalog => viewing
-        ? <LessonPlayer lesson={draft} catalog={catalog} preview={false} onBack={leave} />
+        ? <LessonPlayer lesson={draft} catalog={catalog} studyVisible={studyVisible} onBack={leave} />
         : preview
-          ? <LessonPlayer lesson={draft} catalog={catalog} preview onBack={leave} onEdit={() => setPreview(false)} />
+          ? <LessonPlayer lesson={draft} catalog={catalog} preview initialStepId={selected} onBack={leave} onEdit={() => setPreview(false)} />
           : <LessonEditor catalog={catalog} lesson={draft} saved={savedLesson ?? draft} selected={selected} onSelect={setSelected}
-            saving={saving} saveFailed={error === "save"} onChange={update} onDraftChange={setPending} onPreview={current => { setPending(current); setPreview(true); }}
+            saving={saving} saveFailed={error === "save"} onChange={update} onDraftChange={setPending} onPreview={current => {
+              setPending({ ...current, createdAt: savedLesson?.createdAt, updatedAt: savedLesson?.updatedAt });
+              setPreview(true);
+            }}
             onBack={leave} />}
       </WithLessonCatalog>
       </LessonImageProvider>
