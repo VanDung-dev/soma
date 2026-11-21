@@ -2,7 +2,23 @@ name: Checks
 
 on:
   push:
+    branches:
+      - '**'
+    paths: &check_paths
+      - 'apps/web/**'
+      - 'crates/**'
+      - 'content/**'
+      - 'scripts/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/checks.yml'
+      - '!**/*.[mM][dD]'
+      - '!**/*.[mM][dD][xX]'
+      - '!**/*.[mM][aA][rR][kK][dD][oO][wW][nN]'
   pull_request:
+    paths: *check_paths
 
 permissions:
   contents: read
