@@ -157,6 +157,7 @@ fn main() -> Result<(), tauri::Error> {
 
     builder
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             anatomy::load_anatomy_hidden_ids,
             anatomy::save_anatomy_hidden_ids,
@@ -167,6 +168,7 @@ fn main() -> Result<(), tauri::Error> {
             wikipedia::wikipedia_proxy_url,
             lessons::list_saved_lessons,
             lessons::save_lesson,
+            lessons::export_lesson_file,
             lessons::retain_lesson_images,
             lessons::remove_lesson,
             lessons::list_lesson_images,

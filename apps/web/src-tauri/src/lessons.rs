@@ -1,6 +1,7 @@
-use crate::storage::{read_file, write_file};
+use crate::storage::{read_file, write_file, write_file_with_overwrite};
 use catalog::lesson::{self, IMAGE_LIMIT, JSON_LIMIT};
-use content::lessons::{check_image_collection, image_info};
+use content::lessons::{check_file, check_image_collection, image_info};
+use percent_encoding::percent_decode_str;
 use sha2::{Digest, Sha256};
 use std::{
     borrow::Cow,
@@ -10,9 +11,10 @@ use std::{
     path::{Path, PathBuf},
 };
 use tauri::{
-    AppHandle, Manager,
+    AppHandle, Manager, Window,
     ipc::{InvokeBody, Request, Response},
 };
+use tauri_plugin_dialog::DialogExt;
 
 fn store(app: &AppHandle) -> Result<(PathBuf, File), String> {
     let root = app
@@ -389,6 +391,71 @@ pub async fn save_lesson(
         eprintln!("Could not remove unused lesson images: {error}");
     }
     Ok(())
+}
+
+#[tauri::command]
+pub async fn export_lesson_file(window: Window, request: Request<'_>) -> Result<(), String> {
+    let filename = request
+        .headers()
+        .get("soma-lesson-filename")
+        .and_then(|value| value.to_str().ok())
+        .ok_or("Missing lesson filename")?;
+    let filename = percent_decode_str(filename)
+        .decode_utf8()
+        .map_err(message)?;
+    if filename
+        .chars()
+        .any(|ch| ch.is_control() || "<>:\"/\\|?*".contains(ch))
+    {
+        return Err("Invalid lesson filename".into());
+    }
+    let bytes = match request.body() {
+        InvokeBody::Raw(bytes) => Cow::Borrowed(bytes.as_slice()),
+        InvokeBody::Json(value) => {
+            let values = value.as_array().ok_or("Expected binary lesson archive")?;
+            check_file(&filename, values.len())?;
+            Cow::Owned(
+                values
+                    .iter()
+                    .map(|value| {
+                        value
+                            .as_u64()
+                            .and_then(|byte| u8::try_from(byte).ok())
+                            .ok_or("Invalid lesson archive byte")
+                    })
+                    .collect::<Result<Vec<_>, _>>()?,
+            )
+        }
+    };
+    check_file(&filename, bytes.len())?;
+    let Some(path) = window
+        .dialog()
+        .file()
+        .set_parent(&window)
+        .set_file_name(filename.into_owned())
+        .add_filter("Soma (.lesson.br)", &["br"])
+        .blocking_save_file()
+    else {
+        return Ok(());
+    };
+    let mut path = path.into_path().map_err(message)?;
+    let chosen = path.file_name().ok_or("Missing lesson filename")?;
+    let lower = chosen.to_string_lossy().to_ascii_lowercase();
+    let has_suffix = lower.ends_with(".lesson.br");
+    if !has_suffix {
+        let mut name = if lower.ends_with(".br") {
+            path.file_stem().unwrap_or(chosen).to_os_string()
+        } else {
+            chosen.to_os_string()
+        };
+        name.push(if lower.ends_with(".lesson") {
+            ".br"
+        } else {
+            ".lesson.br"
+        });
+        path.set_file_name(name);
+    }
+    write_file_with_overwrite(&path, &bytes, has_suffix).map_err(message)
 }
 
 #[tauri::command]

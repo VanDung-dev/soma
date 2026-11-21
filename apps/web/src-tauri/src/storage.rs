@@ -25,11 +25,24 @@ pub(super) fn read_file(path: &Path, limit: usize) -> io::Result<Vec<u8>> {
 }
 
 pub(super) fn write_file(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    write_file_with_overwrite(path, bytes, true)
+}
+
+pub(super) fn write_file_with_overwrite(
+    path: &Path,
+    bytes: &[u8],
+    overwrite: bool,
+) -> io::Result<()> {
     let parent = path.parent().expect("Data file has a parent directory");
     fs::create_dir_all(parent)?;
     let mut file = tempfile::NamedTempFile::new_in(parent)?;
     file.write_all(bytes)?;
     file.as_file().sync_all()?;
-    file.persist(path).map_err(|error| error.error)?;
+    let saved = if overwrite {
+        file.persist(path)
+    } else {
+        file.persist_noclobber(path)
+    };
+    saved.map_err(|error| error.error)?;
     Ok(())
 }

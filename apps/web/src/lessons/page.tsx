@@ -32,7 +32,7 @@ function LessonsPageContent({ editId, viewId, studyVisible, navigate }: LessonsP
   const [pending, setPending] = useState<Lesson>();
   const [selected, setSelected] = useState<string>();
   const [preview, setPreview] = useState(false);
-  const [error, setError] = useState<"load" | "save" | "import">();
+  const [error, setError] = useState<"load" | "save" | "import" | "export">();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -146,12 +146,8 @@ function LessonsPageContent({ editId, viewId, studyVisible, navigate }: LessonsP
       setError(undefined);
       await exportLesson(lesson, language);
     } catch (cause) {
-      if (cause instanceof LessonValidationError) {
-        setError("save");
-      } else {
-        console.error("Lesson export failed", cause);
-        setError("save");
-      }
+      if (!(cause instanceof LessonValidationError)) console.error("Lesson export failed", cause);
+      setError("export");
     } finally {
       setExportingId(undefined);
     }
@@ -204,7 +200,8 @@ function LessonsPageContent({ editId, viewId, studyVisible, navigate }: LessonsP
       <p role={loading ? "status" : "alert"}>{t(loading ? "lessons.loading" : error === "load" ? "lessons.indexError" : "lessons.notFound")}</p>
       <button className="lesson-button" onClick={() => navigate("/lessons")}>{t("lessons.library")}</button>
     </> : <LessonLibrary lessons={lessons} loading={loading} importing={importing} exportingId={exportingId} titleRef={title} dragging={dragging} onDraggingChange={setDragging}
-      error={error ? t(error === "load" ? "lessons.indexError" : error === "import" ? "lessons.importError" : "lessons.saveError")
+      error={error ? t(error === "load" ? "lessons.indexError" : error === "import" ? "lessons.importError"
+        : error === "export" ? "lessons.exportError" : "lessons.saveError")
         : unreadableCount ? t("lessons.unreadableCount", { count: unreadableCount }) : undefined}
       saving={saving} onCreate={create} onImport={importFile} onStart={lesson => navigate(lessonViewPath(lesson.id))}
       onEdit={lesson => { setError(pending?.id === lesson.id ? "save" : undefined); navigate(lessonEditPath(lesson.id)); }}

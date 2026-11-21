@@ -138,6 +138,9 @@ export async function exportLesson(lesson: Lesson, language: string, catalog?: C
   finally { ownedCatalog?.free(); }
   const result = await lessonJob({ operation: "export", json: JSON.stringify(lesson), language, modelIds,
     images: await Promise.all([...images].map(async ([path, blob]): Promise<[string, Uint8Array<ArrayBuffer>]> => [path, new Uint8Array(await blob.arrayBuffer())])) });
+  if (isTauri()) return invoke<void>("export_lesson_file", result.bytes!, {
+    headers: { "soma-lesson-filename": encodeURIComponent(result.name!) },
+  });
   const url = URL.createObjectURL(new Blob([result.bytes!], { type: "application/octet-stream" }));
   const link = document.createElement("a");
   link.href = url;
