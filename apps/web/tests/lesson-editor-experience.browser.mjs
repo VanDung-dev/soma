@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { brotliDecompressSync } from 'node:zlib';
 import { readLessonMetadata, unpackLessonTar } from './lesson-package.fixture.mjs';
-import { createLesson, lessonBody, savedLesson } from './lesson-editor-tools.mjs';
+import { createLesson, lessonBody, savedLesson, saveLessonDraft } from './lesson-editor-tools.mjs';
 
 export async function checkLessonEditorExperience(page) {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -34,27 +34,27 @@ export async function checkLessonEditorExperience(page) {
   await writing.getByRole('button', { name: 'Thêm mục', exact: true }).click();
   await page.getByLabel('Tên mục').fill('Hai dòng');
   assert.equal(await page.locator('#lesson-author-inspector, #lesson-toggle-inspector, #lesson-scene-structures').count(), 0);
-  assert.equal(await page.locator('.structure-search-field').count(), 1, 'The editor has one structure search');
-  assert.equal((await page.locator('.structure-search-field').textContent()).trim(), '', 'Search shows only the magnifier');
   const settingsButton = frame.getByRole('button', { name: 'Thiết lập 3D', exact: true });
-  assert(await settingsButton.evaluate(button => !!button.closest('.lesson-editor-hud')));
   await settingsButton.click();
   const settings = page.locator('.lesson-model-settings[data-open="true"]');
+  const search = settings.locator('.lesson-scene-tree').getByRole('searchbox');
+  await search.waitFor();
+  assert.equal(await page.locator('.structure-search-popover').count(), 0);
   assert.equal(await settings.locator('.structure-tree > li').count(), 9, 'Model and structure settings share one panel');
-  assert(await settings.evaluate(panel => !!panel.closest('.lesson-editor-hud')));
-  await page.getByRole('button', { name: 'Đóng thiết lập 3D', exact: true }).click();
-  const search = page.locator('.structure-search-popover:popover-open');
   const ids = [];
-  for (const query of ['xương hàm dưới', 'masseter']) {
-    await frame.getByRole('button', { name: 'Tìm và thêm cấu trúc 3D', exact: true }).click();
-    await search.getByRole('combobox').fill(query);
-    const option = search.locator('[role="option"][data-structure-id]').first();
-    await option.waitFor();
-    ids.push(await option.getAttribute('data-structure-id'));
-    await option.click();
+  for (const query of ['xương hàm dưới', 'masseter right']) {
+    await search.fill(query);
+    const option = settings.locator('.structure-tree [data-structure-id] > .tree-name[data-search-best]');
+    await option.locator('mark').first().waitFor();
+    const row = option.locator('..');
+    const visible = row.getByRole('checkbox');
+    await search.press('Enter');
+    assert.equal(await visible.isChecked(), false, 'Searching does not add a structure to the model');
+    ids.push(await row.getAttribute('data-structure-id'));
+    await visible.check();
     await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
+    await option.click();
   }
-  assert.deepEqual((await saved()).steps[0].visibleIds, ids);
   const part = frame.getByRole('region', { name: 'Thông tin bộ phận' });
   await part.getByRole('heading').waitFor();
   assert.equal(await part.locator('.information-heading .lesson-button').count(), 1);
@@ -64,15 +64,13 @@ export async function checkLessonEditorExperience(page) {
   assert(Math.abs(bounds.x - canvas.x - 10) <= 1);
   assert(Math.abs(bounds.width - canvas.width + 20) <= 1, 'Part details span the model interaction region');
   assert(bounds.y > canvas.y + canvas.height / 2, 'Part details sit near the bottom');
-  await settingsButton.click();
+  await search.fill('');
   await settings.locator('.structure-tree > li > .tree-row .tree-name').first().click();
-  await page.getByRole('button', { name: 'Đóng thiết lập 3D', exact: true }).click();
+  await part.waitFor({ state: 'hidden' });
   assert.equal(await part.count(), 0, 'Browsing a group clears the previous part card');
-  await frame.getByRole('button', { name: 'Tìm và thêm cấu trúc 3D', exact: true }).click();
-  await search.getByRole('combobox').fill('masseter');
-  await search.locator('[role="option"][data-structure-id]').first().click();
-  await part.getByRole('heading').waitFor();
-  await part.getByRole('button', { name: 'Đóng thông tin bộ phận', exact: true }).click();
+  await settings.getByRole('button', { name: 'Áp dụng', exact: true }).click();
+  await saveLessonDraft(page);
+  assert.deepEqual((await saved()).steps[0].visibleIds, ids);
   const body = lessonBody(page);
   await body.fill('Dòng thứ nhất');
   await body.press('End');
@@ -84,10 +82,11 @@ export async function checkLessonEditorExperience(page) {
   await body.press('ControlOrMeta+z');
   await body.press('ControlOrMeta+Shift+z');
   assert.equal(await page.locator('.lesson-author-alerts').count(), 0);
-  const slider = frame.getByRole('slider', { name: 'Mức độ tách', exact: true });
+  await settingsButton.click();
+  const slider = settings.getByRole('slider', { name: 'Mức độ tách', exact: true });
   await slider.focus(); await slider.press('End');
-  await writing.getByRole('button', { name: 'Lưu bước', exact: true }).click();
-  await writing.getByRole('status').filter({ hasText: 'Đã lưu bài học trên thiết bị.' }).waitFor();
+  await settings.getByRole('button', { name: 'Áp dụng', exact: true }).click();
+  await saveLessonDraft(page);
   assert.equal(await part.count(), 0, 'Saving must not reopen dismissed part information');
   const first = (await saved()).steps[0];
   assert.equal(first.view.explosion, 100);

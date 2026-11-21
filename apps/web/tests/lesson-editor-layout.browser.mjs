@@ -71,18 +71,36 @@ export async function checkLessonResponsiveLayout(page) {
       await page.setViewportSize({ width, height });
       const panels = await Promise.all([outline(editor), model(editor), content(editor), frame].map(bounds));
       assert.deepEqual(panels.slice(0, 3).map(rect => rect[2]), [outlineWidth, modelWidth, contentWidth], `${width}px with outline`);
+      const [modelX, modelY, paneWidth, paneHeight] = panels[1];
+      const [statusX, statusY, statusWidth, statusHeight] = await bounds(model(editor).locator('.model-hud > .model-status').first());
+      assert(Math.abs(statusX + statusWidth / 2 - modelX - paneWidth / 2) <= 1, 'Model status stays centered in the 3D pane');
+      const statusBottom = modelY + paneHeight - statusY - statusHeight;
       if (editor) {
         await page.getByRole('button', { name: 'Thiết lập 3D', exact: true }).click();
         const settings = page.locator('.lesson-model-settings[data-open="true"]');
         await settings.waitFor();
         assert.deepEqual(await bounds(settings), panels[2], '3D settings share the writing panel bounds');
         assert.deepEqual(await bounds(frame), panels[3], 'Opening settings preserves the model frame');
-        const columns = await settings.locator('.lesson-model-systems-list').evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length);
-        assert.equal(columns, width < 1600 ? 1 : 2);
-        const actions = settings.locator('.lesson-model-settings-actions');
-        const footer = await bounds(actions);
-        await settings.locator('.lesson-model-settings-content').evaluate(node => { node.scrollTop = node.scrollHeight; });
-        assert.deepEqual(await bounds(actions), footer, 'The action row stays in place while settings scroll');
+        const tree = settings.locator(':scope > .lesson-scene-tree');
+        const controls = settings.locator(':scope > .lesson-model-settings-controls');
+        const actions = settings.locator(':scope > .guide-heading .lesson-model-settings-actions');
+        await tree.locator('.structure-tree > li').first().waitFor();
+        assert.equal(await tree.locator('.structure-tree > li').count(), 9);
+        assert.equal(await controls.locator('.lesson-inspector-actions').count(), 1);
+        const [treeBounds, controlsBounds, actionsBounds] = await Promise.all([tree, controls, actions].map(bounds));
+        assert(treeBounds[1] + treeBounds[3] <= controlsBounds[1], 'The structure tree is above the model controls');
+        const scroll = await tree.evaluate(node => {
+          node.scrollTop = node.scrollHeight;
+          return {
+            overflow: getComputedStyle(node).overflowY,
+            scrollTop: node.scrollTop,
+            scrollMax: node.scrollHeight - node.clientHeight,
+          };
+        });
+        assert.equal(scroll.overflow, 'auto');
+        assert(Math.abs(scroll.scrollTop - scroll.scrollMax) <= 1, 'Overflow scrolls inside the structure tree');
+        assert.deepEqual(await bounds(controls), controlsBounds, 'The model controls stay in place while the tree scrolls');
+        assert.deepEqual(await bounds(actions), actionsBounds, 'The header actions stay in place while the tree scrolls');
         await settings.getByRole('button', { name: 'Hủy', exact: true }).click();
       }
       await toggle.click();
@@ -91,7 +109,7 @@ export async function checkLessonResponsiveLayout(page) {
       assert.deepEqual(closed[1], panels[2]);
       if (width === 1280) await requireAutoFit();
       await toggle.click();
-      results.push({ panels, closed });
+      results.push({ panels, closed, statusBottom });
     }
     for (const [width, height] of [[912, 570], [800, 500], [1280, 800], [1920, 1200]]) {
       await page.setViewportSize({ width, height });
@@ -103,7 +121,7 @@ export async function checkLessonResponsiveLayout(page) {
       assert(scene.width >= 240 && scene.x + scene.width <= document.x, `Usable side-by-side model at ${width}px`);
       assert(document.y + document.height <= height, `Writing or reading stays within ${width}×${height}`);
       if (editor) {
-        for (const tool of await model(editor).locator('.lesson-model-tools-row :is(button, .explode-control)').all()) {
+        for (const tool of await model(editor).locator('.lesson-model-settings-trigger').all()) {
           const button = await tool.boundingBox();
           if (!button) continue;
           assert(button.x >= scene.x && button.x + button.width <= scene.x + scene.width + 1,
@@ -206,9 +224,9 @@ export async function checkLessonEditorLayout(page) {
   assert.deepEqual(await document.evaluate(node => [...node.classList].filter(name => name.startsWith('lesson-author-document--'))), ['lesson-author-document--step']);
   await page.locator('#lesson-toggle-outline').click();
   await page.getByRole('button', { name: 'Thiết lập 3D', exact: true }).click();
-  const closeModelSettings = page.getByRole('button', { name: 'Đóng thiết lập 3D', exact: true });
-  await closeModelSettings.waitFor();
-  await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Đóng thiết lập 3D');
+  const cancelModelSettings = page.locator('#lesson-model-settings').getByRole('button', { name: 'Hủy', exact: true });
+  await cancelModelSettings.waitFor();
+  await page.waitForFunction(() => document.activeElement === document.querySelector('#lesson-model-settings .lesson-model-settings-actions > :first-child'));
   await document.locator('.tox-editor-header').waitFor();
   const coversToolbar = await page.locator('.lesson-model-settings[data-open="true"]').evaluate(async panel => {
     await Promise.all(panel.getAnimations().map(animation => animation.finished));
@@ -226,7 +244,7 @@ export async function checkLessonEditorLayout(page) {
   assert(coversToolbar, '3D settings cover the writing toolbar');
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => document.querySelector('.lesson-model-settings')?.dataset.open === 'false'
-    && document.activeElement === document.querySelector('.lesson-model-toolbar > .lesson-button'));
+    && document.activeElement === document.querySelector('.lesson-model-settings-trigger'));
   assert(await page.evaluate(() => window.editorCanvas === document.querySelector('.lesson-editor > .model-canvas canvas')));
   await lessonBody(page).fill('Đã sửa nội dung Một');
   await choose('Hai');

@@ -1,4 +1,4 @@
-import { lessonBody, savedLesson, selectLessonModel } from './lesson-editor-tools.mjs';
+import { lessonBody, savedLesson, saveLessonDraft, selectLessonModel } from './lesson-editor-tools.mjs';
 import assert from 'node:assert/strict';
 
 export async function checkLessonScenes(page) {
@@ -24,21 +24,28 @@ export async function checkLessonScenes(page) {
   const bounds = await canvas.boundingBox();
   await page.mouse.move(bounds.x + bounds.width * 0.5, bounds.y + bounds.height * 0.55);
   await page.mouse.wheel(0, -100);
-  const slider = frame.getByRole('slider', { name: 'Mức độ tách', exact: true });
+  const settings = page.locator('.lesson-model-settings[data-open="true"]');
+  const openSettings = () => frame.getByRole('button', { name: 'Thiết lập 3D', exact: true }).click();
+  const applySettings = () => settings.getByRole('button', { name: 'Áp dụng', exact: true }).click();
+  const slider = settings.getByRole('slider', { name: 'Mức độ tách', exact: true });
+  await openSettings();
   await slider.focus();
   await slider.press('Home');
   for (let i = 0; i < 30; i++) await slider.press('ArrowRight');
-  await frame.getByRole('button', { name: 'Lưu cảnh cho bước', exact: true }).click();
+  await applySettings();
+  await saveLessonDraft(page);
   const first = (await saved()).steps[0];
   assert.equal(first.view.explosion, 30);
   assert(Math.abs(first.view.camera.yaw) > 0.1);
   assert(first.visibleIds.length > 0);
   await add('Góc nhìn trước', 'So sánh với mặt bên.');
-  assert.deepEqual((await saved()).steps[1].view, first.view, 'New steps start from the preceding authored scene');
   await frame.locator('.orientation-axes [data-axis="X"][data-direction="1"]').click();
+  await openSettings();
+  assert.equal(await slider.inputValue(), '30', 'New steps start from the preceding authored explosion');
   await slider.focus();
   await slider.press('End');
-  await frame.getByRole('button', { name: 'Lưu cảnh cho bước', exact: true }).click();
+  await applySettings();
+  await saveLessonDraft(page);
   const lesson = await saved();
   assert.equal(lesson.steps[1].view.explosion, 100);
   assert.equal(lesson.steps[1].view.camera.yaw, 0);
@@ -48,9 +55,15 @@ export async function checkLessonScenes(page) {
   if (await page.locator('#lesson-author-outline').isHidden()) await page.locator('#lesson-toggle-outline').click();
   await page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: 'Mặt bên' }).click();
   await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
+  await openSettings();
   assert.equal(await slider.inputValue(), '30');
-  await frame.getByRole('button', { name: 'Về cảnh của mục', exact: true }).click();
-  await frame.getByRole('button', { name: 'Lưu cảnh cho bước', exact: true }).click();
+  await slider.press('End');
+  await settings.getByRole('button', { name: 'Hủy', exact: true }).click();
+  await openSettings();
+  assert.equal(await slider.inputValue(), '30');
+  await settings.getByRole('button', { name: 'Về cảnh của mục', exact: true }).click();
+  await applySettings();
+  await saveLessonDraft(page);
   const restored = (await saved()).steps[0].view;
   for (const key of ['yaw', 'pitch', 'distance']) assert(Math.abs(restored.camera[key] - first.view.camera[key]) < 1e-4);
 
@@ -110,7 +123,9 @@ export async function checkLessonScenes(page) {
   assert.deepEqual((await saved()).steps[0].view, beforeLearning.steps[0].view);
   assert.equal(await page.locator('#lesson-author-inspector').count(), 0);
   await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
+  await openSettings();
   assert.equal(await slider.inputValue(), '30');
+  await settings.getByRole('button', { name: 'Hủy', exact: true }).click();
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   await player.locator(':scope > .model-canvas[aria-busy="false"]').waitFor();
   assert.equal(page.url(), url);

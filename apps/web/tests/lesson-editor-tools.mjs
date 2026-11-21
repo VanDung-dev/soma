@@ -20,6 +20,11 @@ export const savedLesson = (page, id) => page.evaluate(async id => {
 export async function selectLessonModel(page, id) {
   await page.getByRole('button', { name: 'Thiết lập 3D', exact: true }).click();
   const settings = page.locator('.lesson-model-settings[data-open="true"]');
-  await settings.getByRole('listbox', { name: 'Mô hình 3D của bài học' }).selectOption(Array.isArray(id) ? id : [id]);
+  for (const root of Array.isArray(id) ? id : [id]) {
+    await lessonModelRoot(settings, root).check();
+  }
   await settings.getByRole('button', { name: 'Áp dụng', exact: true }).click();
 }
+
+export const lessonModelRoot = (settings, id) => settings
+  .locator(`.structure-tree > li[data-target-id="${id}"] > .folder-row input[type="checkbox"]`);

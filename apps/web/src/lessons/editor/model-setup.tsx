@@ -1,11 +1,10 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import type { ReactNode } from "react";
 import type { Catalog } from "../../anatomy/catalog/types";
-import { StructureSearch } from "../../anatomy/structure-search";
 import { StructureTree } from "../../anatomy/structure-tree";
 import { useLanguage } from "../../i18n";
 import { fetchModelAsset } from "../../model-assets";
-import { LineIcon } from "../../icons";
+import { searchLessonTree } from "./tree-search";
 
 export function metadataForRoot(payload: { metadata?: Record<string, unknown> }, rootId: string) {
   if (!payload.metadata) return payload;
@@ -14,66 +13,47 @@ export function metadataForRoot(payload: { metadata?: Record<string, unknown> },
   return metadata;
 }
 
-export function LessonModelSetup({ catalog, modelIds, targetId, visibleIds, selectedPart, settingsOpen, settingsHost, toolbarHost, onOpenSettings, onCloseSettings, onModels, onPendingModels, onChoose, onChangeScene, onSelectPart }: {
+export function LessonModelSetup({ catalog, targetId, visibleIds, selectedPart, settingsOpen, controls, onCloseSettings, onApply, onChangeScene, onSelectPart }: {
   catalog: Catalog;
-  modelIds: string[];
   targetId: string;
   visibleIds: string[];
   selectedPart?: string;
   settingsOpen: boolean;
-  settingsHost: HTMLElement | null;
-  toolbarHost: HTMLElement | null;
-  onOpenSettings: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  controls: ReactNode;
   onCloseSettings: () => void;
-  onModels: () => Promise<boolean>;
-  onPendingModels: (ids: string[]) => void;
-  onChoose: (ids: string[], partId?: string) => void;
-  onChangeScene: (ids: string[]) => void;
+  onApply: () => void;
+  onChangeScene: (ids: string[], root?: { id: string; shown: boolean }) => boolean;
   onSelectPart: (id: string, target?: boolean) => void;
 }) {
   const { language, t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const closeButton = useRef<HTMLButtonElement>(null);
+  const [query, setQuery] = useState("");
+  const cancelButton = useRef<HTMLButtonElement>(null);
   const closeSettings = useEffectEvent(onCloseSettings);
+
   useEffect(() => {
-    if (!settingsOpen || !settingsHost) return;
+    if (!settingsOpen) {
+      setQuery("");
+      return;
+    }
+    const host = cancelButton.current?.closest(".lesson-model-settings");
+    if (!host) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
+      if (event.key !== "Escape" || event.isComposing) return;
       event.preventDefault();
       event.stopPropagation();
       closeSettings();
     };
-    settingsHost.addEventListener("keydown", onKeyDown);
+    host.addEventListener("keydown", onKeyDown);
     const frame = requestAnimationFrame(() => {
-      if (window.matchMedia("(max-width: 900px)").matches) settingsHost.scrollIntoView({ block: "start", inline: "nearest" });
-      closeButton.current?.focus({ preventScroll: true });
+      if (window.matchMedia("(max-width: 900px)").matches) host.scrollIntoView({ block: "start", inline: "nearest" });
+      cancelButton.current?.focus({ preventScroll: true });
     });
-    return () => { cancelAnimationFrame(frame); settingsHost.removeEventListener("keydown", onKeyDown); };
-  }, [settingsOpen, settingsHost]);
-  const shown = useMemo(() => new Set(visibleIds), [visibleIds]);
-  const reveal = useMemo(() => ({ id: selectedPart || targetId }), [selectedPart, targetId]);
+    return () => { cancelAnimationFrame(frame); host.removeEventListener("keydown", onKeyDown); };
+  }, [settingsOpen]);
 
-  function handleToggleSystem(rootId: string) {
-    onPendingModels(modelIds.includes(rootId)
-      ? modelIds.filter(id => id !== rootId)
-      : [...modelIds, rootId]);
-  }
-
-  function handleSelectAll() {
-    const all = catalog.roots.map(r => r.id);
-    onPendingModels(all);
-  }
-
-  function handleDeselectAll() {
-    onPendingModels([]);
-  }
-
-  function handleSelectChange(event: React.ChangeEvent<HTMLSelectElement>) {
-    const selected = Array.from(event.target.selectedOptions, o => o.value).filter(Boolean);
-    onPendingModels(selected);
-  }
   useEffect(() => {
     const abort = new AbortController();
     setLoading(true);
@@ -91,124 +71,53 @@ export function LessonModelSetup({ catalog, modelIds, targetId, visibleIds, sele
     return () => abort.abort();
   }, [catalog, attempt]);
 
+  const shown = useMemo(() => new Set(visibleIds), [visibleIds]);
+  const reveal = useMemo(() => selectedPart || targetId ? { id: selectedPart || targetId } : undefined, [selectedPart, targetId]);
+  const ready = !loading && !failed;
+  const searchTerm = query.trim();
+  const search = useMemo(() => settingsOpen && ready && searchTerm
+    ? searchLessonTree(catalog, searchTerm, language) : undefined, [catalog, language, ready, searchTerm, settingsOpen]);
+
+  function changeVisibility(members: string[], visible: boolean, target?: string) {
+    const next = new Set(visibleIds);
+    for (const id of members) {
+      if (visible) next.add(id);
+      else next.delete(id);
+    }
+    const root = target && catalog.roots.some(root => root.id === target) ? { id: target, shown: visible } : undefined;
+    return onChangeScene([...next], root);
+  }
+
   return <>
-    {toolbarHost && createPortal(<div className="lesson-model-toolbar">
-    {!settingsOpen && modelIds.length > 0 && <>
-      <StructureSearch catalog={catalog} disabled={loading || failed} label={t("search.submit")}
-        onSelect={id => {
-          const ids = catalog.target(id) ? catalog.members(id) : [id];
-          onChoose(ids, catalog.target(id) ? undefined : id);
-        }} />
-      <button className="lesson-button" onClick={onOpenSettings}>{t("lessons.modelSettings")}</button>
-    </>}
-    {loading && <span className="lesson-model-search-status" role="status">{t("lessons.loadingStructures")}</span>}
-    {failed && <div className="lesson-model-search-status" role="alert">{t("lessons.targetError")} <button className="lesson-save-retry" onClick={() => setAttempt(attempt + 1)}>{t("lessons.retry")}</button></div>}
-    </div>, toolbarHost)}
-    {settingsHost && createPortal(<>
-      <header className="guide-heading"><h2 id="lesson-model-settings-title">{t("lessons.modelSettings")}</h2>
-        <button className="controls-info" ref={closeButton} aria-label={t("lessons.closeModelSettings")} onClick={onCloseSettings}>
-          <LineIcon name="close-small" size={14} />
-        </button>
-      </header>
-      <div className="lesson-model-settings-content">
-      <div className="lesson-fields">
-        <div className="lesson-model-systems">
-          <div className="lesson-model-systems-header">
-            <label htmlFor="lesson-model-select" className="lesson-field-label">{t("lessons.model")}</label>
-            <div className="lesson-inspector-actions">
-              <button
-                type="button"
-                className="lesson-button"
-                disabled={loading || failed || catalog.roots.length === 0 || catalog.roots.every(r => modelIds.includes(r.id))}
-                onClick={handleSelectAll}
-              >
-                {t("catalog.showAll")}
-              </button>
-              <button
-                type="button"
-                className="lesson-button"
-                disabled={loading || failed || !modelIds.length}
-                onClick={handleDeselectAll}
-              >
-                {t("catalog.hideAll")}
-              </button>
-            </div>
-          </div>
-          <div className="lesson-model-systems-list" role="group" aria-label={t("lessons.model")}>
-            {catalog.roots.map(model => {
-              const checked = modelIds.includes(model.id);
-              return (
-                <label key={model.id} className="lesson-system-checkbox">
-                  <input
-                    type="checkbox"
-                    value={model.id}
-                    checked={checked}
-                    onChange={() => handleToggleSystem(model.id)}
-                  />
-                  <span className="lesson-system-name">{model.names[language]}</span>
-                </label>
-              );
-            })}
-            {modelIds.filter(id => !catalog.roots.some(m => m.id === id)).map(id => (
-              <label key={id} className="lesson-system-checkbox">
-                <input
-                  type="checkbox"
-                  value={id}
-                  checked={true}
-                  onChange={() => handleToggleSystem(id)}
-                />
-                <span className="lesson-system-name">{id}</span>
-              </label>
-            ))}
-          </div>
-          <select
-            id="lesson-model-select"
-            multiple
-            className="lesson-model-select sr-only"
-            value={modelIds}
-            onChange={handleSelectChange}
-          >
-            {catalog.roots.map(model => (
-              <option key={model.id} value={model.id}>
-                {model.names[language]}
-              </option>
-            ))}
-            {modelIds.filter(id => !catalog.roots.some(m => m.id === id)).map(id => (
-              <option key={id} value={id}>
-                {id}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-      <div className="catalog-tree lesson-scene-tree">
-        <h3>{t("lessons.sceneStructures")}</h3>
-        <div className="lesson-inspector-actions">
-          <button className="lesson-button" disabled={loading || failed || !modelIds.length} onClick={() => onChangeScene([...new Set(modelIds.flatMap(id => catalog.members(id)))])}>{t("catalog.showAll")}</button>
-          <button className="lesson-button" disabled={loading || failed || !visibleIds.length} onClick={() => onChangeScene([])}>{t("catalog.hideAll")}</button>
-          <button className="lesson-button" disabled={loading || failed || !targetId} onClick={() => onChangeScene(catalog.members(targetId))}>{t("lessons.resetScene")}</button>
-        </div>
-        <p role="status">{t("lessons.sceneCount", { count: visibleIds.length })}</p>
-        {!loading && !failed && (
-          modelIds.length > 0 ? (
-            <StructureTree catalog={catalog} rootIds={modelIds} visibleIds={shown} selected={selectedPart ?? ""}
-              targetId={catalog.target(selectedPart ?? "") ? selectedPart : targetId} reveal={reveal} disabled={false} onVisibility={(members, visible) => {
-                const next = new Set(visibleIds);
-                members.forEach(id => { if (visible) next.add(id); else next.delete(id); });
-                onChangeScene([...next]);
-              }} onSelect={onSelectPart} onTarget={id => onSelectPart(id, true)}
-              onFocus={(members, target) => onChangeScene(target ? catalog.members(target) : members)} />
-          ) : (
-            <p className="lesson-document-hint">{t("lessons.noModel")}</p>
-          )
-        )}
-      </div>
-      </div>
+    <header className="guide-heading"><h2 id="lesson-model-settings-title">{t("lessons.modelSettings")}</h2>
       <div className="lesson-model-settings-actions">
-        <button className="lesson-button" onClick={onCloseSettings}>{t("lessons.cancel")}</button>
-        <button className="lesson-button lesson-primary" disabled={loading || failed}
-          onClick={async () => { if (await onModels()) onCloseSettings(); }}>{t("lessons.apply")}</button>
+        <button className="lesson-button" ref={cancelButton} onClick={onCloseSettings}>{t("lessons.cancel")}</button>
+        <button className="lesson-button lesson-primary" disabled={!ready} onClick={onApply}>{t("lessons.apply")}</button>
       </div>
-    </>, settingsHost)}
+    </header>
+    <div className="catalog-tree lesson-scene-tree">
+      <h3>{t("lessons.sceneStructures")}</h3>
+      <div className="lesson-inspector-actions">
+        <button className="lesson-button" disabled={!ready}
+          onClick={() => onChangeScene([...new Set(catalog.roots.flatMap(root => catalog.members(root.id)))])}>{t("catalog.showAll")}</button>
+        <button className="lesson-button" disabled={!ready || !visibleIds.length} onClick={() => onChangeScene([])}>{t("catalog.hideAll")}</button>
+        <button className="lesson-button" disabled={!ready || !targetId} onClick={() => onChangeScene(catalog.members(targetId))}>{t("lessons.resetScene")}</button>
+      </div>
+      <div className="lesson-scene-search" role="search" aria-label={t("search.label")}>
+        <input type="search" aria-label={t("search.label")} placeholder={t("search.label")} autoComplete="off"
+          disabled={!ready} value={query} onChange={event => setQuery(event.target.value)} />
+      </div>
+      {loading && <p aria-live="polite">{t("lessons.loadingStructures")}</p>}
+      {failed && <p role="alert">{t("lessons.targetError")} <button className="lesson-save-retry" onClick={() => setAttempt(value => value + 1)}>{t("lessons.retry")}</button></p>}
+      {ready && <>
+        {search && !search.bestId && <p aria-live="polite">{t("search.noResults")}</p>}
+        <StructureTree catalog={catalog} visibleIds={shown} selected={selectedPart ?? ""}
+          targetId={catalog.target(selectedPart ?? "") ? selectedPart : targetId} reveal={reveal} disabled={false}
+          search={search}
+          onVisibility={changeVisibility} onSelect={onSelectPart} onTarget={id => onSelectPart(id, true)}
+          onFocus={(members, target) => onChangeScene(target ? catalog.members(target) : members)} />
+      </>}
+    </div>
+    <div className="lesson-model-settings-controls">{controls}</div>
   </>;
 }
