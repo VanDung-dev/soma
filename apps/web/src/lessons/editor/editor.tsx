@@ -13,7 +13,6 @@ import { LessonQuestionEditor } from "./question-editor";
 import { exportLesson, newLessonId } from "../shared/source";
 import { lessonModels, lessonSceneModels, lessonTargets } from "../shared/targets";
 import type { SceneView } from "../../anatomy/viewer/contracts";
-import { useLessonPanel } from "../shared/panels";
 import { LessonOutline } from "./outline";
 import { useGraphicsSettings } from "../../pages/use-graphics-settings";
 import { LessonContentPanel, LessonHeader, LessonOutlinePanel, LessonStepNavigation, LessonWorkspace } from "../shared/workspace";
@@ -47,7 +46,6 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
   const [draftDirty, setDraftDirty] = useState(() => JSON.stringify(lesson) !== JSON.stringify(saved));
   const [sceneDirty, setSceneDirty] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [outlineOpen, setOutlineOpen] = useLessonPanel("editorOutline", window.matchMedia("(min-width: 901px)").matches);
   const [revealPart, setRevealPart] = useState<{ id: string; target?: boolean }>();
   const [orderStatus, setOrderStatus] = useState("");
   const [sceneFrame, setSceneFrame] = useState<HTMLDivElement | null>(null);
@@ -380,7 +378,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
     aria-controls="lesson-model-settings" aria-expanded={modelSettingsOpen} hidden={modelSettingsOpen}
     onClick={openModelSettings}>{t("lessons.modelSettings")}</button>;
 
-  return <LessonWorkspace editing outlineOpen={outlineOpen} modelVisible={showModel} hasStep={!!active}
+  return <LessonWorkspace editing modelVisible={showModel} hasStep={!!active}
     background={sceneFrame && <EditorScene graphics={graphics} modelIds={loadedModelIds} targetId={displayTargetId}
       visibleIds={displayVisibleIds} view={previewScene ? previewScene.view : scene?.view} sectionId={active?.id ?? draft.id} sceneRef={sceneHandle}
       revealPart={revealPart}
@@ -390,11 +388,10 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
       onReloadModel={reloadModel} reloadVersion={modelReloadVersion} resetVersion={resetVersion}
       frame={sceneFrame} settingsButton={modelSettingsButton} settingsControlsHost={modelSettingsOpen ? modelControlsHost : null}
       settingsActionsHost={modelSettingsOpen ? modelActionsHost : null}
-      inactive={!renderScene} outlineOpen={outlineOpen} />}
+      inactive={!renderScene} />}
     header={<LessonHeader editing title={lessonText(draft.title, language) || t("lessons.editor")}
       subtitle={t(isDirty ? "lessons.unsaved" : "lessons.saved")} lesson={saved} headingRef={heading}
-      outlineId="lesson-author-outline" outlineToggleId="lesson-toggle-outline" outlineOpen={outlineOpen}
-      onToggleOutline={() => setOutlineOpen(!outlineOpen)} onBack={exit} backDisabled={saving}
+      onBack={exit} backDisabled={saving}
       navigation={<button className="lesson-button lesson-primary" aria-label={t(isDirty ? "lessons.saveLesson" : "lessons.savedShort")}
           data-saved={!isDirty} disabled={!isDirty || saving || modelSettingsOpen} aria-busy={saving} onClick={save}>
           <span className="lesson-action-full">{t(isDirty ? "lessons.saveLesson" : "lessons.savedShort")}</span>
@@ -418,7 +415,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
           <span className="lesson-action-full">{t("lessons.preview")}</span><span className="lesson-action-short">{t("lessons.previewShort")}</span>
         </button>
       </>} />}
-    outline={<LessonOutlinePanel editing id="lesson-author-outline" open={outlineOpen}>
+    outline={<LessonOutlinePanel editing id="lesson-author-outline">
         <button className="lesson-outline-row lesson-outline-details" aria-current={!active ? "true" : undefined} onClick={() => select()}>
           <span className="lesson-outline-label">{t("lessons.details")}</span>
         </button>
@@ -457,29 +454,27 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
           </>} />
         <p className="lesson-save-status sr-only" role="status">{saveFailed ? t("lessons.saveError") : saveNotice}</p>
         <p className="lesson-writing-language" role="status">{t("lessons.writingLanguage")}: <strong lang={editorLanguage}>{editorLanguage === "vi" ? "Tiếng Việt" : "English"}</strong></p>
-        <div className="information-content">
-          <label className={active ? "sr-only" : "lesson-details-label"} htmlFor="lesson-write-title" lang={editorLanguage}>{writingText(active ? "lessons.stepTitle" : "lessons.title")}</label>
-          <input id="lesson-write-title" className="lesson-write-title" ref={titleField} value={title[editorLanguage]}
-            placeholder={writingText(active ? "lessons.stepTitle" : "lessons.title")} lang={editorLanguage}
-            onChange={event => {
-              const value = { ...title, [editorLanguage]: event.target.value };
-              if (active) updateActive({ ...active, title: value });
-              else updateDraft({ title: value });
+        <label className={active ? "sr-only" : "lesson-details-label"} htmlFor="lesson-write-title" lang={editorLanguage}>{writingText(active ? "lessons.stepTitle" : "lessons.title")}</label>
+        <input id="lesson-write-title" className="lesson-write-title" ref={titleField} value={title[editorLanguage]}
+          placeholder={writingText(active ? "lessons.stepTitle" : "lessons.title")} lang={editorLanguage}
+          onChange={event => {
+            const value = { ...title, [editorLanguage]: event.target.value };
+            if (active) updateActive({ ...active, title: value });
+            else updateDraft({ title: value });
+          }} />
+        {active && lessonMode(active) !== "questions" ? <Suspense fallback={<p role="status">{t("lessons.loadingEditor")}</p>}>
+          <RichEditor key={`${active?.id ?? draft.id}/${editorLanguage}`} value={body} language={editorLanguage}
+            label={writingText(active ? "lessons.instruction" : "lessons.summary")}
+            onChange={(value: LessonText) => {
+              if (active) updateActive({ ...active, instruction: value });
+              else updateDraft({ summary: value });
             }} />
-          {active && lessonMode(active) !== "questions" ? <Suspense fallback={<p role="status">{t("lessons.loadingEditor")}</p>}>
-            <RichEditor key={`${active?.id ?? draft.id}/${editorLanguage}`} value={body} language={editorLanguage}
-              label={writingText(active ? "lessons.instruction" : "lessons.summary")}
-              onChange={(value: LessonText) => {
-                if (active) updateActive({ ...active, instruction: value });
-                else updateDraft({ summary: value });
-              }} />
-          </Suspense> : !active && <LessonDetails lesson={draft} language={editorLanguage} onChange={updateDraft} />}
-          {active?.questionRef && <p className="model-status model-error" role="status">{t("lessons.questionFileUnavailable")}</p>}
-          {active && lessonMode(active) !== "content" && <LessonQuestionEditor
-            questions={active.questions ?? []} locale={editorLanguage}
-            onChange={questions => updateActive(updateLessonQuestions(active, lessonMode(active), questions))} />}
-          {!active && !draft.steps.length && <p className="lesson-document-hint">{t("lessons.firstBlock")}</p>}
-        </div>
+        </Suspense> : !active && <LessonDetails lesson={draft} language={editorLanguage} onChange={updateDraft} />}
+        {active?.questionRef && <p className="model-status model-error" role="status">{t("lessons.questionFileUnavailable")}</p>}
+        {active && lessonMode(active) !== "content" && <LessonQuestionEditor
+          questions={active.questions ?? []} locale={editorLanguage}
+          onChange={questions => updateActive(updateLessonQuestions(active, lessonMode(active), questions))} />}
+        {!active && !draft.steps.length && <p className="lesson-document-hint">{t("lessons.firstBlock")}</p>}
         {active && <div className="lesson-management">
           <LessonStepOptions active={active} onChange={updateActive} />
           <button type="button" className="lesson-button lesson-remove-block" onClick={remove}>{t("lessons.removeStep")}</button>

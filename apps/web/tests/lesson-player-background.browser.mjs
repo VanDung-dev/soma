@@ -18,10 +18,7 @@ export async function checkLessonPlayerBackground(page) {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.goto('/home');
-    await page.evaluate(lesson => {
-      localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson));
-      localStorage.setItem('soma.lessons.panel:readerOutline', 'false');
-    }, lesson);
+    await page.evaluate(lesson => localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson)), lesson);
     await page.goto('/lessons/' + lesson.id + (mode === 'preview' ? '/edit' : ''));
     if (mode === 'preview') await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
     const player = page.locator('.lesson-player');
@@ -30,7 +27,6 @@ export async function checkLessonPlayerBackground(page) {
     const model = player.locator('.lesson-model');
     const next = player.locator('.lesson-editor-stepbar-actions > button');
     const outline = player.locator('.lesson-reader-outline');
-    const sidebar = player.locator('.lesson-player-header .sidebar-toggle');
     const settle = async () => {
       await page.evaluate(async () => {
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
@@ -102,17 +98,8 @@ export async function checkLessonPlayerBackground(page) {
         await page.setViewportSize({ width, height: 900 });
         await page.emulateMedia({ reducedMotion: reduced ? 'reduce' : 'no-preference' });
         await settle();
-        for (const open of [true, false]) {
-          const before = await model.boundingBox();
-          await sidebar.click();
-          const transition = await outline.evaluate(node => ({ opacity: Number(getComputedStyle(node).opacity), inert: node.inert }));
-          assert.equal(transition.inert, !open);
-          await settle();
-          const after = await model.boundingBox();
-          assert(width > 900 ? open ? after.width < before.width : after.width > before.width
-            : open ? after.y > before.y : after.y < before.y);
-          await checkLessonResetFocus(page, 'playerViewer', '.lesson-player > .model-canvas canvas');
-        }
+        assert(await outline.isVisible());
+        await checkLessonResetFocus(page, 'playerViewer', '.lesson-player > .model-canvas canvas');
         assert(await original.evaluate(canvas => canvas === document.querySelector('.lesson-player > .model-canvas canvas')));
         assert(await player.evaluate(node => node.scrollWidth <= node.clientWidth));
         if (process.env.SOMA_LESSON_VISUALS) await page.screenshot({ path: `/tmp/soma-${mode}-background-${width}.png` });

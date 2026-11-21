@@ -131,19 +131,13 @@ export async function checkLessons(page) {
   await part.getByRole('heading').waitFor();
   assert(await part.isVisible(), 'Keep the selected structure visible after restoring the lesson region');
   await scene.getByRole('button', { name: 'Hủy', exact: true }).click();
-  const width = await frame.evaluate(node => node.clientWidth);
-  await page.locator('#lesson-toggle-outline').click();
-  assert(await page.locator('#lesson-author-outline').isHidden());
-  assert((await frame.evaluate(node => node.clientWidth)) > width);
-  await page.locator('#lesson-toggle-outline').click();
   assert(await page.locator('#lesson-author-outline').isVisible());
   assert(await page.locator('.lesson-step-options').isVisible());
-  await page.locator('#lesson-toggle-outline').click();
 
   await page.setViewportSize({ width: 320, height: 700 });
   assert(await page.locator('.lessons-screen').evaluate(element => element.scrollWidth <= element.clientWidth));
   assert((await frame.locator('.lesson-scene-viewport').boundingBox()).height >= 140, 'Mobile authoring must leave room to inspect the model');
-  assert(await page.locator('#lesson-author-outline').isHidden());
+  assert(await page.locator('#lesson-author-outline').isVisible());
   assert(await page.locator('.lesson-step-options').isVisible());
   await compose.click();
   await scene.locator('.structure-tree > li').first().waitFor();
@@ -177,7 +171,6 @@ export async function checkLessons(page) {
   assert.equal(revised.steps[1].targetId, 'collection:baf3076d0495a617');
   assert.deepEqual(revised.steps[0], beforeModelChange.steps[0]);
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.locator('#lesson-toggle-outline').click();
   await page.locator('#lesson-author-outline').getByRole('button', { name: 'Thêm mục', exact: true }).click();
   await compose.click();
   await scene.getByRole('button', { name: 'Sao chép cảnh mục trước', exact: true }).click();

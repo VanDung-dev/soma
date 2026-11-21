@@ -51,7 +51,7 @@ export default function RichEditor({ value, language, label, onChange }: {
     void tinymce.init({
       target: target.current!, license_key: "gpl", skin: mode === "dark" ? "oxide-dark" : "oxide",
       content_css: [editorFontStyles, richContentStyles], body_class: "lesson-rich-content",
-      promotion: false, menubar: false, statusbar: false, height: 500, min_height: 220,
+      promotion: false, menubar: false, statusbar: false, height: "100%",
       plugins: "lists link table image", toolbar: "undo redo | image | bold italic underline | blocks | bullist numlist | link table | removeformat",
       toolbar_mode: "sliding", block_formats: "Paragraph=p;Heading 2=h2;Heading 3=h3;Heading 4=h4",
       valid_elements: lessonElements, entity_encoding: "raw", paste_data_images: false,
@@ -78,7 +78,7 @@ export default function RichEditor({ value, language, label, onChange }: {
         input.click();
       },
       browser_spellcheck: true, content_language: language, iframe_aria_text: label,
-      content_style: `body{--text:${palette.getPropertyValue("--text")};--surface:${palette.getPropertyValue("--surface")};--accent:${palette.getPropertyValue("--accent")};--line-strong:${palette.getPropertyValue("--line-strong")};margin:0;background:var(--surface)}`,
+      content_style: `body{--text:${palette.getPropertyValue("--text")};--surface:${palette.getPropertyValue("--surface")};--accent:${palette.getPropertyValue("--accent")};--line-strong:${palette.getPropertyValue("--line-strong")};margin:0;padding:10px;background:var(--surface)}`,
       setup(editor) {
         instance = editor;
         editor.on("OpenWindow", event => { dialog = event.dialog; });

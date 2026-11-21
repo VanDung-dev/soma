@@ -52,7 +52,6 @@ export async function checkLessonScenes(page) {
   assert.notDeepEqual(lesson.steps[1].view, first.view);
   await page.reload();
   await page.getByLabel('Tên bài học').waitFor();
-  if (await page.locator('#lesson-author-outline').isHidden()) await page.locator('#lesson-toggle-outline').click();
   await page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: 'Mặt bên' }).click();
   await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
   await openSettings();

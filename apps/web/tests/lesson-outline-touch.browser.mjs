@@ -13,10 +13,7 @@ export async function checkLessonOutlineTouch(page) {
     const text = vi => ({ vi, en: '' });
     const lesson = { id: 'touch-outline-check', version: 1, title: text('Kéo thả cảm ứng'), summary: text(''), modelId: '',
       steps: Array.from({ length: 20 }, (_, i) => ({ id: 'touch-' + i, kind: 'text', title: text('Mục ' + (i + 1)), instruction: text('Nội dung ' + i) })) };
-    await mobile.evaluate(lesson => {
-      localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson));
-      localStorage.setItem('soma.lessons.panel:editorOutline', 'true');
-    }, lesson);
+    await mobile.evaluate(lesson => localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson)), lesson);
     await mobile.goto(origin + '/lessons/' + lesson.id + '/edit');
     const outline = mobile.locator('#lesson-author-outline');
     await outline.waitFor();

@@ -1,18 +1,17 @@
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode, Ref, UIEventHandler } from "react";
 import { LineIcon } from "../../icons";
 import { useLanguage } from "../../i18n";
-import { SidebarToggle, WorkspaceLayout, WorkspaceMenu } from "../../pages/workspace-layout";
+import { WorkspaceLayout, WorkspaceMenu } from "../../pages/workspace-layout";
 import type { Lesson } from "./contract";
 import { LessonTimestamps } from "./timestamps";
 
 export function LessonWorkspace({
-  editing = false, header, background, outline, outlineOpen, modelVisible, hasStep, bodyRef, onScroll, beforeContent, children,
+  editing = false, header, background, outline, modelVisible, hasStep, bodyRef, onScroll, beforeContent, children,
 }: {
   editing?: boolean;
   header: ReactNode;
   background?: ReactNode;
   outline: ReactNode;
-  outlineOpen: boolean;
   modelVisible: boolean;
   hasStep?: boolean;
   bodyRef?: Ref<HTMLDivElement>;
@@ -20,11 +19,10 @@ export function LessonWorkspace({
   beforeContent?: ReactNode;
   children: ReactNode;
 }) {
-  return <WorkspaceLayout className={`lesson-workspace-shell ${editing ? "lesson-editor study-shell" : "lesson-player"}`}
-    data-outline={editing ? outlineOpen : undefined}>
+  return <WorkspaceLayout className={`lesson-workspace-shell ${editing ? "lesson-editor study-shell" : "lesson-player"}`}>
     {background}
     {header}
-    <div className={`lesson-workspace-body ${editing ? "lesson-author-workspace" : "lesson-player-body"}`} ref={bodyRef} data-outline={outlineOpen}>
+    <div className={`lesson-workspace-body ${editing ? "lesson-author-workspace" : "lesson-player-body"}`} ref={bodyRef}>
       {outline}
       {beforeContent}
       <div className={`lesson-workspace-main ${editing ? "lesson-author-center" : "lesson-workspace"}`}
@@ -36,18 +34,13 @@ export function LessonWorkspace({
 }
 
 export function LessonHeader({
-  editing = false, title, subtitle, lesson, headingRef, outlineId, outlineToggleId, outlineOpen, onToggleOutline,
-  onBack, backDisabled, navigation, actions,
+  editing = false, title, subtitle, lesson, headingRef, onBack, backDisabled, navigation, actions,
 }: {
   editing?: boolean;
   title: string;
   subtitle: ReactNode;
   lesson: Pick<Lesson, "createdAt" | "updatedAt">;
   headingRef?: Ref<HTMLHeadingElement>;
-  outlineId: string;
-  outlineToggleId?: string;
-  outlineOpen: boolean;
-  onToggleOutline: () => void;
   onBack: () => void;
   backDisabled?: boolean;
   navigation?: ReactNode;
@@ -57,7 +50,6 @@ export function LessonHeader({
   return <WorkspaceMenu className={`lesson-header ${editing ? "lesson-author-bar" : "lesson-player-header"}`} layout="inline"
     actionsClassName={editing ? "lesson-author-actions" : undefined}
     navigation={<>
-      <SidebarToggle id={outlineToggleId} controls={outlineId} expanded={outlineOpen} name={t("lessons.outline")} onToggle={onToggleOutline} />
       <button className="controls-info lesson-exit" aria-label={t("lessons.exit")} title={t("lessons.exit")} disabled={backDisabled} onClick={onBack}>
         <LineIcon name="arrow-small-left" size={18} />
         {t("lessons.exit")}
@@ -72,15 +64,14 @@ export function LessonHeader({
     actions={actions} />;
 }
 
-export function LessonOutlinePanel({ id, open, editing = false, children }: {
-  id: string;
-  open: boolean;
+export function LessonOutlinePanel({ id, editing = false, children }: {
+  id?: string;
   editing?: boolean;
   children: ReactNode;
 }) {
   const { t } = useLanguage();
   return <nav className={`workspace-panel-surface lesson-outline-panel ${editing ? "lesson-author-outline" : "lesson-reader-outline"}`}
-    id={id} hidden={!open} inert={!open} aria-hidden={!open} aria-label={t("lessons.outline")}>
+    id={id} aria-label={t("lessons.outline")}>
     <div className="catalog-heading"><h2>{t("lessons.outline")}</h2></div>
     <div className="catalog-tree">{children}</div>
   </nav>;

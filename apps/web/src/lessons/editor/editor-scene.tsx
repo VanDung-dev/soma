@@ -18,7 +18,6 @@ type SceneProps = {
   settingsButton: ReactNode;
   settingsControlsHost: HTMLElement | null;
   settingsActionsHost: HTMLElement | null;
-  outlineOpen: boolean;
   visibleIds?: string[]; onChangeScene: (ids: string[]) => void;
   view?: SceneView;
   sceneRef?: Ref<EditorSceneHandle>;
@@ -55,7 +54,7 @@ export function EditorScene(props: SceneProps) {
     </p>} />, props.frame);
 }
 
-function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inactive, settingsButton, settingsControlsHost, settingsActionsHost, outlineOpen, visibleIds, view, onChangeScene, sceneRef, revealPart, onSceneChange, onReloadModel, resetVersion }: SceneProps & { catalog: Catalog }) {
+function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inactive, settingsButton, settingsControlsHost, settingsActionsHost, visibleIds, view, onChangeScene, sceneRef, revealPart, onSceneChange, onReloadModel, resetVersion }: SceneProps & { catalog: Catalog }) {
   const { language, t } = useLanguage();
   const ids = useMemo(() => visibleIds ?? catalog.members(targetId), [catalog, targetId, visibleIds]);
   const focusFrame = useRef<HTMLDivElement>(null);
@@ -63,8 +62,13 @@ function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inacti
     hiddenIds => {
       const hidden = new Set(hiddenIds);
       onChangeScene(ids.filter(id => !hidden.has(id)));
-    }, !inactive, false, true, onSceneChange);
+    }, !inactive, false, true, onSceneChange, "append");
   const ready = !state.building && !state.error;
+  const hudState = useMemo(() => {
+    const requested = new Set(modelIds.flatMap(id => catalog.members(id)));
+    return { ...state, structureIds: state.structureIds.filter(id => requested.has(id)),
+      visibleIds: new Set([...state.visibleIds].filter(id => requested.has(id))) };
+  }, [catalog, modelIds, state]);
   const snapPart = useMemo(() => catalog.detail(snapTarget), [catalog, snapTarget, state.structureIds]);
   const separated = !!state.movingId || !!state.separatedIds.size;
   const revealedPart = useRef<{ id: string; target?: boolean }>(undefined);
@@ -74,7 +78,7 @@ function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inacti
     const animation = requestAnimationFrame(resize);
     scroller.addEventListener("scroll", resize);
     return () => { cancelAnimationFrame(animation); scroller.removeEventListener("scroll", resize); };
-  }, [frame, outlineOpen, inactive, runtime, session]);
+  }, [frame, inactive, runtime, session]);
   useImperativeHandle(sceneRef, () => ({ capture: () => {
     if (!ready || separated) return;
     const view = session.captureView();
@@ -112,7 +116,8 @@ function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inacti
         frame.closest(".lesson-editor")!)}
       <LessonModelFrame ref={focusFrame} orientation={orientation} showAxes={showAxes} disabled={!ready}
         onControl={session.control} fps={graphics.showFps ? fps : undefined} />
-      <LessonModelHud className="lesson-editor-hud" state={state} totalSystems={modelIds.length} actions={!inactive && settingsButton}
+      <LessonModelHud className="lesson-editor-hud" state={hudState} totalSystems={modelIds.length}
+        actions={!inactive && settingsButton}
         beforeStatus={<>
           {snapPart && <p className="model-status model-snap-hint" role="status">{t("viewer.snapHint", { name: snapPart.names[language] })}</p>}
           {separated && <p className="model-status separation-status" role="status">{t("context.dragHint")}</p>}

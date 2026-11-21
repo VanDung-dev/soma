@@ -102,7 +102,6 @@ export async function checkLessonEditorExperience(page) {
   await page.reload();
   await page.getByLabel('Tên bài học').waitFor();
   assert.equal(await page.locator('.lesson-model:visible, .tox-tinymce').count(), 0);
-  if (await page.locator('#lesson-author-outline').isHidden()) await page.locator('#lesson-toggle-outline').click();
   await page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: 'Chỉ nội dung' }).click();
   assert(await frame.isHidden());
   assert.equal(await body.innerText(), hidden.instruction.vi.replace(/<[^>]+>/g, ''));
@@ -113,8 +112,7 @@ export async function checkLessonEditorExperience(page) {
   const headerBounds = await player.locator('.lesson-player-header').boundingBox();
   const headingBounds = await player.locator('.lesson-player-heading').boundingBox();
   assert(Math.abs(headingBounds.x + headingBounds.width / 2 - headerBounds.x - headerBounds.width / 2) <= 1, 'The preview heading is centered');
-  const outlineBounds = await player.getByRole('button', { name: 'Mục lục', exact: true }).boundingBox();
-  assert(outlineBounds.x + outlineBounds.width <= headingBounds.x, 'The outline toggle sits to the left of the title');
+  assert(await player.locator('.lesson-reader-outline').isVisible());
   assert.equal(await player.locator('.explode-control, .structure-search-field, .lesson-part-card').count(), 0, 'Student preview has only camera controls');
   for (const width of [320, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
@@ -196,7 +194,6 @@ export async function checkLessonEditorExperience(page) {
   assert.equal(await writing.getByRole('status').filter({ hasText: 'Đã lưu bài học trên thiết bị.' }).count(), 0);
   await page.reload();
   await page.getByLabel('Tên bài học').waitFor();
-  if (await page.locator('#lesson-author-outline').isHidden()) await page.locator('#lesson-toggle-outline').click();
   await page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: 'Chỉ nội dung' }).click();
   await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
   const external = await saved(); external.title.vi = 'Đã sửa ở tab khác';

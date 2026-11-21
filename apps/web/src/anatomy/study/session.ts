@@ -48,12 +48,12 @@ export class StudySession {
     for (const listener of this.listeners) listener();
   }
 
-  updateViewer = (patch: Partial<ViewerState>) => {
+  updateViewer = (patch: Partial<ViewerState>, visibleIds?: ReadonlySet<string>) => {
     const movingId = patch.movingId ?? this.state.movingId;
     const separatedIds = patch.separatedIds ?? this.state.separatedIds;
     const readerWasAvailable = canReadStructure(this.state, this.state.readingId) || !!this.state.targetId;
     const readerRemainsAvailable = !!this.state.targetId || canReadStructure({ movingId, separatedIds }, this.state.readingId);
-    this.update({ ...patch, ...(patch.structureIds ? { visibleIds: new Set(patch.structureIds) } : {}),
+    this.update({ ...patch, ...(patch.structureIds ? { visibleIds: visibleIds ?? new Set(patch.structureIds) } : {}),
       ...(readerWasAvailable && !readerRemainsAvailable ? { readerExpanded: false } : {}) });
   };
 

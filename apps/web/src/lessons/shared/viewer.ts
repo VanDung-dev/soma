@@ -10,7 +10,8 @@ import { ViewerRuntime } from "../../anatomy/viewer/runtime";
 import { shortcutAction } from "../../shortcuts";
 
 export function useLessonViewer(catalog: Catalog, graphics: GraphicsSettings, modelId: string | readonly string[], onPick?: (id: string) => void, frame?: HTMLElement | RefObject<HTMLElement | null>,
-  onEditVisibility?: (hiddenIds: string[]) => void, allowSeparation = true, animateInitialReconstruction = true, background = false, onCameraChange?: () => void) {
+  onEditVisibility?: (hiddenIds: string[]) => void, allowSeparation = true, animateInitialReconstruction = true, background = false, onCameraChange?: () => void,
+  modelLoading: "replace" | "append" = "replace") {
   const host = useRef<HTMLDivElement>(null);
   const orientation = useRef<OrientationAxesHandle>(null);
   const runtime = useRef<ViewerRuntime | null>(null);
@@ -20,7 +21,7 @@ export function useLessonViewer(catalog: Catalog, graphics: GraphicsSettings, mo
   const modelKey = typeof modelId === "string" ? modelId : modelId.join(",");
   const canSelect = useEffectEvent(() => allowSeparation);
   const cameraChanged = useEffectEvent(() => onCameraChange?.());
-  const sessionKey = modelKey;
+  const sessionKey = modelLoading === "append" ? "" : modelKey;
   const session = useMemo(() => new StudySession(catalog), [catalog, sessionKey]);
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
   useCameraKeys(!modelKey || state.building || state.error, session.control, host);
@@ -66,15 +67,17 @@ export function useLessonViewer(catalog: Catalog, graphics: GraphicsSettings, mo
     };
   }, [catalog, frame, sessionKey, onPick, session, background]);
   useEffect(() => {
-    if ((!modelKey && !background) || !runtime.current) return;
+    const viewer = runtime.current;
+    if ((!modelKey && !background) || !viewer) return;
     const ids = modelKey ? modelKey.split(",") : [];
     const roots = catalog.roots.filter(root => ids.includes(root.id));
     if (roots.length !== ids.length) {
       session.updateViewer({ error: true, building: false, status: "loadError" });
       return;
     }
-    void runtime.current.start(catalog, roots);
-  }, [catalog, frame, modelKey, onPick, session, background]);
+    if (modelLoading === "append") void viewer.updateBackgroundModels(catalog, roots, () => session.getSnapshot().visibleIds);
+    else void viewer.start(catalog, roots);
+  }, [catalog, frame, modelKey, modelLoading, onPick, session, background]);
   useEffect(() => { runtime.current?.setGraphics(graphics); }, [graphics, session, frame, onPick]);
 
   return { host, orientation, showAxes: graphics.showAxes, fps, session, state, hold, snapTarget, runtime };

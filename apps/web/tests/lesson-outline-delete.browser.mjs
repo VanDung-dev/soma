@@ -5,10 +5,7 @@ export async function checkLessonOutlineDelete(page) {
   const lesson = { id: 'outline-delete-test', version: 1, title: text('Delete test'), summary: text(''), modelId: '',
     steps: ['one', 'two'].map(id => ({ id, kind: 'text', title: text(id), instruction: text('Nội dung') })) };
   await page.goto('/home');
-  await page.evaluate(lesson => {
-    localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson));
-    localStorage.setItem('soma.lessons.panel:editorOutline', 'true');
-  }, lesson);
+  await page.evaluate(lesson => localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson)), lesson);
   await page.goto('/lessons/' + lesson.id + '/edit');
   const card = page.locator('[data-lesson-step="one"] .lesson-outline-row');
   await card.click();

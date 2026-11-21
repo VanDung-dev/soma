@@ -40,7 +40,6 @@ export async function checkLessonReader(page) {
   assert(await page.getByRole('button', { name: 'Mục tiếp theo', exact: true }).isVisible());
 
   const jump = async title => {
-    if (await page.locator('.lesson-reader-outline').isHidden()) await page.getByRole('button', { name: 'Mục lục', exact: true }).click();
     await page.locator('.lesson-reader-outline').getByRole('button', { name: title, exact: true }).click();
     assert(await page.locator('.lesson-reader-outline').isVisible(), 'Choosing a step must keep the outline open');
     await page.getByRole('heading', { name: title, exact: true }).waitFor();
@@ -60,8 +59,8 @@ export async function checkLessonReader(page) {
   assert(await page.getByRole('button', { name: 'Mục tiếp theo', exact: true }).isEnabled());
   await jump('Tổng kết');
   assert(await canvasUnchanged());
-  await page.getByRole('button', { name: 'Đóng mục lục', exact: true }).click();
   await page.setViewportSize({ width: 320, height: 700 });
+  assert(await page.locator('.lesson-reader-outline').isVisible());
   assert(await page.locator('.lessons-screen').evaluate(node => node.scrollWidth <= node.clientWidth));
   const expandedReader = await page.locator('.lesson-step').boundingBox();
   await page.getByRole('button', { name: 'Thu gọn mô hình 3D', exact: true }).click();
@@ -108,7 +107,6 @@ export async function checkLessonReader(page) {
     const reading = student.locator('.lesson-player-stepbar button[data-reading]');
     const read = student.locator('.lesson-player-stepbar button[data-read]');
     await next.and(reading).waitFor();
-    await student.getByRole('button', { name: 'Mục lục', exact: true }).click();
     const studentOutline = student.getByRole('navigation', { name: 'Mục lục', exact: true });
     const introRow = studentOutline.getByRole('button', { name: 'Giới thiệu', exact: true });
     await introRow.locator('.lesson-outline-status:not([data-read])').waitFor();

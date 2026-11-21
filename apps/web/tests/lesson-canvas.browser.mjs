@@ -25,7 +25,6 @@ export async function checkLessonCanvas(page) {
   await page.route('**/*.glb.br', blockModel);
   await page.goto('/lessons/' + lesson.id + '/edit');
   await page.getByLabel('Tên bài học', { exact: true }).waitFor();
-  if (await page.locator('#lesson-author-outline').isHidden()) await page.locator('#lesson-toggle-outline').click();
   await page.evaluate(async () => {
     const { AnatomyViewer } = await (await import('/src/anatomy/core.ts')).getWasm();
     const proto = AnatomyViewer.prototype;
@@ -182,34 +181,12 @@ export async function checkLessonCanvas(page) {
     for (const width of [390, 1440]) for (const reduced of [false, true]) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ reducedMotion: reduced ? 'reduce' : 'no-preference' });
-      for (const open of [false, true]) {
-        const previous = await region.boundingBox();
-        const previousPose = await pose();
-        const transition = await page.evaluate(async () => {
-          document.querySelector('#lesson-toggle-outline').click();
-          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-          const panel = document.querySelector('#lesson-author-outline');
-          const workspace = panel.parentElement;
-          getComputedStyle(workspace).gridTemplateColumns;
-          const animations = [...workspace.getAnimations(), ...panel.getAnimations()];
-          return { count: animations.length, opacity: Number(getComputedStyle(panel).opacity), inert: panel.inert };
-        });
-        if (reduced) assert.equal(transition.count, 0);
-        else assert(transition.count > 0 && transition.opacity > 0 && transition.opacity < 1);
-        assert.equal(transition.inert, !open);
-        await page.evaluate(async () => {
-          const animations = document.querySelector('.lesson-author-workspace').getAnimations({ subtree: true });
-          for (const animation of animations) animation.play();
-          await Promise.all(animations.map(animation => animation.finished.catch(() => {})));
-        });
-        await geometry();
-        const current = await region.boundingBox();
-        assert(width > 900 ? open ? current.width < previous.width : current.width > previous.width
-          : open ? current.y > previous.y : current.y < previous.y, 'The outline pushes the model into the remaining space');
-        const currentPose = await pose();
-        for (const key of ['yaw', 'pitch', 'distance']) assert(Math.abs(currentPose[key] - previousPose[key]) < 1e-4);
-        assert(await page.evaluate(() => window.lessonCanvasElement === document.querySelector('.lesson-editor > .model-canvas canvas')));
-      }
+      await geometry();
+      const outline = await page.locator('#lesson-author-outline').boundingBox();
+      const model = await region.boundingBox();
+      assert(width === 1440 ? outline.x + outline.width <= model.x : outline.y + outline.height <= model.y,
+        'The outline stays outside the model pane at every width');
+      assert(await page.evaluate(() => window.lessonCanvasElement === document.querySelector('.lesson-editor > .model-canvas canvas')));
     }
     await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
     await page.locator('.lesson-player .model-canvas[aria-busy="false"]').waitFor();

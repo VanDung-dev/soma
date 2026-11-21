@@ -19,7 +19,7 @@ export async function checkLessonResponsiveLayout(page) {
   await page.evaluate(lesson => {
     localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson));
     localStorage.setItem('soma.lesson-progress-v1:' + lesson.id, JSON.stringify({ read: ['observe'], answers: {} }));
-    for (const panel of ['editorOutline', 'readerOutline']) localStorage.setItem(`soma.lessons.panel:${panel}`, 'true');
+    for (const panel of ['editorOutline', 'readerOutline']) localStorage.setItem(`soma.lessons.panel:${panel}`, 'false');
   }, lesson);
   const observeCamera = () => page.evaluate(async () => {
     const { getWasm } = await import('/src/anatomy/core.ts');
@@ -69,7 +69,7 @@ export async function checkLessonResponsiveLayout(page) {
     assert.equal(await shell.locator(':scope > .lesson-workspace-body > .lesson-outline-panel').count(), 1);
     assert.equal(await shell.locator('.lesson-workspace-main > .lesson-content-panel > .lesson-step-navigation').count(), 1);
     const frame = model(editor).locator('.lesson-model-surface > .model-focus-frame');
-    const toggle = page.locator(editor ? '#lesson-toggle-outline' : '.lesson-player-header .sidebar-toggle');
+    assert.equal(await shell.locator('.lesson-header .sidebar-toggle').count(), 0);
     const results = [];
     for (const [width, height, outlineWidth, modelWidth, contentWidth] of [...sizes, ...sizes.slice(0, -1).reverse()]) {
       await page.setViewportSize({ width, height });
@@ -110,13 +110,8 @@ export async function checkLessonResponsiveLayout(page) {
         assert.deepEqual(await bounds(actions), actionsBounds, 'The header actions stay in place while the tree scrolls');
         await settings.getByRole('button', { name: 'Hủy', exact: true }).click();
       }
-      await toggle.click();
-      const closed = await Promise.all([model(editor), content(editor), frame].map(bounds));
-      assert.equal(closed[0][2], modelWidth + outlineWidth + 16, 'The model takes the space freed by the outline');
-      assert.deepEqual(closed[1], panels[2]);
       if (width === 1280) await requireAutoFit();
-      await toggle.click();
-      results.push({ panels, closed, statusBottom, creditInset });
+      results.push({ panels, statusBottom, creditInset });
     }
     for (const [width, height] of [[912, 570], [800, 500], [1280, 800], [1920, 1200]]) {
       await page.setViewportSize({ width, height });
@@ -184,10 +179,7 @@ export async function checkLessonEditorLayout(page) {
       title: text(name), instruction: text('Nội dung ' + name), targetId: 'collection:cc46df69f8495544' })),
   };
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.evaluate(lesson => {
-    localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson));
-    for (const name of ['editorOutline', 'readerOutline']) localStorage.removeItem('soma.lessons.panel:' + name);
-  }, lesson);
+  await page.evaluate(lesson => localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson)), lesson);
   await page.goto('/lessons/' + lesson.id + '/edit');
   const outline = page.locator('#lesson-author-outline');
   const settings = page.locator('.lesson-step-options');
@@ -223,13 +215,6 @@ export async function checkLessonEditorLayout(page) {
     .map(selector => Math.round(document.querySelector(selector).getBoundingClientRect().width))), [240, 476, 500]);
   const stepLabel = await document.getAttribute('aria-label');
   assert.match(stepLabel, /^(Mục|Section) 1 · Một$/);
-  assert.deepEqual(await document.evaluate(node => [...node.classList].filter(name => name.startsWith('lesson-author-document--'))), ['lesson-author-document--step']);
-  await page.locator('#lesson-toggle-outline').click();
-  await outline.waitFor({ state: 'hidden' });
-  assert(await outline.isHidden());
-  assert.equal(await document.getAttribute('aria-label'), stepLabel);
-  assert.deepEqual(await document.evaluate(node => [...node.classList].filter(name => name.startsWith('lesson-author-document--'))), ['lesson-author-document--step']);
-  await page.locator('#lesson-toggle-outline').click();
   await page.getByRole('button', { name: 'Thiết lập 3D', exact: true }).click();
   const cancelModelSettings = page.locator('#lesson-model-settings').getByRole('button', { name: 'Hủy', exact: true });
   await cancelModelSettings.waitFor();
@@ -299,29 +284,21 @@ export async function checkLessonEditorLayout(page) {
   assert(await outline.isVisible());
   assert(await settings.isVisible());
   assert(await page.evaluate(() => window.editorCanvas === document.querySelector('.lesson-editor > .model-canvas canvas')));
-  await page.locator('#lesson-toggle-outline').click();
   await page.reload();
   await page.getByLabel('Tên bài học').waitFor();
-  assert(await outline.isHidden());
+  assert(await outline.isVisible());
   assert.equal(await settings.count(), 0);
-  await page.locator('#lesson-toggle-outline').click();
-  await outline.waitFor({ state: 'visible' });
   await choose('Hai');
-  await page.locator('#lesson-toggle-outline').click();
-  await outline.waitFor({ state: 'hidden' });
   await document.getByRole('button', { name: 'Thêm mục', exact: true }).click();
-  assert(await outline.isHidden());
+  assert(await outline.isVisible());
   assert(await settings.isVisible());
-  assert.equal(await page.getByLabel('Tên mục').inputValue(), '', 'Adding a step while the outline is closed opens a new draft');
+  assert.equal(await page.getByLabel('Tên mục').inputValue(), '', 'Adding a step opens a new draft');
   await page.getByLabel('Tên mục').fill('Bốn');
   await lessonBody(page).fill('Nội dung Bốn');
-  await page.locator('#lesson-toggle-outline').click();
   assert.equal(await outline.locator('[data-lesson-step]').count(), 4, 'The added draft appears in the outline');
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   await page.getByRole('heading', { name: 'Bốn', exact: true }).waitFor();
   const readerOutline = page.locator('.lesson-reader-outline');
-  const readerToggle = page.locator('.lesson-player-header .sidebar-toggle');
-  await readerToggle.click();
   await readerOutline.getByRole('button', { name: 'Ba', exact: true }).click();
   assert(await readerOutline.isVisible());
   await page.getByRole('button', { name: 'Mục tiếp theo', exact: true }).click();
@@ -332,17 +309,14 @@ export async function checkLessonEditorLayout(page) {
   assert(await outline.isVisible());
   assert(await settings.isVisible());
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
-  await readerToggle.waitFor();
-  assert(await readerOutline.isVisible(), 'Learner outline preference survives returning to preview');
+  await readerOutline.waitFor();
   await readerOutline.getByRole('button', { name: 'Một', exact: true }).click();
-  await readerToggle.click();
   await page.setViewportSize({ width: 390, height: 844 });
   const playerModel = page.locator('.lesson-player .lesson-model');
   await page.getByRole('button', { name: 'Thu gọn mô hình 3D', exact: true }).click();
   await page.getByRole('button', { name: 'Mục tiếp theo', exact: true }).click();
   await playerModel.waitFor({ state: 'hidden' });
   await page.getByRole('button', { name: 'Hiện mô hình 3D', exact: true }).click();
-  await readerToggle.click();
   assert(await readerOutline.isVisible());
   assert(await page.locator('.lessons-screen').evaluate(node => node.scrollWidth <= node.clientWidth));
   await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
@@ -352,22 +326,8 @@ export async function checkLessonEditorLayout(page) {
   await choose('Một');
   assert(await outline.isVisible());
   assert(await settings.isVisible());
-  await page.evaluate(() => {
-    const get = Storage.prototype.getItem, set = Storage.prototype.setItem;
-    Storage.prototype.getItem = function(key) {
-      if (key.startsWith('soma.lessons.panel:')) throw new DOMException('Blocked', 'SecurityError');
-      return get.call(this, key);
-    };
-    Storage.prototype.setItem = function(key, value) {
-      if (key.startsWith('soma.lessons.panel:')) throw new DOMException('Blocked', 'SecurityError');
-      return set.call(this, key, value);
-    };
-  });
-  await page.locator('#lesson-toggle-outline').click();
-  await page.locator('#lesson-toggle-outline').click();
-  assert(await outline.isVisible(), 'Panel toggles remain usable when preference storage is blocked');
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
   await page.getByLabel('Tên mục').waitFor();
-  assert(await settings.isVisible(), 'Blocked panel storage must fall back to accessible inline settings');
+  assert(await settings.isVisible());
 }

@@ -43,7 +43,6 @@ export async function checkLessonBackground(page) {
     window.restoreBackgroundViewer = () => { proto.apply_scene = original; proto.reframe = reframe; };
   });
   const outline = page.locator('#lesson-author-outline');
-  if (await outline.isHidden()) await page.locator('#lesson-toggle-outline').click();
   const details = () => outline.getByRole('button', { name: 'Thông tin bài học', exact: true }).click();
   const step = () => outline.locator('.lesson-outline-row').filter({ hasText: 'Bước đầu tiên' }).click();
   try {
@@ -72,10 +71,6 @@ export async function checkLessonBackground(page) {
         return window.backgroundFrame.every((value, index) => Math.abs(value - expected[index]) < 1e-5);
       }), 'Fit the model to the current layout');
       await page.locator('.lesson-editor-hud').waitFor({ state: 'visible' });
-      await checkLessonResetFocus(page, 'backgroundViewer', '.lesson-editor > .model-canvas canvas');
-      await page.locator('#lesson-toggle-outline').click();
-      await checkLessonResetFocus(page, 'backgroundViewer', '.lesson-editor > .model-canvas canvas');
-      await page.locator('#lesson-toggle-outline').click();
       await checkLessonResetFocus(page, 'backgroundViewer', '.lesson-editor > .model-canvas canvas');
       if (process.env.SOMA_LESSON_VISUALS) await page.screenshot({ path: `/tmp/soma-background-step-${width}.png` });
       await details();

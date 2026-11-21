@@ -8,7 +8,6 @@ import { useLessonViewer } from "../shared/viewer";
 import { LessonModelHud } from "../shared/model-hud";
 import { LessonModelFrame } from "../shared/model-frame";
 import { LessonQuestions } from "./questions";
-import { useLessonPanel } from "../shared/panels";
 import { lessonHtml, lessonPlainText } from "../shared/rich-text";
 import { useLessonImages } from "../shared/image-context";
 import { lessonModels } from "../shared/targets";
@@ -36,8 +35,6 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false,
   const reader = useRef<HTMLDivElement>(null);
   const focusFrame = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
-  const outlineId = useId();
-  const [outlineOpen, setOutlineOpen] = useLessonPanel("readerOutline", false);
   const modelId = useId();
   const [modelCollapsed, setModelCollapsed] = useState(false);
   const [compact, setCompact] = useState(false);
@@ -94,7 +91,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false,
   useEffect(() => {
     const animation = requestAnimationFrame(() => runtime.current?.resize());
     return () => cancelAnimationFrame(animation);
-  }, [outlineOpen, modelVisible, runtime, session]);
+  }, [modelVisible, runtime, session]);
 
   useEffect(() => {
     if (!ready) return;
@@ -119,7 +116,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false,
     updateProgress(current => ({ ...current, position: lesson.steps[next]?.id }));
   }
 
-  return <LessonWorkspace outlineOpen={outlineOpen} modelVisible={modelVisible} bodyRef={body} onScroll={() => runtime.current?.resize()}
+  return <LessonWorkspace modelVisible={modelVisible} bodyRef={body} onScroll={() => runtime.current?.resize()}
     background={<div className="lesson-model-canvas model-canvas" ref={host} inert={!modelVisible}
       aria-busy={!modelMissing && state.building && !state.error && !failed} />}
     header={<LessonHeader title={lessonText(lesson.title, language) || t("lessons.untitled")} lesson={lesson}
@@ -128,7 +125,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false,
         {preview && `${t("lessons.draftPreview")} · `}
         {lesson.steps.length ? t(complete ? "lessons.completed" : "lessons.step", { current: index + 1, total: lesson.steps.length }) : t("lessons.addContent")}
       </>}
-      outlineId={outlineId} outlineOpen={outlineOpen} onToggleOutline={() => setOutlineOpen(!outlineOpen)} onBack={() => onBack()}
+      onBack={() => onBack()}
       actions={<>
         {showStepModel && <button className="controls-info lesson-player-model-toggle" aria-controls={modelId} aria-expanded={!modelCollapsed}
           aria-label={t(modelCollapsed ? "lessons.showModel" : "lessons.hideModel")} title={t(modelCollapsed ? "lessons.showModel" : "lessons.hideModel")}
@@ -137,7 +134,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false,
           <span className="lesson-action-full">{t("lessons.edit")}</span><span className="lesson-action-short">{t("lessons.editShort")}</span>
         </button>}
       </>} />}
-    outline={<LessonOutlinePanel id={outlineId} open={outlineOpen}>
+    outline={<LessonOutlinePanel>
       <ol className="lesson-outline-list">
         {lesson.steps.map((item, i) => {
           const name = lessonText(item.title, language) || t("lessons.untitledSection");

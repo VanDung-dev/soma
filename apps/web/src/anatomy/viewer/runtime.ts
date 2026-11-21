@@ -1,7 +1,7 @@
 import type { Catalog, StudyTarget } from "../catalog/types";
-import { getWasm } from "../core";
+import { getContent, getWasm } from "../core";
 import type { AnatomyViewer } from "../../wasm/wasm";
-import type { CameraCommand, SceneView, StudyViewer, ViewerState, ViewerStatus, Viewport } from "./contracts";
+import type { CameraCommand, PreparedGeometry, SceneView, StudyViewer, ViewerState, ViewerStatus, Viewport } from "./contracts";
 import { bindViewerInput } from "./input";
 import { loadModels } from "./loader";
 import { defaultGraphics, qualityLevels, renderScales } from "./graphics";
@@ -32,6 +32,8 @@ export class ViewerRuntime implements StudyViewer {
   private fpsTimer = 0;
   private orientation: Float32Array | undefined;
   private structureIds: string[] = [];
+  private loadedModelIds = new Set<string>();
+  private modelLoadError = false;
   private movingId = "";
   private separatedIds = new Set<string>();
   private snapTarget = "";
@@ -41,7 +43,7 @@ export class ViewerRuntime implements StudyViewer {
     viewport: () => Viewport;
     viewportElement?: HTMLElement;
     frameOverviewToWindow?: boolean;
-    onState: (patch: Partial<ViewerState>) => void;
+    onState: (patch: Partial<ViewerState>, visibleIds?: ReadonlySet<string>) => void;
     onCameraChange?: () => void;
     onPick: (id: string) => void;
     onHide: (ids: string[]) => boolean;
@@ -103,12 +105,7 @@ export class ViewerRuntime implements StudyViewer {
     try {
       const wasm = await getWasm();
       if (this.disposed || this.loadAbort !== request) return;
-      if (this.options.background && !this.viewer) {
-        this.viewer = wasm.AnatomyViewer.background(this.canvas);
-        this.resizeCanvas();
-        this.setGraphics(this.graphics);
-        this.viewer.render();
-      }
+      this.initializeBackground(wasm);
       if (this.options.background && !roots.length) {
         this.viewer!.set_visibility([]);
         this.loading = false;
@@ -147,6 +144,95 @@ export class ViewerRuntime implements StudyViewer {
       this.scheduleRender();
     } catch (cause) {
       if (!this.disposed && this.loadAbort === request) this.fail(cause, "loadError");
+    }
+  }
+
+  private initializeBackground(wasm: Awaited<ReturnType<typeof getWasm>>) {
+    if (!this.options.background || this.viewer) return;
+    this.viewer = wasm.AnatomyViewer.background(this.canvas);
+    this.resizeCanvas();
+    this.setGraphics(this.graphics);
+    this.viewer.render();
+  }
+
+  async updateBackgroundModels(catalog: Catalog, roots: StudyTarget[], getVisibleIds: () => ReadonlySet<string>) {
+    if (this.disposed || this.failed) return;
+    const missing = roots.filter(root => !this.loadedModelIds.has(root.id));
+    this.loadAbort?.abort();
+    this.loadAbort = undefined;
+    if (this.viewer && !missing.length) {
+      if (!this.loading && !this.modelLoadError) return;
+      this.loading = false;
+      this.modelLoadError = false;
+      this.options.onState({ building: false, loadedSystems: roots.length, error: false, status: "finishing" });
+      this.scheduleRender();
+      return;
+    }
+
+    const request = this.loadAbort = new AbortController();
+    const alreadyLoaded = roots.length - missing.length;
+    this.loading = true;
+    this.modelLoadError = false;
+    this.options.onState({ building: true, loadedSystems: alreadyLoaded, error: false, status: "loading" });
+    let appending = false;
+    try {
+      const [wasm, content] = await Promise.all([getWasm(), getContent()]);
+      if (this.disposed || this.loadAbort !== request) return;
+      if (!this.viewer) catalog.clearMetadata();
+      this.initializeBackground(wasm);
+      const viewer = this.viewer;
+      if (!viewer) throw new Error("Background viewer is unavailable");
+      const metadata = new Map<StudyTarget, string>();
+      let geometry: PreparedGeometry | undefined;
+      for await (const prepared of loadModels(missing, request.signal, loaded => {
+        if (this.loadAbort === request) this.options.onState({ loadedSystems: alreadyLoaded + loaded, status: "preparing" });
+      }, (root, json) => {
+        const parts = content.validate_metadata(json, catalog.members(root.id)) as { source_id: string }[];
+        metadata.set(root, json);
+        return parts.map(part => part.source_id);
+      })) {
+        geometry = prepared;
+      }
+      if (this.disposed || this.loadAbort !== request) return;
+
+      let visibleIds: ReadonlySet<string> | undefined;
+      if (geometry) {
+        visibleIds = getVisibleIds();
+        const view = this.loadedModelIds.size ? viewer.capture_view() as SceneView : undefined;
+        appending = true;
+        viewer.set_explode_mode(false);
+        viewer.appendPrepared(geometry, performance.now(), false);
+        for (const [root, json] of metadata) {
+          catalog.ingestMetadata(root, json);
+          this.loadedModelIds.add(root.id);
+        }
+        catalog.finish();
+        viewer.configure_explosion(catalog.roots.filter(root => this.loadedModelIds.has(root.id)).map(root => catalog.members(root.id)));
+        viewer.apply_scene([...visibleIds], view);
+        this.structureIds = catalog.identities();
+        this.exploding = !!view?.explosion;
+        this.reassembling = false;
+        this.clearSceneInteraction();
+      }
+      this.loadAbort = undefined;
+      this.loading = false;
+      this.options.onState({
+        building: false, loadedSystems: roots.length, status: "finishing",
+        ...(visibleIds && { structureIds: this.structureIds, selected: "" }),
+      }, visibleIds);
+      this.scheduleRender();
+    } catch (cause) {
+      if (this.disposed || this.loadAbort !== request) return;
+      if (appending || !this.viewer) {
+        this.fail(cause, "loadError");
+        return;
+      }
+      this.loadAbort = undefined;
+      this.loading = false;
+      this.modelLoadError = true;
+      console.error(cause);
+      this.options.onState({ building: false, error: true, status: "loadError" });
+      this.scheduleRender();
     }
   }
 
@@ -391,16 +477,20 @@ export class ViewerRuntime implements StudyViewer {
       this.autoFitScene = fit;
       this.exploding = !!view?.explosion || reassembling;
       this.reassembling = reassembling;
-      this.restoration = undefined;
-      this.movingId = "";
-      this.snapTarget = "";
-      this.options.onSnap?.("");
-      this.options.onHold?.(null);
-      this.separatedIds.clear();
-      this.canvas.dataset.moving = "false";
-      this.publishSeparation();
+      this.clearSceneInteraction();
     }
     return success;
+  }
+
+  private clearSceneInteraction() {
+    this.restoration = undefined;
+    this.movingId = "";
+    this.snapTarget = "";
+    this.options.onSnap?.("");
+    this.options.onHold?.(null);
+    this.separatedIds.clear();
+    this.canvas.dataset.moving = "false";
+    this.publishSeparation();
   }
 
   focus(ids: string[], folder: boolean, reveal: boolean) {
