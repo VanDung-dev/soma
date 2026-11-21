@@ -1,12 +1,13 @@
 import type { AnatomyViewer } from "../../wasm/wasm";
-import { shortcutAction } from "../../shortcuts";
-import { isCameraKey } from "../camera-controls";
+import { cameraShortcutAction, shortcutAction } from "../../shortcuts";
 
 export function bindViewerInput(canvas: HTMLCanvasElement, options: {
   enabled: () => boolean;
   operate: (action: (viewer: AnatomyViewer) => void, redraw?: boolean) => boolean;
   redraw: () => void;
+  onCameraChange?: () => void;
   pick: (id: string) => void;
+  selectable?: () => boolean;
   moving?: () => string;
   movable?: (id: string) => boolean;
   joined?: (id: string) => boolean;
@@ -57,14 +58,14 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     else dragged = true;
     pointers.set(event.pointerId, point);
     if (box) cancelBox();
-    if (event.button === 0 && event.shiftKey && pointers.size === 1) {
+    if (event.button === 0 && event.shiftKey && pointers.size === 1 && options.selectable?.() !== false) {
       event.preventDefault(); cancelDrag();
       box = { pointerId: event.pointerId, start: point, end: point };
       options.onBox?.(boxRect());
       return;
     }
     const id = options.moving?.();
-    if ((event.button === 0 || event.button === 2) && !event.shiftKey && pointers.size === 1) {
+    if ((event.button === 0 || event.button === 2) && !event.shiftKey && pointers.size === 1 && options.selectable?.() !== false) {
       const position = pickPosition(event);
       options.operate(viewer => {
         const before = viewer.selected_id();
@@ -106,7 +107,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     } else if (drag) cancelDrag();
   };
   const pick = (event: PointerEvent, read = false) => {
-    if (!options.enabled()) return;
+    if (!options.enabled() || options.selectable?.() === false) return;
     const [x, y] = pickPosition(event);
     if (x >= 0 && y >= 0 && x < canvas.width && y < canvas.height) options.operate(renderer => {
       const before = renderer.selected_id();
@@ -163,14 +164,17 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     } else if (!other && blockedPointer?.id === event.pointerId && event.buttons === blockedPointer.buttons && !event.shiftKey) {
       pointers.set(event.pointerId, point);
       return;
-    } else if (other) {
-      const before = Math.hypot(previous.x - other.x, previous.y - other.y);
-      const after = Math.hypot(point.x - other.x, point.y - other.y);
-      if (before > 1 && after > 1) options.operate(renderer => renderer.zoom(before / after));
-      options.operate(renderer => renderer.pan(-dx / canvas.clientHeight / 2, dy / canvas.clientHeight / 2));
-    } else if (event.button === 2 || (event.buttons & 2)) {
-      options.operate(renderer => renderer.pan(-dx / canvas.clientHeight, dy / canvas.clientHeight));
-    } else options.operate(renderer => renderer.rotate(-dx / canvas.clientHeight * Math.PI * 2, dy / canvas.clientHeight * Math.PI * 2));
+    } else if (dx || dy) {
+      options.onCameraChange?.();
+      if (other) {
+        const before = Math.hypot(previous.x - other.x, previous.y - other.y);
+        const after = Math.hypot(point.x - other.x, point.y - other.y);
+        if (before > 1 && after > 1) options.operate(renderer => renderer.zoom(before / after));
+        options.operate(renderer => renderer.pan(-dx / canvas.clientHeight / 2, dy / canvas.clientHeight / 2));
+      } else if (event.button === 2 || (event.buttons & 2)) {
+        options.operate(renderer => renderer.pan(-dx / canvas.clientHeight, dy / canvas.clientHeight));
+      } else options.operate(renderer => renderer.rotate(-dx / canvas.clientHeight * Math.PI * 2, dy / canvas.clientHeight * Math.PI * 2));
+    }
     pointers.set(event.pointerId, point);
   };
   const pointerUp = (event: PointerEvent) => {
@@ -228,6 +232,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     event.preventDefault();
     if (drag || box) return;
     if (!options.enabled()) return;
+    if (event.deltaY) options.onCameraChange?.();
     const pixels = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? canvas.clientHeight : 1);
     const bounds = canvas.getBoundingClientRect();
     options.operate(renderer => renderer.zoom_at(
@@ -256,7 +261,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
       else options.moved?.(current.id);
       return;
     }
-    if (drag && isCameraKey(event.key)) {
+    if (drag && cameraShortcutAction(event)) {
       event.preventDefault(); return;
     }
   };

@@ -9,6 +9,8 @@ pub struct PackedScene {
     pub draws: Vec<(i32, i32)>,
     pub vertex_count: usize,
     pub index_count: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub overview_framing: Option<[f32; 3]>,
 }
 
 impl PackedScene {
@@ -21,6 +23,9 @@ impl PackedScene {
             || !vertex_floats.is_multiple_of(6)
             || self.vertex_count != vertex_floats / 6
             || self.index_count != index_count
+            || self.overview_framing.is_some_and(|framing| {
+                framing[2] <= 0.0 || framing.iter().any(|value| !value.is_finite())
+            })
             || !bounds_valid(self.scene.bounds)
             || !self.scene.bounds.radius().is_finite()
             || self.scene.bounds.radius() <= 0.0
@@ -95,6 +100,7 @@ impl Scene {
             draws,
             vertex_count: vertices.len() / 6,
             index_count: indices.len(),
+            overview_framing: None,
         };
         packed.validate(vertices.len(), indices.len())?;
         Ok((packed, vertices, indices))

@@ -1,8 +1,19 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useEffect, useRef, useState } from "react";
+import { readSetting, writeSetting } from "../settings/storage";
 
-export function useCameraDevices() {
+export const CameraDevicesContext = createContext<ReturnType<typeof useCameraDevices> | null>(null);
+
+export function useCameraDevices(active = true) {
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  const [deviceId, setDeviceId] = useState("");
+  const [preferredDevice, setPreferredDevice] = useState(() => {
+    const saved = readSetting("camera");
+    return typeof saved === "string" ? saved : "";
+  });
+  const deviceId = devices.some(device => device.deviceId === preferredDevice) ? preferredDevice : "";
+  const setDeviceId = (id: string) => {
+    setPreferredDevice(id);
+    writeSetting("camera", id);
+  };
   const [error, setError] = useState(false);
   const [requesting, setRequesting] = useState(false);
   const [accessActive, setAccessActive] = useState(false);
@@ -17,7 +28,6 @@ export function useCameraDevices() {
       if (!mounted.current || version !== request.current) return;
       setDevices(previous => previous.length === next.length
         && previous.every((device, index) => device.deviceId === next[index]!.deviceId && device.label === next[index]!.label) ? previous : next);
-      setDeviceId(previous => next.some(device => device.deviceId === previous) ? previous : "");
       setError(false);
     } catch {
       if (mounted.current && version === request.current) setError(true);
@@ -45,6 +55,7 @@ export function useCameraDevices() {
     }
   }, [refresh]);
   useEffect(() => {
+    if (!active) return;
     mounted.current = true;
     const media = navigator.mediaDevices;
     void refresh();
@@ -58,6 +69,6 @@ export function useCameraDevices() {
       media?.removeEventListener("devicechange", refresh);
       window.removeEventListener("focus", refresh);
     };
-  }, [refresh]);
+  }, [active, refresh]);
   return { devices, deviceId, setDeviceId, error, refresh, requesting, requestAccess, accessActive };
 }

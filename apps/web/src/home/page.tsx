@@ -4,7 +4,7 @@ import "./style.css";
 
 const modules = [
   { id: "anatomy", title: "module.anatomy", description: "home.anatomy.description" },
-  { id: "lessons", title: "module.lessons", description: "home.pending" },
+  { id: "lessons", title: "module.lessons", description: "home.lessons.description" },
   { id: "games", title: "module.games", description: "home.pending" },
 ] as const;
 
@@ -18,12 +18,11 @@ export function HomePage() {
         <p>{t("home.description")}</p>
       </header>
       <nav className="home-modules" aria-label={t("home.modules.label")}>
-        {modules.map((module, index) => {
-          const available = module.id === "anatomy";
+        {modules.map(module => {
+          const available = module.id !== "games";
           const Card = available ? "a" : "div";
           return <Card key={module.id} className={`home-module home-module-${module.id}`} href={available ? `/${module.id}` : undefined} aria-disabled={available ? undefined : true} draggable={false}>
             <div className="home-module-art" aria-hidden="true">
-              <span className="home-module-number">0{index + 1}</span>
               <img src={`/home/${module.id}.png`} alt="" width={640} height={640} decoding="async" draggable={false} />
             </div>
             <div className="home-module-copy">

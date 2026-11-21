@@ -1,6 +1,6 @@
 use catalog::{Catalog, StudyTarget};
 use icu_collator::{
-    Collator, CollatorPreferences,
+    Collator, CollatorBorrowed, CollatorPreferences,
     options::{AlternateHandling, CollatorOptions, MaxVariable, Strength},
     preferences::CollationNumericOrdering,
 };
@@ -12,8 +12,11 @@ use icu_properties::{
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
-    sync::LazyLock,
+    sync::{LazyLock, OnceLock},
 };
+
+mod tree_search;
+pub use tree_search::TreeSearch;
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Names {
@@ -171,6 +174,7 @@ pub fn parse_metadata(json: &str, expected: &[String]) -> Result<Vec<Structure>,
 pub struct ModelView<'a> {
     path: &'a str,
     scope: &'a str,
+    sha256: &'a str,
 }
 
 #[derive(Serialize)]
@@ -227,6 +231,48 @@ struct Entry {
     text: String,
 }
 
+fn collator(locale: &str, base: bool) -> Result<CollatorBorrowed<'static>, String> {
+    let locale: icu_locale_core::Locale = locale
+        .parse()
+        .map_err(|e| format!("Collation locale: {e}"))?;
+    let mut preferences: CollatorPreferences = locale.into();
+    let mut options = CollatorOptions::default();
+    if base {
+        preferences.numeric_ordering = Some(CollationNumericOrdering::True);
+        options.strength = Some(Strength::Primary);
+        options.alternate_handling = Some(AlternateHandling::Shifted);
+        options.max_variable = Some(MaxVariable::Punctuation);
+    }
+    Collator::try_new(preferences, options).map_err(|e| format!("Collation: {e}"))
+}
+
+fn ranked_matches<'a, T>(query: &str, entries: impl Iterator<Item = (&'a Entry, T)>) -> Vec<T> {
+    let query = normalize(query);
+    let words: Vec<_> = query
+        .split_whitespace()
+        .map(memchr::memmem::Finder::new)
+        .collect();
+    let mut matches = Vec::new();
+    let mut other = Vec::new();
+    if !words.is_empty() {
+        for (entry, hit) in entries {
+            let text = entry.text.as_bytes();
+            if words.iter().all(|word| {
+                word.find_iter(text)
+                    .any(|start| start == 0 || text[start - 1] == b' ')
+            }) {
+                if entry.exact.contains(&query) {
+                    matches.push(hit);
+                } else {
+                    other.push(hit);
+                }
+            }
+        }
+    }
+    matches.extend(other);
+    matches
+}
+
 enum SearchHit {
     Structure(usize),
     Target(usize),
@@ -244,7 +290,8 @@ pub struct CatalogData {
     order: Vec<usize>,
     alphabetical: [Vec<usize>; 2],
     entries: Vec<Entry>,
-    target_entries: Vec<(usize, Entry)>,
+    target_entries: OnceLock<Vec<Entry>>,
+    loaded_targets: Vec<usize>,
 }
 
 impl CatalogData {
@@ -318,7 +365,8 @@ impl CatalogData {
             order: Vec::new(),
             alphabetical: [Vec::new(), Vec::new()],
             entries: Vec::new(),
-            target_entries: Vec::new(),
+            target_entries: OnceLock::new(),
+            loaded_targets: Vec::new(),
         })
     }
 
@@ -346,6 +394,7 @@ impl CatalogData {
             model: target.model.as_ref().map(|m| ModelView {
                 path: &m.path,
                 scope: &m.scope,
+                sha256: &m.sha256,
             }),
         }
     }
@@ -393,7 +442,7 @@ impl CatalogData {
         self.structure_index.clear();
         self.order.clear();
         self.entries.clear();
-        self.target_entries.clear();
+        self.loaded_targets.clear();
         self.alphabetical = [Vec::new(), Vec::new()];
     }
 
@@ -419,20 +468,6 @@ impl CatalogData {
     }
 
     pub fn finish(&mut self, host_locale: &str) -> Result<(), String> {
-        let collator = |locale: &str, base: bool| {
-            let locale: icu_locale_core::Locale = locale
-                .parse()
-                .map_err(|e| format!("Collation locale: {e}"))?;
-            let mut preferences: CollatorPreferences = locale.into();
-            let mut options = CollatorOptions::default();
-            if base {
-                preferences.numeric_ordering = Some(CollationNumericOrdering::True);
-                options.strength = Some(Strength::Primary);
-                options.alternate_handling = Some(AlternateHandling::Shifted);
-                options.max_variable = Some(MaxVariable::Punctuation);
-            }
-            Collator::try_new(preferences, options).map_err(|e| format!("Collation: {e}"))
-        };
         let collators = [
             collator("vi", false)?,
             collator("vi", true)?,
@@ -515,7 +550,7 @@ impl CatalogData {
                 }
             })
             .collect();
-        self.target_entries = self
+        self.loaded_targets = self
             .catalog
             .targets
             .iter()
@@ -525,17 +560,27 @@ impl CatalogData {
                     .iter()
                     .any(|id| self.structure_index.contains_key(id))
             })
-            .map(|(i, target)| {
-                let names = target_names(&target.source_name, &target.title);
-                let exact: Vec<_> = [&target.source_name, &names.vi, &names.en]
-                    .into_iter()
-                    .map(|name| normalize(name))
-                    .collect();
-                let text = exact.join(" ");
-                (i, Entry { exact, text })
-            })
+            .map(|(i, _)| i)
             .collect();
         Ok(())
+    }
+
+    fn target_entries(&self) -> &[Entry] {
+        self.target_entries.get_or_init(|| {
+            self.catalog
+                .targets
+                .iter()
+                .map(|target| {
+                    let names = target_names(&target.source_name, &target.title);
+                    let exact: Vec<_> = [&target.source_name, &names.vi, &names.en]
+                        .into_iter()
+                        .map(|name| normalize(name))
+                        .collect();
+                    let text = exact.join(" ");
+                    Entry { exact, text }
+                })
+                .collect()
+        })
     }
 
     pub fn identities(&self) -> Vec<&str> {
@@ -585,38 +630,7 @@ impl CatalogData {
                     .collect(),
             };
         }
-        let query = normalize(query);
-        let words: Vec<_> = query
-            .split_whitespace()
-            .map(memchr::memmem::Finder::new)
-            .collect();
-        let mut matches = Vec::new();
-        let mut other = Vec::new();
-        if !words.is_empty() {
-            let entries = self
-                .order
-                .iter()
-                .map(|i| (&self.entries[*i], SearchHit::Structure(*i)))
-                .chain(
-                    self.target_entries
-                        .iter()
-                        .map(|(i, entry)| (entry, SearchHit::Target(*i))),
-                );
-            for (entry, hit) in entries {
-                let text = entry.text.as_bytes();
-                if words.iter().all(|word| {
-                    word.find_iter(text)
-                        .any(|start| start == 0 || text[start - 1] == b' ')
-                }) {
-                    if entry.exact.contains(&query) {
-                        matches.push(hit);
-                    } else {
-                        other.push(hit);
-                    }
-                }
-            }
-        }
-        matches.extend(other);
+        let matches = self.search_hits(query);
         SearchPage {
             total: matches.len(),
             items: matches
@@ -626,6 +640,101 @@ impl CatalogData {
                     SearchHit::Structure(i) => SearchRow::Structure(self.row(i)),
                     SearchHit::Target(i) => SearchRow::Target(self.target_at(i)),
                 })
+                .collect(),
+        }
+    }
+
+    fn search_hits(&self, query: &str) -> Vec<SearchHit> {
+        let entries = self
+            .order
+            .iter()
+            .map(|i| (&self.entries[*i], SearchHit::Structure(*i)))
+            .chain(
+                self.loaded_targets
+                    .iter()
+                    .map(|i| (&self.target_entries()[*i], SearchHit::Target(*i))),
+            );
+        ranked_matches(query, entries)
+    }
+
+    pub fn search_targets(
+        &self,
+        query: &str,
+        language: &str,
+        limit: usize,
+        ids: &[String],
+    ) -> Result<SearchPage<'_>, String> {
+        let ids: HashSet<_> = ids.iter().map(String::as_str).collect();
+        let candidates = self
+            .catalog
+            .targets
+            .iter()
+            .enumerate()
+            .filter(|(_, target)| ids.contains(target.id.as_str()) && !Self::ids(target).is_empty())
+            .map(|(i, _)| i);
+        let (total, items) = if query.trim().is_empty() {
+            let en = language == "en";
+            let order = collator(if en { "en" } else { "vi" }, true)?;
+            let mut rows: Vec<_> = candidates.map(|i| self.target_at(i)).collect();
+            rows.sort_by(|a, b| {
+                if en {
+                    order.compare(&a.names.en, &b.names.en)
+                } else {
+                    order.compare(&a.names.vi, &b.names.vi)
+                }
+            });
+            (
+                rows.len(),
+                rows.into_iter()
+                    .take(limit)
+                    .map(SearchRow::Target)
+                    .collect(),
+            )
+        } else {
+            let matches = ranked_matches(query, candidates.map(|i| (&self.target_entries()[i], i)));
+            (
+                matches.len(),
+                matches
+                    .into_iter()
+                    .take(limit)
+                    .map(|i| SearchRow::Target(self.target_at(i)))
+                    .collect(),
+            )
+        };
+        Ok(SearchPage { total, items })
+    }
+
+    pub fn search_structures(
+        &self,
+        query: &str,
+        language: &str,
+        limit: usize,
+        ids: &[String],
+    ) -> SearchPage<'_> {
+        let ids: HashSet<_> = ids.iter().map(String::as_str).collect();
+        let in_scope = |i: &usize| ids.contains(self.structures[*i].source_id.as_str());
+        let matches: Vec<_> = if query.trim().is_empty() {
+            self.alphabetical[usize::from(language == "en")]
+                .iter()
+                .copied()
+                .filter(in_scope)
+                .collect()
+        } else {
+            ranked_matches(
+                query,
+                self.order
+                    .iter()
+                    .copied()
+                    .filter(in_scope)
+                    .map(|i| (&self.entries[i], i)),
+            )
+        };
+        SearchPage {
+            total: matches.len(),
+            items: matches
+                .into_iter()
+                .take(limit)
+                .map(|i| SearchRow::Structure(self.row(i)))
                 .collect(),
         }
     }

@@ -28,10 +28,13 @@ pub struct AnatomyViewer {
     pub(crate) gpu: Resources,
     pub(crate) scene: Scene,
     pub(crate) camera: Camera,
+    pub(crate) background_camera: Option<Camera>,
     pub(crate) exploding: bool,
     pub(crate) explosion_camera: Option<Camera>,
     pub(crate) explosion_target: Vec<String>,
     pub(crate) layout_frame: [f32; 4],
+    pub(crate) overview_window: Option<[f32; 3]>,
+    pub(crate) overview_framing: Option<[f32; 3]>,
     pub(crate) view_center: Option<[f32; 2]>,
     pub(crate) uncentered_camera: Option<Camera>,
     pub(crate) camera_transition: Option<(Camera, f64)>,
@@ -68,11 +71,25 @@ impl AnatomyViewer {
         vertices: Float32Array,
         indices: Uint32Array,
     ) -> Result<Self, JsValue> {
+        // Only prepare_packages output crosses this internal worker interface; GLB validation runs there.
         packed
             .validate(vertices.length() as usize, indices.length() as usize)
             .map_err(js_error)?;
-        // Only prepare_packages output crosses this internal worker interface; GLB validation runs there.
-        let PackedScene { scene, draws, .. } = packed;
+        Self::build(canvas, packed, vertices, indices)
+    }
+
+    fn build(
+        canvas: HtmlCanvasElement,
+        packed: PackedScene,
+        vertices: Float32Array,
+        indices: Uint32Array,
+    ) -> Result<Self, JsValue> {
+        let PackedScene {
+            scene,
+            draws,
+            overview_framing,
+            ..
+        } = packed;
         let gl: Gl = canvas
             .get_context("webgl2")?
             .ok_or_else(|| js_error("WebGL2 is unavailable"))?
@@ -126,10 +143,13 @@ impl AnatomyViewer {
             gpu,
             scene,
             camera,
+            background_camera: None,
             exploding: false,
             explosion_camera: None,
             explosion_target: Vec::new(),
             layout_frame: [0.0, 0.0, 1.0, 1.0],
+            overview_window: None,
+            overview_framing,
             view_center: None,
             uncentered_camera: None,
             camera_transition: None,

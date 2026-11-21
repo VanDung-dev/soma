@@ -1,22 +1,19 @@
+mod support;
+
 use renderer::Scene;
-use std::path::Path;
+use support::ModelFixture;
 
 #[test]
 fn merges_real_packages_and_preserves_world_geometry_materials_and_identity() {
-    let folder =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/public/models/z-anatomy");
-    let manifest: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(folder.join("manifest.json")).unwrap()).unwrap();
+    let mut fixture = ModelFixture::new();
+    let manifest = fixture.bundle["manifest"].clone();
     let mut scenes = Vec::new();
     let mut streamed: Option<Scene> = None;
     let mut originals = std::collections::HashMap::new();
     for model in manifest["models"].as_array().unwrap() {
         let ids: Vec<String> = serde_json::from_value(model["source_ids"].clone()).unwrap();
-        let scene = Scene::from_glb(
-            &std::fs::read(folder.join(model["file"].as_str().unwrap())).unwrap(),
-            &ids,
-        )
-        .unwrap();
+        fixture.select(model["file"].as_str().unwrap().trim_end_matches(".glb"));
+        let scene = Scene::from_gltf(&fixture.gltf, &ids).unwrap();
         assert_eq!(scene.visible_count(), ids.len());
         assert_eq!(
             scene.parts.len(),
@@ -27,7 +24,7 @@ fn merges_real_packages_and_preserves_world_geometry_materials_and_identity() {
                 |p| p.vertices.len().is_multiple_of(6) && p.color.iter().all(|v| v.is_finite())
             )
         );
-        if model["file"] == "muscular-system.glb.br" {
+        if model["file"] == "muscular-system.glb" {
             assert!(scene.parts.iter().any(|p| p.blend && p.color[3] < 1.0));
         }
         let mut package = std::collections::HashMap::<_, Vec<_>>::new();
@@ -108,18 +105,9 @@ fn merges_real_packages_and_preserves_world_geometry_materials_and_identity() {
 
 #[test]
 fn scopes_selection_and_inspection_to_the_current_category() {
-    let folder =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/public/models/z-anatomy");
-    let meta: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(folder.join("cardiovascular-system.json")).unwrap())
-            .unwrap();
-    let ids: Vec<_> = meta["structures"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|s| s["source_id"].as_str().unwrap().to_string())
-        .collect();
-    let bytes = std::fs::read(folder.join("cardiovascular-system.glb.br")).unwrap();
+    let mut fixture = ModelFixture::new();
+    let ids = fixture.select("cardiovascular-system");
+    let bytes = fixture.bytes();
     assert!(Scene::from_glb(&bytes, &ids[..1]).is_err());
     assert!(Scene::from_glb(b"bad GLB", &ids).is_err());
     let mut scene = Scene::from_glb(&bytes, &ids).unwrap();

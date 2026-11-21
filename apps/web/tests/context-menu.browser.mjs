@@ -3,13 +3,11 @@ export async function checkNativeContextMenu() {
   const frames = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   const heading = document.querySelector('.app-menu-bar h1');
   const canvas = document.querySelector('.model-canvas canvas');
-  const trigger = document.querySelector('.structure-search-field');
-  const field = document.querySelector('input[type="search"]');
+  const field = document.querySelector('.catalog-panel .structure-search input');
   const selection = getSelection();
   const ranges = Array.from({ length: selection.rangeCount }, (_, i) => selection.getRangeAt(i).cloneRange());
   const source = document.activeElement;
   const value = field.value;
-  const search = field.closest('[popover]');
   const open = (target, blocked = false) => {
     for (const options of [{ button: 2 }, { button: 2, shiftKey: true }, { button: -1 }]) {
       const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, ...options });
@@ -24,19 +22,17 @@ export async function checkNativeContextMenu() {
     open(heading); await frames();
     assert(selection.toString() === heading.textContent, 'Right-click preserves selected page text');
     open(canvas, true); await frames();
-    if (!search.matches(':popover-open')) { trigger.click(); await frames(); }
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(field, 'Atlas 123');
     field.dispatchEvent(new Event('input', { bubbles: true }));
     field.focus(); field.setSelectionRange(6, 9);
     open(field); await frames();
     assert(field.value === 'Atlas 123' && field.selectionStart === 6 && field.selectionEnd === 9,
       'Native clipboard controls retain the editable text and selection');
-    assert(document.activeElement === field && search.matches(':popover-open'), 'Right-click preserves input focus and the search popover');
+    assert(document.activeElement === field, 'Right-click preserves input focus');
     return { canvasMenuBlocked: true, nativeMenusOutsideCanvas: true, textSelectionPreserved: true, inputSelectionPreserved: true };
   } finally {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(field, value);
     field.dispatchEvent(new Event('input', { bubbles: true }));
-    search.hidePopover();
     selection.removeAllRanges(); for (const range of ranges) selection.addRange(range);
     source?.focus({ preventScroll: true });
   }

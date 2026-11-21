@@ -5,6 +5,7 @@ import { pipeline } from 'node:stream/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { wikipediaProxy } from './wikipedia-proxy.mjs';
+import { pageAtPath } from '../src/pages/routes.ts';
 
 const dist = fileURLToPath(new URL('../dist/', import.meta.url));
 const types = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json',
@@ -15,12 +16,23 @@ export function createWebServer(directory = dist) {
     wikipediaProxy(req, res, async () => {
       try {
         if (!['GET', 'HEAD'].includes(req.method)) { res.writeHead(405, { Allow: 'GET, HEAD' }).end(); return; }
-        const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
-        const page = ['/', '/home', '/anatomy', '/lessons', '/games'].includes(pathname.replace(/\/+$/, '') || '/');
-        const file = path.resolve(directory, '.' + (page ? '/index.html' : pathname));
+        const route = new URL(req.url, 'http://localhost').pathname;
+        const pathname = decodeURIComponent(route);
+        const page = pageAtPath(route);
+        const index = path.resolve(directory, 'index.html');
+        let file = page ? index : path.resolve(directory, '.' + pathname);
         if (!file.startsWith(path.resolve(directory) + path.sep)) { res.writeHead(403).end(); return; }
-        if (!(await stat(file)).isFile()) { res.writeHead(404).end(); return; }
-        res.writeHead(200, { 'Content-Type': types[path.extname(file)] ?? 'application/octet-stream', 'X-Content-Type-Options': 'nosniff' });
+        let status = 200;
+        if (!(await stat(file).catch(() => null))?.isFile()) {
+          if (page || path.extname(pathname) || !req.headers.accept?.includes('text/html')) {
+            res.writeHead(404).end();
+            return;
+          }
+          file = index;
+          status = 404;
+          if (!(await stat(file)).isFile()) { res.writeHead(404).end(); return; }
+        }
+        res.writeHead(status, { 'Content-Type': types[path.extname(file)] ?? 'application/octet-stream', 'X-Content-Type-Options': 'nosniff' });
         if (req.method === 'HEAD') res.end(); else await pipeline(createReadStream(file), res);
       } catch { if (!res.headersSent) res.writeHead(404); res.end(); }
     }).catch(() => { if (!res.headersSent) res.writeHead(500); res.end(); });

@@ -11,7 +11,7 @@ export interface StudyTarget {
   model?: Model;
 }
 
-export interface Model { path: string; scope: string }
+export interface Model { path: string; scope: string; sha256: string }
 
 export interface Structure {
   source_id: string;
@@ -27,3 +27,11 @@ export interface StructureDetail extends Structure { names: AnatomyNames; collec
 export interface FolderView { target: StudyTarget; visible: number; children: FolderView[]; structures: StructureRow[]; more: boolean; limit: number; total: number }
 export type SearchRow = StructureRow | StudyTarget;
 export interface SearchPage { total: number; items: SearchRow[] }
+export interface TreeSearchResult {
+  bestId?: string;
+  folders: string[];
+  structures: Record<string, string>;
+  initialOpen: string[];
+  limits: Record<string, number>;
+  highlights: Record<string, [start: number, end: number]>;
+}

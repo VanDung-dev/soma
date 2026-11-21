@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use thiserror::Error;
 
+pub mod lesson;
+
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Catalog {
@@ -39,6 +41,8 @@ pub struct StudyTarget {
 pub struct Model {
     pub path: String,
     pub scope: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub sha256: String,
     /// IDs physically stored in this asset; study folders may also reference other assets.
     pub structure_ids: Vec<String>,
 }
@@ -64,7 +68,7 @@ pub enum CatalogError {
 impl Catalog {
     pub fn from_json(json: &str) -> Result<Self, CatalogError> {
         let catalog: Self = serde_json::from_str(json)?;
-        if catalog.schema_version != 4 {
+        if catalog.schema_version != 1 {
             return Err(CatalogError::UnsupportedVersion(catalog.schema_version));
         }
         let mut ids = HashSet::new();
@@ -135,6 +139,9 @@ impl Catalog {
             if let Some(model) = &target.model {
                 let filename = model.path.strip_prefix("models/z-anatomy/");
                 if model.scope.trim().is_empty()
+                    || (!model.sha256.is_empty()
+                        && (model.sha256.len() != 64
+                            || !model.sha256.bytes().all(|b| b.is_ascii_hexdigit())))
                     || model.structure_ids.is_empty()
                     || model.structure_ids.iter().collect::<HashSet<_>>().len()
                         != model.structure_ids.len()
@@ -193,6 +200,21 @@ mod tests {
             changed(|v| v["targets"][0]["model"]["path"] = "models/z-anatomy/model.glb.gz".into()),
             Err(CatalogError::InvalidModel(_))
         ));
+        assert!(
+            changed(|v| {
+                v["targets"][0]["model"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("sha256");
+            })
+            .is_ok()
+        );
+        for hash in ["short", &"g".repeat(64)] {
+            assert!(matches!(
+                changed(|v| v["targets"][0]["model"]["sha256"] = hash.into()),
+                Err(CatalogError::InvalidModel(_))
+            ));
+        }
     }
 
     #[test]
@@ -223,8 +245,8 @@ mod tests {
     #[test]
     fn rejects_incompatible_and_ambiguous_data() {
         assert!(matches!(
-            changed(|v| v["schema_version"] = 1.into()),
-            Err(CatalogError::UnsupportedVersion(1))
+            changed(|v| v["schema_version"] = 4.into()),
+            Err(CatalogError::UnsupportedVersion(4))
         ));
         assert!(matches!(
             changed(|v| v["targets"][1]["id"] = v["targets"][0]["id"].clone()),

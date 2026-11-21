@@ -29,8 +29,8 @@ export async function checkInventorySwitch() {
   try {
     focus(catalog.roots[0]); await wait(700);
     input(100); await wait(900);
-    const systems = ['muscular-insertions', 'lymphoid-organs', 'visceral-systems', 'body-regions']
-      .map(name => catalog.roots.find(root => root.model.path.endsWith(`/${name}.glb.br`)));
+    const systems = ['2: Muscular insertions', '6: Lymphoid organs', '8: Visceral systems', '9: Regions of human body']
+      .map(name => catalog.roots.find(root => root.source_name === name));
     const results = [];
     for (const target of systems) {
       assert(target, 'Find a source system');

@@ -1,7 +1,9 @@
+import { closeSettings, openSettings } from './settings.fixture.mjs';
+
 export async function checkMenuBar() {
   const bar = document.querySelector('.app-menu-bar');
   const back = bar.querySelector('.history-back'), forward = bar.querySelector('.history-forward');
-  const [help, settings] = bar.querySelectorAll('.app-menu-actions button');
+  const settings = document.querySelector('.module-preferences a');
   const title = bar.querySelector('.app-menu-title');
   const assert = (ok, message) => { if (!ok) throw Error(message); };
   const frames = async (n = 3) => { for (let i = 0; i < n; i++) await new Promise(requestAnimationFrame); };
@@ -9,9 +11,9 @@ export async function checkMenuBar() {
   assert(document.querySelector('.model-canvas').getAttribute('aria-busy') === 'false', 'Wait for loading to finish');
   await overview();
   assert(back.getAttribute('aria-label') === 'Quay lại' && forward.getAttribute('aria-label') === 'Tiến tới'
-    && help.getAttribute('aria-label') === 'Trợ giúp' && settings.getAttribute('aria-label') === 'Cài đặt', 'Label Back, Forward, Help and Settings');
+    && settings.textContent === 'Cài đặt', 'Label Back, Forward and Settings');
   assert(back.disabled, 'Disable Back at the initial overview');
-  assert(document.querySelectorAll('h1').length === 1 && title.textContent === 'Không gian giải phẫu', 'Keep one workspace title');
+  assert(document.querySelectorAll('h1').length === 1 && title.innerText === 'Không gian giải phẫu', 'Keep one workspace title');
   const area = bar.getBoundingClientRect();
   assert(area.left > 0 && area.right < innerWidth && bar.scrollWidth <= bar.clientWidth, 'Keep the toolbar inside the viewport');
   const titleBounds = title.getBoundingClientRect();
@@ -23,34 +25,13 @@ export async function checkMenuBar() {
     assert(bounds.width === 28 && bounds.height === 28 && style.borderRadius === '14px'
       && style.borderWidth === '1px' && icon.width === 14 && icon.height === 14, 'Use circular 28px controls with Radius 2 and 14px icons');
   };
-  const checkPanel = panel => {
-    const content = panel.querySelector('.settings-content, .guide-content');
-    const outer = panel.getBoundingClientRect();
-    const inner = content.getBoundingClientRect();
-    for (const inset of [inner.left - outer.left, outer.right - inner.right, outer.bottom - inner.bottom]) {
-      assert(Math.abs(inset - 10) < 1, 'Extend content to the shared 10px side and bottom insets');
-    }
-    assert(getComputedStyle(content).borderRadius === '14px', 'Use Radius 2 for nested content');
-    checkButton(panel.querySelector('.controls-info'));
-  };
-  for (const button of [back, forward, help, settings]) checkButton(button);
-  help.click(); await frames();
-  const guide = document.querySelector('.controls-guide');
-  assert(guide.matches(':popover-open'), 'Help must still open');
-  checkPanel(guide);
-  guide.querySelector('button').click();
-  settings.click(); await frames();
-  const popover = document.querySelector('.settings-popover');
-  assert(popover.matches(':popover-open'), 'Settings must still open');
-  checkPanel(popover);
-  const content = popover.querySelector('.settings-content');
-  assert(content && getComputedStyle(content).borderRadius === '14px', 'Group settings on one Radius 2 surface');
-  for (const row of popover.querySelectorAll('.settings-row')) {
-    const style = getComputedStyle(row);
-    assert(row.parentElement === content && style.backgroundColor === 'rgba(0, 0, 0, 0)'
-      && style.boxShadow === 'none' && style.borderStyle === 'none', 'Keep every settings row on the shared surface without its own background or border');
-  }
-  popover.querySelector('button').click();
+  for (const button of [back, forward]) checkButton(button);
+  assert(!bar.querySelector('[aria-label="Trợ giúp"]'), 'Keep Help in Settings');
+  const settingsPage = await openSettings();
+  assert(settings.getAttribute('aria-current') === 'page' && !settingsPage.hasAttribute('popover'), 'Open Settings in the module frame');
+  assert(getComputedStyle(settingsPage.querySelector('.settings-section')).borderRadius === '24px'
+    && getComputedStyle(settingsPage.querySelector('.settings-row')).borderRadius === '14px', 'Keep the Settings surface radii aligned');
+  await closeSettings();
   const roots = [...document.querySelectorAll('.structure-tree > li > .folder-row')];
   const heading = () => document.querySelector('.information-heading h2').textContent;
   const name = row => row.querySelector('.tree-name').firstChild.textContent;
@@ -80,5 +61,5 @@ export async function checkMenuBar() {
   assert(!document.querySelector('.model-error') && gl.getError() === gl.NO_ERROR, 'Navigation must keep rendering healthy');
   await overview();
   return { back: true, forward: true, duplicateSuppression: true, branching: true, focusedSystem: true,
-    overviewRestored: true, iconSize: 14, centeredTitle: true, help: true, settings: true, viewportFits: true };
+    overviewRestored: true, iconSize: 14, centeredTitle: true, settings: true, viewportFits: true };
 }

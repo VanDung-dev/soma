@@ -1,23 +1,13 @@
+mod support;
+
 use renderer::{PackedScene, Scene};
-use std::path::Path;
+use support::ModelFixture;
 
 #[test]
 fn worker_packing_preserves_geometry_and_validates_transfer_ranges() {
-    let folder =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/public/models/z-anatomy");
-    let metadata: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(folder.join("body-regions.json")).unwrap()).unwrap();
-    let ids: Vec<String> = metadata["structures"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|s| s["source_id"].as_str().unwrap().to_owned())
-        .collect();
-    let scene = Scene::from_glb(
-        &std::fs::read(folder.join("body-regions.glb.br")).unwrap(),
-        &ids,
-    )
-    .unwrap();
+    let mut fixture = ModelFixture::new();
+    let ids = fixture.select("body-regions");
+    let scene = Scene::from_glb(&fixture.bytes(), &ids).unwrap();
     let vertices: Vec<_> = scene
         .parts
         .iter()

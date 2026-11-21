@@ -1,3 +1,4 @@
+import { modelMetadata } from './model.fixture.mjs';
 import { createCatalogFixture, initCatalogWasm } from './catalog.fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -82,6 +83,8 @@ test('study commands share folder visibility policy independently of UI selectio
     const viewer = {
       select: id => { calls.push(['select', id]); return succeeds; },
       changeVisibility: () => succeeds,
+      captureView: () => ({ camera: { target: [0, 0, 0], yaw: 0.5, pitch: 0, distance: 2, pan: [0, 0] }, explosion: 30.000002 }),
+      applyScene: (...args) => { calls.push(['scene', ...args]); return succeeds; },
       focus: (...args) => { calls.push(['focus', ...args]); return succeeds; },
       setExplosion: (...args) => { calls.push(['explode', ...args]); return succeeds; },
       retargetExplosion: (...args) => { calls.push(['retarget', ...args]); },
@@ -120,6 +123,34 @@ test('study commands share folder visibility policy independently of UI selectio
     assert.equal(session.getSnapshot().visibleIds.size, structureIds.length);
     assert.equal(session.getSnapshot().readingId, '');
     assert.equal(session.getSnapshot().explosionAmount, 0);
+    const scene = [ids[0], roots[1].model.structure_ids[0]];
+    assert(session.showScene(scene));
+    assert.deepEqual([...session.getSnapshot().visibleIds], scene);
+    assert.deepEqual(calls.findLast(c => c[0] === 'focus'), ['focus', scene, true, false]);
+    assert(session.focus([scene[0]]));
+    assert(session.showScene(scene));
+    assert.equal(calls.findLast(c => c[0] === 'focus')[3], true, 'Restore every member of a custom scene after isolation');
+    const custom = session.getSnapshot();
+    assert.equal(session.showScene(['missing']), false);
+    succeeds = false;
+    assert.equal(session.showScene([ids[0]]), false);
+    assert.equal(session.getSnapshot(), custom, 'Failed scene updates preserve visibility');
+    succeeds = true;
+    assert(session.showScene([]));
+    assert.equal(session.getSnapshot().visibleIds.size, 0, 'An explicitly empty draft scene stays empty');
+    session.changeExplosion(30);
+    const savedView = session.captureView();
+    assert.equal(savedView.explosion, 30, 'Capture keeps the exact authored slider value across the f32 boundary');
+    assert(session.applyScene([ids[0]], savedView));
+    assert.equal(session.getSnapshot().explosionAmount, 30);
+    assert.deepEqual([...session.getSnapshot().visibleIds], [ids[0]]);
+    const authored = session.getSnapshot();
+    assert.equal(session.applyScene(['missing'], savedView), false);
+    assert.equal(session.applyScene([ids[0], ids[0]], savedView), false);
+    succeeds = false;
+    assert.equal(session.applyScene([ids[1]], savedView), false);
+    assert.equal(session.getSnapshot(), authored, 'Unavailable scenes and failed viewer commands must not commit study state');
+    succeeds = true;
     unsubscribe();
     const otherSession = new StudySession(await createCatalogFixture(server, catalog));
     otherSession.connect(viewer); otherSession.updateViewer({ structureIds, building: false });
@@ -205,7 +236,7 @@ test('model metadata validation preserves identities and rejects malformed or mi
   try {
     const wasm = await initCatalogWasm(server);
     const validateMetadata = (value, expected) => wasm.validate_metadata(JSON.stringify(value), expected);
-    const metadata = JSON.parse(await readFile(new URL('../public/models/z-anatomy/skeletal-system.json', import.meta.url)));
+    const metadata = modelMetadata('skeletal-system');
     const ids = metadata.structures.map(s => s.source_id);
     const before = JSON.stringify(metadata);
     assert.deepEqual(validateMetadata(metadata, ids.slice().reverse()), metadata.structures);

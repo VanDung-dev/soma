@@ -5,7 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
-import { checkOrientationPointer } from '../tests/orientation-pointer.mjs';
+import { checkAnatomyOverviewResize, checkOrientationPointer } from '../tests/orientation-pointer.mjs';
+import { checkLessons } from '../tests/lessons.browser.mjs';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.BENCHMARK_PLAYWRIGHT_MODULE || 'playwright');
@@ -18,12 +19,12 @@ try {
   const baseURL = server.resolvedUrls.local[0];
   browser = await chromium.launch({ executablePath: process.env.BENCHMARK_BROWSER, headless: true, chromiumSandbox: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, baseURL });
-  await context.addInitScript(() => { if (window.top === window) localStorage.setItem('anatomy-onboarding:v1', 'dismissed'); });
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/anatomy');
   await page.waitForSelector('.model-canvas[aria-busy="false"]', { timeout: 60000 });
+  console.log('checkAnatomyOverviewResize', JSON.stringify(await checkAnatomyOverviewResize(page)));
   for (const [file, name] of [['orientation-axes.browser.mjs', 'checkDefaultFrontView'], ['inventory-switch.browser.mjs', 'checkInventorySwitch'], ['visibility-camera.browser.mjs', 'checkExplosionEntry'], ['visibility-camera.browser.mjs', 'checkVisibilityCamera'], ['selection.browser.mjs', 'checkSelectionOutline'], ['selection.browser.mjs', 'checkMarqueeInput'],
     ['language.browser.mjs', 'checkLanguage'], ['theme.browser.mjs', 'checkTheme'],
     ['orientation-axes.browser.mjs', 'checkAxesVisibility'],
@@ -43,6 +44,11 @@ try {
     console.log(name, JSON.stringify(result));
     if (name === 'checkOrientationAxes') console.log('checkOrientationPointer', JSON.stringify(await checkOrientationPointer(page)));
   }
+  await page.goto('/lessons');
+  console.log('checkLessonLibrary', JSON.stringify(await page.evaluate(async () =>
+    (await import('/tests/lesson-library.browser.mjs')).checkLessonLibrary())));
+  await checkLessons(page);
+  console.log('checkLessons passed');
   assert.deepEqual(errors, [], 'Browser checks must not raise uncaught errors');
   await context.close();
   const blocked = await browser.newContext({ viewport: { width: 1440, height: 900 }, baseURL });
@@ -60,7 +66,7 @@ try {
   }
   assert.deepEqual(errors, [], 'Blocked storage must not break startup or preference controls');
   await blocked.close();
-  console.log('Browser checks passed: 22');
+  console.log('Browser checks passed: 24');
 } finally {
   await browser?.close();
   await server.close();

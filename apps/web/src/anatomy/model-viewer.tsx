@@ -1,51 +1,43 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { Catalog } from "./catalog/types";
 import { StructureTree } from "./structure-tree";
-import { StructureSearch } from "./structure-search";
-import { ModelControls } from "./model-controls";
-import { AnatomyOnboarding } from "./onboarding";
+import { StructureSearch, useStructureSearch } from "./structure-search";
+import { useCameraKeys } from "./use-camera-keys";
 import { MenuBar } from "./menu-bar";
 import { OrientationAxes } from "./orientation-axes";
 import type { OrientationAxesHandle } from "./orientation-axes";
 import { ExplodeControls } from "./explode-controls";
 import { HandCameraControls } from "./hand-camera-controls";
-import { useCameraDevices } from "./camera-devices";
-import { ReferenceNotice, WikipediaReader } from "./wikipedia-reader";
+import { CameraDevicesContext, useCameraDevices } from "./camera-devices";
+import { WikipediaReader } from "./wikipedia-reader";
 import { OpenStaxLink, OpenStaxReading } from "./openstax-reference";
 import { useLanguage } from "../i18n";
-import { LineIcon } from "../icons";
-import type { MessageKey } from "../i18n";
 import { canReadStructure, StudySession } from "./study/session";
-import type { ViewerStatus } from "./viewer/contracts";
 import { ViewerRuntime } from "./viewer/runtime";
+import { ViewerStatusNotice } from "./viewer-status";
 import { desktopPanelQuery, measureViewport } from "./viewer/layout";
-import { graphicsStorageKey, readGraphicsSettings } from "./viewer/graphics";
-import { shortcutAction, shortcutLabel } from "../shortcuts";
-
-const statusMessages = {
-  loading: "viewer.status.loading", preparing: "viewer.status.preparing", finishing: "viewer.status.finishing",
-  loadError: "viewer.error.load", processError: "viewer.error.process", renderError: "viewer.error.render", contextLost: "viewer.error.contextLost",
-} satisfies Record<ViewerStatus, MessageKey>;
+import { useGraphicsSettings } from "../pages/use-graphics-settings";
+import { SidebarToggle } from "../pages/workspace-layout";
+import { WorkspaceActiveContext } from "../pages/module-layout";
+import { shortcutAction } from "../shortcuts";
+import { loadAnatomyHiddenIds, saveAnatomyHiddenIds } from "./study/storage";
 
 export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const { language, t } = useLanguage();
-  const [graphics, setGraphics] = useState(readGraphicsSettings);
+  const [graphics] = useGraphicsSettings();
+  const active = useContext(WorkspaceActiveContext);
   const [fps, setFps] = useState(0);
   const [hold, setHold] = useState<{ x: number; y: number; action: "hide" | "move" } | null>(null);
   const [snapTarget, setSnapTarget] = useState("");
   const [panel, setPanel] = useState<"catalog" | "information" | null>(null);
+  const [query, setQuery] = useState("");
   const [collapsedPanels, setCollapsedPanels] = useState({ catalog: false, information: false });
   const [desktopPanels, setDesktopPanels] = useState(() => window.matchMedia(desktopPanelQuery).matches);
-  const showPanel = useCallback((panel: "catalog" | "information" | null) => {
-    setPanel(panel);
-    if (panel) setCollapsedPanels(current => ({ ...current, [panel]: false }));
-  }, []);
-  const [onboardingRun, setOnboardingRun] = useState(0);
   const [handCameraEnabled, setHandCameraEnabled] = useState(false);
   const [handCameraActive, setHandCameraActive] = useState(false);
-  const cameras = useCameraDevices();
-  const helpId = useId();
-  const settingsId = useId();
+  const sharedCameras = useContext(CameraDevicesContext);
+  const localCameras = useCameraDevices(!sharedCameras);
+  const cameras = sharedCameras ?? localCameras;
   const catalogId = useId();
   const informationId = useId();
   const menuBar = useRef<HTMLElement>(null);
@@ -59,8 +51,11 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const runtime = useRef<ViewerRuntime | null>(null);
   const session = useMemo(() => new StudySession(catalog), [catalog]);
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
-  const { structureIds, building, error, status, loadedSystems, selected, readingId, targetId,
+  const restoredVisibility = useRef(false);
+  const { structureIds, building, error, loadedSystems, selected, readingId, targetId,
     visibleIds, readerExpanded, explosionAmount, movingId, separatedIds, reveal, canGoBack, canGoForward } = state;
+  const search = useStructureSearch(catalog, query, !building && !error);
+  useCameraKeys(!active || building || error, session.control);
   const roots = session.catalog.roots;
   const target = useMemo(() => targetId ? catalog.target(targetId) : undefined, [catalog, targetId]);
   const focusViewport = () => measureViewport({ host: host.current!, frame: focusFrame.current!,
@@ -74,31 +69,40 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     return () => media.removeEventListener("change", update);
   }, []);
   useEffect(() => {
-    const viewer = new ViewerRuntime(host.current!, { viewport: focusViewport,
-      onState: session.updateViewer, onPick: session.pick, onHide: ids => session.changeVisibility(ids, false), onFps: setFps, onHold: setHold, onSnap: setSnapTarget,
+    let active = true;
+    let hiddenIds: string[] | null = null;
+    const viewer = new ViewerRuntime(host.current!, { viewport: focusViewport, frameOverviewToWindow: true,
+      onState: patch => {
+        session.updateViewer(patch);
+        if (!restoredVisibility.current && patch.structureIds?.length) {
+          restoredVisibility.current = true;
+          if (hiddenIds) session.restoreHiddenIds(hiddenIds);
+        }
+      }, onPick: session.pick, onHide: ids => session.changeVisibility(ids, false), onFps: setFps, onHold: setHold, onSnap: setSnapTarget,
       onOrientation: axes => orientation.current?.update(axes) });
     runtime.current = viewer; session.connect(viewer);
-    void viewer.start(catalog);
-    return () => { session.disconnect(viewer); viewer.dispose(); if (runtime.current === viewer) runtime.current = null; };
+    void loadAnatomyHiddenIds().catch(error => {
+      console.error("Could not load Anatomy visibility", error);
+      return null;
+    }).then(async saved => {
+      if (!active) return;
+      hiddenIds = saved;
+      await viewer.start(catalog);
+    });
+    return () => { active = false; session.disconnect(viewer); viewer.dispose(); if (runtime.current === viewer) runtime.current = null; };
   }, [session]);
   useEffect(() => {
+    if (!restoredVisibility.current) return;
+    const hiddenIds = state.structureIds.filter(id => !state.visibleIds.has(id)).sort();
+    void saveAnatomyHiddenIds(hiddenIds).catch(error => console.error("Could not save Anatomy visibility", error));
+  }, [state.structureIds, state.visibleIds]);
+  useEffect(() => {
     runtime.current?.setGraphics(graphics);
-    try { window.localStorage.setItem(graphicsStorageKey, JSON.stringify(graphics)); } catch {}
   }, [graphics, session]);
   const performAction = useCallback((action: ReturnType<typeof shortcutAction>) => {
     if (!action) return;
-    const open = (id: string) => {
-      const panel = document.getElementById(id);
-      if (!panel) return;
-      const trigger = document.querySelector<HTMLButtonElement>(`button[popovertarget="${id}"]`);
-      if (panel.matches(":popover-open")) { panel.hidePopover(); trigger?.focus({ preventScroll: true }); return; }
-      panel.showPopover();
-      panel.querySelector<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled)")?.focus({ preventScroll: true });
-    };
     const current = session.getSnapshot();
-    if (action === "settings") open(settingsId);
-    else if (action === "guide") open(helpId);
-    else if (action === "catalog" || action === "information") {
+    if (action === "catalog" || action === "information") {
       if (desktopPanels) setCollapsedPanels(current => ({ ...current, [action]: !current[action] }));
       else setPanel(current => current === action ? null : action);
     }
@@ -107,12 +111,12 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       else if (action === "forward") session.forward();
       else if (action === "restore" && (current.movingId || current.separatedIds.size)) session.restoreStructure("");
     }
-  }, [session, helpId, settingsId, desktopPanels]);
+  }, [session, desktopPanels]);
   useEffect(() => {
+    if (!active) return;
     const keyDown = (event: KeyboardEvent) => {
       const action = shortcutAction(event);
-      if (!action) return;
-      if (action === "settings" && document.querySelector(":popover-open:not([data-hand-visual])") && !document.getElementById(settingsId)?.matches(":popover-open")) return;
+      if (!action || action === "settings") return;
       event.preventDefault();
       performAction(action);
     };
@@ -121,12 +125,12 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       if (data?.type !== "wikipedia:shortcut" || typeof data.key !== "string" || typeof data.code !== "string"
         || typeof data.metaKey !== "boolean" || typeof data.ctrlKey !== "boolean" || typeof data.shiftKey !== "boolean"
         || ![...document.querySelectorAll<HTMLIFrameElement>("iframe.wikipedia-article")].some(frame => frame.contentWindow === event.source)) return;
-      keyDown(new KeyboardEvent("keydown", { key: data.key, code: data.code, metaKey: data.metaKey, ctrlKey: data.ctrlKey, shiftKey: data.shiftKey, cancelable: true }));
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: data.key, code: data.code, metaKey: data.metaKey, ctrlKey: data.ctrlKey, shiftKey: data.shiftKey, bubbles: true, cancelable: true }));
     };
     document.addEventListener("keydown", keyDown);
     window.addEventListener("message", frameKeyDown);
     return () => { document.removeEventListener("keydown", keyDown); window.removeEventListener("message", frameKeyDown); };
-  }, [performAction, settingsId]);
+  }, [active, performAction]);
   useEffect(() => {
     const panels = [catalogPanel.current!, informationPanel.current!];
     const centerControls = () => {
@@ -159,12 +163,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     if (!session.focus(ids, focusTarget)) return;
     setPanel(null);
   }, [session]);
-  const chooseSearchResult = useCallback((id: string) => {
-    if (catalog.target(id)) focusStructures([], id);
-    else focusStructures([id]);
-    session.revealStructure(id);
-    host.current?.querySelector("canvas")?.focus({ preventScroll: true });
-  }, [catalog, session, focusStructures]);
   const selectedPart = useMemo(() => catalog.detail(readingId), [catalog, readingId, structureIds]);
   const snapPart = useMemo(() => catalog.detail(snapTarget), [catalog, snapTarget, structureIds]);
   const canReadReference = !!selectedPart && canReadStructure(state, readingId);
@@ -174,36 +172,27 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const otherLanguage = language === "vi" ? "en" : "vi";
   const heading = selectedPart ? selectedPart.names[language] : target ? target.names[language] : t("information.defaultTitle");
   const otherHeading = selectedPart ? selectedPart.names[otherLanguage] : target ? target.names[otherLanguage] : "";
-  const localizedStatus = t(statusMessages[status], { loaded: loadedSystems, total: roots.length });
   const panelToggle = (target: "catalog" | "information", name: string) => {
     const expanded = desktopPanels ? !collapsedPanels[target] : panel === target;
-    const label = t(expanded ? "panels.hide" : "panels.show", { name });
-    return <button type="button" className="controls-info sidebar-toggle"
-      aria-expanded={expanded} aria-controls={target === "catalog" ? catalogId : informationId}
-      aria-label={label} title={`${label} (${shortcutLabel(target)})`} onClick={() => performAction(target)}>
-      <LineIcon name="sidebar" size={18} />
-    </button>;
+    return <SidebarToggle expanded={expanded} controls={target === "catalog" ? catalogId : informationId}
+      name={name} shortcut={target} onToggle={() => performAction(target)} />;
   };
   return (
     <>
       <MenuBar ref={menuBar} disabled={building || error} canGoBack={canGoBack} canGoForward={canGoForward}
         catalogToggle={panelToggle("catalog", t("catalog.heading"))} informationToggle={panelToggle("information", t("information.panel.label"))}
         cameraEnabled={handCameraEnabled} cameraActive={handCameraActive || cameras.accessActive} onCameraChange={setHandCameraEnabled}
-        cameraDevices={cameras.devices} cameraDeviceId={cameras.deviceId} cameraDevicesError={cameras.error} onCameraDeviceChange={cameras.setDeviceId}
-        cameraAccessPending={cameras.requesting} onCameraAccessRequest={cameras.requestAccess}
-        onBack={session.back} onForward={session.forward} helpId={helpId} settingsId={settingsId} graphics={graphics} onGraphicsChange={setGraphics} />
-      <ModelControls disabled={building || error} onControl={session.control} helpId={helpId}
-        onReplayGuide={() => { document.getElementById(helpId)?.hidePopover(); setHandCameraEnabled(false); setOnboardingRun(run => run + 1); }} />
+        cameraAccessPending={cameras.requesting} onBack={session.back} onForward={session.forward} />
       <aside id={catalogId} ref={catalogPanel} className="catalog-panel" data-open={panel === "catalog"} data-collapsed={collapsedPanels.catalog} aria-label={t("catalog.navigation.label")}>
         <div className="catalog-heading"><h2>{t("catalog.heading")}</h2><span>{t("catalog.systemCount", { count: catalog.groupCount })}</span></div>
         <div className="tree-actions">
           <button disabled={building || error} onClick={() => session.changeVisibility(structureIds, true)}>{t("catalog.showAll")}</button>
           <button disabled={building || error} onClick={() => session.changeVisibility(structureIds, false)}>{t("catalog.hideAll")}</button>
-          <StructureSearch catalog={catalog} disabled={building || error} onSelect={chooseSearchResult} />
         </div>
+        <StructureSearch query={query} onChange={setQuery} disabled={building || error} empty={!!search && !search.bestId} />
         <div className="catalog-tree">
           <StructureTree catalog={catalog} visibleIds={visibleIds} selected={selected} targetId={targetId} reveal={reveal} disabled={building || error}
-            onVisibility={session.changeVisibility} onFocus={focusStructures} onSelect={session.browseStructure}
+            search={search} onVisibility={session.changeVisibility} onFocus={focusStructures} onSelect={session.browseStructure}
             onTarget={session.browseTarget} />
         </div>
       </aside>
@@ -215,7 +204,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
             <circle className="model-hold-fill" cx="20" cy="20" r="16" pathLength="100" />
           </svg>}
           <div className="model-focus-frame" ref={focusFrame}>
-            <HandCameraControls enabled={handCameraEnabled} disabled={building || error} cameraDisabled={!!movingId || !!separatedIds.size} onControl={session.control}
+            <HandCameraControls enabled={active && handCameraEnabled && !cameras.requesting} disabled={building || error} cameraDisabled={!!movingId || !!separatedIds.size} onControl={session.control}
               deviceId={cameras.deviceId} onCameraStarted={cameras.refresh} onCameraActiveChange={setHandCameraActive}
               sceneHost={host} interactionFrame={focusFrame} obstacles={[hud, catalogPanel, informationPanel, orientationHud]}
               onEnabledChange={setHandCameraEnabled} />
@@ -223,7 +212,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
               <div hidden={!graphics.showAxes}>
                 <OrientationAxes ref={orientation} disabled={building || error || !graphics.showAxes} onControl={session.control} />
               </div>
-              {graphics.showFps && <span className="model-fps" aria-label={t("graphics.fps.current", { count: fps })}>{fps} FPS</span>}
+              {graphics.showFps && <span className="model-fps" aria-label={t("graphics.fps.current", { count: fps || "—" })}>{fps || "—"} FPS</span>}
             </div>
             <div ref={hud} className="model-hud">
               {snapPart && <div className="model-status model-snap-hint" role="status">
@@ -232,7 +221,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
               {(movingId || separatedIds.size > 0) && <div className="model-status separation-status" role="status">
                 <span>{t("context.dragHint")}</span>
               </div>}
-              <p className={`model-status${error ? " model-error" : ""}`} role={error ? "alert" : "status"}>{!error && !building && structureIds.length ? t("viewer.status.visibleCount", { visible: visibleIds.size, total: structureIds.length }) : localizedStatus}</p>
+              <ViewerStatusNotice state={state} totalSystems={roots.length} />
               {building && !error && <progress className="model-progress" aria-label={t("viewer.loading.systems")} value={loadedSystems} max={roots.length} />}
               <ExplodeControls value={explosionAmount} disabled={building || error || !!movingId || !!separatedIds.size}
                 locked={!!movingId || !!separatedIds.size} onChange={session.changeExplosion} />
@@ -242,14 +231,14 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       </main>
       <aside id={informationId} ref={informationPanel} className={`information-panel${readerExpanded ? " reader-expanded" : ""}`} data-open={panel === "information"} data-collapsed={collapsedPanels.information} aria-label={t("information.panel.label")}>
         <header className="information-heading" data-structure-id={readingId || undefined}>
-          <div>
+          <div className="information-heading-row">
             <h2>{heading}</h2>
-            {otherHeading && otherHeading !== heading && <p className="international-name" lang={otherLanguage}>{otherHeading}</p>}
+            <button className="reader-expand" aria-expanded={readerExpanded} aria-controls="information-content"
+              onClick={session.toggleReader}>
+              {t(readerExpanded ? "information.collapse" : "information.expand")}
+            </button>
           </div>
-          <button className="reader-expand" aria-expanded={readerExpanded} aria-controls="information-content"
-            onClick={session.toggleReader}>
-            {t(readerExpanded ? "information.collapse" : "information.expand")}
-          </button>
+          {otherHeading && otherHeading !== heading && <p className="international-name" lang={otherLanguage}>{otherHeading}</p>}
         </header>
         <div className="information-content" id="information-content">
           <div className="information-details">
@@ -263,7 +252,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
             actions={<OpenStaxLink reference={openstaxReference} compact={!readerExpanded} />} />
             : openstaxReference && <div className="reader-actions"><OpenStaxLink reference={openstaxReference} compact={!readerExpanded} /></div>}
           <div className="model-credit">
-            {referenceName && <ReferenceNotice compact={!readerExpanded} />}
             <div className="credit-sources">
               <a href={`${import.meta.env.BASE_URL}models/z-anatomy/ATTRIBUTION.md`} target="_blank" rel="noreferrer" aria-label={t("credit.link")} title={t("credit.summary")}>{readerExpanded ? t("credit.summary") : "Z-Anatomy"}</a>
               <OpenStaxReading reference={openstaxReference} compact={!readerExpanded} />
@@ -271,7 +259,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
           </div>
         </div>
       </aside>
-      {!building && !error && !handCameraEnabled && <AnatomyOnboarding key={onboardingRun} replay={onboardingRun > 0} onPanelChange={showPanel} />}
     </>
   );
 }

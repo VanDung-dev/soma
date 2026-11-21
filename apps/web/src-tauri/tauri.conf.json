@@ -12,35 +12,45 @@
   "app": {
     "windows": [{
       "label": "main",
+      "dragDropEnabled": false,
       "url": "home",
       "title": "Soma — Tự học giải phẫu",
       "titleBarStyle": "Overlay",
       "hiddenTitle": true,
-      "trafficLightPosition": { "x": 16, "y": 26 },
+      "trafficLightPosition": { "x": 12, "y": 22 },
       "width": 1280,
       "height": 800,
       "minWidth": 800,
-      "minHeight": 520,
+      "minHeight": 500,
       "preventOverflow": true
     }],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self'; connect-src 'self' ipc: http://ipc.localhost asset: http://asset.localhost; img-src 'self' data:; frame-src 'self' https:",
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self' 'unsafe-inline'; style-src-elem 'self' 'unsafe-inline'; connect-src 'self' blob: ipc: http://ipc.localhost asset: http://asset.localhost; img-src 'self' data: blob:; frame-src 'self' https: http://127.0.0.1:*",
       "assetProtocol": {
         "enable": true,
         "scope": ["$RESOURCE/models/**/*"]
       },
-      "devCsp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost ws://localhost:5173; img-src 'self' data:; frame-src 'self' https:"
+      "devCsp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self' 'unsafe-inline'; style-src-elem 'self' 'unsafe-inline'; connect-src 'self' blob: ipc: http://ipc.localhost ws://localhost:5173; img-src 'self' data: blob:; frame-src 'self' https:"
     }
   },
   "bundle": {
     "active": false,
     "resources": {
       "../public/models/": "models/",
-      "../public/home/ATTRIBUTION.md": "home/ATTRIBUTION.md"
+      "../public/home/ATTRIBUTION.md": "home/ATTRIBUTION.md",
+      "../public/icons/ATTRIBUTION.md": "icons/ATTRIBUTION.md",
+      "../public/hand-input/ATTRIBUTION.md": "hand-input/ATTRIBUTION.md",
+      "../../../LICENSE": "licenses/LICENSE.txt",
+      "../../../NOTICE": "licenses/NOTICE.txt",
+      "../../../licenses/brotli.txt": "licenses/brotli.txt",
+      "../../../licenses/lesson-content.txt": "licenses/lesson-content.txt",
+      "../../../licenses/squoosh.txt": "licenses/squoosh.txt",
+      "../../../node_modules/tinymce/license.md": "licenses/tinymce.md",
+      "../../../node_modules/dompurify/LICENSE": "licenses/dompurify.txt"
     },
     "publisher": "Nguyễn Lê Văn Dũng",
     "copyright": "© 2026 Nguyễn Lê Văn Dũng",
-    "license": "Apache-2.0",
+    "license": "Soma Community and Commercial Use License 1.0",
     "macOS": {
       "signingIdentity": "-",
       "minimumSystemVersion": "15.0"

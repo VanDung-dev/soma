@@ -1,3 +1,4 @@
+import { metadataPackages } from './model.fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -10,7 +11,7 @@ test('OpenStax adds attributed related web readings without replacing Wikipedia'
   const source = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
   const mappings = JSON.parse(await readFile(new URL('../../../content/openstax-references.json', import.meta.url)));
   const roots = source.targets.filter(target => target.model);
-  const packages = await Promise.all(roots.map(async root => [root, await readFile(new URL('../public/' + root.model.path.replace(/\.glb(?:\.br)?$/, '.json'), import.meta.url), 'utf8')]));
+  const packages = metadataPackages(source);
   const parts = packages.flatMap(([, json]) => JSON.parse(json).structures);
   const sourceNames = new Set(source.targets.map(target => target.source_name).concat(parts.flatMap(part => [part.source_name, ...part.collections])));
   for (const mapping of mappings) {

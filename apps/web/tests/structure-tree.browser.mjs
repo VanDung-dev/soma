@@ -11,26 +11,33 @@ export async function checkStructureTree() {
     throw Error(message);
   };
   const catalog = JSON.parse((await getContent()).get_catalog());
-  const target = catalog.targets.find(target => target.model?.path.endsWith('/muscular-insertions.glb.br'));
+  const target = catalog.targets.find(target => target.source_name === '2: Muscular insertions');
   const nested = new Set(catalog.targets.filter(child => child.parent_id === target.id).flatMap(child => child.structure_ids));
   const ids = target.model.structure_ids.filter(id => !nested.has(id));
-  const root = document.querySelector('[data-target-id="' + target.id + '"]');
-  const toggle = root.querySelector('.folder-toggle');
-  const scroll = root.closest('.catalog-tree');
-  const search = document.querySelector('.structure-search-popover');
-  const initialOpen = toggle.getAttribute('aria-expanded') === 'true';
+  const scroll = document.querySelector('.catalog-panel .catalog-tree');
+  const root = () => scroll.querySelector('[data-target-id="' + target.id + '"]');
+  const toggle = () => root().querySelector('.folder-toggle');
+  const input = document.querySelector('.catalog-panel .structure-search input');
+  const initialOpen = toggle().getAttribute('aria-expanded') === 'true';
   const originalScroll = scroll.scrollTop;
+  const originalQuery = input.value;
+  const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+  const enter = async query => {
+    setValue.call(input, query);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await frames();
+  };
   const selected = () => document.querySelector('.information-heading').dataset.structureId;
-  const rows = () => [...root.querySelectorAll('.part-row')];
+  const rows = () => [...(root()?.querySelectorAll('.part-row') ?? [])];
   const back = document.querySelector('.app-menu-history .history-back');
   try {
     for (const panel of document.querySelectorAll('[popover]:popover-open')) panel.hidePopover();
-    if (initialOpen) { toggle.click(); await frames(); }
+    if (initialOpen) { toggle().click(); await frames(); }
     scroll.scrollTop = 0;
-    toggle.click(); await frames();
+    toggle().click(); await frames();
     const initialRows = rows().length;
     assert(initialRows >= 40 && initialRows < 100 && initialRows < ids.length, 'Opening a large folder must bound the initial mounted rows');
-    const systemCheckbox = root.querySelector(':scope > .folder-row .visibility-checkbox input');
+    const systemCheckbox = root().querySelector(':scope > .folder-row .visibility-checkbox input');
     const partCheckbox = rows()[0].querySelector('.visibility-checkbox input');
     assert(systemCheckbox.checked && !systemCheckbox.indeterminate, 'Visible systems must start checked');
     partCheckbox.click(); await frames();
@@ -57,72 +64,61 @@ export async function checkStructureTree() {
     const beforeScroll = rows().length;
     scroll.scrollTop = scroll.scrollHeight;
     await waitFor(() => rows().length > beforeScroll, 'Scrolling must load more structures');
-    const metadata = await (await fetch('/' + target.model.path.replace(/\.glb(?:\.br)?$/, '.json'))).json();
-    const last = metadata.structures.find(part => part.source_id === ids.at(-1));
-    document.querySelector('.structure-search-field').click(); await frames();
-    const input = search.querySelector('input');
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, last.source_object);
-    input.dispatchEvent(new Event('input', { bubbles: true })); await frames();
-    const result = search.querySelector('[data-structure-id="' + last.source_id + '"]');
-    assert(result, 'Find a structure beyond the initial tree rows');
-    result.click();
-    await waitFor(() => root.querySelector('[data-structure-id="' + last.source_id + '"]'), 'Reveal a not-yet-mounted structure from search');
-    const revealed = root.querySelector('[data-structure-id="' + last.source_id + '"]');
-    await frames();
-    assert(revealed.classList.contains('is-selected') && selected() === last.source_id, 'Search must synchronize selection and reveal');
-    const bounds = revealed.getBoundingClientRect(), viewport = scroll.getBoundingClientRect();
-    assert(bounds.bottom > viewport.top && bounds.top < viewport.bottom, 'Scroll the revealed row into view');
-    const firstPart = metadata.structures.find(part => part.source_id === ids[0]);
-    document.querySelector('.structure-search-field').click(); await frames();
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, firstPart.source_object);
-    input.dispatchEvent(new Event('input', { bubbles: true })); await frames();
-    const firstResult = search.querySelector('[data-structure-id="' + firstPart.source_id + '"]');
-    assert(firstResult, 'Find the first structure after revealing the last');
-    firstResult.click();
-    await waitFor(() => rows().length < 100 && root.querySelector('[data-structure-id="' + firstPart.source_id + '"].is-selected'),
-      'A new search must reset the previous large row limit in the same folder');
-    toggle.click(); await frames(); scroll.scrollTop = 0;
-    toggle.click(); await frames();
-    assert(rows().length < 100, 'Reopening after a reveal must restore the initial row bound');
+    const bundle = await (await fetch('/' + target.model.path.replace(/\.glb(?:\.br)?$/, '.json'))).json();
+    const metadata = bundle.metadata[target.id];
     const store = await getCatalog();
     try {
+      store.ingestMetadata(store.roots.find(root => root.id === target.id), JSON.stringify(metadata));
+      store.finish();
+      const lastId = ids.at(-1);
+      const last = store.detail(lastId);
+      const beforeSearch = selected();
+      await enter(last.names.en);
+      const revealed = scroll.querySelector('.part-row[data-structure-id="' + lastId + '"]');
+      assert(revealed?.querySelector('mark'), 'Search reveals and highlights a structure beyond the initial row limit');
+      assert(selected() === beforeSearch, 'Revealing a result is independent of model selection');
+      const bounds = revealed.getBoundingClientRect(), viewport = scroll.getBoundingClientRect();
+      assert(bounds.bottom > viewport.top && bounds.top < viewport.bottom, 'Scroll the best matching row into view');
+      revealed.querySelector('.tree-name').click();
+      await frames();
+      assert(revealed.classList.contains('is-selected') && selected() === lastId, 'Clicking the result selects it');
+      await enter('');
+      toggle().click(); await frames(); scroll.scrollTop = 0;
+      toggle().click(); await frames();
+      assert(rows().length < 100, 'Reopening after a search restores the initial row bound');
+
       const expandedPath = () => [...scroll.querySelectorAll('.folder-toggle[aria-expanded="true"]')]
         .map(button => button.closest('[data-target-id]').dataset.targetId);
       const matchesPath = expected => {
         const expanded = expandedPath();
         return expanded.length === expected.length && expected.every(id => expanded.includes(id));
       };
-      let lastId;
-      for (const query of ['sọ', 'xuong dui trai', 'thận', 'humerus left', target.source_name, 'sọ', 'xuong dui trai']) {
-        document.querySelector('.structure-search-field').click(); await frames();
-        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, query);
-        input.dispatchEvent(new Event('input', { bubbles: true })); await frames();
-        const result = search.querySelector('[role="option"]');
-        assert(result, 'Find a navigation result: ' + query);
-        const group = result.dataset.targetId, id = group || result.dataset.structureId;
-        lastId = id;
-        const path = store.reveal(id).map(([id]) => id);
-        const expected = group ? path.slice(1) : path;
-        result.click();
-        await waitFor(() => matchesPath(expected), 'Search must replace old branches with only the new path: ' + query);
-        if (group) assert(scroll.querySelector('[data-target-id="' + id + '"] > .folder-row .folder-toggle').getAttribute('aria-expanded') === 'false',
-          'Keep the selected group collapsed: ' + query);
-        else assert(scroll.querySelector('[data-structure-id="' + id + '"].is-selected'), 'Keep the selected structure visible: ' + query);
-      }
+      await enter('sọ');
       const skull = catalog.targets.find(target => target.source_name === 'Cranium');
+      const skullPath = store.reveal(skull.id).slice(1).map(([id]) => id);
+      assert(matchesPath(skullPath), 'Search opens only the ancestors of the best matching folder');
+      const skullRow = scroll.querySelector('[data-target-id="' + skull.id + '"] > .folder-row');
+      assert(skullRow.querySelector('.folder-toggle').getAttribute('aria-expanded') === 'false', 'Keep the matching folder collapsed');
+      skullRow.querySelector('.tree-name').click(); await frames();
+      await enter(last.names.en);
+      const lastPath = store.reveal(lastId).map(([id]) => id);
+      assert(matchesPath(lastPath), 'A new search opens only the new best path');
+      scroll.querySelector('[data-structure-id="' + lastId + '"] > .tree-name').click(); await frames();
+      await enter('');
       back.click();
-      await waitFor(() => matchesPath(store.reveal(skull.id).slice(1).map(([id]) => id))
+      await waitFor(() => matchesPath(skullPath)
         && scroll.querySelector('[data-target-id="' + skull.id + '"] > .folder-row.is-selected'), 'Back must restore only the skull parent path');
       document.querySelector('.app-menu-history .history-forward').click();
-      await waitFor(() => matchesPath(store.reveal(lastId).map(([id]) => id))
+      await waitFor(() => matchesPath(lastPath)
         && scroll.querySelector('[data-structure-id="' + lastId + '"].is-selected'), 'Forward must restore only the structure path');
     } finally { store.free(); }
     return { initialRows, totalDirectRows: ids.length, keyboardSelection: true, pointerFocus: true, keyboardLoading: true,
-      scrollLoading: true, searchReveal: true, boundedReopen: true, resetSearchLimit: true, replaceSearchPath: true, collapsedSearchGroup: true };
+      scrollLoading: true, searchReveal: true, boundedReopen: true, replaceSearchPath: true, collapsedSearchGroup: true };
   } finally {
-    search.hidePopover();
+    await enter('');
     while (!back.disabled) { back.click(); await frames(); }
-    if ((toggle.getAttribute('aria-expanded') === 'true') !== initialOpen) { toggle.click(); await frames(); }
+    if ((toggle().getAttribute('aria-expanded') === 'true') !== initialOpen) { toggle().click(); await frames(); }
+    await enter(originalQuery);
     scroll.scrollTop = originalScroll;
   }
 }

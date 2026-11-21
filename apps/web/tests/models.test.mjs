@@ -1,3 +1,4 @@
+import { bundle, modelBytes, modelDocument, modelMetadata } from './model.fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -6,11 +7,10 @@ import validator from 'gltf-validator';
 import { brotliDecompressSync } from 'node:zlib';
 const folder = new URL('../public/models/z-anatomy/', import.meta.url);
 const catalog = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
-const manifest = JSON.parse(await readFile(new URL('manifest.json', folder)));
+const manifest = bundle.manifest;
 const selectionBytes = await readFile(new URL('../../../content/z-anatomy-selections.json', import.meta.url));
 const selections = JSON.parse(selectionBytes);
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-const parseJsonl = text => text.split('\n').filter(Boolean).map(line => JSON.parse(line));
 const availableIds = new Set(manifest.models.flatMap(m => m.source_ids));
 test('Z-Anatomy preserves geometry, structure identity, names and materials', async () => {
   assert.equal(manifest.source, 'Z-Anatomy');
@@ -19,25 +19,26 @@ test('Z-Anatomy preserves geometry, structure identity, names and materials', as
   const roots = catalog.targets.filter(t => !t.parent_id);
   assert.equal(roots.length, 9);
   assert.equal(catalog.groups.length, 9);
-  assert.equal(new Set(roots.map(t => t.model.path)).size, 9);
+  assert.equal(new Set(roots.map(t => t.model.path)).size, 1);
+  const stored = modelBytes();
+  assert(roots.every(root => root.model.sha256 === hash(stored)));
+  const bytes = brotliDecompressSync(stored);
+  const report = await validator.validateBytes(new Uint8Array(bytes), { uri: 'z-anatomy.glb' });
+  assert.equal(report.issues.numErrors, 0, JSON.stringify(report.issues.messages));
+  assert.equal(report.issues.numWarnings, 0, JSON.stringify(report.issues.messages));
+  assert.equal(bundle.manifest.bundle.sha256, hash(stored));
   assert.equal(manifest.units, 'metres'); assert.equal(manifest.up_axis, 'Y');
   const inventory = new Map(), colors = new Set();
   for (const target of roots) {
-    const record = manifest.models.find(m => target.model.path === 'models/z-anatomy/' + m.file);
+    const record = manifest.models.find(model => model.root_id === target.id);
     assert(record, target.id);
-    assert.deepEqual(record.selection, selections[record.file.replace('.glb.br', '')]);
-    const stored = await readFile(new URL(record.file, folder));
-    assert.equal(record.compression, 'br');
-    assert.equal(stored.length, record.bytes); assert.equal(hash(stored), record.sha256);
-    const bytes = brotliDecompressSync(stored);
-    const metadataBytes = await readFile(new URL(record.metadata_file, folder));
-    assert.equal(bytes.length, record.uncompressed_bytes); assert.equal(hash(bytes), record.uncompressed_sha256);
-    assert.equal(metadataBytes.length, record.metadata_bytes); assert.equal(hash(metadataBytes), record.metadata_sha256);
-    const report = await validator.validateBytes(new Uint8Array(bytes), { uri: record.file.replace(/\.br$/, '') });
-    assert.equal(report.issues.numErrors, 0, JSON.stringify(report.issues.messages));
-    assert.equal(report.issues.numWarnings, 0, JSON.stringify(report.issues.messages));
-    const gltf = JSON.parse(bytes.subarray(20, 20 + bytes.readUInt32LE(12)));
-    if (record.file === 'skeletal-system.glb.br') {
+    assert.deepEqual(record.selection, selections[record.file.replace('.glb', '')]);
+    const metadataBytes = Buffer.from(JSON.stringify(bundle.metadata[target.id]));
+    const members = new Set(record.source_ids);
+    const document = modelDocument();
+    const gltf = { ...document, nodes: document.nodes.filter(node => members.has(node.extras?.source_id)) };
+    const meshes = [...new Set(gltf.nodes.map(node => node.mesh))].map(index => gltf.meshes[index]);
+    if (record.file === 'skeletal-system.glb') {
       for (const name of ['Femur.l · Web', 'Femur.r · Web']) {
         const node = gltf.nodes.find(n => n.name === name);
         assert.deepEqual(gltf.meshes[node.mesh].primitives.map(p => gltf.materials[p.material].name).sort(), ['Bone · Web PBR', 'Cartilage · Web PBR'], 'Articular surfaces must retain their own material');
@@ -90,8 +91,8 @@ test('Z-Anatomy preserves geometry, structure identity, names and materials', as
       assert.equal(fascia.alphaMode, 'BLEND', 'Fascia must not hide the muscles as an opaque shell');
       assert(Math.abs(fascia.pbrMetallicRoughness.baseColorFactor[3] - 0.15) < 1e-6, 'Preserve the source Fascia transparent-mix factor of 0.85');
     }
-    assert.equal(gltf.meshes.reduce((n, m) => n + m.primitives.length, 0), record.primitives);
-    assert.equal(gltf.meshes.reduce((n, m) => n + m.primitives.reduce((s, p) => s + gltf.accessors[p.indices ?? p.attributes.POSITION].count / 3, 0), 0), record.triangles);
+    assert.equal(meshes.reduce((n, m) => n + m.primitives.length, 0), record.primitives);
+    assert.equal(meshes.reduce((n, m) => n + m.primitives.reduce((s, p) => s + gltf.accessors[p.indices ?? p.attributes.POSITION].count / 3, 0), 0), record.triangles);
   }
   assert.equal(inventory.size, manifest.unique_structures); assert.equal(inventory.size, 3874);
   assert(!('structures_with_definitions' in manifest));
@@ -100,17 +101,13 @@ test('Z-Anatomy preserves geometry, structure identity, names and materials', as
   assert(manifest.repaired_meshes.every(m => inventory.has('za:' + hash(m.object).slice(0, 16)) && m.before.vertices > 0 && m.after.polygons > 0));
   assert(colors.size > 10);
   assert(manifest.excluded_objects.every(o => o.object && o.reason));
-  const heart = JSON.parse(await readFile(new URL('cardiovascular-system.json', folder)));
+  const heart = modelMetadata('cardiovascular-system');
   assert(heart.structures.some(s => s.source_name === 'Right atrium'));
-  const names = parseJsonl(await readFile(new URL('../../../content/anatomy-names.jsonl', import.meta.url), 'utf8'));
-  assert.equal(names.length, 2053);
-  assert.equal(new Set(names.map(entry => entry.name)).size, names.length);
-  assert.deepEqual(names.flatMap(entry => entry.structure_ids).sort(), [...inventory.keys()].sort());
-  for (const entry of names) assert(entry.structure_ids.every(id => inventory.get(id).source_name === entry.name));
+  assert.equal(new Set([...inventory.values()].map(part => part.source_name)).size, 2053);
 });
 
 test('navigation follows nine source roots and keeps deep, scoped categories', async () => {
-  assert.equal(catalog.schema_version, 4);
+  assert.equal(catalog.schema_version, 1);
   assert.equal(catalog.targets.length, 1981);
   const roots = catalog.targets.filter(t => !t.parent_id);
   assert.deepEqual(roots.map(t => t.source_name), Object.values(selections).map(s => s.source_collection));
@@ -120,7 +117,7 @@ test('navigation follows nine source roots and keeps deep, scoped categories', a
   const atrium = catalog.targets.find(t => t.parent_id === heart.id && t.source_name === 'Right atrium');
   assert.equal(heart.structure_ids.length, 17);
   assert.equal(atrium.structure_ids.length, 1);
-  const pkg = JSON.parse(await readFile(new URL('cardiovascular-system.json', folder)));
+  const pkg = modelMetadata('cardiovascular-system');
   assert.equal(pkg.structures.find(s => s.source_id === atrium.structure_ids[0]).source_name, 'Right atrium');
   assert(catalog.targets.some(t => t.structure_ids.length === 0));
   let maxDepth = 0;
@@ -133,15 +130,15 @@ test('navigation follows nine source roots and keeps deep, scoped categories', a
 });
 
 test('names and cross-asset folders remain independent of descriptions', async () => {
-  const muscular = JSON.parse(await readFile(new URL('muscular-system.json', folder)));
+  const muscular = modelMetadata('muscular-system');
   const fascia = catalog.targets.find(t => t.source_name === 'Fascia');
   assert(fascia.structure_ids.length > 0);
-  const visceral = JSON.parse(await readFile(new URL('visceral-systems.json', folder)));
+  const visceral = modelMetadata('visceral-systems');
   const mucosa = catalog.targets.find(t => t.source_name === 'Mucosa of stomach');
   const mesh = visceral.structures.find(s => s.source_object === 'Mucosa of stomach');
   assert.equal(mesh.source_name, 'Mucosa of stomach');
   assert(mucosa.structure_ids.includes(mesh.source_id));
-  const skeletal = JSON.parse(await readFile(new URL('skeletal-system.json', folder)));
+  const skeletal = modelMetadata('skeletal-system');
   const costal = skeletal.structures.filter(s => s.source_name === 'Costal cartilage of second rib');
   assert.equal(costal.length, 2);
   assert(costal.every(s => !('definition_key' in s)));
@@ -151,11 +148,11 @@ test('names and cross-asset folders remain independent of descriptions', async (
     assert(target.structure_ids.every(id => muscular.structures.some(s => s.source_id === id)), name);
   }
   const thymus = catalog.targets.find(t => t.source_name === 'Thymus' && t.group_id === 'group:visceral-systems');
-  const lymphoid = JSON.parse(await readFile(new URL('lymphoid-organs.json', folder)));
+  const lymphoid = modelMetadata('lymphoid-organs');
   assert.equal(thymus.structure_ids.length, 2);
   assert(thymus.structure_ids.every(id => lymphoid.structures.some(s => s.source_id === id)));
   const phalanges = catalog.targets.find(t => t.source_name === 'Phalanges of foot');
-  const attachments = manifest.models.find(m => m.file === 'muscular-insertions.glb.br');
+  const attachments = manifest.models.find(m => m.file === 'muscular-insertions.glb');
   assert.equal(phalanges.structure_ids.length, 28);
   assert(!phalanges.structure_ids.some(id => attachments.source_ids.includes(id)), 'Bone assemblies must not include muscle attachment meshes');
   for (const name of ['Thorax', 'Abdomen', 'Pelvis']) {

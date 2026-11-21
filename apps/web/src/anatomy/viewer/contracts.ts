@@ -1,6 +1,16 @@
 export type Viewport = [number, number, number, number];
 export type PreparedGeometry = [Float32Array, Uint32Array, string];
 
+export type CameraPose = {
+  target: [number, number, number];
+  yaw: number;
+  pitch: number;
+  distance: number;
+  pan: [number, number];
+};
+
+export type SceneView = { camera: CameraPose; explosion: number };
+
 export type ViewerStatus = "loading" | "preparing" | "finishing" | "loadError" | "processError" | "renderError" | "contextLost";
 
 export type CameraCommand =
@@ -21,6 +31,8 @@ export interface ViewerState {
 }
 
 export interface StudyViewer {
+  captureView(): SceneView | undefined;
+  applyScene(ids: string[], view?: SceneView): boolean;
   select(id: string): boolean;
   changeVisibility(ids: string[], shown: boolean): boolean;
   focus(ids: string[], folder: boolean, reveal: boolean): boolean;

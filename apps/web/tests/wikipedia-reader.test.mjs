@@ -2,7 +2,7 @@ import { initCatalogWasm } from './catalog.fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { createElement, Fragment } from 'react';
+import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer } from 'vite';
 
@@ -11,19 +11,16 @@ test('Wikipedia reader opens mapped articles and leaves unmapped structures expl
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
     await initCatalogWasm(server);
-    const { WikipediaReader, wikipediaReference, ReferenceNotice } = await server.ssrLoadModule('/src/anatomy/wikipedia-reader.tsx');
+    const { WikipediaReader, wikipediaReference } = await server.ssrLoadModule('/src/anatomy/wikipedia-reader.tsx');
     for (const [name, article] of Object.entries(references.articles)) {
       assert.equal(wikipediaReference(name).url, article.url);
       const url = new URL(article.url);
       assert.equal(url.origin, 'https://en.wikipedia.org');
       assert(url.pathname.startsWith('/wiki/') && !url.search);
-      assert.equal(article.status, 'source-link');
+      assert.deepEqual(Object.keys(article), ['url']);
       assert(!('text' in article));
     }
-    const html = renderToStaticMarkup(createElement(Fragment, null, createElement(WikipediaReader, { name: 'Femur' }), createElement(ReferenceNotice)));
-    const compactNotice = renderToStaticMarkup(createElement(ReferenceNotice, { compact: true }));
-    assert(compactNotice.includes('<summary>Lưu ý</summary>'));
-    assert(compactNotice.includes('reference-notice'));
+    const html = renderToStaticMarkup(createElement(WikipediaReader, { name: 'Femur' }));
     assert(html.includes('<iframe'));
     assert(html.includes('class="wikipedia-article"'));
     assert(html.includes('href="https://en.wikipedia.org/wiki/Femur"'));
@@ -36,20 +33,16 @@ test('Wikipedia reader opens mapped articles and leaves unmapped structures expl
     assert(html.includes('aria-busy="true"'));
     assert(html.includes('class="wikipedia-skeleton" role="status"'));
     assert(html.includes('Đang tải Wikipedia…'));
-    const disclaimer = 'Wikipedia chỉ phục vụ tham khảo và học tập; thông tin có thể sai hoặc chưa cập nhật, không thay thế tài liệu chuyên môn hoặc tư vấn y tế.';
-    assert(html.includes(disclaimer));
     assert(!html.includes('<h3>Wikipedia</h3>'));
     assert(!html.includes('reader-info'));
-    assert(html.includes(`<div class="reference-mapping-description"><p class="reference-notice">${disclaimer}</p></div>`));
     assert(!html.includes('<details') && !html.includes('<summary'));
     assert(html.includes('target="_blank" rel="noreferrer"'));
     assert(html.indexOf('class="wikipedia-article"') < html.indexOf('class="reader-actions"'));
-    const missing = renderToStaticMarkup(createElement(Fragment, null, createElement(WikipediaReader, { name: 'Unmapped <part> & name' }), createElement(ReferenceNotice)));
+    const missing = renderToStaticMarkup(createElement(WikipediaReader, { name: 'Unmapped <part> & name' }));
     assert(!missing.includes('<iframe'));
     assert(!missing.includes('wikipedia-skeleton'));
     assert(missing.includes('Chưa gắn bài Wikipedia'));
     assert(missing.includes('Unmapped%20%3Cpart%3E%20%26%20name'));
-    assert(missing.includes(disclaimer));
     assert.equal(wikipediaReference('Unmapped <part> & name'), undefined);
     assert.equal(wikipediaReference('constructor'), undefined);
   } finally {

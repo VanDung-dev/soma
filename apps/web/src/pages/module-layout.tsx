@@ -1,26 +1,37 @@
 import type { MouseEventHandler, ReactNode } from "react";
-import { useEffect } from "react";
+import { createContext, useEffect, useRef } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { LogicalPosition } from "@tauri-apps/api/dpi";
 import { Menu } from "@tauri-apps/api/menu";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useLanguage } from "../i18n";
 import { LineIcon } from "../icons";
-import { useTheme } from "../theme";
+import { shortcutAriaLabel, shortcutLabel, useShortcutBindings } from "../shortcuts";
+import type { pageAtPath } from "./routes";
+import "./workspace.css";
 
-type ModulePage = "home" | "anatomy" | "lessons" | "games";
+export const WorkspaceActiveContext = createContext(true);
 
-export function ModuleLayout({ children, page, onClick }: { children: ReactNode; page: ModulePage; onClick?: MouseEventHandler<HTMLDivElement> }) {
+export function ModuleLayout({ children, page, onClick, settings }: {
+  children: ReactNode; page: ReturnType<typeof pageAtPath>; onClick?: MouseEventHandler<HTMLDivElement>; settings?: ReactNode;
+}) {
   const tauri = isTauri();
   const suppressContextMenu = tauri && import.meta.env.DEV;
   const macOS = tauri && /Macintosh|Mac OS X/.test(navigator.userAgent);
   const windows = tauri && /Windows/.test(navigator.userAgent);
-  const { language, setLanguage, t } = useLanguage();
-  const { theme, setTheme } = useTheme();
-  const nextTheme = theme === "auto" ? "light" : theme === "light" ? "dark" : "auto";
-  const themeIcon = theme === "auto" ? "star-alt" : theme === "light" ? "sunny" : "moon-alt";
-  const title = t(`module.${page}`);
+  const { t } = useLanguage();
+  useShortcutBindings();
+  const settingsLink = useRef<HTMLAnchorElement>(null);
+  const previousPage = useRef(page);
+  const title = t(page === "settings" ? "app.settings" : page ? `module.${page}` : "app.notFound");
   useEffect(() => { document.title = `Soma — ${title}`; }, [title]);
+  useEffect(() => {
+    if (previousPage.current === "settings" && page !== "settings"
+      && (document.activeElement === document.body || document.activeElement === null)) {
+      settingsLink.current?.focus({ preventScroll: true });
+    }
+    previousPage.current = page;
+  }, [page]);
   useEffect(() => {
     if (!suppressContextMenu) return;
     let disposed = false;
@@ -71,12 +82,15 @@ export function ModuleLayout({ children, page, onClick }: { children: ReactNode;
       <nav className="module-nav" aria-label={t("app.navigation.label")}>
         <a href="/home" aria-current={page === "home" ? "page" : undefined}>{t("module.home")}</a>
         <a href="/anatomy" aria-current={page === "anatomy" ? "page" : undefined}>{t("module.anatomy")}</a>
-        <span className="module-nav-disabled" aria-disabled="true" aria-current={page === "lessons" ? "page" : undefined}>{t("module.lessons")}</span>
+        <a href="/lessons" aria-current={page === "lessons" ? "page" : undefined}>{t("module.lessons")}</a>
         <span className="module-nav-disabled" aria-disabled="true" aria-current={page === "games" ? "page" : undefined}>{t("module.games")}</span>
       </nav>
       <div className="module-preferences">
-        <button className="page-toggle" onClick={() => setLanguage(language === "vi" ? "en" : "vi")} aria-label={t("language.selector.label")}>{language.toUpperCase()}</button>
-        <button className="page-toggle theme-toggle" data-theme={theme} onClick={() => setTheme(nextTheme)} aria-label={t(`appearance.mode.${nextTheme}`)} title={t(`appearance.mode.${nextTheme}`)}><LineIcon name={themeIcon} size={18} /></button>
+        <a ref={settingsLink} className="module-settings" href="/settings" aria-current={page === "settings" ? "page" : undefined}
+          aria-label={t("app.settings")} aria-keyshortcuts={shortcutAriaLabel("settings")}
+          title={`${t("app.settings")}${shortcutLabel("settings") ? ` (${shortcutLabel("settings")})` : ""}`}>
+          <LineIcon name="cog" size={16} />
+        </a>
       </div>
       {windows && <div className="window-controls">
         <button className="window-control" aria-label={t("window.minimize")} title={t("window.minimize")} onClick={() => { void getCurrentWindow().minimize(); }}><span className="window-control-icon minimize" /></button>
@@ -85,7 +99,10 @@ export function ModuleLayout({ children, page, onClick }: { children: ReactNode;
       </div>}
     </header>
     <div className="module-content" data-page={page}>
-      <div className="model-space">{children}</div>
+      <div className="model-space" inert={page === "settings"}>
+        <WorkspaceActiveContext value={page !== "settings"}>{children}</WorkspaceActiveContext>
+      </div>
+      {settings && <div className="model-space">{settings}</div>}
     </div>
   </div>;
 }

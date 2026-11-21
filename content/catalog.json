@@ -1,5 +1,5 @@
 {
-  "schema_version": 4,
+  "schema_version": 1,
   "groups": [
     {"id": "group:skeletal-system", "title": "Hệ xương"},
     {"id": "group:muscular-insertions", "title": "Nguyên ủy và bám tận cơ"},
@@ -61,7 +61,7 @@
         "za:f3d2ad6fbf77464f", "za:f4fea5520ea8c8dd", "za:f6891ad7d6ecbb94", "za:f6d27914d0348e23", "za:f6f3b71c5c8c033b", "za:f7982d336331ce10", "za:f80c62b204c84f49", "za:fb13b8ec6a77c540",
         "za:fc72af7213568880", "za:fc7b8130f2a1c736", "za:fcd977845f4183e5", "za:fd4f42e270065f24", "za:fe40150f8e263b25", "za:fe74df8d864e86ce", "za:ffe676dbde55f856"
       ],
-      "model": {"path": "models/z-anatomy/skeletal-system.glb.br", "scope": "Khám phá cấu trúc theo cây phân nhóm của Z-Anatomy.", "structure_ids": [
+      "model": {"path": "models/z-anatomy/z-anatomy.glb.br", "sha256": "92750bba3a906ada97b72a08a54f7e57dac31b2a466a4c57df8f8dcbe19efc1d", "scope": "Khám phá cấu trúc theo cây phân nhóm của Z-Anatomy.", "structure_ids": [
         "za:01e1daf784598dbd", "za:02313f6964fcd377", "za:03577994b0170d62", "za:0378c0a07cd4e357", "za:04ddba2f2d5778f5", "za:07750711de28802c", "za:0a734ef3872d59f6", "za:0ae71842d58abc4e",
         "za:0c77c2d8ff99f26b", "za:0c8d46736cd0d0c4", "za:0ca27c38f6ab39af", "za:0d7f6b6754750280", "za:0e5ce44b0cdfe44d", "za:0e612ef4c6f73663", "za:0e6c941dc13fd8c7", "za:0fb4cef4d6ede9ce",
         "za:0fd88f0ce84743a5", "za:10e781b42ca15c9c", "za:10f2c1a15abafeb5", "za:1121d2712fdac730", "za:11772e3dcde12877", "za:1274e7652683c1f7", "za:12920229909a4ea9", "za:147bb1e888a9f11f",
@@ -837,7 +837,7 @@
         "za:fe56891876da4e38", "za:fe6928aa43e1ce40", "za:fea4f0e47df13bbe", "za:fec2ada648dc07b7", "za:fec976d6168312ef", "za:ff12be530f632edc", "za:ff164a84d2175150", "za:ff385f3b8cc50f18",
         "za:fff1e53165519743"
       ],
-      "model": {"path": "models/z-anatomy/muscular-insertions.glb.br", "scope": "Khám phá cấu trúc theo cây phân nhóm của Z-Anatomy.", "structure_ids": [
+      "model": {"path": "models/z-anatomy/z-anatomy.glb.br", "sha256": "92750bba3a906ada97b72a08a54f7e57dac31b2a466a4c57df8f8dcbe19efc1d", "scope": "Khám phá cấu trúc theo cây phân nhóm của Z-Anatomy.", "structure_ids": [
         "za:003b06eda82de9de", "za:00ed331d3d5da7db", "za:00f4e1d92c87d8ef", "za:0109c25520b85799", "za:012e1d05a74c4c66", "za:01e44522d4e2be51", "za:02341be44f0c03b3", "za:02ebbe1c67176e56",
         "za:0351f66726ae3157", "za:040055ed92862754", "za:0401459dfd9fbef1", "za:0508b41667af42a2", "za:05593ec106f37f9b", "za:065e4abe6cc50aeb", "za:067572da4f4c189a", "za:077a35389dcf9ee3",
         "za:078d2005ab01b517", "za:07a6cd4ff6cd5c42", "za:07f3785f216962f9", "za:07f3a9fc4b5532b9", "za:07f803e7d33a1fec", "za:08789dfb8bf82a6b", "za:0881007063d6835d", "za:0894023e497bfb4b",
@@ -1078,7 +1078,7 @@
         "za:f8fcf75720179138", "za:f90c2966bbc1e217", "za:f968451901ce35b0", "za:f9c10983be3a02c5", "za:fa2248fabc8c30ab", "za:facef774dff4d773", "za:fc029b83e6ef0cf6", "za:fc7a3d880f269931",
         "za:fc7b8130f2a1c736", "za:fccfaee394131d90", "za:fcf6a6c465fcbf59", "za:fdb2dd86d913fa2e", "za:fe9880256b812b13"
       ],
-      "model": {"path": "models/z-anatomy/joints.glb.br", "scope": "Khám phá cấu trúc theo cây phân nhóm của Z-Anatomy.", "structure_ids": [
+      "model": {"path": "models/z-anatomy/z-anatomy.glb.br", "sha256": "92750bba3a906ada97b72a08a54f7e57dac31b2a466a4c57df8f8dcbe19efc1d", "scope": "Khám phá cấu trúc theo cây phân nhóm của Z-Anatomy.", "structure_ids": [
         "za:00388a1811839b24", "za:0105cde6fea6408b", "za:01911c95d10e1a18", "za:01bc1733667f8833", "za:0218bfa16d2d3c5f", "za:03f4f1b702cfd50a", "za:0663d65edb9c739e", "za:07b0b221a0934adb",
         "za:07d09c74bf845377", "za:08cce35f96cd2394", "za:0bba72a90041e609", "za:0d5f8ce685f8e476", "za:0dd9fdff38f4ae10", "za:0e2b0016acc987e5", "za:0e98a5d0cef062e2", "za:0ed907906a520520",
         "za:0fda6b150e1917b6", "za:1177ba8cf26c3a22", "za:13481ad327494f7c", "za:14b0054167cea652", "za:14e9f4107a447e91", "za:17a94f410388b997", "za:1804e21458263ea1", "za:183a98a19476b64e",
@@ -1783,7 +1783,7 @@
         "za:faa2fafd8d068bdb", "za:faf705c40cdb350f", "za:fc1ad71e9ef52757", "za:fc9549d09988a9c4", "za:fcbfdde3f2215593", "za:fd2828b766d715a1", "za:fd2e5fad77ab91d0", "za:fd5c02294b475427",
         "za:fdb102b94d64d117", "za:fdeec9923b8b4599", "za:ffa1378d13a3a0ee"
       ],
-      "model": {"path": "models/z-anatomy/muscular-system.glb.br", "scope": "Khám phá cấu trúc theo cây phân nhóm của Z-Anatomy.", "structure_ids": [
+      "model": {"path": "models/z-anatomy/z-anatomy.glb.br", "sha256": "92750bba3a906ada97b72a08a54f7e57dac31b2a466a4c57df8f8dcbe19efc1d", "scope": "Khám phá cấu trúc theo cây phân nhóm của Z-Anatomy.", "structure_ids": [
         "za:007976f72a5c4d1f", "za:00a91a0bbec8ea9d", "za:01a488c6e5154420", "za:01cb75938da65be0", "za:02106c69e9423f81", "za:021b26190ea69b26", "za:02697887b931b466", "za:0284424347ccb10f",
         "za:02f5d939c0d9d968", "za:03222d0709174d32", "za:037028f291e16be7", "za:0378b861a51baf95", "za:03d11aa52a6f3696", "za:03f22370733bff88", "za:0425424460a59648", "za:04ee24e8ee7c4c86",
         "za:053d1ef6d803efae", "za:0591b4ee2c76c9b0", "za:0594168bc7e043e8", "za:05f25ab2d75f7868", "za:060cee0a14679b3d", "za:0621a260a8800797", "za:076b192424edfc6d", "za:07a7d535beb38818",
@@ -2793,7 +2793,7 @@
         "za:fb2e904e329905d8", "za:fb4bccc299cc0fb5", "za:fb4c5140e05e141e", "za:fb939154a41782c4", "za:fbec17b9c698ab6d", "za:fc441bbede9d4521", "za:fcf4d263a4743a16", "za:fd124f15b6a80814",
         "za:ff28a2785156242b", "za:ff2e084e827c59bd", "za:ff341f0b7b6d1a0b", "za:ffdf80a951e639d9"
       ],
-      "model": {"path": "models/z-anatomy/cardiovascular-system.glb.br", "scope": "Khám phá cấu trúc theo cây phân nhóm của Z-Anatomy.", "structure_ids": [
+      "model": {"path": "models/z-anatomy/z-anatomy.glb.br", "sha256": "92750bba3a906ada97b72a08a54f7e57dac31b2a466a4c57df8f8dcbe19efc1d", "scope": "Khám phá cấu trúc theo cây phân nhóm của Z-Anatomy.", "structure_ids": [
         "za:005d68f5710e71e9", "za:0099d9fe46897a2a", "za:009cdefda3da7576", "za:01b75e691d793d0c", "za:026a5b5c69c1f6fa", "za:03334a3b814abfe8", "za:03ce18194b586249", "za:03fbbe5a57433587",
         "za:0526ac5f61237d5b", "za:053c21126bbc80e1", "za:0541b02937ee3737", "za:05704e79bd7994d9", "za:05f5eeee9f693c3e", "za:061114a0b1391d71", "za:0630442ad843313a", "za:06675a5f04d11096",
         "za:077a19a0d00ebe83", "za:07aa923f980626c0", "za:07e332a2eaa3ab87", "za:07e8b531fc8e8f35", "za:07ecf10f5df14da6", "za:0824c9249ebb0f99", "za:08395ee34200cd80", "za:08b38737192e2258",
@@ -3613,7 +3613,7 @@
         "za:ee4b9c9d9e5d4898", "za:ef3b4cf2150ab842", "za:f125ee85aecbdba9", "za:f2f420cd7d00849b", "za:f2ff609354188b6b", "za:f346d5984a53b51b", "za:f5bcceb6a470fee5", "za:f5ceaf9ca5f9a986",
         "za:fbe9654df9224c55", "za:ff9aa6bded1c2124", "za:fffe886fd7ce21d1"
       ],
-      "model": {"path": "models/z-anatomy/lymphoid-organs.glb.br", "scope": "Khám phá cấu trúc theo cây phân nhóm của Z-Anatomy.", "structure_ids": [
+      "model": {"path": "models/z-anatomy/z-anatomy.glb.br", "sha256": "92750bba3a906ada97b72a08a54f7e57dac31b2a466a4c57df8f8dcbe19efc1d", "scope": "Khám phá cấu trúc theo cây phân nhóm của Z-Anatomy.", "structure_ids": [
         "za:004cfdd90059bd7d", "za:006f6a6d33be165a", "za:013a1c6e993a4f2d", "za:052ec23ade8f0674", "za:07457ac5e7bdec92", "za:07683e4bf37f4ad8", "za:07e6ba0a5f413525", "za:0aa9439e0bddb15d",
         "za:0ac2dfc1e3550899", "za:0bb2126af621eba4", "za:0d4dd9e3199a3376", "za:10610962e6b6e37c", "za:128de976d8774173", "za:12ffa3ab16e8047f", "za:134b3f2661d1fbdc", "za:13616a7b002be8bd",
         "za:148364febef3965b", "za:182e22064567cf4e", "za:184e4858555a6e24", "za:18e0fc166a61646a", "za:19347105f6d88e3d", "za:19b0cb8557134cdd", "za:1e06423bab7f05b6", "za:1ecbfbf5b4f695fd",
@@ -3947,7 +3947,7 @@
         "za:fd5c02294b475427", "za:fd78105c681fc635", "za:fdbd7f9ab46dbbda", "za:fdbdf25fb9f08dac", "za:fe28850ef976736c", "za:fe2b0d032964b60f", "za:fe3332d75f3d85b6", "za:fe39c12c2227a1ea",
         "za:fe5159e5497d60cb", "za:fe6c1a6fa7ed739a", "za:fef326fd73564417", "za:ffa1378d13a3a0ee"
       ],
-      "model": {"path": "models/z-anatomy/nervous-system.glb.br", "scope": "Khám phá cấu trúc theo cây phân nhóm của Z-Anatomy.", "structure_ids": [
+      "model": {"path": "models/z-anatomy/z-anatomy.glb.br", "sha256": "92750bba3a906ada97b72a08a54f7e57dac31b2a466a4c57df8f8dcbe19efc1d", "scope": "Khám phá cấu trúc theo cây phân nhóm của Z-Anatomy.", "structure_ids": [
         "za:000693f70b3e6bc7", "za:00127d04d737063f", "za:004a96db9ef1e1ed", "za:01fa6f25ca97e556", "za:01ffcba3ec4970af", "za:02130795e0778bdb", "za:02b037e87ce16744", "za:02ff112205bc1f46",
         "za:036a7e079a39ce3e", "za:03ae5f4eeb3b2ea3", "za:03e11ae936988429", "za:03ebb05335a2c819", "za:0408b7fa277ffb4e", "za:04e7effde87681f0", "za:05560374e3318592", "za:055742e80c103100",
         "za:05589e207479511b", "za:05d4d4086c783111", "za:06659e7e30b8e3ed", "za:0672160633f763b8", "za:06bc214bd4b17e29", "za:06da93e333c223d7", "za:07a9b67c9ebc0175", "za:07c670e261918c6b",
@@ -5468,7 +5468,7 @@
         "za:f81a602e8a4b264e", "za:fa061b55fa71f38c", "za:fa6a4ada5e35b202", "za:fbe9654df9224c55", "za:fc01578188b5b6ca", "za:fefa76fc2e3ed4cc", "za:fefc8dc2b48141b6", "za:ff9aa6bded1c2124",
         "za:fffe886fd7ce21d1"
       ],
-      "model": {"path": "models/z-anatomy/visceral-systems.glb.br", "scope": "Khám phá cấu trúc theo cây phân nhóm của Z-Anatomy.", "structure_ids": [
+      "model": {"path": "models/z-anatomy/z-anatomy.glb.br", "sha256": "92750bba3a906ada97b72a08a54f7e57dac31b2a466a4c57df8f8dcbe19efc1d", "scope": "Khám phá cấu trúc theo cây phân nhóm của Z-Anatomy.", "structure_ids": [
         "za:035c20b45f92da30", "za:042615d3793795d5", "za:04aa80a795ec274e", "za:05d4caa06ba07068", "za:05ffc920dd6517bb", "za:0667ce7832fc9367", "za:07765ba618a239f3", "za:078f3c3ab6d5f306",
         "za:0eca9a51ae10000d", "za:0f5087d08e1b7c6e", "za:0fa320e13ac298d5", "za:10936d4af092f3e9", "za:12049441a8d12567", "za:13691fa1c829a997", "za:13783a9daa1dc385", "za:18b86b8ef7766429",
         "za:18c54b5e42d72466", "za:193609cfd1bfefe7", "za:1addc3828282aea8", "za:1d93aa4bc60c9a11", "za:20bc2944df8e0cc2", "za:29295a3c5ede2af3", "za:2b7863a585e22e4c", "za:2bfac2f29a89e4d7",
@@ -6430,7 +6430,7 @@
         "za:fe40150f8e263b25", "za:fe6b8aa34ca3e9ce", "za:fe6c1a6fa7ed739a", "za:fe74df8d864e86ce", "za:fe9880256b812b13", "za:fef326fd73564417", "za:fefa76fc2e3ed4cc", "za:fefc8dc2b48141b6",
         "za:ff0340aba83dc867", "za:ff28a2785156242b", "za:ff2e084e827c59bd", "za:ff341f0b7b6d1a0b", "za:ffa1378d13a3a0ee", "za:ffdf80a951e639d9", "za:ffe676dbde55f856"
       ],
-      "model": {"path": "models/z-anatomy/body-regions.glb.br", "scope": "Khám phá cấu trúc theo cây phân nhóm của Z-Anatomy.", "structure_ids": [
+      "model": {"path": "models/z-anatomy/z-anatomy.glb.br", "sha256": "92750bba3a906ada97b72a08a54f7e57dac31b2a466a4c57df8f8dcbe19efc1d", "scope": "Khám phá cấu trúc theo cây phân nhóm của Z-Anatomy.", "structure_ids": [
         "za:03e8acf51943f944", "za:03f5ac1fe6a3479e", "za:04591fa2d2d1463c", "za:05b7b8d31c09cea8", "za:06a70149dbfbd5df", "za:07f79aa3756e09fe", "za:091185553780d47c", "za:095ec1a57a0136c6",
         "za:09b07dbc7b79cc00", "za:09c1f216cdaa2108", "za:0ca7591cf4e102f4", "za:0dc3c7339eb2c24d", "za:0dd302670c5bd259", "za:0e83483ab777da1b", "za:1027b54f0cbae892", "za:115204bfc0d23015",
         "za:11cff7c7daf380d8", "za:12bbac2b8decd31b", "za:1336d75d13054ba6", "za:138b2c6d95289ea2", "za:13d878b2bd868fea", "za:142b4e62b83659b8", "za:14815dd49456f4fd", "za:17bf4bea0a9ee08c",
