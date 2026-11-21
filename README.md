@@ -68,14 +68,34 @@ The installer appears under `target/aarch64-apple-darwin/release/bundle/dmg/`.
 
 ### Windows x64 installer
 
-Run in PowerShell from the repository root on Windows with the x64 MSVC Rust toolchain and the [Windows Tauri prerequisites](https://v2.tauri.app/start/prerequisites/#windows).
+Both methods use the Node.js and Rust versions listed in [Setup](#setup) and produce `Soma_<version>_x64-setup.exe` under `target/x86_64-pc-windows-msvc/release/bundle/nsis/`. Run the installer on Windows, including in a Windows 11 Arm64 VM with x64 emulation.
+
+#### Build on Windows
+
+Install the [Windows Tauri prerequisites](https://v2.tauri.app/start/prerequisites/#windows) and select the x64 MSVC components in the **Desktop development with C++** workload. Run these commands from the repository root in PowerShell.
 
 ```powershell
+rustup target add wasm32-unknown-unknown x86_64-pc-windows-msvc
+cargo install wasm-pack --version 0.15.1 --locked
+npm.cmd ci
 npm.cmd exec --workspace apps/web -- tauri build --bundles nsis --target x86_64-pc-windows-msvc
 if ($LASTEXITCODE -ne 0) { throw 'Soma build failed' }
 ```
 
-Run the setup executable under `target/x86_64-pc-windows-msvc/release/bundle/nsis/`.
+#### Cross-build on macOS
+
+On an Apple Silicon Mac, install `wasm-pack` as shown in [Setup](#setup) and run these commands from the repository root with Homebrew available.
+
+```sh
+brew install llvm lld nsis
+export PATH="$(brew --prefix llvm)/bin:$(brew --prefix lld)/bin:$PATH"
+rustup target add wasm32-unknown-unknown x86_64-pc-windows-msvc
+cargo install --locked cargo-xwin
+npm ci
+npm exec --workspace apps/web -- tauri build --runner cargo-xwin --bundles nsis --target x86_64-pc-windows-msvc
+```
+
+Copy the `*-setup.exe` file to Windows or the VM and run it there.
 
 Desktop builds include the compressed models and source notices in a separate
 `models/` resource directory. The packaged app reads those files offline.
