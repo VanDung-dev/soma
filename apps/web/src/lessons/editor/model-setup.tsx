@@ -6,7 +6,9 @@ import { StructureTree } from "../../anatomy/structure-tree";
 import { useLanguage } from "../../i18n";
 import { fetchModelAsset } from "../../model-assets";
 
-export function metadataForRoot(payload: { metadata?: Record<string, unknown> }, rootId: string) {
+type ModelMetadata = { metadata?: Record<string, unknown> };
+
+export function metadataForRoot(payload: ModelMetadata, rootId: string) {
   if (!payload.metadata) return payload;
   const metadata = payload.metadata[rootId];
   if (!metadata) throw new Error("Missing system metadata");
@@ -26,19 +28,19 @@ export function LessonModelSetup({ catalog, targetId, visibleIds, selectedPart, 
   onSelectPart: (id: string, target?: boolean) => void;
 }) {
   const { t } = useLanguage();
-  const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
+  const [metadata, setMetadata] = useState<{ catalog: Catalog; ready: boolean }>();
   const [query, setQuery] = useState("");
   const cancelButton = useRef<HTMLButtonElement>(null);
   const closeSettings = useEffectEvent(onCloseSettings);
+  const ready = metadata?.catalog === catalog && metadata.ready;
+  const failed = metadata?.catalog === catalog && !metadata.ready;
 
   useEffect(() => {
     if (!settingsOpen) {
       setQuery("");
       return;
     }
-    const host = cancelButton.current?.closest(".lesson-model-settings");
+    const host = cancelButton.current?.closest<HTMLElement>(".lesson-model-settings");
     if (!host) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.isComposing) return;
@@ -55,25 +57,36 @@ export function LessonModelSetup({ catalog, targetId, visibleIds, selectedPart, 
   }, [settingsOpen]);
 
   useEffect(() => {
+    if (!settingsOpen || ready || failed) return;
     const abort = new AbortController();
-    setLoading(true);
-    setFailed(false);
+    const downloads = new Map<string, Promise<ModelMetadata>>();
     void Promise.all(catalog.roots.map(async root => {
-      const response = await fetchModelAsset(root.model!.path.replace(/\.glb(?:\.br)?$/, ".json"), { signal: abort.signal });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const payload = await response.json() as { metadata?: Record<string, unknown> };
-      if (!abort.signal.aborted) catalog.ingestMetadata(root, JSON.stringify(metadataForRoot(payload, root.id)));
-    })).then(() => {
-      if (!abort.signal.aborted) { catalog.finish(); setLoading(false); }
-    }, error => {
-      if (!abort.signal.aborted) { console.error("Lesson structure search failed", error); setFailed(true); setLoading(false); }
+      const path = root.model!.path.replace(/\.glb(?:\.br)?$/, ".json");
+      let download = downloads.get(path);
+      if (!download) {
+        download = fetchModelAsset(path, { signal: abort.signal }).then(async response => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return await response.json() as ModelMetadata;
+        });
+        downloads.set(path, download);
+      }
+      return [root, JSON.stringify(metadataForRoot(await download, root.id))] as const;
+    })).then(entries => {
+      if (abort.signal.aborted) return;
+      for (const [root, json] of entries) catalog.ingestMetadata(root, json);
+      catalog.finish();
+      setMetadata({ catalog, ready: true });
+    }).catch(error => {
+      if (abort.signal.aborted) return;
+      abort.abort();
+      console.error("Lesson structure search failed", error);
+      setMetadata({ catalog, ready: false });
     });
     return () => abort.abort();
-  }, [catalog, attempt]);
+  }, [catalog, failed, ready, settingsOpen]);
 
   const shown = useMemo(() => new Set(visibleIds), [visibleIds]);
   const reveal = useMemo(() => selectedPart || targetId ? { id: selectedPart || targetId } : undefined, [selectedPart, targetId]);
-  const ready = !loading && !failed;
   const search = useStructureSearch(catalog, query, settingsOpen && ready);
 
   function changeVisibility(members: string[], visible: boolean, target?: string) {
@@ -101,8 +114,8 @@ export function LessonModelSetup({ catalog, targetId, visibleIds, selectedPart, 
         <button className="lesson-button" disabled={!ready || !targetId} onClick={() => onChangeScene(catalog.members(targetId))}>{t("lessons.resetScene")}</button>
       </div>
       <StructureSearch query={query} onChange={setQuery} disabled={!ready} empty={!!search && !search.bestId} />
-      {loading && <p aria-live="polite">{t("lessons.loadingStructures")}</p>}
-      {failed && <p role="alert">{t("lessons.targetError")} <button className="lesson-save-retry" onClick={() => setAttempt(value => value + 1)}>{t("lessons.retry")}</button></p>}
+      {!ready && !failed && <p aria-live="polite">{t("lessons.loadingStructures")}</p>}
+      {failed && <p role="alert">{t("lessons.targetError")} <button className="lesson-save-retry" onClick={() => setMetadata(undefined)}>{t("lessons.retry")}</button></p>}
       {ready && <StructureTree catalog={catalog} visibleIds={shown} selected={selectedPart ?? ""}
         targetId={catalog.target(selectedPart ?? "") ? selectedPart : targetId} reveal={reveal} disabled={false}
         search={search}

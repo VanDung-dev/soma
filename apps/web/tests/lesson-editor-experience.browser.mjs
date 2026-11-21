@@ -38,7 +38,7 @@ export async function checkLessonEditorExperience(page) {
   await settingsButton.click();
   const settings = page.locator('.lesson-model-settings[data-open="true"]');
   const search = settings.locator('.lesson-scene-tree').getByRole('searchbox');
-  await search.waitFor();
+  await search.and(settings.locator('input:enabled')).waitFor();
   assert.equal(await page.locator('.structure-search').count(), 1);
   assert.equal(await settings.locator('.structure-tree > li').count(), 9, 'Model and structure settings share one panel');
   const ids = [];

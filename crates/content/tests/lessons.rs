@@ -103,7 +103,9 @@ fn package_round_trip_preserves_identity_and_rejects_unsupported_versions() {
     );
     let unsupported = lessons::compress(&tar::pack(&files).unwrap()).unwrap();
     assert_eq!(
-        Package::open("unsupported.lesson.br", &unsupported).err().as_deref(),
+        Package::open("unsupported.lesson.br", &unsupported)
+            .err()
+            .as_deref(),
         Some("Unsupported lesson archive format")
     );
     assert!(Package::open("wrong.game.br", &bytes).is_err());

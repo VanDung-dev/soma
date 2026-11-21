@@ -22,23 +22,19 @@ export async function checkLessonCanvas(page) {
   let release;
   const loading = new Promise(resolve => { release = resolve; });
   const blockModel = async route => { await loading; await route.continue().catch(() => {}); };
+  let metadataRequests = 0;
+  const countMetadata = request => {
+    if (new URL(request.url()).pathname.endsWith('/models/z-anatomy/z-anatomy.json')) metadataRequests++;
+  };
   await page.route('**/*.glb.br', blockModel);
-  await page.goto('/lessons/' + lesson.id + '/edit');
-  await page.getByLabel('Tên bài học', { exact: true }).waitFor();
-  await page.evaluate(async () => {
-    const { AnatomyViewer } = await (await import('/src/anatomy/core.ts')).getWasm();
-    const proto = AnatomyViewer.prototype;
-    const apply = proto.apply_scene, reframe = proto.reframe;
-    window.lessonCanvasFrames = [];
-    proto.apply_scene = function(...args) { window.lessonCanvasViewer = this; return apply.apply(this, args); };
-    proto.reframe = function(...args) { window.lessonCanvasFrames.push(args); return reframe.apply(this, args); };
-    window.restoreLessonCanvas = () => { proto.apply_scene = apply; proto.reframe = reframe; };
-  });
+  page.on('request', countMetadata);
   const region = page.locator('.lesson-scene-region');
   const canvas = page.locator('.lesson-editor > .model-canvas canvas');
   const canvasHost = page.locator('.lesson-editor > .model-canvas');
   const hud = region.locator('.lesson-editor-hud');
-  const slider = hud.getByRole('slider');
+  const modelSettings = page.locator('#lesson-model-settings');
+  const openModelSettings = region.getByRole('button', { name: 'Thiết lập 3D', exact: true });
+  const slider = modelSettings.getByRole('slider', { name: 'Mức độ tách', exact: true });
   const choose = title => page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: title }).click();
   const settled = () => page.waitForFunction(() => window.lessonCanvasViewer && !window.lessonCanvasViewer.advance_camera(performance.now()));
   const pose = () => page.evaluate(() => window.lessonCanvasViewer.camera_pose());
@@ -65,6 +61,17 @@ export async function checkLessonCanvas(page) {
     });
   };
   try {
+    await page.goto('/lessons/' + lesson.id + '/edit');
+    await page.getByLabel('Tên bài học', { exact: true }).waitFor();
+    await page.evaluate(async () => {
+      const { AnatomyViewer } = await (await import('/src/anatomy/core.ts')).getWasm();
+      const proto = AnatomyViewer.prototype;
+      const apply = proto.apply_scene, reframe = proto.reframe;
+      window.lessonCanvasFrames = [];
+      proto.apply_scene = function(...args) { window.lessonCanvasViewer = this; return apply.apply(this, args); };
+      proto.reframe = function(...args) { window.lessonCanvasFrames.push(args); return reframe.apply(this, args); };
+      window.restoreLessonCanvas = () => { proto.apply_scene = apply; proto.reframe = reframe; };
+    });
     await choose('Quan sát');
     await page.locator('.lesson-editor > .model-canvas[aria-busy="true"]').waitFor();
     assert(await hud.locator('.model-status').isVisible());
@@ -72,6 +79,7 @@ export async function checkLessonCanvas(page) {
     release();
     await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor({ timeout: 60000 });
     await settled();
+    assert.equal(metadataRequests, 1, 'Only the viewer loads metadata before 3D settings open');
     assert.equal(await hud.getByRole('progressbar').count(), 0);
     assert.equal(await canvasHost.locator(':scope > :not(canvas):not(.model-selection-box)').count(), 0);
     assert(await canvasHost.evaluate(node => {
@@ -132,20 +140,15 @@ export async function checkLessonCanvas(page) {
       window.restoreLessonCanvasPick = () => { Object.getPrototypeOf(viewer).pick = pick; };
     });
     await page.mouse.click(center.x, center.y);
-    await hud.locator('.lesson-part-card').waitFor();
+    await region.locator('.lesson-part-card').waitFor();
     const withPart = await geometry();
-    assert(withPart.height < initial.height, 'Structure details reserve their own space instead of covering anatomy');
+    assert.equal(withPart.height, initial.height, 'Structure details preserve the model frame');
     await page.mouse.move(center.x, center.y);
     await page.mouse.down();
-    await region.locator('.model-hold-progress').waitFor({ state: 'visible' });
-    await region.locator('.separation-status').waitFor();
-    assert(await slider.isDisabled());
-    await page.mouse.move(center.x + 25, center.y + 20);
+    await page.waitForTimeout(1100);
+    const separation = await region.locator('.model-hold-progress, .separation-status').count();
     await page.mouse.up();
-    await canvas.press('t');
-    await page.waitForFunction(() => !window.lessonCanvasViewer.restoration_active()
-      && document.querySelector('.lesson-editor-hud input[type="range"]').disabled === false);
-    assert.equal(await region.locator('.model-hold-progress').count(), 0);
+    assert.equal(separation, 0, 'Editor input does not detach model parts');
     await settled();
     await page.mouse.move(center.x, center.y);
     await page.mouse.down({ button: 'right' });
@@ -156,8 +159,13 @@ export async function checkLessonCanvas(page) {
     await page.getByRole('button', { name: 'Lưu bài học', exact: true }).click();
     assert.equal((await saved()).steps[0].visibleIds.length, 581);
 
+    await openModelSettings.click();
+    await modelSettings.locator('.structure-tree > li').first().waitFor();
+    assert.equal(metadataRequests, 2, '3D settings read the shared metadata bundle once');
     await slider.fill('40');
-    await page.waitForFunction(() => document.querySelector('.lesson-editor-hud output').textContent === '40%');
+    await page.waitForFunction(() => document.querySelector('#lesson-model-settings .explode-control output')?.textContent === '40%');
+    await modelSettings.getByRole('button', { name: 'Áp dụng', exact: true }).click();
+    await modelSettings.waitFor({ state: 'hidden' });
     await page.getByRole('button', { name: 'Lưu bài học', exact: true }).click();
     const authored = (await saved()).steps[0];
     assert.equal(authored.view.explosion, 40);
@@ -165,7 +173,11 @@ export async function checkLessonCanvas(page) {
     await settled();
     await choose('Quan sát');
     await settled();
+    await openModelSettings.click();
     assert.equal(await slider.inputValue(), '40');
+    assert.equal(metadataRequests, 2, 'Reopening 3D settings reuses indexed metadata');
+    await modelSettings.getByRole('button', { name: 'Hủy', exact: true }).click();
+    await modelSettings.waitFor({ state: 'hidden' });
     assert(await page.evaluate(() => window.lessonCanvasElement === document.querySelector('.lesson-editor > .model-canvas canvas')));
     for (const width of [320, 768, 1024, 1440]) {
       await page.setViewportSize({ width, height: 900 });
@@ -194,6 +206,7 @@ export async function checkLessonCanvas(page) {
     assert.deepEqual((await saved()).steps[0], authored);
   } finally {
     release();
+    page.off('request', countMetadata);
     await page.unroute('**/*.glb.br', blockModel);
     await page.evaluate(() => { window.restoreLessonCanvasPick?.(); window.restoreLessonCanvas?.(); });
   }
