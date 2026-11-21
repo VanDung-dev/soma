@@ -1,7 +1,7 @@
 #[cfg(target_os = "windows")]
 use std::sync::{Arc, Mutex};
 
-use tauri::PhysicalSize;
+use tauri::{LogicalSize, PhysicalSize};
 #[cfg(target_os = "windows")]
 use tauri::{Manager, WebviewWindow, WindowEvent};
 
@@ -9,6 +9,14 @@ fn fit_size(size: PhysicalSize<u32>, work_area: Option<PhysicalSize<u32>>) -> Ph
     work_area.map_or(size, |area| {
         PhysicalSize::new(size.width.min(area.width), size.height.min(area.height))
     })
+}
+
+fn fit_logical_size(
+    size: LogicalSize<f64>,
+    scale: f64,
+    work_area: Option<PhysicalSize<u32>>,
+) -> PhysicalSize<u32> {
+    fit_size(size.to_physical(scale), work_area)
 }
 
 struct WindowSize {
@@ -58,13 +66,14 @@ pub fn configure(window: &WebviewWindow) -> tauri::Result<()> {
     let work_area = window
         .current_monitor()?
         .map(|monitor| monitor.work_area().size);
-    let initial = PhysicalSize::new(config.width.round() as u32, config.height.round() as u32);
-    let minimum = PhysicalSize::new(
-        config.min_width.unwrap_or_default().round() as u32,
-        config.min_height.unwrap_or_default().round() as u32,
+    let scale = window.scale_factor()?;
+    let initial = LogicalSize::new(config.width, config.height);
+    let minimum = LogicalSize::new(
+        config.min_width.unwrap_or_default(),
+        config.min_height.unwrap_or_default(),
     );
-    window.set_min_size(Some(fit_size(minimum, work_area)))?;
-    window.set_size(fit_size(initial, work_area))?;
+    window.set_min_size(Some(fit_logical_size(minimum, scale, work_area)))?;
+    window.set_size(fit_logical_size(initial, scale, work_area))?;
 
     let size = Arc::new(Mutex::new(WindowSize {
         normal: window.inner_size()?,
@@ -125,6 +134,30 @@ pub fn configure(window: &WebviewWindow) -> tauri::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn windows_startup_size_accounts_for_dpi_and_work_area() {
+        let initial = LogicalSize::new(1280.0, 800.0);
+        let minimum = LogicalSize::new(800.0, 520.0);
+        let work_area = Some(PhysicalSize::new(1920, 1040));
+
+        assert_eq!(
+            fit_logical_size(initial, 1.0, None),
+            PhysicalSize::new(1280, 800)
+        );
+        assert_eq!(
+            fit_logical_size(initial, 1.5, None),
+            PhysicalSize::new(1920, 1200)
+        );
+        assert_eq!(
+            fit_logical_size(initial, 1.5, work_area),
+            PhysicalSize::new(1920, 1040)
+        );
+        assert_eq!(
+            fit_logical_size(minimum, 1.5, work_area),
+            PhysicalSize::new(1200, 780)
+        );
+    }
 
     #[test]
     fn windows_size_preserves_physical_pixels_across_common_dpi_changes() {
