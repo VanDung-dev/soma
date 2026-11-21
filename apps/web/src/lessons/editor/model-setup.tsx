@@ -1,10 +1,10 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { Catalog } from "../../anatomy/catalog/types";
+import { StructureSearch, useStructureSearch } from "../../anatomy/structure-search";
 import { StructureTree } from "../../anatomy/structure-tree";
 import { useLanguage } from "../../i18n";
 import { fetchModelAsset } from "../../model-assets";
-import { searchLessonTree } from "./tree-search";
 
 export function metadataForRoot(payload: { metadata?: Record<string, unknown> }, rootId: string) {
   if (!payload.metadata) return payload;
@@ -25,7 +25,7 @@ export function LessonModelSetup({ catalog, targetId, visibleIds, selectedPart, 
   onChangeScene: (ids: string[], root?: { id: string; shown: boolean }) => boolean;
   onSelectPart: (id: string, target?: boolean) => void;
 }) {
-  const { language, t } = useLanguage();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -74,9 +74,7 @@ export function LessonModelSetup({ catalog, targetId, visibleIds, selectedPart, 
   const shown = useMemo(() => new Set(visibleIds), [visibleIds]);
   const reveal = useMemo(() => selectedPart || targetId ? { id: selectedPart || targetId } : undefined, [selectedPart, targetId]);
   const ready = !loading && !failed;
-  const searchTerm = query.trim();
-  const search = useMemo(() => settingsOpen && ready && searchTerm
-    ? searchLessonTree(catalog, searchTerm, language) : undefined, [catalog, language, ready, searchTerm, settingsOpen]);
+  const search = useStructureSearch(catalog, query, settingsOpen && ready);
 
   function changeVisibility(members: string[], visible: boolean, target?: string) {
     const next = new Set(visibleIds);
@@ -96,27 +94,20 @@ export function LessonModelSetup({ catalog, targetId, visibleIds, selectedPart, 
       </div>
     </header>
     <div className="catalog-tree lesson-scene-tree">
-      <h3>{t("lessons.sceneStructures")}</h3>
       <div className="lesson-inspector-actions">
         <button className="lesson-button" disabled={!ready}
           onClick={() => onChangeScene([...new Set(catalog.roots.flatMap(root => catalog.members(root.id)))])}>{t("catalog.showAll")}</button>
         <button className="lesson-button" disabled={!ready || !visibleIds.length} onClick={() => onChangeScene([])}>{t("catalog.hideAll")}</button>
         <button className="lesson-button" disabled={!ready || !targetId} onClick={() => onChangeScene(catalog.members(targetId))}>{t("lessons.resetScene")}</button>
       </div>
-      <div className="lesson-scene-search" role="search" aria-label={t("search.label")}>
-        <input type="search" aria-label={t("search.label")} placeholder={t("search.label")} autoComplete="off"
-          disabled={!ready} value={query} onChange={event => setQuery(event.target.value)} />
-      </div>
+      <StructureSearch query={query} onChange={setQuery} disabled={!ready} empty={!!search && !search.bestId} />
       {loading && <p aria-live="polite">{t("lessons.loadingStructures")}</p>}
       {failed && <p role="alert">{t("lessons.targetError")} <button className="lesson-save-retry" onClick={() => setAttempt(value => value + 1)}>{t("lessons.retry")}</button></p>}
-      {ready && <>
-        {search && !search.bestId && <p aria-live="polite">{t("search.noResults")}</p>}
-        <StructureTree catalog={catalog} visibleIds={shown} selected={selectedPart ?? ""}
-          targetId={catalog.target(selectedPart ?? "") ? selectedPart : targetId} reveal={reveal} disabled={false}
-          search={search}
-          onVisibility={changeVisibility} onSelect={onSelectPart} onTarget={id => onSelectPart(id, true)}
-          onFocus={(members, target) => onChangeScene(target ? catalog.members(target) : members)} />
-      </>}
+      {ready && <StructureTree catalog={catalog} visibleIds={shown} selected={selectedPart ?? ""}
+        targetId={catalog.target(selectedPart ?? "") ? selectedPart : targetId} reveal={reveal} disabled={false}
+        search={search}
+        onVisibility={changeVisibility} onSelect={onSelectPart} onTarget={id => onSelectPart(id, true)}
+        onFocus={(members, target) => onChangeScene(target ? catalog.members(target) : members)} />}
     </div>
     <div className="lesson-model-settings-controls">{controls}</div>
   </>;

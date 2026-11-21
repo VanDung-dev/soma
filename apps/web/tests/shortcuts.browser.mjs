@@ -37,13 +37,13 @@ export async function checkAppShortcuts() {
     }
     await closeSettings();
     await key('f');
-    const input = document.querySelector('input[type="search"]');
-    assert(!input.closest('[popover]').matches(':popover-open'), 'Plain F must not open search');
+    const input = document.querySelector('.catalog-panel .structure-search input');
+    assert(document.activeElement !== input, 'Plain F must not move focus to search');
     assert(!await key('f', canvas, command), 'Let the browser handle its native Find shortcut');
-    assert(!input.closest('[popover]').matches(':popover-open'), 'Preserve the browser Find shortcut');
-    assert(!await key('/', canvas, { ctrlKey: true }) && !input.closest('[popover]').matches(':popover-open'), 'Remove the Ctrl+/ search shortcut');
-    document.querySelector('.structure-search-field').click(); await frames();
-    assert(document.activeElement === input && input.closest('[popover]').matches(':popover-open'), 'The search button opens and focuses structure search');
+    assert(document.activeElement !== input, 'Preserve the browser Find shortcut');
+    assert(!await key('/', canvas, { ctrlKey: true }) && document.activeElement !== input, 'Ctrl+/ must not move focus to search');
+    input.focus();
+    assert(document.activeElement === input, 'Structure search is directly focusable');
     for (const value of ['g', 't', 'f']) await key(value, input);
     assert(!document.querySelector('.settings-page') && document.activeElement === input, 'Typing does not activate app shortcuts');
     await close();
@@ -64,13 +64,13 @@ export async function checkAppShortcuts() {
     await closeSettings();
     frame.contentWindow.postMessage({ type: 'test:key', key: 'f', code: 'KeyF' }, '*');
     await frames();
-    assert(!input.closest('[popover]').matches(':popover-open'), 'Plain F in an article must not open search');
+    assert(document.activeElement !== input, 'Plain F in an article must not move focus to search');
     frame.contentWindow.postMessage({ type: 'test:key', key: 'f', code: 'KeyF', ...command }, '*');
     await frames();
-    assert(!input.closest('[popover]').matches(':popover-open'), 'Article browser Find must remain available');
+    assert(document.activeElement !== input, 'Article browser Find must remain available');
     frame.contentWindow.postMessage({ type: 'test:key', key: '/', code: 'Slash', ctrlKey: true }, '*');
     await frames();
-    assert(!input.closest('[popover]').matches(':popover-open'), 'Remove the article search shortcut');
-    return { settings: true, searchButton: true, history: true, typingPreserved: true, article: true, sourceValidated: true };
+    assert(document.activeElement !== input, 'Ctrl+/ in an article must not move focus to search');
+    return { settings: true, inlineSearch: true, history: true, typingPreserved: true, article: true, sourceValidated: true };
   } finally { frame.remove(); await closeSettings(); await close(); }
 }

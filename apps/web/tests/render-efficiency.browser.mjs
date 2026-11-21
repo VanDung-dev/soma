@@ -23,7 +23,7 @@ export function checkRenderEfficiency({ verify = true } = {}) {
   const onSelect = id => { selected = id; };
   const treeProps = { catalog, structures, selected: '', visibleIds: new Set(ids), disabled: false,
     onSelect, onTarget() {}, onVisibility() {}, onFocus: ids => { focused = ids[0]; }, reveal: { id: '0' } };
-  const searchProps = { structures, disabled: false, onSelect };
+  const searchProps = { query: '', disabled: false, empty: false, onChange: query => { selected = query; } };
   const render = () => flushSync(() => root.render(createElement('div', null,
     createElement(StructureTree, treeProps), createElement(StructureSearch, searchProps))));
   try {
@@ -45,10 +45,12 @@ export function checkRenderEfficiency({ verify = true } = {}) {
     assert(selected === '0', 'Structure selection must remain connected');
     row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     assert(focused === '0', 'Structure focus must remain connected');
-    searchProps.onSelect = id => { selected = `new:${id}`; };
+    searchProps.onChange = query => { selected = `new:${query}`; };
     render();
-    host.querySelector('[role="option"]').click();
-    assert(selected.startsWith('new:'), 'Search must use the updated callback');
+    const input = host.querySelector('.structure-search input');
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'Atlas');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    assert(selected === 'new:Atlas', 'Search must use the updated callback');
     treeProps.reveal = { id: '99' };
     render();
     assert(host.querySelector('[data-structure-id="99"].part-row'), 'A new reveal must update the tree path');

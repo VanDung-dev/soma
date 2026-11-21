@@ -1,21 +1,17 @@
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import { createPortal } from "react-dom";
 import type { Catalog } from "../../anatomy/catalog/types";
 import type { StudySession, StudyState } from "../../anatomy/study/session";
-import { StructureSearch } from "../../anatomy/structure-search";
 import { useLanguage } from "../../i18n";
 
-export function LessonStructureTools({ catalog, session, state, ids, searchable = true, detailsHost }: {
+export function LessonStructureTools({ catalog, session, state, ids, detailsHost }: {
   catalog: Catalog;
   session: StudySession;
   state: Readonly<StudyState>;
   ids: string[];
-  searchable?: boolean;
   detailsHost?: HTMLElement | null;
 }) {
   const { language, t } = useLanguage();
-  const search = useRef<HTMLDivElement>(null);
-  const tools = useRef<HTMLDivElement>(null);
   const id = state.readingId;
   const detail = useMemo(() => ids.includes(id) ? catalog.detail(id) : undefined, [catalog, id, ids, state.structureIds]);
   const part = state.visibleIds.has(id) ? detail : undefined;
@@ -23,12 +19,9 @@ export function LessonStructureTools({ catalog, session, state, ids, searchable 
   const otherLanguage = language === "vi" ? "en" : "vi";
   const title = part?.names[language];
   const otherName = part?.names[otherLanguage];
-  const focusSearch = () => (search.current?.querySelector<HTMLButtonElement>("button")
-    ?? tools.current?.closest(".lesson-model")?.querySelector<HTMLButtonElement>(".structure-search-field"))?.focus({ preventScroll: true });
   const restoreRegion = () => {
     if (!session.showScene(ids)) return;
     if (part) session.browseStructure(part.source_id);
-    focusSearch();
   };
 
   const card = part && <section className="lesson-part-card"
@@ -40,21 +33,12 @@ export function LessonStructureTools({ catalog, session, state, ids, searchable 
       </div>
       {ids.length > 1 && !isolated && <div className="lesson-part-actions">
         <button className="lesson-button" type="button"
-          onClick={() => {
-            if (session.focus([part.source_id])) focusSearch();
-          }}>{t("lessons.isolatePart")}</button>
+          onClick={() => session.focus([part.source_id])}>{t("lessons.isolatePart")}</button>
       </div>}
       {isolated && <button className="lesson-button lesson-restore-region" type="button" onClick={restoreRegion}>{t("lessons.restoreRegion")}</button>}
     </section>;
 
-  return <div className="lesson-structure-tools" ref={tools}>
-    {searchable && <div ref={search}>
-      <StructureSearch catalog={catalog} structureIds={ids} disabled={!ids.length} compact
-        label={t("lessons.findPart")} onSelect={partId => {
-          if (!state.visibleIds.has(partId) && !session.showScene(ids)) return;
-          session.browseStructure(partId);
-        }} />
-    </div>}
+  return <div className="lesson-structure-tools">
     <span className="sr-only" role="status">{title}</span>
     {card ? detailsHost ? createPortal(card, detailsHost) : card : null}
     {isolated && !part && <button className="lesson-button lesson-restore-region" type="button" onClick={restoreRegion}>{t("lessons.restoreRegion")}</button>}

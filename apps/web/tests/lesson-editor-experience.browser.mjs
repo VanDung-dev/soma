@@ -11,7 +11,7 @@ export async function checkLessonEditorExperience(page) {
   const saved = () => savedLesson(page, id);
   const writing = page.locator('#lesson-author-writing');
   const frame = page.locator('.lesson-scene-region');
-  assert.equal(await page.locator('.lesson-model:visible, .tox-tinymce, .structure-search-field:visible').count(), 0, 'Lesson details are a simple card form');
+  assert.equal(await page.locator('.lesson-model:visible, .tox-tinymce, .structure-search:visible').count(), 0, 'Lesson details are a simple card form');
   await page.getByLabel('Tên bài học').fill('Thông tin và từng bước');
   await page.getByLabel('Mô tả ngắn').fill('Mô tả trên thẻ bài học.');
   const cover = await readFile(new URL('../public/home/anatomy.png', import.meta.url));
@@ -39,7 +39,7 @@ export async function checkLessonEditorExperience(page) {
   const settings = page.locator('.lesson-model-settings[data-open="true"]');
   const search = settings.locator('.lesson-scene-tree').getByRole('searchbox');
   await search.waitFor();
-  assert.equal(await page.locator('.structure-search-popover').count(), 0);
+  assert.equal(await page.locator('.structure-search').count(), 1);
   assert.equal(await settings.locator('.structure-tree > li').count(), 9, 'Model and structure settings share one panel');
   const ids = [];
   for (const query of ['xương hàm dưới', 'masseter right']) {
@@ -113,7 +113,7 @@ export async function checkLessonEditorExperience(page) {
   const headingBounds = await player.locator('.lesson-player-heading').boundingBox();
   assert(Math.abs(headingBounds.x + headingBounds.width / 2 - headerBounds.x - headerBounds.width / 2) <= 1, 'The preview heading is centered');
   assert(await player.locator('.lesson-reader-outline').isVisible());
-  assert.equal(await player.locator('.explode-control, .structure-search-field, .lesson-part-card').count(), 0, 'Student preview has only camera controls');
+  assert.equal(await player.locator('.explode-control, .structure-search, .lesson-part-card').count(), 0, 'Student preview has only camera controls');
   for (const width of [320, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await checkLessonHeader(page, '.lesson-player-header', '.lesson-player-heading');
@@ -136,7 +136,7 @@ export async function checkLessonEditorExperience(page) {
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     assert(await page.locator('.lessons-screen').evaluate(node => node.scrollWidth <= node.clientWidth));
     await checkLessonHeader(page, '.lesson-author-bar', '.lesson-author-heading');
-    assert.equal(await page.locator('.structure-search-field').count(), 1);
+    assert.equal(await page.locator('.structure-search').count(), 1);
     assert((await frame.locator('.lesson-scene-viewport').boundingBox()).height >= 140);
   }
   const expected = await saved();

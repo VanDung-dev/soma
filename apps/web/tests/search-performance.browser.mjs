@@ -2,12 +2,6 @@ export async function measureSearch(queries = ['femur', 'xuong', 'x'], rounds = 
   const input = document.querySelector('.structure-search input');
   if (input.disabled) throw Error('Wait for startup to finish');
   const previous = input.value;
-  const popover = input.closest('[popover]');
-  const wasOpen = popover?.matches(':popover-open');
-  if (popover && !wasOpen) {
-    document.querySelector('.structure-search-field').click();
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  }
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
   const enter = async query => {
     const start = performance.now();
@@ -18,7 +12,7 @@ export async function measureSearch(queries = ['femur', 'xuong', 'x'], rounds = 
     tree.getBoundingClientRect();
     return { ms: Math.round(performance.now() - start), rows: tree.querySelectorAll('.tree-row').length,
       elements: tree.querySelectorAll('*').length,
-      resultRows: document.querySelectorAll('.structure-search-results [role="option"]').length };
+      resultRows: tree.querySelectorAll('.tree-name:has(mark)').length };
   };
   const results = [];
   try {
@@ -35,6 +29,5 @@ export async function measureSearch(queries = ['femur', 'xuong', 'x'], rounds = 
     return results;
   } finally {
     await enter(previous);
-    if (popover && !wasOpen) popover.hidePopover();
   }
 }

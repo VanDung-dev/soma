@@ -1,7 +1,7 @@
 import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { Catalog } from "./catalog/types";
 import { StructureTree } from "./structure-tree";
-import { StructureSearch } from "./structure-search";
+import { StructureSearch, useStructureSearch } from "./structure-search";
 import { useCameraKeys } from "./use-camera-keys";
 import { MenuBar } from "./menu-bar";
 import { OrientationAxes } from "./orientation-axes";
@@ -30,6 +30,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const [hold, setHold] = useState<{ x: number; y: number; action: "hide" | "move" } | null>(null);
   const [snapTarget, setSnapTarget] = useState("");
   const [panel, setPanel] = useState<"catalog" | "information" | null>(null);
+  const [query, setQuery] = useState("");
   const [collapsedPanels, setCollapsedPanels] = useState({ catalog: false, information: false });
   const [desktopPanels, setDesktopPanels] = useState(() => window.matchMedia(desktopPanelQuery).matches);
   const [handCameraEnabled, setHandCameraEnabled] = useState(false);
@@ -53,6 +54,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const restoredVisibility = useRef(false);
   const { structureIds, building, error, loadedSystems, selected, readingId, targetId,
     visibleIds, readerExpanded, explosionAmount, movingId, separatedIds, reveal, canGoBack, canGoForward } = state;
+  const search = useStructureSearch(catalog, query, !building && !error);
   useCameraKeys(!active || building || error, session.control);
   const roots = session.catalog.roots;
   const target = useMemo(() => targetId ? catalog.target(targetId) : undefined, [catalog, targetId]);
@@ -161,12 +163,6 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
     if (!session.focus(ids, focusTarget)) return;
     setPanel(null);
   }, [session]);
-  const chooseSearchResult = useCallback((id: string) => {
-    if (catalog.target(id)) focusStructures([], id);
-    else focusStructures([id]);
-    session.revealStructure(id);
-    host.current?.querySelector("canvas")?.focus({ preventScroll: true });
-  }, [catalog, session, focusStructures]);
   const selectedPart = useMemo(() => catalog.detail(readingId), [catalog, readingId, structureIds]);
   const snapPart = useMemo(() => catalog.detail(snapTarget), [catalog, snapTarget, structureIds]);
   const canReadReference = !!selectedPart && canReadStructure(state, readingId);
@@ -192,11 +188,11 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         <div className="tree-actions">
           <button disabled={building || error} onClick={() => session.changeVisibility(structureIds, true)}>{t("catalog.showAll")}</button>
           <button disabled={building || error} onClick={() => session.changeVisibility(structureIds, false)}>{t("catalog.hideAll")}</button>
-          <StructureSearch catalog={catalog} disabled={building || error} label={t("search.submit")} onSelect={chooseSearchResult} />
         </div>
+        <StructureSearch query={query} onChange={setQuery} disabled={building || error} empty={!!search && !search.bestId} />
         <div className="catalog-tree">
           <StructureTree catalog={catalog} visibleIds={visibleIds} selected={selected} targetId={targetId} reveal={reveal} disabled={building || error}
-            onVisibility={session.changeVisibility} onFocus={focusStructures} onSelect={session.browseStructure}
+            search={search} onVisibility={session.changeVisibility} onFocus={focusStructures} onSelect={session.browseStructure}
             onTarget={session.browseTarget} />
         </div>
       </aside>

@@ -53,7 +53,7 @@ export async function checkLessonPlayerBackground(page) {
       await settle();
       await page.waitForFunction(() => window.playerViewer?.visible_count() === 277);
       assert(await model.isVisible());
-      assert.equal(await player.locator('.explode-control, .structure-search-field, .lesson-part-card').count(), 0);
+      assert.equal(await player.locator('.explode-control, .structure-search, .lesson-part-card').count(), 0);
       assert(await model.evaluate(node => getComputedStyle(node).boxShadow === 'none' && getComputedStyle(node).backgroundColor === 'rgba(0, 0, 0, 0)'));
       const before = await page.evaluate(() => window.playerViewer.camera_pose());
       const frame = await model.locator('.model-focus-frame').boundingBox();

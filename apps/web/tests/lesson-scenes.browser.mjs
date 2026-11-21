@@ -71,7 +71,7 @@ export async function checkLessonScenes(page) {
   const player = page.locator('.lesson-player');
   const playerModel = player.locator('.lesson-model');
   await player.locator(':scope > .model-canvas[aria-busy="false"]').waitFor();
-  assert.equal(await player.locator('.explode-control, .structure-search-field').count(), 0);
+  assert.equal(await player.locator('.explode-control, .structure-search').count(), 0);
   await page.mouse.move(1400, 5);
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   const playerCanvas = player.locator(':scope > .model-canvas canvas');
@@ -110,7 +110,7 @@ export async function checkLessonScenes(page) {
   assert.deepEqual(await saved(), beforeLearning, 'Learner interactions must not edit the saved lesson');
   await page.setViewportSize({ width: 390, height: 844 });
   assert(await page.locator('.lessons-screen').evaluate(node => node.scrollWidth <= node.clientWidth));
-  assert.equal(await player.locator('.explode-control, .structure-search-field').count(), 0);
+  assert.equal(await player.locator('.explode-control, .structure-search').count(), 0);
   await page.setViewportSize({ width: 1440, height: 900 });
   await player.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
   const mode = page.getByRole('group', { name: 'Hiển thị trong mục', exact: true });

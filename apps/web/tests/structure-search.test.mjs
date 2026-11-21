@@ -12,7 +12,7 @@ test('structure search matches names, Latin and laterality, and reveals the sele
   try {
     const wasm = await initCatalogWasm(server);
     const { Catalog } = await server.ssrLoadModule('/src/anatomy/catalog/index.ts');
-    const { StructureSearch } = await server.ssrLoadModule('/src/anatomy/structure-search.tsx');
+    const { StructureSearch, useStructureSearch } = await server.ssrLoadModule('/src/anatomy/structure-search.tsx');
     const fixture = parts => {
       const ids = parts.map((_, i) => 'za:' + i.toString(16).padStart(16, '0'));
       const targets = parts.length ? [{ id: 'fixture', title: 'Fixture', source_name: 'Fixture', group_id: 'g', structure_ids: ids,
@@ -46,22 +46,11 @@ test('structure search matches names, Latin and laterality, and reveals the sele
     for (const query of ['Femur left', 'Femur trai', 'xuong dui trai', 'Xương đùi · trái']) {
       assert.equal(searchStructures(withLeftHead, query)[0].source_id, 'left', query);
     }
-    const html = renderToStaticMarkup(createElement(StructureSearch, { catalog: fixture(parts).store, disabled: true, onSelect() {} }));
+    const html = renderToStaticMarkup(createElement(StructureSearch, { query: '', disabled: true, empty: false, onChange() {} }));
     assert.match(html, /role="search"/);
     assert.match(html, /<input[^>]*type="search"[^>]*disabled=""/);
-    assert.match(html, /<button[^>]*disabled=""[^>]*aria-label="Tìm kiếm"/);
-    assert.match(html, /class="structure-search-field"[^>]*popoverTarget=/);
-    assert.match(html, /class="structure-search-popover"[^>]*popover="auto"[^>]*role="dialog"/);
-    assert.match(html, /role="combobox"/);
-    assert.match(html, /role="listbox"/);
-    assert.doesNotMatch(html, /class="controls-info"/);
-    const alphabetical = renderToStaticMarkup(createElement(StructureSearch, {
-      catalog: fixture([part('unknown', '???', ''), part('z', 'ZzzAtlas', ''), part('a', 'AaaAtlas', ''), part('m', 'MmmAtlas', '')]).store,
-      disabled: false, onSelect() {},
-    }));
-    assert(alphabetical.indexOf('data-structure-id="za:0000000000000002"') < alphabetical.indexOf('data-structure-id="za:0000000000000003"'));
-    assert(alphabetical.indexOf('data-structure-id="za:0000000000000003"') < alphabetical.indexOf('data-structure-id="za:0000000000000001"'));
-    assert(alphabetical.indexOf('data-structure-id="za:0000000000000001"') < alphabetical.indexOf('data-structure-id="za:0000000000000000"'));
+    assert.match(html, /aria-label="Tìm bộ phận"/);
+    assert.doesNotMatch(html, /popover|role="(combobox|listbox|dialog)"/);
     const find = query => searchStructures(parts, query);
     assert.deepEqual(find('femur').map(part => part.source_id), ['right', 'left', 'head']);
     assert.deepEqual(find('xuong dui trai').map(part => part.source_id), ['left']);
@@ -71,11 +60,13 @@ test('structure search matches names, Latin and laterality, and reveals the sele
     const metadata = modelMetadata('skeletal-system');
     const femur = metadata.structures.find(p => p.source_name === 'Femur');
     assert(femur);
-    const tree = renderToStaticMarkup(createElement(StructureTree, {
-      catalog: await createCatalogFixture(server, catalog, [[catalog.targets.find(target => target.source_name === '1: Skeletal system'), metadata]]), visibleIds: new Set([femur.source_id]), selected: femur.source_id,
+    const treeProps = {
+      catalog: await createCatalogFixture(server, catalog, [[catalog.targets.find(target => target.source_name === '1: Skeletal system'), metadata]]),
+      visibleIds: new Set([femur.source_id]), selected: femur.source_id,
       reveal: { id: femur.source_id }, disabled: false,
       onVisibility() {}, onSelect() {}, onTarget() {}, onFocus() {},
-    }));
+    };
+    const tree = renderToStaticMarkup(createElement(StructureTree, treeProps));
     assert(tree.includes(`data-structure-id="${femur.source_id}"`), 'Search must open ancestors of the exact structure');
     assert.match(tree, /class="tree-row part-row is-selected"/);
     assert.match(tree, /aria-expanded="true"/);
@@ -85,6 +76,14 @@ test('structure search matches names, Latin and laterality, and reveals the sele
     assert.doesNotMatch(tree, /class="tree-focus"/);
     assert.match(tree, /<small class="tree-count"><span>277<\/span> <span>cấu trúc<\/span><\/small>/);
     assert.match(tree, /aria-keyshortcuts="Shift\+Enter"/);
-    assert.doesNotMatch(tree, /is-search-match|<mark>/);
+    assert.doesNotMatch(tree, /<mark/);
+    function FilteredTree() {
+      const search = useStructureSearch(treeProps.catalog, 'xuong dui trai', true);
+      return createElement(StructureTree, { ...treeProps, reveal: undefined, selected: '', search });
+    }
+    const filtered = renderToStaticMarkup(createElement(FilteredTree));
+    assert.match(filtered, /<mark class="structure-tree-match">Xương đùi · trái<\/mark>/);
+    assert.match(filtered, /data-search-best="true"/);
+    assert.doesNotMatch(filtered, /aria-current="true"/);
   } finally { await server.close(); }
 });

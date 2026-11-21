@@ -122,7 +122,7 @@ function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inacti
           {snapPart && <p className="model-status model-snap-hint" role="status">{t("viewer.snapHint", { name: snapPart.names[language] })}</p>}
           {separated && <p className="model-status separation-status" role="status">{t("context.dragHint")}</p>}
         </>} />
-      {ready && <LessonStructureTools key={sectionId} catalog={catalog} session={session} state={state} ids={ids} searchable={false} />}
+      {ready && <LessonStructureTools key={sectionId} catalog={catalog} session={session} state={state} ids={ids} />}
       {hold && <svg key={hold.action} className="model-hold-progress" data-action={hold.action} style={{ left: hold.x, top: hold.y }} viewBox="0 0 40 40" aria-hidden="true">
         <circle cx="20" cy="20" r="16" />
         <circle className="model-hold-fill" cx="20" cy="20" r="16" pathLength="100" />

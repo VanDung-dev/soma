@@ -160,7 +160,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false,
           actions={<button className="lesson-button lesson-player-reset" disabled={!ready || !sceneUsable}
             onClick={() => session.applyScene(sceneIds, scene?.view)}>{t("lessons.resetStudyScene")}</button>} />
       </section>
-      <LessonContentPanel aria-labelledby="lesson-step-title">
+      <LessonContentPanel aria-labelledby="lesson-step-title" data-preview={preview || undefined}>
         {lesson.steps.length > 0 && <LessonStepNavigation position={{ current: index + 1, total: lesson.steps.length }}
           onPrevious={complete ? undefined : () => move(index - 1)} previousDisabled={index === 0}
           actions={complete

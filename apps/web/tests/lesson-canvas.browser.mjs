@@ -190,7 +190,7 @@ export async function checkLessonCanvas(page) {
     }
     await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
     await page.locator('.lesson-player .model-canvas[aria-busy="false"]').waitFor();
-    assert.equal(await page.locator('.lesson-player .explode-control, .lesson-player .structure-search-field').count(), 0);
+    assert.equal(await page.locator('.lesson-player .explode-control, .lesson-player .structure-search').count(), 0);
     assert.deepEqual((await saved()).steps[0], authored);
   } finally {
     release();

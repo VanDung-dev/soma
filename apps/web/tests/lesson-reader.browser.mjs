@@ -26,7 +26,7 @@ export async function checkLessonReader(page) {
   const model = page.locator('.lesson-model');
   const reader = page.locator('.lesson-reader-body');
   await page.locator('.lesson-player > .model-canvas[aria-busy="false"]').waitFor();
-  assert.equal(await model.locator('.structure-search-field, .explode-control').count(), 0);
+  assert.equal(await model.locator('.structure-search, .explode-control').count(), 0);
   await page.evaluate(() => { window.lessonReaderCanvas = document.querySelector('.lesson-player > .model-canvas canvas'); });
   const canvasUnchanged = () => page.evaluate(() => window.lessonReaderCanvas === document.querySelector('.lesson-player > .model-canvas canvas'));
   const original = await model.boundingBox();
