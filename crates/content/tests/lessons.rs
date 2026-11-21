@@ -25,6 +25,38 @@ fn checksum(bytes: &mut [u8]) {
 }
 
 #[test]
+fn recovering_lesson_text_reports_only_failed_references() {
+    let original = json!([
+        {"vi":"<p>Nội dung chung</p>","en":"<p>Nội dung chung</p>","html":["vi","en"]},
+        {"vi":"<p>Nội dung bị thiếu</p>","html":["vi"]},
+        {"vi":"<p>Nội dung bị lỗi</p>","html":["vi"]}
+    ]);
+    let mut stored = original.clone();
+    let mut files = lessons::externalize_lesson_content(&mut stored).unwrap();
+    assert_eq!(files.len(), 3);
+    let mut restored = stored.clone();
+    assert!(lessons::hydrate_lesson_content_recovering(&mut restored, files.clone()).is_empty());
+    assert_eq!(restored, original);
+
+    let missing = lessons::lesson_content_paths(&stored[1])
+        .pop_first()
+        .unwrap();
+    let corrupt = lessons::lesson_content_paths(&stored[2])
+        .pop_first()
+        .unwrap();
+    files.remove(&missing);
+    files.insert(corrupt.clone(), b"wrong content".to_vec());
+    assert_eq!(
+        lessons::hydrate_lesson_content_recovering(&mut stored, files),
+        [missing, corrupt]
+    );
+    assert_eq!(stored[0], original[0]);
+    for index in [1, 2] {
+        assert_eq!(stored[index]["vi"], "[Missing lesson text content]");
+    }
+}
+
+#[test]
 fn tar_preserves_bytes_and_rejects_unsafe_entries_and_broken_endings() {
     let files = files();
     let bytes = tar::pack(&files).unwrap();

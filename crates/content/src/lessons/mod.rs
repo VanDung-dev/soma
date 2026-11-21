@@ -199,7 +199,6 @@ pub fn hydrate_lesson_content_recovering(lesson: &mut Value, mut contents: Files
     if let Err(error) = transform_content(lesson, &mut contents, false, true, &mut missing) {
         missing.push(error);
     }
-    missing.extend(contents.into_keys());
     missing
 }
 
