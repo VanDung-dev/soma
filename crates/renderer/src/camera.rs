@@ -1,5 +1,35 @@
-use crate::Bounds;
-use glam::{Mat3, Mat4, Vec3};
+use crate::{Bounds, Primitive};
+use glam::{Mat3, Mat4, Vec2, Vec3};
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CameraPose {
+    pub target: Vec3,
+    pub yaw: f32,
+    pub pitch: f32,
+    pub distance: f32,
+    pub pan: [f32; 2],
+}
+
+impl CameraPose {
+    pub fn validate(&self) -> Result<(), String> {
+        if !self.target.is_finite()
+            || self.target.abs().max_element() > 1e12
+            || !self.yaw.is_finite()
+            || self.yaw.abs() > std::f32::consts::TAU
+            || !self.pitch.is_finite()
+            || self.pitch.abs() > std::f32::consts::FRAC_PI_2
+            || !self.distance.is_finite()
+            || self.distance <= 0.0
+            || self.distance > 1e12
+            || self.pan.iter().any(|v| !v.is_finite() || v.abs() > 1e6)
+        {
+            return Err("Invalid camera pose".into());
+        }
+        Ok(())
+    }
+}
 
 #[derive(Clone)]
 pub struct Camera {
@@ -14,9 +44,35 @@ pub struct Camera {
     frame: Option<[f32; 4]>,
     composition: Vec3,
     pan_offset: Vec3,
+    overview_fit: Option<[f32; 3]>,
+    projection_scale: f32,
+    projection_offset: Vec3,
 }
 
 impl Camera {
+    pub fn pose(&self) -> CameraPose {
+        let [_, _, width, height] = self.frame.unwrap_or([0.0, 0.0, 1.0, 1.0]);
+        CameraPose {
+            target: self.target,
+            yaw: self.yaw.rem_euclid(std::f32::consts::TAU),
+            pitch: self.pitch,
+            distance: self.distance * height.min(width * self.aspect),
+            pan: [self.pan_offset.x / width, self.pan_offset.y / height],
+        }
+    }
+
+    pub fn apply_pose(&mut self, pose: &CameraPose) -> Result<(), String> {
+        pose.validate()?;
+        let [_, _, width, height] = self.frame.unwrap_or([0.0, 0.0, 1.0, 1.0]);
+        self.target = pose.target;
+        self.yaw = pose.yaw;
+        self.pitch = pose.pitch;
+        self.distance = pose.distance / height.min(width * self.aspect);
+        self.pan_offset = Vec3::new(pose.pan[0] * width, pose.pan[1] * height, 0.0);
+        self.radius = self.radius.max(self.distance / 4.0);
+        Ok(())
+    }
+
     pub fn new(bounds: Bounds) -> Self {
         let mut camera = Self {
             target: bounds.center(),
@@ -30,11 +86,15 @@ impl Camera {
             frame: None,
             composition: Vec3::new(0.0, 0.04, 0.0),
             pan_offset: Vec3::ZERO,
+            overview_fit: None,
+            projection_scale: 1.0,
+            projection_offset: Vec3::ZERO,
         };
         camera.fit(bounds);
         camera
     }
     pub fn fit(&mut self, bounds: Bounds) {
+        self.clear_overview_fit();
         self.pan_offset = Vec3::ZERO;
         self.view = bounds;
         self.target = bounds.center();
@@ -89,13 +149,103 @@ impl Camera {
         camera.radius = camera.radius.max(camera.distance / 4.0);
         camera.yaw = 0.0;
         camera.pitch = 0.0;
-        camera.composition = Vec3::new(
+        camera.align_viewport();
+        Ok(camera)
+    }
+
+    pub fn fit_scene_frame(
+        aspect: f32,
+        frame: [f32; 4],
+        parts: impl Iterator<Item = Bounds> + Clone,
+    ) -> Result<Option<Self>, String> {
+        let Some(bounds) = parts.clone().reduce(Bounds::union) else {
+            return Ok(None);
+        };
+        let mut camera = Self::layout(bounds, aspect, frame)?;
+        let aperture = 19_f32.to_radians().tan();
+        let fit = Vec2::new(aspect * frame[2], frame[3]) * (0.85 * aperture);
+        let target = camera.target;
+        camera.distance = parts
+            .clone()
+            .map(|part| {
+                let extent = (part.min - target)
+                    .truncate()
+                    .abs()
+                    .max((part.max - target).truncate().abs())
+                    / fit;
+                (part.max.z - target.z) + extent.x.max(extent.y)
+            })
+            .fold(
+                bounds.max.z - target.z + (bounds.radius() / 100.0).max(1e-6),
+                f32::max,
+            );
+        camera.radius = camera.radius.max(camera.distance / 4.0);
+
+        let mut min = Vec2::splat(f32::INFINITY);
+        let mut max = Vec2::splat(f32::NEG_INFINITY);
+        for part in parts {
+            let near = camera.distance - (part.max.z - target.z);
+            let far = camera.distance - (part.min.z - target.z);
+            let low = (part.min - target).truncate();
+            let high = (part.max - target).truncate();
+            min = min.min((low / near).min(low / far));
+            max = max.max((high / near).max(high / far));
+        }
+        camera.pan_offset = (-(min + max) * 0.5 / (Vec2::new(aspect, 1.0) * aperture)).extend(0.0);
+        Ok(Some(camera))
+    }
+
+    pub fn align_viewport(&mut self) {
+        if self.overview_fit.is_some() {
+            return;
+        }
+        let frame = self.frame.unwrap_or([0.0, 0.0, 1.0, 1.0]);
+        self.composition = Vec3::new(
             2.0 * (frame[0] + frame[2] * 0.5) - 1.0,
             1.0 - 2.0 * (frame[1] + frame[3] * 0.5),
             0.0,
         );
-        Ok(camera)
     }
+
+    pub fn overview_framing(&self, parts: &[Primitive]) -> Option<[f32; 3]> {
+        let matrix = self.matrix();
+        let mut min = Vec3::splat(f32::INFINITY);
+        let mut max = Vec3::splat(f32::NEG_INFINITY);
+        for part in parts {
+            for vertex in part.vertices.chunks_exact(6) {
+                let point = matrix.project_point3(Vec3::from_slice(vertex));
+                min = min.min(point);
+                max = max.max(point);
+            }
+        }
+        let height = max.y - min.y;
+        if height.is_finite() && height > 1e-6 {
+            let center = (min + max) * 0.5;
+            Some([center.x * self.aspect, center.y, 1.5 / height])
+        } else {
+            None
+        }
+    }
+
+    pub fn fit_overview(&mut self, framing: [f32; 3], window: [f32; 3]) {
+        self.overview_fit = Some(framing);
+        self.update_overview_window(window);
+    }
+
+    pub fn update_overview_window(&mut self, [height, x, y]: [f32; 3]) {
+        if let Some([center_x, center_y, scale]) = self.overview_fit {
+            self.projection_scale = height * scale;
+            self.projection_offset = Vec3::new(x, y, 0.0)
+                - Vec3::new(center_x / self.aspect, center_y, 0.0) * self.projection_scale;
+        }
+    }
+
+    fn clear_overview_fit(&mut self) {
+        self.overview_fit = None;
+        self.projection_scale = 1.0;
+        self.projection_offset = Vec3::ZERO;
+    }
+
     pub fn approach(&mut self, goal: &Self, blend: f32) -> bool {
         if blend == 1.0 {
             *self = goal.clone();
@@ -111,6 +261,8 @@ impl Camera {
         self.center = self.center.lerp(goal.center, blend);
         self.composition = self.composition.lerp(goal.composition, blend);
         self.pan_offset = self.pan_offset.lerp(goal.pan_offset, blend);
+        self.projection_scale += (goal.projection_scale - self.projection_scale) * blend;
+        self.projection_offset = self.projection_offset.lerp(goal.projection_offset, blend);
         self.view = goal.view;
         self.frame = goal.frame;
         let tolerance = goal.radius * 1e-5;
@@ -120,7 +272,9 @@ impl Camera {
             || (self.pitch - goal.pitch).abs() > 1e-5;
         let moving = moving
             || self.composition.distance(goal.composition) > 1e-5
-            || self.pan_offset.distance(goal.pan_offset) > 1e-5;
+            || self.pan_offset.distance(goal.pan_offset) > 1e-5
+            || (self.projection_scale - goal.projection_scale).abs() > 1e-5
+            || self.projection_offset.distance(goal.projection_offset) > 1e-5;
         if !moving {
             *self = goal.clone();
         }
@@ -146,6 +300,7 @@ impl Camera {
         } else {
             center
         };
+        self.clear_overview_fit();
         let basis = self.light_basis().transpose();
         let mut corners = Vec::with_capacity(8);
         for x in [bounds.min.x, bounds.max.x] {
@@ -233,7 +388,9 @@ impl Camera {
             return Err("Invalid camera zoom position".into());
         }
         // Intersect the pointer ray with the target plane, including screen pan.
-        let screen = Vec3::new(x, y, 0.0) - self.composition - self.pan_offset;
+        let screen = (Vec3::new(x, y, 0.0) - self.projection_offset) / self.projection_scale
+            - self.composition
+            - self.pan_offset;
         let offset = Vec3::new(screen.x * self.aspect, screen.y, 0.0)
             * self.distance
             * 19_f32.to_radians().tan();
@@ -258,7 +415,8 @@ impl Camera {
         if !x.is_finite() || !y.is_finite() {
             return Err("Invalid camera pan".into());
         }
-        let next = self.pan_offset - Vec3::new(2.0 * x / self.aspect, 2.0 * y, 0.0);
+        let next = self.pan_offset
+            - Vec3::new(2.0 * x / self.aspect, 2.0 * y, 0.0) / self.projection_scale;
         if !next.is_finite() {
             return Err("Camera pan exceeds finite coordinates".into());
         }
@@ -271,7 +429,8 @@ impl Camera {
         }
         let point = self.matrix() * pivot.extend(1.0);
         if point.w > 1e-6 {
-            self.pan_offset += Vec3::new(x - point.x / point.w, y - point.y / point.w, 0.0);
+            self.pan_offset += Vec3::new(x - point.x / point.w, y - point.y / point.w, 0.0)
+                / self.projection_scale;
         }
         Ok(())
     }
@@ -333,17 +492,15 @@ impl Camera {
     }
     pub fn matrix(&self) -> Mat4 {
         // Anatomy retains startup framing; inventory uses the available viewport.
-        Mat4::from_translation(self.composition + self.pan_offset)
-            * glam::camera::rh::proj::opengl::perspective(
-                38_f32.to_radians(),
-                self.aspect,
-                (self.view.radius() / 100.0).max(1e-6),
-                self.radius * 100.0,
-            )
-            * glam::camera::rh::view::look_at_mat4(
-                self.eye(),
-                self.target,
-                self.light_basis().y_axis,
-            )
+        Mat4::from_scale_rotation_translation(
+            Vec3::new(self.projection_scale, self.projection_scale, 1.0),
+            glam::Quat::IDENTITY,
+            self.projection_offset + (self.composition + self.pan_offset) * self.projection_scale,
+        ) * glam::camera::rh::proj::opengl::perspective(
+            38_f32.to_radians(),
+            self.aspect,
+            (self.view.radius() / 100.0).max(1e-6),
+            self.radius * 100.0,
+        ) * glam::camera::rh::view::look_at_mat4(self.eye(), self.target, self.light_basis().y_axis)
     }
 }

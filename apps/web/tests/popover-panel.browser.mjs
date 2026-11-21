@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
-import { SourceDocument } from '../src/source-document.tsx';
+import { PopoverPanel } from '../src/popover-panel.tsx';
 
 export async function checkPopoverPanels() {
   const assert = (ok, message) => { if (!ok) throw Error(message); };
@@ -9,13 +9,14 @@ export async function checkPopoverPanels() {
   const host = document.createElement('div');
   document.body.append(host);
   const root = createRoot(host);
-  let sourceClosed = 0;
+  let panelClosed = 0;
   try {
-    flushSync(() => root.render(createElement(SourceDocument, {
-      path: '/models/z-anatomy/ATTRIBUTION.md', onClose: () => sourceClosed++,
-    })));
-    const panels = [...document.querySelectorAll('.settings-popover, .controls-guide'), host.querySelector('.source-document')];
-    assert(panels.length === 3 && panels.every(Boolean), 'Check Settings, Guide and Source together');
+    flushSync(() => root.render(createElement('div', null,
+      ['panel-1', 'panel-2'].map(id =>
+        createElement(PopoverPanel, { key: id, id, className: 'test-popover', title: id, closeLabel: 'Đóng', autoOpen: true, onClose: () => panelClosed++ },
+          createElement('p', null, 'Content'))))));
+    const panels = [...host.querySelectorAll('.test-popover')];
+    assert(panels.length === 2, 'Check both popovers');
     let geometry;
     for (const panel of panels) {
       panel.showPopover(); await frames();
@@ -38,7 +39,7 @@ export async function checkPopoverPanels() {
       close.dispatchEvent(key); await frames();
       assert(key.defaultPrevented && !panel.matches(':popover-open'), 'Close with Escape without opening another panel');
     }
-    assert(sourceClosed > 0, 'Notify the source owner when the popover closes');
+    assert(panelClosed > 0, 'Notify the owner when the popover closes');
     return { sharedGeometry: true, nativeAutoPopover: true, exclusive: true, closeButton: true, escape: true, sourceCloseNotification: true };
   } finally {
     document.querySelectorAll('.app-popover:popover-open').forEach(panel => panel.hidePopover());

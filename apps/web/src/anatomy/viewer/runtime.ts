@@ -1,7 +1,7 @@
 import type { Catalog, StudyTarget } from "../catalog/types";
-import { getWasm } from "../core";
+import { getContent, getWasm } from "../core";
 import type { AnatomyViewer } from "../../wasm/wasm";
-import type { CameraCommand, StudyViewer, ViewerState, ViewerStatus, Viewport } from "./contracts";
+import type { CameraCommand, PreparedGeometry, SceneView, StudyViewer, ViewerState, ViewerStatus, Viewport } from "./contracts";
 import { bindViewerInput } from "./input";
 import { loadModels } from "./loader";
 import { defaultGraphics, qualityLevels, renderScales } from "./graphics";
@@ -11,7 +11,7 @@ export class ViewerRuntime implements StudyViewer {
   private viewer: AnatomyViewer | undefined;
   private canvas = document.createElement("canvas");
   private selectionBox = document.createElement("div");
-  private abort = new AbortController();
+  private loadAbort: AbortController | undefined;
   private motion = window.matchMedia("(prefers-reduced-motion: reduce)");
   private resolution = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
   private observer: ResizeObserver;
@@ -24,6 +24,7 @@ export class ViewerRuntime implements StudyViewer {
   private reassembling = false;
   private renderFrame = 0;
   private resizePending = false;
+  private autoFitScene = false;
   private lastRenderTime = -Infinity;
   private graphics: GraphicsSettings = defaultGraphics;
   private fpsFrames = 0;
@@ -31,6 +32,8 @@ export class ViewerRuntime implements StudyViewer {
   private fpsTimer = 0;
   private orientation: Float32Array | undefined;
   private structureIds: string[] = [];
+  private loadedModelIds = new Set<string>();
+  private modelLoadError = false;
   private movingId = "";
   private separatedIds = new Set<string>();
   private snapTarget = "";
@@ -38,9 +41,18 @@ export class ViewerRuntime implements StudyViewer {
 
   constructor(private host: HTMLElement, private options: {
     viewport: () => Viewport;
-    onState: (patch: Partial<ViewerState>) => void;
+    viewportElement?: HTMLElement;
+    frameOverviewToWindow?: boolean;
+    onState: (patch: Partial<ViewerState>, visibleIds?: ReadonlySet<string>) => void;
+    onCameraChange?: () => void;
     onPick: (id: string) => void;
     onHide: (ids: string[]) => boolean;
+    allowSeparation?: boolean;
+    canSeparate?: () => boolean;
+    canSelect?: () => boolean;
+    preserveCameraOnResize?: boolean;
+    animateInitialReconstruction?: boolean;
+    background?: boolean;
     onFps?: (fps: number) => void;
     onOrientation?: (axes: Float32Array) => void;
     onHold?: (point: { x: number; y: number; action: "hide" | "move" } | null) => void;
@@ -56,11 +68,13 @@ export class ViewerRuntime implements StudyViewer {
     this.unbindInput = bindViewerInput(this.canvas, {
       enabled: () => !this.loading && !this.animating && !this.restoration && !this.failed,
       operate: this.operate, redraw: this.scheduleRender,
+      onCameraChange: this.cameraChanged,
       pick: options.onPick,
+      selectable: options.canSelect,
       moving: () => this.movingId || this.separatedIds.values().next().value || "",
       movable: id => id === this.movingId || this.separatedIds.has(id),
       joined: id => (this.viewer?.structure_group(id).length ?? 0) > 1,
-      detachable: () => !this.exploding || this.reassembling,
+      detachable: () => options.allowSeparation !== false && options.canSeparate?.() !== false && (!this.exploding || this.reassembling),
       detach: id => this.setMoving(id) && this.operate(viewer => viewer.detach_structure(id)), onHold: options.onHold,
       beginGroup: id => this.setMoving(id) && this.operate(viewer => viewer.begin_selection_drag()),
       hide: options.onHide,
@@ -76,37 +90,52 @@ export class ViewerRuntime implements StudyViewer {
     });
     this.observer = new ResizeObserver(this.resize);
     this.observer.observe(host);
+    if (options.viewportElement) this.observer.observe(options.viewportElement);
     this.motion.addEventListener("change", this.motionChanged);
     this.resolution.addEventListener("change", this.resolutionChanged);
     this.canvas.addEventListener("webglcontextlost", this.contextLost);
   }
 
   async start(catalog: Catalog, roots: StudyTarget[] = catalog.roots) {
+    this.loadAbort?.abort();
+    const request = this.loadAbort = new AbortController();
+    this.loading = true;
+    this.autoFitScene = false;
     this.options.onState({ building: true, loadedSystems: 0, structureIds: [], selected: "", error: false, status: "loading" });
     try {
       const wasm = await getWasm();
-      if (this.disposed) return;
+      if (this.disposed || this.loadAbort !== request) return;
+      this.initializeBackground(wasm);
+      if (this.options.background && !roots.length) {
+        this.viewer!.set_visibility([]);
+        this.loading = false;
+        this.options.onState({ building: false, status: "finishing" });
+        this.scheduleRender();
+        return;
+      }
       catalog.clearMetadata();
-      const packages = loadModels(roots, this.abort.signal, loadedSystems => {
+      const packages = loadModels(roots, request.signal, loadedSystems => {
+        if (this.loadAbort !== request) return;
         this.options.onState({ loadedSystems, status: "preparing" });
-      }, (root, json) => catalog.ingestMetadata(root, json));
+      }, (root, json) => { request.signal.throwIfAborted(); return catalog.ingestMetadata(root, json); }, this.options.frameOverviewToWindow);
       // Fit every system before the first frame so reconstruction cannot change the scale.
       const started = performance.now();
+      const animate = !this.motion.matches && this.options.animateInitialReconstruction !== false;
       for await (const prepared of packages) {
-        if (this.disposed) return;
-        if (this.viewer) this.viewer.appendPrepared(prepared, started, true);
+        if (this.disposed || this.loadAbort !== request) return;
+        if (this.viewer) this.viewer.appendPrepared(prepared, this.options.background ? performance.now() : started, animate);
         else {
           this.viewer = wasm.AnatomyViewer.fromPrepared(this.canvas, prepared);
-          this.viewer.begin_reconstruction(started, true);
+          this.viewer.begin_reconstruction(started, animate);
         }
       }
-      if (this.disposed) return;
-      const animate = !this.motion.matches;
+      if (this.disposed || this.loadAbort !== request) return;
       this.viewer!.start_reconstruction(performance.now(), animate);
       this.resizeCanvas();
       this.viewer!.inspect("reset");
       this.setGraphics(this.graphics);
       this.viewer!.configure_explosion(roots.map(root => catalog.members(root.id)));
+      if (this.options.background) this.viewer!.set_visibility([]);
       if (this.failed) throw new Error("Model rendering failed");
       catalog.finish();
       this.structureIds = catalog.identities();
@@ -114,12 +143,102 @@ export class ViewerRuntime implements StudyViewer {
       this.options.onState({ structureIds: this.structureIds, building: animate, status: "finishing" });
       this.scheduleRender();
     } catch (cause) {
-      if (!this.disposed) this.fail(cause, "loadError");
+      if (!this.disposed && this.loadAbort === request) this.fail(cause, "loadError");
+    }
+  }
+
+  private initializeBackground(wasm: Awaited<ReturnType<typeof getWasm>>) {
+    if (!this.options.background || this.viewer) return;
+    this.viewer = wasm.AnatomyViewer.background(this.canvas);
+    this.resizeCanvas();
+    this.setGraphics(this.graphics);
+    this.viewer.render();
+  }
+
+  async updateBackgroundModels(catalog: Catalog, roots: StudyTarget[], getVisibleIds: () => ReadonlySet<string>) {
+    if (this.disposed || this.failed) return;
+    const missing = roots.filter(root => !this.loadedModelIds.has(root.id));
+    this.loadAbort?.abort();
+    this.loadAbort = undefined;
+    if (this.viewer && !missing.length) {
+      if (!this.loading && !this.modelLoadError) return;
+      this.loading = false;
+      this.modelLoadError = false;
+      this.options.onState({ building: false, loadedSystems: roots.length, error: false, status: "finishing" });
+      this.scheduleRender();
+      return;
+    }
+
+    const request = this.loadAbort = new AbortController();
+    const alreadyLoaded = roots.length - missing.length;
+    this.loading = true;
+    this.modelLoadError = false;
+    this.options.onState({ building: true, loadedSystems: alreadyLoaded, error: false, status: "loading" });
+    let appending = false;
+    try {
+      const [wasm, content] = await Promise.all([getWasm(), getContent()]);
+      if (this.disposed || this.loadAbort !== request) return;
+      if (!this.viewer) catalog.clearMetadata();
+      this.initializeBackground(wasm);
+      const viewer = this.viewer;
+      if (!viewer) throw new Error("Background viewer is unavailable");
+      const metadata = new Map<StudyTarget, string>();
+      let geometry: PreparedGeometry | undefined;
+      for await (const prepared of loadModels(missing, request.signal, loaded => {
+        if (this.loadAbort === request) this.options.onState({ loadedSystems: alreadyLoaded + loaded, status: "preparing" });
+      }, (root, json) => {
+        const parts = content.validate_metadata(json, catalog.members(root.id)) as { source_id: string }[];
+        metadata.set(root, json);
+        return parts.map(part => part.source_id);
+      })) {
+        geometry = prepared;
+      }
+      if (this.disposed || this.loadAbort !== request) return;
+
+      let visibleIds: ReadonlySet<string> | undefined;
+      if (geometry) {
+        visibleIds = getVisibleIds();
+        const view = this.loadedModelIds.size ? viewer.capture_view() as SceneView : undefined;
+        appending = true;
+        viewer.set_explode_mode(false);
+        viewer.appendPrepared(geometry, performance.now(), false);
+        for (const [root, json] of metadata) {
+          catalog.ingestMetadata(root, json);
+          this.loadedModelIds.add(root.id);
+        }
+        catalog.finish();
+        viewer.configure_explosion(catalog.roots.filter(root => this.loadedModelIds.has(root.id)).map(root => catalog.members(root.id)));
+        viewer.apply_scene([...visibleIds], view);
+        this.structureIds = catalog.identities();
+        this.exploding = !!view?.explosion;
+        this.reassembling = false;
+        this.clearSceneInteraction();
+      }
+      this.loadAbort = undefined;
+      this.loading = false;
+      this.options.onState({
+        building: false, loadedSystems: roots.length, status: "finishing",
+        ...(visibleIds && { structureIds: this.structureIds, selected: "" }),
+      }, visibleIds);
+      this.scheduleRender();
+    } catch (cause) {
+      if (this.disposed || this.loadAbort !== request) return;
+      if (appending || !this.viewer) {
+        this.fail(cause, "loadError");
+        return;
+      }
+      this.loadAbort = undefined;
+      this.loading = false;
+      this.modelLoadError = true;
+      console.error(cause);
+      this.options.onState({ building: false, error: true, status: "loadError" });
+      this.scheduleRender();
     }
   }
 
   private fail(cause: unknown, status: ViewerStatus) {
-    this.failed = true; this.animating = false; this.abort.abort();
+    this.failed = true; this.animating = false;
+    this.loadAbort?.abort();
     this.snapTarget = ""; this.options.onSnap?.("");
     this.stopFpsMeter();
     console.error(cause);
@@ -137,6 +256,11 @@ export class ViewerRuntime implements StudyViewer {
       this.fail(cause, "processError");
       return false;
     }
+  };
+
+  private cameraChanged = () => {
+    this.autoFitScene = false;
+    this.options.onCameraChange?.();
   };
 
   private scheduleRender = () => {
@@ -181,7 +305,7 @@ export class ViewerRuntime implements StudyViewer {
     });
   };
 
-  private resize = () => {
+  resize = () => {
     this.resizePending = true;
     this.scheduleRender();
   };
@@ -195,11 +319,20 @@ export class ViewerRuntime implements StudyViewer {
 
   private resizeCanvas() {
     this.resizePending = false;
-    const { width, height } = this.host.getBoundingClientRect();
+    const { left, top, width, height } = this.host.getBoundingClientRect();
     if (width > 0 && height > 0) {
+      const pose = this.options.preserveCameraOnResize && !this.loading && !this.autoFitScene
+        ? this.viewer!.camera_pose() : undefined;
       const [renderWidth, renderHeight] = this.renderSize(width, height);
       if (this.canvas.width !== renderWidth || this.canvas.height !== renderHeight) this.viewer!.resize(renderWidth, renderHeight);
       this.viewer!.reframe(...this.options.viewport());
+      if (this.options.frameOverviewToWindow) {
+        this.viewer!.set_overview_window(window.innerHeight / height,
+          (window.innerWidth - 2 * left) / width - 1, 1 - (window.innerHeight - 2 * top) / height);
+      }
+      if (this.autoFitScene) this.viewer!.fit_scene_frame();
+      else if (this.options.viewportElement) this.viewer!.align_viewport();
+      if (pose) this.viewer!.set_camera_pose(pose);
     }
   }
 
@@ -283,6 +416,7 @@ export class ViewerRuntime implements StudyViewer {
     }
     if (id && (this.loading || this.animating || this.exploding || !this.structureIds.includes(id))) return false;
     if (!this.operate(viewer => viewer.select(id || viewer.selected_id()))) return false;
+    if (id) this.autoFitScene = false;
     this.movingId = id;
     this.canvas.dataset.moving = id ? "true" : "false";
     this.canvas.dataset.draggable = "false";
@@ -318,6 +452,47 @@ export class ViewerRuntime implements StudyViewer {
     });
   }
 
+  captureView(): SceneView | undefined {
+    if (this.movingId || this.separatedIds.size) return undefined;
+    let view: SceneView | undefined;
+    this.operate(viewer => { view = viewer.capture_view() as SceneView; });
+    return view;
+  }
+
+  applyScene(ids: string[], view?: SceneView) {
+    const reassembling = this.exploding && !view?.explosion && !this.motion.matches;
+    const fit = !!this.options.viewportElement && !view && ids.length > 0;
+    const success = this.operate(viewer => {
+      const reveal = this.options.background && !viewer.visible_count();
+      if (this.options.viewportElement) viewer.reframe(...this.options.viewport());
+      viewer.apply_scene(ids, view, this.animationTime());
+      if (fit) viewer.fit_scene_frame();
+      else if (this.options.viewportElement) viewer.align_viewport();
+      if (reveal) {
+        viewer.set_visibility([]);
+        viewer.change_visibility(ids, true, this.animationTime());
+      }
+    });
+    if (success) {
+      this.autoFitScene = fit;
+      this.exploding = !!view?.explosion || reassembling;
+      this.reassembling = reassembling;
+      this.clearSceneInteraction();
+    }
+    return success;
+  }
+
+  private clearSceneInteraction() {
+    this.restoration = undefined;
+    this.movingId = "";
+    this.snapTarget = "";
+    this.options.onSnap?.("");
+    this.options.onHold?.(null);
+    this.separatedIds.clear();
+    this.canvas.dataset.moving = "false";
+    this.publishSeparation();
+  }
+
   focus(ids: string[], folder: boolean, reveal: boolean) {
     this.snapStructure("", false);
     if (this.movingId) this.setMoving("");
@@ -335,12 +510,14 @@ export class ViewerRuntime implements StudyViewer {
       if (motionTime === undefined) viewer.focus(ids, ...this.options.viewport());
       else viewer.focus_animated(ids, ...this.options.viewport(), motionTime);
       viewer.select(!folder && ids.length === 1 ? ids[0]! : "");
+      this.cameraChanged();
     });
   }
 
   setExplosion(value: number, ids: string[]) {
     if (this.movingId || this.separatedIds.size) return false;
     return this.operate(viewer => {
+      if (value > 0) this.autoFitScene = false;
       viewer.clear_selection();
       if (value > 0 && !this.exploding) {
         viewer.set_explode_mode(true); this.exploding = true;
@@ -376,6 +553,7 @@ export class ViewerRuntime implements StudyViewer {
       }
       const now = this.animationTime();
       viewer.change_visibility(this.structureIds, true, now); viewer.inspect("reset", now);
+      this.cameraChanged();
     });
     if (success) { this.exploding = false; this.reassembling = false;
       this.restoration = undefined;
@@ -394,12 +572,13 @@ export class ViewerRuntime implements StudyViewer {
           case "reset": viewer.inspect("reset", this.animationTime()); break;
         }
       }
+      if (commands.length) this.cameraChanged();
     });
   }
 
   dispose() {
     this.disposed = true; this.loading = true; this.animating = false;
-    this.abort.abort(); this.observer.disconnect(); this.unbindInput();
+    this.loadAbort?.abort(); this.observer.disconnect(); this.unbindInput();
     this.motion.removeEventListener("change", this.motionChanged);
     this.resolution.removeEventListener("change", this.resolutionChanged);
     this.canvas.removeEventListener("webglcontextlost", this.contextLost);

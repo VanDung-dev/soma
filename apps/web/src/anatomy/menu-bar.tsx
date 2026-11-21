@@ -1,44 +1,34 @@
 import { useLanguage } from "../i18n";
 import { LineIcon } from "../icons";
-import type { GraphicsSettings } from "./viewer/graphics";
-import { shortcutLabel } from "../shortcuts";
-import { PopoverPanel } from "../popover-panel";
+import { shortcutLabel, useShortcutBindings } from "../shortcuts";
+import { WorkspaceMenu } from "../pages/workspace-layout";
 import type { ReactNode, RefObject } from "react";
 
-export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForward, helpId, settingsId, graphics, onGraphicsChange, cameraEnabled, cameraActive, onCameraChange,
-  cameraDevices, cameraDeviceId, cameraDevicesError, onCameraDeviceChange, cameraAccessPending, onCameraAccessRequest, catalogToggle, informationToggle }: {
+export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForward, cameraEnabled, cameraActive, onCameraChange,
+  cameraAccessPending, catalogToggle, informationToggle }: {
   ref: RefObject<HTMLElement | null>;
   disabled: boolean;
   canGoBack: boolean;
   canGoForward: boolean;
   onBack: () => void;
   onForward: () => void;
-  helpId: string;
-  settingsId: string;
-  graphics: GraphicsSettings;
-  onGraphicsChange: (settings: GraphicsSettings) => void;
   cameraEnabled: boolean;
   cameraActive: boolean;
   onCameraChange: (enabled: boolean) => void;
-  cameraDevices: readonly MediaDeviceInfo[];
-  cameraDeviceId: string;
-  cameraDevicesError: boolean;
-  onCameraDeviceChange: (deviceId: string) => void;
   cameraAccessPending: boolean;
-  onCameraAccessRequest: () => void;
   catalogToggle: ReactNode;
   informationToggle: ReactNode;
 }) {
   const { t } = useLanguage();
-  return <header ref={ref} className="app-menu-bar" aria-label={t("app.navigation.label")}>
-    <div className="app-menu-history">
+  useShortcutBindings();
+  return <WorkspaceMenu ref={ref} navigation={<>
       {catalogToggle}
       <button className="controls-info history-back" disabled={disabled || !canGoBack} onClick={onBack}
-        aria-label={t("app.back")} title={`${t("app.back")} (${shortcutLabel("back")})`}>
+        aria-label={t("app.back")} title={`${t("app.back")}${shortcutLabel("back") ? ` (${shortcutLabel("back")})` : ""}`}>
         <LineIcon name="arrow-small-left" size={14} />
       </button>
       <button className="controls-info history-forward" disabled={disabled || !canGoForward} onClick={onForward}
-        aria-label={t("app.forward")} title={`${t("app.forward")} (${shortcutLabel("forward")})`}>
+        aria-label={t("app.forward")} title={`${t("app.forward")}${shortcutLabel("forward") ? ` (${shortcutLabel("forward")})` : ""}`}>
         <LineIcon name="arrow-small-right" size={14} />
       </button>
       <button type="button" className="hand-camera-toggle" role="switch" aria-checked={cameraEnabled}
@@ -48,106 +38,7 @@ export function MenuBar({ ref, disabled, canGoBack, canGoForward, onBack, onForw
         onClick={() => onCameraChange(!cameraEnabled)}>
         <LineIcon name="camera" size={24} /><span className="camera-mode-switch" aria-hidden="true" />
       </button>
-    </div>
-    <h1 className="app-menu-title" title={t("app.title")}>{t("app.title")}</h1>
-    <div className="app-menu-actions">
-      <button className="controls-info" popoverTarget={helpId} aria-label={t("app.help")} title={`${t("app.help")} (G)`}>
-        <LineIcon name="alert-circle" size={14} />
-      </button>
-      <button className="controls-info" popoverTarget={settingsId} aria-label={t("app.settings")} title={`${t("app.settings")} (Esc)`}>
-        <LineIcon name="cog" size={14} />
-      </button>
-      {informationToggle}
-    </div>
-    <PopoverPanel id={settingsId} className="settings-popover" contentClassName="settings-content" title={t("app.settings")} closeLabel={t("app.settings.close")}>
-        <div className="settings-row">
-          <label htmlFor={`${settingsId}-camera`}>{t("handCamera.device.label")}</label>
-          <div className="settings-camera-controls">
-          <select id={`${settingsId}-camera`} className="settings-select" value={cameraDeviceId}
-            disabled={cameraDevicesError || !cameraDevices.length}
-            onChange={event => onCameraDeviceChange(event.currentTarget.value)}>
-            <option value="">{t("handCamera.device.default")}</option>
-            {cameraDevices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>
-              {device.label || t("handCamera.device.unnamed", { number: index + 1 })}
-            </option>)}
-          </select>
-          {!cameraEnabled && (cameraAccessPending || cameraDevicesError || !cameraDevices.length || cameraDevices.some(device => !device.label))
-            && <button type="button" className="settings-select" data-camera-access disabled={cameraAccessPending} onClick={onCameraAccessRequest}>
-              {t(cameraAccessPending ? "handCamera.device.requesting" : cameraDevicesError ? "handCamera.device.retry" : "handCamera.device.allow")}
-            </button>}
-          </div>
-        </div>
-        <div className="settings-row">
-          <label htmlFor={`${settingsId}-shadow`}>{t("graphics.shadow.label")}</label>
-          <select id={`${settingsId}-shadow`} className="settings-select" value={graphics.shadowQuality}
-            onChange={event => {
-              const shadowQuality = event.currentTarget.value;
-              if (shadowQuality === "off" || shadowQuality === "low" || shadowQuality === "high") onGraphicsChange({ ...graphics, shadowQuality });
-            }}>
-            <option value="high">{t("graphics.quality.high")}</option>
-            <option value="low">{t("graphics.quality.low")}</option>
-            <option value="off">{t("graphics.quality.off")}</option>
-          </select>
-        </div>
-        <div className="settings-row">
-          <label htmlFor={`${settingsId}-lighting`}>{t("graphics.lighting.label")}</label>
-          <select id={`${settingsId}-lighting`} className="settings-select" value={graphics.lightingQuality}
-            onChange={event => {
-              const lightingQuality = event.currentTarget.value;
-              if (lightingQuality === "low" || lightingQuality === "high") onGraphicsChange({ ...graphics, lightingQuality });
-            }}>
-            <option value="high">{t("graphics.quality.high")}</option>
-            <option value="low">{t("graphics.quality.low")}</option>
-          </select>
-        </div>
-        <div className="settings-row">
-          <label htmlFor={`${settingsId}-model`} title={t("graphics.model.description")}>{t("graphics.model.label")}</label>
-          <select id={`${settingsId}-model`} className="settings-select" value={graphics.modelQuality}
-            onChange={event => {
-              const modelQuality = event.currentTarget.value;
-              if (modelQuality === "low" || modelQuality === "high") onGraphicsChange({ ...graphics, modelQuality });
-            }}>
-            <option value="high">{t("graphics.quality.high")}</option>
-            <option value="low">{t("graphics.quality.low")}</option>
-          </select>
-        </div>
-        <div className="settings-row">
-          <label htmlFor={`${settingsId}-fps`}>{t("graphics.frameRate.label")}</label>
-          <select id={`${settingsId}-fps`} className="settings-select" value={graphics.frameRate}
-            onChange={event => {
-              const frameRate = event.currentTarget.value === "display" ? "display" : Number(event.currentTarget.value);
-              if (frameRate === "display" || frameRate === 30 || frameRate === 60 || frameRate === 120) onGraphicsChange({ ...graphics, frameRate });
-            }}>
-            <option value="30">30 FPS</option>
-            <option value="60">60 FPS</option>
-            <option value="120">120 FPS</option>
-            <option value="display">{t("graphics.frameRate.display")}</option>
-          </select>
-        </div>
-        <div className="settings-row">
-          <label htmlFor={`${settingsId}-show-axes`}>{t("graphics.axes.label")}</label>
-          <span className="visibility-checkbox settings-checkbox-control">
-            <input id={`${settingsId}-show-axes`} className="settings-checkbox" type="checkbox" checked={graphics.showAxes}
-              onChange={event => onGraphicsChange({ ...graphics, showAxes: event.currentTarget.checked })} />
-            <span className="visibility-checkbox-icon" aria-hidden="true"><LineIcon name={graphics.showAxes ? "square-to-confirm-square-twotone-transition" : "confirm-square-twotone-to-square-transition"} size={24} /></span>
-          </span>
-        </div>
-        <div className="settings-row">
-          <label htmlFor={`${settingsId}-show-fps`}>{t("graphics.fps.label")}</label>
-          <span className="visibility-checkbox settings-checkbox-control">
-            <input id={`${settingsId}-show-fps`} className="settings-checkbox" type="checkbox" checked={graphics.showFps}
-              onChange={event => onGraphicsChange({ ...graphics, showFps: event.currentTarget.checked })} />
-            <span className="visibility-checkbox-icon" aria-hidden="true"><LineIcon name={graphics.showFps ? "square-to-confirm-square-twotone-transition" : "confirm-square-twotone-to-square-transition"} size={24} /></span>
-          </span>
-        </div>
-        <div className="settings-row">
-          <label htmlFor={`${settingsId}-grid`}>{t("graphics.grid.label")}</label>
-          <span className="visibility-checkbox settings-checkbox-control">
-            <input id={`${settingsId}-grid`} className="settings-checkbox" type="checkbox" checked={graphics.grid}
-              onChange={event => onGraphicsChange({ ...graphics, grid: event.currentTarget.checked })} />
-            <span className="visibility-checkbox-icon" aria-hidden="true"><LineIcon name={graphics.grid ? "square-to-confirm-square-twotone-transition" : "confirm-square-twotone-to-square-transition"} size={24} /></span>
-          </span>
-        </div>
-    </PopoverPanel>
-  </header>;
+    </>} title={<h1 className="app-menu-title" title={t("app.title")}>
+      <span className="anatomy-title-full">{t("app.title")}</span><span className="anatomy-title-compact">{t("app.titleCompact")}</span>
+    </h1>} actions={informationToggle} />;
 }

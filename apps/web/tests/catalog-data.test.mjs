@@ -1,3 +1,4 @@
+import { metadataPackages } from './model.fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -8,7 +9,7 @@ test('Rust owns full catalog data, group and word-prefix searches, names, member
   const source = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
   const terminology = JSON.parse(await readFile(new URL('../../../content/anatomy-terminology.json', import.meta.url)));
   const roots = source.targets.filter(target => target.model);
-  const packages = await Promise.all(roots.map(async root => [root, await readFile(new URL('../public/' + root.model.path.replace(/\.glb(?:\.br)?$/, '.json'), import.meta.url), 'utf8')]));
+  const packages = metadataPackages(source);
   const names = name => Object.hasOwn(terminology.terms, name) ? terminology.terms[name] : { vi: name, en: name };
   const label = (part, language = 'vi') => names(part.source_name)[language] + (part.laterality === 'left' ? language === 'vi' ? ' · trái' : ' · left' : part.laterality === 'right' ? language === 'vi' ? ' · phải' : ' · right' : '');
   const parts = [...new Map(packages.flatMap(([, json]) => JSON.parse(json).structures).map(part => [part.source_id, part])).values()]

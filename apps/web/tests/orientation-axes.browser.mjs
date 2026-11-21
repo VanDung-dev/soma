@@ -1,4 +1,5 @@
 import { getWasm } from '../src/anatomy/core.ts';
+import { closeSettings, openSettings } from './settings.fixture.mjs';
 
 export async function checkDefaultFrontView() {
   const assert = (ok, message) => { if (!ok) throw Error(message); };
@@ -27,17 +28,18 @@ export async function checkDefaultFrontView() {
 
 export async function checkAxesVisibility() {
   const assert = (ok, message) => { if (!ok) throw Error(message); };
-  const popover = document.querySelector('.settings-popover');
-  const axes = popover.querySelector('input[id$="-show-axes"]');
-  const fps = popover.querySelector('input[id$="-show-fps"]');
+  const settings = await openSettings('graphics');
+  const axes = 'input[id$="-show-axes"]', fps = 'input[id$="-show-fps"]';
   const widget = document.querySelector('.orientation-axes');
   const canvas = document.querySelector('.model-canvas canvas');
-  const initial = { axes: axes.checked, fps: fps.checked, open: popover.matches(':popover-open') };
+  const initial = { axes: settings.querySelector(axes).checked, fps: settings.querySelector(fps).checked };
   const frames = async (count = 6) => { for (let i = 0; i < count; i++) await new Promise(requestAnimationFrame); };
-  const toggle = async (control, value) => { if (control.checked !== value) { control.click(); await frames(); } };
+  const toggle = async (selector, value) => {
+    const control = (await openSettings('graphics')).querySelector(selector);
+    if (control.checked !== value) { control.click(); await frames(); }
+  };
   const position = () => widget.querySelector('[data-axis="X"][data-direction="1"] circle').getAttribute('cx');
   try {
-    if (!initial.open) popover.showPopover();
     await toggle(axes, true); await toggle(fps, true);
     const before = position();
     await toggle(axes, false);
@@ -46,14 +48,14 @@ export async function checkAxesVisibility() {
     assert(document.querySelector('.model-fps')?.getBoundingClientRect().width > 0,
       'Keep FPS visible when the axes are hidden');
     assert(JSON.parse(localStorage.getItem('human-atlas-graphics')).showAxes === false, 'Persist the hidden preference');
-    popover.hidePopover(); canvas.focus();
+    await closeSettings(); canvas.focus();
     canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true }));
     await frames(10);
     canvas.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowLeft', bubbles: true, cancelable: true }));
     await frames();
     const rotated = position();
     assert(rotated !== before, 'Keep the hidden axes synchronized with camera movement');
-    popover.showPopover(); await toggle(axes, true);
+    await toggle(axes, true);
     assert(widget.getBoundingClientRect().width === 80 && widget.getAttribute('aria-disabled') === 'false' && position() === rotated,
       'Restore the axes at the current camera orientation');
     assert(JSON.parse(localStorage.getItem('human-atlas-graphics')).showAxes === true, 'Persist the visible preference');
@@ -61,9 +63,8 @@ export async function checkAxesVisibility() {
     assert(widget.getBoundingClientRect().width === 80 && !document.querySelector('.model-fps'), 'Axes and FPS visibility must be independent');
     return { hidden: true, persisted: true, cameraSynced: true, fpsIndependent: true };
   } finally {
-    if (!popover.matches(':popover-open')) popover.showPopover();
     await toggle(axes, initial.axes); await toggle(fps, initial.fps);
-    if (!initial.open) popover.hidePopover();
+    await closeSettings();
     canvas.focus();
     canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'r', bubbles: true, cancelable: true }));
     canvas.dispatchEvent(new KeyboardEvent('keyup', { key: 'r', bubbles: true, cancelable: true }));
@@ -77,12 +78,17 @@ export async function checkOrientationAxes() {
   const original = AnatomyViewer.prototype.camera_axes;
   const canvas = document.querySelector('.model-canvas canvas');
   const widget = document.querySelector('.orientation-axes');
-  const popover = document.querySelector('.settings-popover');
-  const fps = popover.querySelector('input[id$="-show-fps"]');
-  const showFps = fps.checked;
+  const fps = 'input[id$="-show-fps"]';
+  const showFps = (await openSettings('graphics')).querySelector(fps).checked;
+  await closeSettings();
   let viewer, samples = 0;
   AnatomyViewer.prototype.camera_axes = function() { viewer = this; samples++; return original.call(this); };
   const frames = async (count = 5) => { for (let i = 0; i < count; i++) await new Promise(requestAnimationFrame); };
+  const setFps = async value => {
+    const control = (await openSettings('graphics')).querySelector(fps);
+    if (control.checked !== value) { control.click(); await frames(); }
+    await closeSettings();
+  };
   const key = async name => {
     canvas.focus();
     canvas.dispatchEvent(new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true }));
@@ -107,9 +113,17 @@ export async function checkOrientationAxes() {
       previousDepth = depth;
     }
     const gl = canvas.getContext('webgl2');
-    viewer.render();
-    const program = gl.getParameter(gl.CURRENT_PROGRAM);
-    const basis = gl.getUniform(program, gl.getUniformLocation(program, 'light_basis'));
+    const useProgram = gl.useProgram;
+    const programs = new Set();
+    gl.useProgram = function(program) {
+      if (program) programs.add(program);
+      return useProgram.call(this, program);
+    };
+    try { viewer.render(); } finally { gl.useProgram = useProgram; }
+    const uniforms = [...programs].map(program => [program, gl.getUniformLocation(program, 'light_basis')]);
+    const modelUniform = uniforms.find(([, location]) => location);
+    assert(modelUniform, 'The model shader must expose its light basis');
+    const basis = gl.getUniform(...modelUniform);
     const worldAxes = [2, 0, 1];
     assert(axes.every((value, i) => Math.abs(value - basis[(i % 3) * 3 + worldAxes[Math.floor(i / 3)]]) < 1e-6),
       'Show X facing the model front, Y sideways, and Z upright');
@@ -147,6 +161,12 @@ export async function checkOrientationAxes() {
     assert(samples === sampled, 'Orientation must not keep rendering while idle');
     const visible = viewer.visible_count(), selected = viewer.selected_id();
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const probe = document.createElement('span');
+    probe.style.backgroundColor = 'var(--selected-bg)';
+    probe.style.color = 'var(--text)';
+    document.body.append(probe);
+    const { backgroundColor: focusBackground, color: focusText } = getComputedStyle(probe);
+    probe.remove();
     for (const [index, axis] of [...'XYZ'].entries()) for (const direction of [-1, 1]) {
       const endpoint = widget.querySelector(`[data-axis="${axis}"][data-direction="${direction}"]`);
       assert(endpoint.getAttribute('role') === 'button' && endpoint.tabIndex === 0 && endpoint.getAttribute('aria-label'),
@@ -157,9 +177,12 @@ export async function checkOrientationAxes() {
       const basis = viewer.camera_axes();
       assert(Math.abs(basis[index * 3 + 2] - direction) < 1e-5, 'Axis buttons must align the camera with each signed world axis');
       assert(endpoint.getAttribute('aria-pressed') === 'true', 'Mark the aligned axis selected for keyboard and screen readers');
-      assert(getComputedStyle(endpoint.querySelector('text')).fill === 'rgb(16, 24, 39)', 'Keyboard focus must not change the selected label color');
-      assert(getComputedStyle(endpoint.querySelector('.orientation-hit-target')).stroke === getComputedStyle(endpoint).color,
-        'Keep keyboard focus visible around the endpoint');
+      const marker = getComputedStyle(endpoint.querySelector('circle:not(.orientation-hit-target)'));
+      assert(document.activeElement === endpoint && endpoint.matches(':focus-visible')
+        && marker.fill === focusBackground && marker.stroke === focusBackground
+        && getComputedStyle(endpoint.querySelector('text')).fill === focusText
+        && getComputedStyle(endpoint.querySelector('.orientation-hit-target')).stroke === 'none',
+        'Show keyboard focus through the theme background and label colors without a ring');
       matchesCamera();
       assert(viewer.visible_count() === visible && viewer.selected_id() === selected, 'Axis views must preserve selection and visible anatomy');
     }
@@ -184,7 +207,7 @@ export async function checkOrientationAxes() {
       assert(rejected, 'Reject invalid axis views at the WASM boundary');
     }
     await key('r'); await frames(reduced ? 5 : 70);
-    if (!fps.checked) { fps.click(); await frames(); }
+    await setFps(true);
     const axesArea = widget.getBoundingClientRect(), fpsArea = document.querySelector('.model-fps').getBoundingClientRect();
     assert(fpsArea.top >= axesArea.bottom && Math.abs((fpsArea.left + fpsArea.right - axesArea.left - axesArea.right) / 2) < 1,
       'Place FPS directly below and centered with the axes');
@@ -194,7 +217,7 @@ export async function checkOrientationAxes() {
     return { sixDirections: true, cameraBasis: true, rotation: true, panZoomStable: true, reset: true, idle: true,
       keyboardPresets: true, selectionPreserved: true, invalidRejected: true, fpsBelow: true, fits: true };
   } finally {
-    if (fps.checked !== showFps) { fps.click(); await frames(); }
+    await setFps(showFps);
     AnatomyViewer.prototype.camera_axes = original;
   }
 }

@@ -1,3 +1,5 @@
+import { PageMessage } from "../pages/workspace-layout";
+
 export function GamesPage() {
-  return null;
+  return <PageMessage title="module.games" description="games.unavailable" />;
 }

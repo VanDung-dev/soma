@@ -1,9 +1,9 @@
 import { createElement, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { useCameraDevices } from '../src/anatomy/camera-devices.ts';
+import { CameraDevicesContext, useCameraDevices } from '../src/anatomy/camera-devices.ts';
 import { MenuBar } from '../src/anatomy/menu-bar.tsx';
 import { HandCameraControls } from '../src/anatomy/hand-camera-controls.tsx';
-import { defaultGraphics } from '../src/anatomy/viewer/graphics.ts';
+import { SettingsPage } from '../src/settings/page.tsx';
 
 export async function checkCameraDevices() {
   const assert = (value, message) => { if (!value) throw Error(message); };
@@ -57,14 +57,13 @@ export async function checkCameraDevices() {
     const [active, setActive] = useState(false);
     return createElement('div', null,
       createElement(MenuBar, { ref: { current: null }, disabled: false, canGoBack: false, canGoForward: false,
-        onBack() {}, onForward() {}, helpId: 'test-camera-help', settingsId: 'test-camera-settings',
-        graphics: defaultGraphics, onGraphicsChange() {}, cameraEnabled: enabled, cameraActive: active || devices.accessActive, onCameraChange: setEnabled,
-        cameraDevices: devices.devices, cameraDeviceId: devices.deviceId, cameraDevicesError: devices.error, onCameraDeviceChange: devices.setDeviceId,
-        cameraAccessPending: devices.requesting, onCameraAccessRequest: devices.requestAccess }),
+        onBack() {}, onForward() {}, cameraEnabled: enabled, cameraActive: active || devices.accessActive,
+        onCameraChange: setEnabled, cameraAccessPending: devices.requesting }),
+      createElement(CameraDevicesContext, { value: devices }, createElement(SettingsPage, { section: 'camera' })),
       createElement(HandCameraControls, { enabled, disabled: false, deviceId: devices.deviceId, onCameraStarted: devices.refresh, onCameraActiveChange: setActive,
         onControl: () => true, sceneHost: sceneRef, interactionFrame: sceneRef, obstacles: [], onEnabledChange: setEnabled }));
   }
-  const select = () => host.querySelector('select[id$="-camera"]');
+  const select = () => host.querySelector('#settings-camera-device');
   const toggle = () => host.querySelector('.hand-camera-toggle');
   const choose = value => { select().value = value; select().dispatchEvent(new Event('change', { bubbles: true })); };
   try {
@@ -170,12 +169,12 @@ export async function checkCameraDevices() {
     assert(Math.abs(noticeArea.left + noticeArea.width / 2 - innerWidth / 2) < 1
       && Math.abs(noticeArea.top + noticeArea.height / 2 - innerHeight / 2) < 1, 'Center the camera notification in the viewport');
     const retryArea = notice.querySelector('.hand-camera-error-retry').getBoundingClientRect();
-    assert(Math.abs(retryArea.left + retryArea.width / 2 - noticeArea.left - noticeArea.width / 2) < 1
-      && retryArea.top > notice.querySelector('p').getBoundingClientRect().bottom, 'Center the retry button below the notification message');
+    assert(retryArea.top > notice.querySelector('p').getBoundingClientRect().bottom, 'Place the retry button below the notification message');
+    assert(document.elementFromPoint(retryArea.left + retryArea.width / 2, retryArea.top + retryArea.height / 2) === notice.querySelector('.hand-camera-error-retry'), 'The retry button must receive pointer input');
     assert(notice.querySelector('h2').textContent === 'Điều khiển bằng camera đã dừng'
-      && notice.getAttribute('aria-labelledby') === notice.querySelector('h2').id, 'Give the notification an accessible title');
-    assert(getComputedStyle(notice).backgroundColor !== 'rgba(0, 0, 0, 0)' && getComputedStyle(notice).pointerEvents === 'auto', 'Display the error on an interactive notification surface');
-    notice.querySelector('button[aria-label="Đóng thông báo"]').click(); await frames();
+      && notice.closest('dialog').getAttribute('aria-labelledby') === notice.querySelector('h2').id, 'Give the notification an accessible title');
+    assert(getComputedStyle(notice.closest('dialog')).backgroundColor !== 'rgba(0, 0, 0, 0)' && getComputedStyle(notice).pointerEvents === 'auto', 'Display the error on an interactive notification surface');
+    notice.querySelector('.alert-card-actions button').click(); await frames();
     assert(!host.querySelector('.hand-camera-error') && toggle().getAttribute('aria-checked') === 'false', 'Dismissing an error must keep the camera off');
     toggle().click();
     await waitFor(() => host.querySelector('.hand-camera-error') && toggle().getAttribute('aria-checked') === 'false', 'A new failure must show the notification again');

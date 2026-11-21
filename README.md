@@ -55,6 +55,7 @@ Run from the repository root on macOS.
 rustup target add aarch64-apple-darwin
 npm exec --workspace apps/web -- tauri build --bundles app --target aarch64-apple-darwin
 version=$(node -p "require('./apps/web/src-tauri/tauri.conf.json').version")
+mkdir -p target/aarch64-apple-darwin/release/bundle/dmg
 dmgbuild -s scripts/macos-dmg-settings.py \
   -D "app=target/aarch64-apple-darwin/release/bundle/macos/Soma.app" \
   -D "icon=apps/web/src-tauri/icons/icon.icns" \

@@ -1,14 +1,49 @@
 Soma
 Copyright (c) 2026 Nguyễn Lê Văn Dũng
 
-The project's original source code and build scripts are licensed under
-the Apache License, Version 2.0. See LICENSE.
+Only original Soma materials identified in this notice and in which Nguyễn Lê
+Văn Dũng owns or controls copyright are licensed under the Soma Community and
+Commercial Use License 1.0. This includes original source code, build scripts,
+documentation, text, graphics, and original Soma code in official application
+builds compiled and distributed by Nguyễn Lê Văn Dũng. Contributions by
+others are covered only where their authors have separately granted the
+necessary rights. Do not assume that this notice changes the license of any
+earlier release.
 
 Anatomy models and source-derived catalog data retain their
 source licenses. See apps/web/public/models/z-anatomy/ATTRIBUTION.md.
 Source-derived app icons retain those terms. See apps/web/public/icons/ATTRIBUTION.md.
 Dependencies retain their own licenses.
 
+Squoosh WebP encoder
+Copyright 2020 Google Inc. Licensed under Apache-2.0.
+libwebp copyright (c) 2010 Google Inc. Licensed under BSD-3-Clause.
+Selected encoder assets and options come from GoogleChromeLabs/squoosh.
+License texts are included in licenses/squoosh.txt.
+
+Rust Brotli 9.1.1
+Copyright (c) 2009, 2010, 2013-2016 by the Brotli Authors.
+Copyright (c) 2016 Dropbox, Inc.
+Bundled lesson archive compression/decompression uses MIT and BSD-3-Clause code.
+License texts are included in licenses/brotli.txt.
+
+Rust lesson content processing
+Image decoding, HTML tokenization and SHA-256 use image, html5ever, sha2 and
+their dependencies. Copyright and license texts are included in
+licenses/lesson-content.txt and bundled with the application.
+
 Material Line Icons (line-md)
 Copyright 2020 Vjacheslav Trushkin. Licensed under the MIT License.
 https://github.com/cyberalien/line-md/blob/main/license.txt
+
+TinyMCE 8.10.1
+Copyright (c) 2025 Ephox Corporation DBA Tiny Technologies, Inc.
+Bundled self-hosted editor configured for GNU GPL Version 2 or later.
+https://www.tiny.cloud/docs/tinymce/latest/license-key/
+The TinyMCE license applies to TinyMCE and its distribution obligations;
+it does not replace LICENSE for Soma's original source files.
+
+DOMPurify
+Copyright (c) 2015 Mario Heiderich.
+Used under the Apache License, Version 2.0.
+https://github.com/cure53/DOMPurify/blob/main/LICENSE

@@ -1,5 +1,6 @@
 import { getWasm } from '../src/anatomy/core.ts';
 import { appShortcuts } from '../src/shortcuts.ts';
+import { closeSettings, openSettings } from './settings.fixture.mjs';
 
 // Run in Vite: (await import('/tests/controls.browser.mjs')).checkControls()
 export async function checkControls() {
@@ -40,19 +41,16 @@ export async function checkControls() {
       ['ArrowDown', 'rotate', [0, -Math.PI / 8]], ['ArrowRight', 'rotate', [-Math.PI / 8, 0]],
       ['e', 'zoom', [1 / 1.2]], ['q', 'zoom', [1.2]], ['r', 'inspect', ['reset']],
     ];
-    const guide = document.querySelector('.controls-guide');
-    assert(!guide.matches(':popover-open'), 'Guide must start closed');
+    assert(!document.querySelector('.controls-guide'), 'Guide must start outside the workspace');
     assert(!document.querySelector('[data-control]'), 'Remove the full control buttons');
-    document.querySelector('.app-menu-bar [aria-label="Trợ giúp"]').click(); await frames(1);
-    assert(guide.matches(':popover-open'), 'Info button must open the guide');
-    const keyboard = guide.querySelector('[aria-label="Bàn phím"]').getBoundingClientRect();
+    const guide = (await openSettings('guide')).querySelector('.controls-guide');
     const mouse = guide.querySelector('[aria-label="Chuột"]').getBoundingClientRect();
-    assert(keyboard.right < mouse.left, 'Keyboard instructions must be left of mouse instructions');
-    assert(guide.querySelectorAll('kbd').length === expected.length + Object.keys(appShortcuts).length, 'Document camera and app shortcuts');
-    assert(guide.innerText.includes('Di chuyển camera') && guide.innerText.includes('Xoay mô hình'), 'Distinguish camera movement from model rotation');
+    const hand = guide.querySelector('.guide-hand-camera').getBoundingClientRect();
+    assert(mouse.bottom <= hand.top && !guide.querySelector('kbd'), 'Stack mouse and hand instructions and keep shortcuts separate');
     assert(guide.innerText.includes('Shift + kéo') && guide.innerText.includes('Cuộn chuột'), 'Document mouse gestures');
-    guide.querySelector('button').click(); await frames(1);
-    assert(!guide.matches(':popover-open'), 'Close button must hide the guide');
+    const shortcuts = await openSettings('shortcuts');
+    assert(shortcuts.querySelectorAll('[data-shortcut]').length === expected.length + Object.keys(appShortcuts).length, 'Expose camera and app shortcuts');
+    await closeSettings();
     const shell = document.querySelector('.module-page');
     for (const control of [document.querySelector('.explode-control input'), document.querySelector('.folder-toggle'),
       document.querySelector('.catalog-panel .visibility-checkbox input')]) {

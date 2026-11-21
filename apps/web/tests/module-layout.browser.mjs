@@ -14,12 +14,10 @@ export async function checkModuleNavigation() {
   assert(['/', '/home', '/home/'].includes(location.pathname), 'Start the navigation probe on Home');
   let catalogCalls = 0;
   const openedDocuments = [];
-  let editorAvailable = true;
   try {
     Object.defineProperty(window, '__TAURI_INTERNALS__', { configurable: true, value: {
       invoke: async (command, args) => {
         if (command === 'open_attribution') {
-          if (!editorAvailable) throw Error('Editor unavailable');
           openedDocuments.push(args.path);
           return;
         }
@@ -52,44 +50,21 @@ export async function checkModuleNavigation() {
         const content = host.querySelector('.module-content');
         const credit = host.querySelector('.home-credit a');
         const creditHref = credit.getAttribute('href');
-        editorAvailable = true;
         assert(click(credit) === desktop, 'Open source links natively on desktop');
         if (desktop) {
           assert(openedDocuments.at(-1) === creditHref, 'Pass the document to the native editor command');
-          assert(!host.querySelector('.source-document'), 'Keep the in-app reader closed when the editor opens');
+          assert(!host.querySelector('.source-document'), 'No in-app reader on desktop');
         }
-        editorAvailable = false;
-        const readDocument = path => new Promise((resolve, reject) => {
-          const observer = new MutationObserver(check);
-          const timeout = setTimeout(() => { observer.disconnect(); reject(Error(`Source document timed out: ${path}; ${host.querySelector('.source-document')?.outerHTML}`)); }, 5000);
-          function check() {
-            const result = host.querySelector('.source-document pre, .source-document [role="alert"]');
-            if (result) { clearTimeout(timeout); observer.disconnect(); resolve(result); }
-          }
-          observer.observe(host, { childList: true, subtree: true, attributes: true, characterData: true });
-          check();
-        });
         for (const path of ['/home/ATTRIBUTION.md', '/models/z-anatomy/ATTRIBUTION.md', '/missing/ATTRIBUTION.md']) {
           credit.href = path;
           credit.focus();
-          assert(click(credit) === desktop, 'Fall back to the in-app reader on desktop and retain browser links');
+          assert(click(credit) === desktop, 'Fall back to native editor on desktop and retain browser links');
           if (desktop) {
-            const result = await readDocument(path);
-            const panel = host.querySelector('.source-document');
-            assert(panel.matches(':popover-open') && panel.popover === 'auto', 'Read source documents in the shared dismissible popover');
-            if (path.startsWith('/missing/')) assert(result.getAttribute('role') === 'alert', 'Show document loading failures');
-            else assert(result.textContent === await (await fetch(path)).text(), 'Preserve the complete source and license text');
-            const key = new KeyboardEvent('keydown', { key: 'r', bubbles: true, cancelable: true });
-            result.dispatchEvent(key);
-            assert(!key.defaultPrevented, 'Document keys must not invoke viewer shortcuts');
-            await new Promise(resolve => {
-              panel.addEventListener('toggle', event => { if (event.newState === 'closed') resolve(); });
-              panel.querySelector('button').click();
-            });
-            flushSync(() => {});
-            assert(!host.querySelector('.source-document') && document.activeElement === credit, 'Close documents and restore link focus');
-            assert(host.querySelector('.module-page') === frame && location.href === originalUrl, 'Keep the current page mounted while reading sources');
-          } else assert(!host.querySelector('.source-document'), 'Keep native browser tab behavior');
+            assert(openedDocuments.at(-1) === path, 'Pass the document path to the native editor');
+            assert(!host.querySelector('.source-document'), 'No in-app reader popup on desktop');
+          } else {
+            assert(!host.querySelector('.source-document'), 'Keep native browser tab behavior');
+          }
         }
         credit.setAttribute('href', creditHref);
         const check = page => {
@@ -154,7 +129,7 @@ export async function checkModuleNavigation() {
     await Promise.resolve();
     assert(catalogCalls === 2, 'Load the native catalog on each of the two Anatomy visits');
     return { desktopInPlace: true, stableFrame: true, webLinksPreserved: true, keyboardFocus: true, linkExceptions: true,
-      sourceDocuments: true, sourceTextPreserved: true, sourceErrors: true, sourceFocusRestored: true };
+      sourceDocuments: true, nativeEditorOpens: true };
   } finally {
     if (originalTauri) Object.defineProperty(window, 'isTauri', originalTauri); else delete window.isTauri;
     if (originalInternals) Object.defineProperty(window, '__TAURI_INTERNALS__', originalInternals); else delete window.__TAURI_INTERNALS__;
@@ -178,8 +153,8 @@ export async function checkModuleLayout() {
   assert(root.querySelectorAll('.model-space').length === 1, 'The shared layout must own the only workspace');
   assert(content.dataset.page === name, 'Render the module at its own URL');
   const currentNavigation = root.querySelector('.module-nav [aria-current="page"]');
-  assert(name === 'lessons' || name === 'games' ? currentNavigation.getAttribute('aria-disabled') === 'true' : currentNavigation.getAttribute('href') === '/' + name, 'Mark the current module in navigation');
-  assert(JSON.stringify([...root.querySelectorAll('.module-nav a, .module-nav-disabled')].map(link => link.textContent)) === JSON.stringify(['Home', '3D Anatomy', 'Lessons', 'Games']), 'Show all modules while disabling unavailable ones');
+  assert(name === 'games' ? currentNavigation.getAttribute('aria-disabled') === 'true' : currentNavigation.getAttribute('href') === '/' + name, 'Mark the current module in navigation');
+  assert(JSON.stringify([...root.querySelectorAll('.module-nav a, .module-nav-disabled')].map(link => link.textContent)) === JSON.stringify(['Home', 'Anatomy', 'Lessons', 'Games']), 'Show all modules while disabling unavailable ones');
   assert(root.querySelector('.module-brand').getAttribute('href') === '/home' && !root.querySelector('.brand-mark'), 'The brand must link to Home without a mark');
   const outer = content.getBoundingClientRect(), inner = space.getBoundingClientRect();
   const inset = parseFloat(getComputedStyle(space).left);

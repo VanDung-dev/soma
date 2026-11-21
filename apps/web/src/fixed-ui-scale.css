@@ -1,0 +1,4 @@
+.module-page { padding: 0 calc(6px * var(--fixed-ui-zoom, 1)) calc(6px * var(--fixed-ui-zoom, 1)); }
+.module-header { zoom: var(--fixed-ui-zoom, 1); }
+.windows-window .module-header { margin-right: calc(-6px / var(--fixed-ui-zoom, 1)); }
+.module-content { border-radius: calc(12px * var(--fixed-ui-zoom, 1)); }

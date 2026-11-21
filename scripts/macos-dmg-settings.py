@@ -1,5 +1,8 @@
 import os
 
+if "filename" in locals() and filename:
+    os.makedirs(os.path.dirname(os.path.abspath(filename)), exist_ok=True)
+
 application = defines["app"]
 application_name = os.path.basename(application)
 files = [application]

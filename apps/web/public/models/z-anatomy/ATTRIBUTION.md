@@ -1,6 +1,6 @@
 # Z-Anatomy assets and names
 
-These GLB and JSON packages are derived from the locally supplied `Z-Anatomy/Startup.blend`. The original file is not modified. Its SHA-256, the selection recipe checksum, Blender version and each generated file checksum are recorded in `manifest.json`.
+The combined `z-anatomy.glb.br` is derived from the locally supplied `Z-Anatomy/Startup.blend`. The original file is not modified. The companion `z-anatomy.json` combines the source manifest and the nine systems' metadata. The manifest records the source SHA-256, selection recipe checksum, Blender version and checksums of the intermediate system exports. The compressed bundle checksum is recorded in `content/catalog.json`.
 
 ## Authors and licenses
 

@@ -1,16 +1,17 @@
+import { bundle, modelBytes, modelMetadata } from './model.fixture.mjs';
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { initSync, prepare_packages } from "../src/wasm/wasm.js";
+import { initSync, prepare_packages, prepare_model } from "../src/wasm/wasm.js";
 
 initSync({ module: readFileSync(new URL("../src/wasm/wasm_bg.wasm", import.meta.url)) });
 
 test("Rust prepares transferable geometry with matching identities and rejects invalid packages", () => {
-  const folder = new URL("../public/models/z-anatomy/", import.meta.url);
-  const bytes = new Uint8Array(readFileSync(new URL("body-regions.glb.br", folder)));
-  const metadata = JSON.parse(readFileSync(new URL("body-regions.json", folder), "utf8"));
+  const bytes = new Uint8Array(modelBytes());
+  const metadata = modelMetadata('body-regions');
+  const allIds = bundle.manifest.models.flatMap(model => model.source_ids);
   const ids = metadata.structures.map(s => s.source_id);
-  const [vertices, indices, descriptor] = prepare_packages([bytes], JSON.stringify([ids]));
+  const [vertices, indices, descriptor] = prepare_model(bytes, allIds, ids);
   assert(vertices instanceof Float32Array);
   assert(indices instanceof Uint32Array);
   const packed = JSON.parse(descriptor);
@@ -23,6 +24,8 @@ test("Rust prepares transferable geometry with matching identities and rejects i
   const copied = structuredClone([vertices, indices], { transfer: [vertices.buffer, indices.buffer] });
   assert.equal(vertices.byteLength, 0);
   assert.equal(copied[0].length, packed.vertex_count * 6);
+  assert.throws(() => prepare_model(bytes, allIds, ['unknown']));
+  assert.throws(() => prepare_model(bytes, allIds, [ids[0], ids[0]]));
   assert.throws(() => prepare_packages([bytes], "[]"));
   assert.throws(() => prepare_packages([bytes], JSON.stringify([ids.slice(1)])));
   assert.throws(() => prepare_packages([new Uint8Array([1, 2, 3])], JSON.stringify([ids])));
