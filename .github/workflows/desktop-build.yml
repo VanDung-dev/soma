@@ -44,12 +44,6 @@ jobs:
         run: |
           [[ "$GITHUB_REF" == refs/tags/* ]] || { echo 'Select a version tag ref to publish a release.' >&2; exit 1; }
           [[ "${{ inputs.platform }}" == all ]] || { echo 'Select all platforms to publish a release.' >&2; exit 1; }
-      - name: Verify tag matches app version
-        if: startsWith(github.ref, 'refs/tags/')
-        shell: bash
-        run: |
-          version=$(node -p "require('./apps/web/src-tauri/tauri.conf.json').version")
-          [[ "$GITHUB_REF_NAME" == "v$version" ]]
       - uses: actions/setup-node@v7
         with:
           node-version: '24.22.2'
@@ -61,12 +55,23 @@ jobs:
       - name: Install macOS DMG tooling
         if: runner.os == 'macOS'
         run: python -m pip install -r scripts/requirements-dmg.txt
-      - name: Install Rust and wasm-pack
+      - name: Install Rust
         shell: bash
         run: |
           rustup toolchain install 1.96.0 --profile minimal --target wasm32-unknown-unknown
           rustup override set 1.96.0
-          cargo install wasm-pack --version 0.15.1 --locked
+      - name: Read app version and verify tag
+        shell: bash
+        run: |
+          version=$(node scripts/release-version.mjs)
+          if [[ "$GITHUB_REF" == refs/tags/* && "$GITHUB_REF_NAME" != "v$version" ]]; then
+            printf 'Tag %s must match app version v%s.\n' "$GITHUB_REF_NAME" "$version" >&2
+            exit 1
+          fi
+          printf 'SOMA_VERSION=%s\n' "$version" >> "$GITHUB_ENV"
+      - name: Install wasm-pack
+        shell: bash
+        run: cargo install wasm-pack --version 0.15.1 --locked
       - name: Install macOS Rust targets
         if: runner.os == 'macOS'
         run: rustup target add aarch64-apple-darwin
@@ -77,7 +82,7 @@ jobs:
         run: |
           npm.cmd exec --workspace apps/web -- tauri build --bundles nsis --target x86_64-pc-windows-msvc
           if ($LASTEXITCODE -ne 0) { throw 'Soma build failed' }
-          $version = (Get-Content apps/web/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $version = $env:SOMA_VERSION
           $workspace = $env:GITHUB_WORKSPACE
           $installer = Join-Path $workspace "target/x86_64-pc-windows-msvc/release/bundle/nsis/Soma_${version}_x64-setup.exe"
           $artifact = Join-Path $workspace "Soma-windows-x64-setup.exe"
@@ -91,9 +96,8 @@ jobs:
           app=target/aarch64-apple-darwin/release/bundle/macos/Soma.app
           architectures=$(lipo -archs "$app/Contents/MacOS/soma")
           [[ "$architectures" == arm64 ]]
-          version=$(node -p "require('./apps/web/src-tauri/tauri.conf.json').version")
           mkdir -p target/aarch64-apple-darwin/release/bundle/dmg
-          dmg="target/aarch64-apple-darwin/release/bundle/dmg/Soma_${version}_aarch64.dmg"
+          dmg="target/aarch64-apple-darwin/release/bundle/dmg/Soma_${SOMA_VERSION}_aarch64.dmg"
           dmgbuild -s scripts/macos-dmg-settings.py \
             -D "app=$app" \
             -D "icon=apps/web/src-tauri/icons/icon.icns" \
