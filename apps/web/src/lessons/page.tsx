@@ -188,16 +188,15 @@ function LessonsPageContent({ editId, viewId, studyVisible, navigate }: LessonsP
   return <><main className="lessons-screen" data-library={!activeId} data-editor={editing && !preview} data-player={viewing || (editing && preview)}>
     {draft ? <>
       <LessonImageProvider key={draft.id} lesson={draft}>
-      <WithLessonCatalog key={`${draft.id}/${viewing ? "view" : preview ? "preview" : "editor"}`}>{catalog => viewing
-        ? <LessonPlayer lesson={draft} catalog={catalog} studyVisible={studyVisible} onBack={leave} />
-        : preview
-          ? <LessonPlayer lesson={draft} catalog={catalog} preview initialStepId={selected} onBack={leave} onEdit={() => setPreview(false)} />
-          : <LessonEditor catalog={catalog} lesson={draft} saved={savedLesson ?? draft} selected={selected} onSelect={setSelected}
-            saving={saving} saveFailed={error === "save"} onChange={update} onDraftChange={setPending} onPreview={current => {
-              setPending({ ...current, createdAt: savedLesson?.createdAt, updatedAt: savedLesson?.updatedAt });
-              setPreview(true);
-            }}
-            onBack={leave} />}
+      <WithLessonCatalog key={`${draft.id}/${viewing ? "view" : preview ? "preview" : "editor"}`}>{catalog => viewing || preview
+        ? <LessonPlayer lesson={draft} catalog={catalog} preview={!viewing} studyVisible={viewing ? studyVisible : undefined}
+          initialStepId={viewing ? undefined : selected} onBack={leave} onEdit={viewing ? undefined : () => setPreview(false)} />
+        : <LessonEditor catalog={catalog} lesson={draft} saved={savedLesson ?? draft} selected={selected} onSelect={setSelected}
+          saving={saving} saveFailed={error === "save"} onChange={update} onDraftChange={setPending} onPreview={current => {
+            setPending({ ...current, createdAt: savedLesson?.createdAt, updatedAt: savedLesson?.updatedAt });
+            setPreview(true);
+          }}
+          onBack={leave} />}
       </WithLessonCatalog>
       </LessonImageProvider>
     </> : activeId ? <>

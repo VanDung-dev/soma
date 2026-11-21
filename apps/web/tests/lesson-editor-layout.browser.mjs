@@ -64,7 +64,11 @@ export async function checkLessonResponsiveLayout(page) {
   };
   const measure = async editor => {
     await page.locator('.model-canvas[aria-busy="false"] canvas').waitFor({ state: 'attached' });
-    const frame = model(editor).locator('.model-focus-frame');
+    const shell = page.locator('.lesson-workspace-shell');
+    assert.equal(await shell.locator(':scope > .lesson-header').count(), 1);
+    assert.equal(await shell.locator(':scope > .lesson-workspace-body > .lesson-outline-panel').count(), 1);
+    assert.equal(await shell.locator('.lesson-workspace-main > .lesson-content-panel > .lesson-step-navigation').count(), 1);
+    const frame = model(editor).locator('.lesson-model-surface > .model-focus-frame');
     const toggle = page.locator(editor ? '#lesson-toggle-outline' : '.lesson-player-header .sidebar-toggle');
     const results = [];
     for (const [width, height, outlineWidth, modelWidth, contentWidth] of [...sizes, ...sizes.slice(0, -1).reverse()]) {
@@ -72,9 +76,12 @@ export async function checkLessonResponsiveLayout(page) {
       const panels = await Promise.all([outline(editor), model(editor), content(editor), frame].map(bounds));
       assert.deepEqual(panels.slice(0, 3).map(rect => rect[2]), [outlineWidth, modelWidth, contentWidth], `${width}px with outline`);
       const [modelX, modelY, paneWidth, paneHeight] = panels[1];
-      const [statusX, statusY, statusWidth, statusHeight] = await bounds(model(editor).locator('.model-hud > .model-status').first());
+      const [statusX, statusY, statusWidth, statusHeight] = await bounds(model(editor).locator('.lesson-model-hud > .model-status').first());
       assert(Math.abs(statusX + statusWidth / 2 - modelX - paneWidth / 2) <= 1, 'Model status stays centered in the 3D pane');
       const statusBottom = modelY + paneHeight - statusY - statusHeight;
+      const [creditX, creditY] = await bounds(model(editor).locator('.lesson-model-credit'));
+      const creditInset = [creditX - modelX, creditY - modelY];
+      assert.deepEqual(creditInset, [10, 10], 'Model attribution stays in the top-left corner');
       if (editor) {
         await page.getByRole('button', { name: 'Thiết lập 3D', exact: true }).click();
         const settings = page.locator('.lesson-model-settings[data-open="true"]');
@@ -109,7 +116,7 @@ export async function checkLessonResponsiveLayout(page) {
       assert.deepEqual(closed[1], panels[2]);
       if (width === 1280) await requireAutoFit();
       await toggle.click();
-      results.push({ panels, closed, statusBottom });
+      results.push({ panels, closed, statusBottom, creditInset });
     }
     for (const [width, height] of [[912, 570], [800, 500], [1280, 800], [1920, 1200]]) {
       await page.setViewportSize({ width, height });

@@ -3,11 +3,11 @@ import type { ReactNode, Ref } from "react";
 import { createPortal } from "react-dom";
 import { getCatalog } from "../../anatomy/core";
 import type { Catalog } from "../../anatomy/catalog/types";
-import { OrientationAxes } from "../../anatomy/orientation-axes";
-import { ViewerStatusNotice } from "../../anatomy/viewer-status";
 import { ExplodeControls } from "../../anatomy/explode-controls";
 import { useLanguage } from "../../i18n";
 import { useLessonViewer } from "../shared/viewer";
+import { LessonModelHud } from "../shared/model-hud";
+import { LessonModelFrame } from "../shared/model-frame";
 import { LessonStructureTools } from "./structure-tools";
 import type { SceneView } from "../../anatomy/viewer/contracts";
 import type { GraphicsSettings } from "../../anatomy/viewer/graphics";
@@ -49,12 +49,10 @@ export function EditorScene(props: SceneProps) {
   }, []);
 
   if (catalog) return <Scene key={props.reloadVersion} catalog={catalog} {...props} />;
-  return createPortal(<div className="model-hud lesson-editor-hud">
-    <p className={`model-status${failed ? " model-error" : ""}`} role={failed ? "alert" : "status"}>
+  return createPortal(<LessonModelHud className="lesson-editor-hud" showCredit={false} actions={!props.inactive && props.settingsButton}
+    status={<p className={`model-status${failed ? " model-error" : ""}`} role={failed ? "alert" : "status"}>
       {t(failed ? "lessons.targetError" : "viewer.status.loading")}
-    </p>
-    {!props.inactive && <div className="lesson-model-tools">{props.settingsButton}</div>}
-  </div>, props.frame);
+    </p>} />, props.frame);
 }
 
 function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inactive, settingsButton, settingsControlsHost, settingsActionsHost, outlineOpen, visibleIds, view, onChangeScene, sceneRef, revealPart, onSceneChange, onReloadModel, resetVersion }: SceneProps & { catalog: Catalog }) {
@@ -109,27 +107,16 @@ function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inacti
       <button className="lesson-button" disabled={inactive || !ready || separated}
         onClick={onReloadModel}>{t("lessons.reloadModel")}</button>
     </>, settingsActionsHost)}
-    {createPortal(<div className="lesson-editor-scene" inert={inactive} data-active={!inactive} aria-hidden={inactive} aria-label={t("viewer.section.label")} role="group">
+    {createPortal(<div className="lesson-editor-scene lesson-model-surface" inert={inactive} data-active={!inactive} aria-hidden={inactive} aria-label={t("viewer.section.label")} role="group">
       {createPortal(<div className="model-canvas" ref={host} inert={inactive} aria-busy={state.building && !state.error} />,
         frame.closest(".lesson-editor")!)}
-      <div className="model-focus-frame" ref={focusFrame}>
-        <div className="model-orientation">
-          <div hidden={!showAxes}>
-            <OrientationAxes ref={orientation} disabled={!ready || !showAxes} onControl={session.control} />
-          </div>
-          {graphics.showFps && <span className="model-fps" aria-label={t("graphics.fps.current", { count: fps })}>{fps} FPS</span>}
-        </div>
-      </div>
-      <div className="model-hud lesson-editor-hud">
-        {snapPart && <p className="model-status model-snap-hint" role="status">{t("viewer.snapHint", { name: snapPart.names[language] })}</p>}
-        {separated && <p className="model-status separation-status" role="status">{t("context.dragHint")}</p>}
-        <ViewerStatusNotice state={state} totalSystems={modelIds.length} />
-        {state.building && !state.error && <progress className="model-progress" aria-label={t("viewer.loading.systems")}
-          value={state.loadedSystems} max={modelIds.length} />}
-        {!inactive && settingsButton && <div className="lesson-model-tools">{settingsButton}</div>}
-      </div>
-      <a className="lesson-model-credit" href="/models/z-anatomy/ATTRIBUTION.md" target="_blank" rel="noreferrer"
-        aria-label={t("credit.link")}>Z-Anatomy</a>
+      <LessonModelFrame ref={focusFrame} orientation={orientation} showAxes={showAxes} disabled={!ready}
+        onControl={session.control} fps={graphics.showFps ? fps : undefined} />
+      <LessonModelHud className="lesson-editor-hud" state={state} totalSystems={modelIds.length} actions={!inactive && settingsButton}
+        beforeStatus={<>
+          {snapPart && <p className="model-status model-snap-hint" role="status">{t("viewer.snapHint", { name: snapPart.names[language] })}</p>}
+          {separated && <p className="model-status separation-status" role="status">{t("context.dragHint")}</p>}
+        </>} />
       {ready && <LessonStructureTools key={sectionId} catalog={catalog} session={session} state={state} ids={ids} searchable={false} />}
       {hold && <svg key={hold.action} className="model-hold-progress" data-action={hold.action} style={{ left: hold.x, top: hold.y }} viewBox="0 0 40 40" aria-hidden="true">
         <circle cx="20" cy="20" r="16" />

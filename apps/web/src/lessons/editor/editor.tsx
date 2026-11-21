@@ -2,7 +2,6 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { Catalog } from "../../anatomy/catalog/types";
 import { translateMessage, useLanguage } from "../../i18n";
 import type { Language } from "../../i18n";
-import { LineIcon } from "../../icons";
 import { LessonValidationError, lessonMode, lessonSceneStep, lessonText, readLesson, updateLessonQuestions } from "../shared/contract";
 import type { Lesson, LessonScene, LessonStep, LessonText } from "../shared/contract";
 import { EditorScene } from "./editor-scene";
@@ -11,14 +10,13 @@ import { LessonModelSetup } from "./model-setup";
 import { LessonDetails } from "./details";
 import { LessonStepOptions } from "./step-options";
 import { LessonQuestionEditor } from "./question-editor";
-import { LessonTimestamps } from "../shared/timestamps";
 import { exportLesson, newLessonId } from "../shared/source";
 import { lessonModels, lessonSceneModels, lessonTargets } from "../shared/targets";
 import type { SceneView } from "../../anatomy/viewer/contracts";
 import { useLessonPanel } from "../shared/panels";
 import { LessonOutline } from "./outline";
 import { useGraphicsSettings } from "../../pages/use-graphics-settings";
-import { SidebarToggle, WorkspaceLayout, WorkspaceMenu } from "../../pages/workspace-layout";
+import { LessonContentPanel, LessonHeader, LessonOutlinePanel, LessonStepNavigation, LessonWorkspace } from "../shared/workspace";
 import { useLessonConfirm } from "../shared/confirm";
 import { restoreSavedScene } from "./saved-scene";
 
@@ -382,8 +380,8 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
     aria-controls="lesson-model-settings" aria-expanded={modelSettingsOpen} hidden={modelSettingsOpen}
     onClick={openModelSettings}>{t("lessons.modelSettings")}</button>;
 
-  return <WorkspaceLayout className="lesson-editor study-shell" data-outline={outlineOpen}>
-    {sceneFrame && <EditorScene graphics={graphics} modelIds={loadedModelIds} targetId={displayTargetId}
+  return <LessonWorkspace editing outlineOpen={outlineOpen} modelVisible={showModel} hasStep={!!active}
+    background={sceneFrame && <EditorScene graphics={graphics} modelIds={loadedModelIds} targetId={displayTargetId}
       visibleIds={displayVisibleIds} view={previewScene ? previewScene.view : scene?.view} sectionId={active?.id ?? draft.id} sceneRef={sceneHandle}
       revealPart={revealPart}
       onChangeScene={ids => modelSettingsOpen ? previewVisibility(ids) : updateScene(ids)}
@@ -393,23 +391,16 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
       frame={sceneFrame} settingsButton={modelSettingsButton} settingsControlsHost={modelSettingsOpen ? modelControlsHost : null}
       settingsActionsHost={modelSettingsOpen ? modelActionsHost : null}
       inactive={!renderScene} outlineOpen={outlineOpen} />}
-    <WorkspaceMenu className="lesson-author-bar" layout="inline" actionsClassName="lesson-author-actions" navigation={<>
-        <SidebarToggle id="lesson-toggle-outline" controls="lesson-author-outline" expanded={outlineOpen}
-          name={t("lessons.outline")} onToggle={() => setOutlineOpen(!outlineOpen)} />
-        <button className="controls-info lesson-exit" aria-label={t("lessons.exit")} title={t("lessons.exit")} disabled={saving} onClick={exit}>
-          <LineIcon name="arrow-small-left" size={18} />
-          {t("lessons.exit")}
-        </button>
-        <button className="lesson-button lesson-primary" aria-label={t(isDirty ? "lessons.saveLesson" : "lessons.savedShort")}
+    header={<LessonHeader editing title={lessonText(draft.title, language) || t("lessons.editor")}
+      subtitle={t(isDirty ? "lessons.unsaved" : "lessons.saved")} lesson={saved} headingRef={heading}
+      outlineId="lesson-author-outline" outlineToggleId="lesson-toggle-outline" outlineOpen={outlineOpen}
+      onToggleOutline={() => setOutlineOpen(!outlineOpen)} onBack={exit} backDisabled={saving}
+      navigation={<button className="lesson-button lesson-primary" aria-label={t(isDirty ? "lessons.saveLesson" : "lessons.savedShort")}
           data-saved={!isDirty} disabled={!isDirty || saving || modelSettingsOpen} aria-busy={saving} onClick={save}>
           <span className="lesson-action-full">{t(isDirty ? "lessons.saveLesson" : "lessons.savedShort")}</span>
           <span className="lesson-action-short">{t(isDirty ? "lessons.saveLessonShort" : "lessons.savedShort")}</span>
-        </button>
-      </>} title={<div className="lesson-author-heading">
-        <h1 className="app-menu-title" ref={heading} tabIndex={-1}>{lessonText(draft.title, language) || t("lessons.editor")}</h1>
-        <span>{t(isDirty ? "lessons.unsaved" : "lessons.saved")}</span>
-        <LessonTimestamps lesson={saved} />
-      </div>} actions={<>
+        </button>}
+      actions={<>
         <div className="lesson-languages" role="group" aria-label={t("lessons.writingLanguage")}>
           {(["vi", "en"] as const).map(value => {
             const isConfigured = !draft.languages || draft.languages.includes(value);
@@ -426,12 +417,8 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
         <button className="lesson-button lesson-primary" aria-label={t("lessons.preview")} disabled={modelSettingsOpen} onClick={preview}>
           <span className="lesson-action-full">{t("lessons.preview")}</span><span className="lesson-action-short">{t("lessons.previewShort")}</span>
         </button>
-      </>} />
-    <div className="lesson-author-workspace" data-outline={outlineOpen}>
-    <nav className="workspace-panel-surface lesson-author-outline" id="lesson-author-outline" hidden={!outlineOpen} inert={!outlineOpen} aria-hidden={!outlineOpen}
-      aria-label={t("lessons.outline")}>
-      <div className="catalog-heading"><h2>{t("lessons.outline")}</h2></div>
-      <div className="catalog-tree">
+      </>} />}
+    outline={<LessonOutlinePanel editing id="lesson-author-outline" open={outlineOpen}>
         <button className="lesson-outline-row lesson-outline-details" aria-current={!active ? "true" : undefined} onClick={() => select()}>
           <span className="lesson-outline-label">{t("lessons.details")}</span>
         </button>
@@ -440,11 +427,8 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
           <button type="button" className="controls-info lesson-outline-add" aria-label={t("lessons.addStep")} title={t("lessons.addStep")} onClick={add} />
         </div>
         <LessonOutline steps={draft.steps} selected={selected} onSelect={select} onMove={move} onRemove={remove} />
-      </div>
-    </nav>
-    <p className="sr-only" role="status">{orderStatus}</p>
-
-    <div className="lesson-author-center" data-step={!!active} data-model={showModel}>
+    </LessonOutlinePanel>}
+    beforeContent={<p className="sr-only" role="status">{orderStatus}</p>}>
       {(saveFailed || error || (active ? active.sceneRef : draft.sceneRef)) && <div className="lesson-author-alerts">
         {saveFailed && <p className="model-status model-error" role="alert">{t("lessons.saveError")}</p>}
         {error && <p className="model-status model-error" role="alert">{error}</p>}
@@ -461,19 +445,16 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
         </div>}
         </div>
       </div>
-      <section className={`lesson-author-document workspace-panel-surface lesson-author-document--${active ? "step" : "details"}`} id="lesson-author-writing" inert={modelSettingsOpen}
+      <LessonContentPanel className={`lesson-author-document lesson-author-document--${active ? "step" : "details"}`} id="lesson-author-writing" inert={modelSettingsOpen}
         aria-label={writingLabel}>
-        <div className="lesson-editor-stepbar">
-          {active && <button className="lesson-button lesson-step-previous" disabled={index === 0}
-            onClick={() => select(draft.steps[index - 1]?.id)}>{t("lessons.previous")}</button>}
-          {active && <span>{t("lessons.step", { current: index + 1, total: draft.steps.length })}</span>}
-          <div className="lesson-editor-stepbar-actions">
+        <LessonStepNavigation editing position={active ? { current: index + 1, total: draft.steps.length } : undefined}
+          onPrevious={active ? () => select(draft.steps[index - 1]?.id) : undefined} previousDisabled={index === 0}
+          actions={<>
             {active && index < draft.steps.length - 1 && <button className="lesson-button"
               onClick={() => select(draft.steps[index + 1]?.id)}>{t("lessons.next")}</button>}
             {(!draft.steps.length || (active && index === draft.steps.length - 1))
               && <button className="lesson-button" onClick={add}>{t("lessons.addStep")}</button>}
-          </div>
-        </div>
+          </>} />
         <p className="lesson-save-status sr-only" role="status">{saveFailed ? t("lessons.saveError") : saveNotice}</p>
         <p className="lesson-writing-language" role="status">{t("lessons.writingLanguage")}: <strong lang={editorLanguage}>{editorLanguage === "vi" ? "Tiếng Việt" : "English"}</strong></p>
         <div className="information-content">
@@ -503,7 +484,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
           <LessonStepOptions active={active} onChange={updateActive} />
           <button type="button" className="lesson-button lesson-remove-block" onClick={remove}>{t("lessons.removeStep")}</button>
         </div>}
-      </section>
+      </LessonContentPanel>
       <section id="lesson-model-settings" className="lesson-model-settings workspace-panel-surface" data-open={modelSettingsOpen}
         aria-hidden={!modelSettingsOpen} inert={!modelSettingsOpen}
         role="region" aria-labelledby="lesson-model-settings-title">
@@ -520,8 +501,5 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
             </div>
           </>} />
       </section>
-    </div>
-
-    </div>
-  </WorkspaceLayout>;
+  </LessonWorkspace>;
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { LessonStep } from "../shared/contract";
 import { lessonText } from "../shared/contract";
+import { LessonOutlineRow } from "../shared/workspace";
 import { useLanguage } from "../../i18n";
 
 type Drag = { id: string; from: number; to: number; slot: number; pointer?: number; x: number; y: number;
@@ -116,10 +117,8 @@ export function LessonOutline({ steps, selected, onSelect, onMove, onRemove }: {
                 setDrag(dragging.current);
               }
             }}><span aria-hidden="true">⠿</span></button>
-          <button className="lesson-outline-row" aria-current={step.id === selected ? "true" : undefined}
-            aria-keyshortcuts={step.id === selected ? "Delete Backspace" : undefined} onClick={() => onSelect(step.id)}>
-            <strong className="lesson-outline-label">{name}</strong>
-          </button>
+          <LessonOutlineRow label={name} aria-current={step.id === selected ? "true" : undefined}
+            aria-keyshortcuts={step.id === selected ? "Delete Backspace" : undefined} onClick={() => onSelect(step.id)} />
         </li>;
       })}
     </ol>

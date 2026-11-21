@@ -1,20 +1,19 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { Catalog } from "../../anatomy/catalog/types";
-import { OrientationAxes } from "../../anatomy/orientation-axes";
-import { ViewerStatusNotice } from "../../anatomy/viewer-status";
 import { useLanguage } from "../../i18n";
 import { LineIcon } from "../../icons";
 import type { Lesson, LessonStep } from "../shared/contract";
 import { lessonMode, lessonPreviewIssues, lessonSceneStep, lessonText, validateLessonTargets } from "../shared/contract";
 import { useLessonViewer } from "../shared/viewer";
+import { LessonModelHud } from "../shared/model-hud";
+import { LessonModelFrame } from "../shared/model-frame";
 import { LessonQuestions } from "./questions";
 import { useLessonPanel } from "../shared/panels";
 import { lessonHtml, lessonPlainText } from "../shared/rich-text";
 import { useLessonImages } from "../shared/image-context";
-import { LessonTimestamps } from "../shared/timestamps";
 import { lessonModels } from "../shared/targets";
 import { useGraphicsSettings } from "../../pages/use-graphics-settings";
-import { SidebarToggle, WorkspaceLayout, WorkspaceMenu } from "../../pages/workspace-layout";
+import { LessonContentPanel, LessonHeader, LessonOutlinePanel, LessonOutlineRow, LessonStepNavigation, LessonWorkspace } from "../shared/workspace";
 import { useLessonProgress } from "./progress";
 import { READING_DURATION_MS, useReadingTimer } from "./reading-timer";
 
@@ -120,80 +119,54 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false,
     updateProgress(current => ({ ...current, position: lesson.steps[next]?.id }));
   }
 
-  return <WorkspaceLayout className="lesson-player">
-    <div className="lesson-model-canvas model-canvas" ref={host} inert={!modelVisible}
-      aria-busy={!modelMissing && state.building && !state.error && !failed} />
-    <WorkspaceMenu className="lesson-player-header" layout="inline" navigation={<>
-        <SidebarToggle controls={outlineId} expanded={outlineOpen} name={t("lessons.outline")} onToggle={() => setOutlineOpen(!outlineOpen)} />
-        <button className="controls-info lesson-exit" onClick={() => onBack()} aria-label={t("lessons.exit")} title={t("lessons.exit")}>
-          <LineIcon name="arrow-small-left" size={18} />
-          {t("lessons.exit")}
-        </button>
-      </>} title={<div className="lesson-player-heading">
-        <h1>{lessonText(lesson.title, language) || t("lessons.untitled")}</h1>
-        <span>{lesson.author?.trim() && `${t("lessons.author")}: ${lesson.author} · `}{preview && `${t("lessons.draftPreview")} · `}{lesson.steps.length ? t(complete ? "lessons.completed" : "lessons.step", { current: index + 1, total: lesson.steps.length }) : t("lessons.addContent")}</span>
-        <LessonTimestamps lesson={lesson} />
-      </div>} actions={<>
-      {showStepModel && <button className="controls-info lesson-player-model-toggle" aria-controls={modelId} aria-expanded={!modelCollapsed}
-        aria-label={t(modelCollapsed ? "lessons.showModel" : "lessons.hideModel")} title={t(modelCollapsed ? "lessons.showModel" : "lessons.hideModel")}
-        onClick={() => setModelCollapsed(value => !value)}><LineIcon name="sidebar" size={18} /></button>}
-      {onEdit && <button className="lesson-button lesson-primary" onClick={onEdit} aria-label={t("lessons.backEditor")}>
-        <span className="lesson-action-full">{t("lessons.edit")}</span><span className="lesson-action-short">{t("lessons.editShort")}</span>
-      </button>}
-      </>} />
-    <div className="lesson-player-body" ref={body} data-outline={outlineOpen}>
-      <nav id={outlineId} className="lesson-reader-outline workspace-panel-surface" hidden={!outlineOpen} inert={!outlineOpen} aria-hidden={!outlineOpen} aria-label={t("lessons.outline")}>
-        <div className="catalog-heading"><h2>{t("lessons.outline")}</h2></div>
-        <div className="catalog-tree">
-          <ol className="lesson-outline-list">
-            {lesson.steps.map((item, i) => {
-              const name = lessonText(item.title, language) || t("lessons.untitledSection");
-              const itemRead = progress.read.includes(item.id);
-              return <li key={item.id} className="lesson-outline-item">
-                <button className="lesson-outline-row" aria-current={!complete && i === index ? "true" : undefined}
-                  aria-description={t(itemRead ? "lessons.sectionRead" : "lessons.sectionUnread")}
-                  disabled={stepLocked(i)} onClick={() => move(i)}>
-                  <span className="lesson-outline-status" data-read={itemRead || undefined} aria-hidden="true" />
-                  <strong className="lesson-outline-label">{name}</strong>
-                </button>
-              </li>;
-            })}
-          </ol>
-        </div>
-      </nav>
-      <div className="lesson-workspace" data-model={modelVisible} onScroll={() => runtime.current?.resize()}>
-      <section className="lesson-model" id={modelId} hidden={!modelVisible} inert={!modelVisible} aria-hidden={!modelVisible} aria-label={t("viewer.section.label")}>
-        <div className="model-focus-frame" ref={focusFrame}>
-          <div className="model-orientation">
-            <div hidden={!showAxes}>
-              <OrientationAxes ref={orientation} disabled={!ready || !modelVisible || !showAxes} onControl={session.control} />
-            </div>
-            {graphics.showFps && <span className="model-fps" aria-label={t("graphics.fps.current", { count: fps || "—" })}>{fps || "—"} FPS</span>}
-          </div>
-        </div>
-        <div className="model-hud lesson-player-hud">
-          {modelMissing ? <p className="model-status" role="status">{t("lessons.validation.target", { step: index + 1 })}</p>
+  return <LessonWorkspace outlineOpen={outlineOpen} modelVisible={modelVisible} bodyRef={body} onScroll={() => runtime.current?.resize()}
+    background={<div className="lesson-model-canvas model-canvas" ref={host} inert={!modelVisible}
+      aria-busy={!modelMissing && state.building && !state.error && !failed} />}
+    header={<LessonHeader title={lessonText(lesson.title, language) || t("lessons.untitled")} lesson={lesson}
+      subtitle={<>
+        {lesson.author?.trim() && `${t("lessons.author")}: ${lesson.author} · `}
+        {preview && `${t("lessons.draftPreview")} · `}
+        {lesson.steps.length ? t(complete ? "lessons.completed" : "lessons.step", { current: index + 1, total: lesson.steps.length }) : t("lessons.addContent")}
+      </>}
+      outlineId={outlineId} outlineOpen={outlineOpen} onToggleOutline={() => setOutlineOpen(!outlineOpen)} onBack={() => onBack()}
+      actions={<>
+        {showStepModel && <button className="controls-info lesson-player-model-toggle" aria-controls={modelId} aria-expanded={!modelCollapsed}
+          aria-label={t(modelCollapsed ? "lessons.showModel" : "lessons.hideModel")} title={t(modelCollapsed ? "lessons.showModel" : "lessons.hideModel")}
+          onClick={() => setModelCollapsed(value => !value)}><LineIcon name="sidebar" size={18} /></button>}
+        {onEdit && <button className="lesson-button lesson-primary" onClick={onEdit} aria-label={t("lessons.backEditor")}>
+          <span className="lesson-action-full">{t("lessons.edit")}</span><span className="lesson-action-short">{t("lessons.editShort")}</span>
+        </button>}
+      </>} />}
+    outline={<LessonOutlinePanel id={outlineId} open={outlineOpen}>
+      <ol className="lesson-outline-list">
+        {lesson.steps.map((item, i) => {
+          const name = lessonText(item.title, language) || t("lessons.untitledSection");
+          const itemRead = progress.read.includes(item.id);
+          return <li key={item.id} className="lesson-outline-item">
+            <LessonOutlineRow label={name} aria-current={!complete && i === index ? "true" : undefined}
+              aria-description={t(itemRead ? "lessons.sectionRead" : "lessons.sectionUnread")}
+              disabled={stepLocked(i)} onClick={() => move(i)}
+              indicator={<span className="lesson-outline-status" data-read={itemRead || undefined} aria-hidden="true" />} />
+          </li>;
+        })}
+      </ol>
+    </LessonOutlinePanel>}>
+      <section className="lesson-model lesson-model-surface" id={modelId} hidden={!modelVisible} inert={!modelVisible}
+        aria-hidden={!modelVisible} aria-label={t("viewer.section.label")}>
+        <LessonModelFrame ref={focusFrame} orientation={orientation} showAxes={showAxes} disabled={!ready || !modelVisible}
+          onControl={session.control} fps={graphics.showFps ? fps : undefined} />
+        <LessonModelHud className="lesson-player-hud" state={state} totalSystems={modelIds.length} showProgress={!modelMissing}
+          status={modelMissing ? <p className="model-status" role="status">{t("lessons.validation.target", { step: index + 1 })}</p>
             : failed ? <p className="model-status model-error" role="alert">{t("lessons.targetError")}</p>
-            : <ViewerStatusNotice state={state} totalSystems={modelIds.length} />}
-          {state.building && !state.error && !modelMissing && <progress className="model-progress" aria-label={t("viewer.loading.systems")}
-            value={state.loadedSystems} max={modelIds.length} />}
-          {!state.building && !state.error && !sceneUsable && <p className="model-status" role="status">{t("lessons.targetError")}</p>}
-          <div className="lesson-model-tools">
-            <button className="lesson-button lesson-player-reset" disabled={!ready || !sceneUsable} onClick={() => {
-              if (!session.applyScene(sceneIds, scene?.view)) return;
-            }}>{t("lessons.resetStudyScene")}</button>
-            <a className="lesson-model-credit" href="/models/z-anatomy/ATTRIBUTION.md" target="_blank" rel="noreferrer"
-              aria-label={t("credit.link")}>Z-Anatomy</a>
-          </div>
-        </div>
+            : undefined}
+          afterStatus={!state.building && !state.error && !sceneUsable && <p className="model-status" role="status">{t("lessons.targetError")}</p>}
+          actions={<button className="lesson-button lesson-player-reset" disabled={!ready || !sceneUsable}
+            onClick={() => session.applyScene(sceneIds, scene?.view)}>{t("lessons.resetStudyScene")}</button>} />
       </section>
-      <section className="lesson-step workspace-panel-surface" aria-labelledby="lesson-step-title">
-        {lesson.steps.length > 0 && <div className="lesson-editor-stepbar lesson-player-stepbar">
-          {!complete && <button className="lesson-button lesson-step-previous" disabled={index === 0}
-            onClick={() => move(index - 1)}>{t("lessons.previous")}</button>}
-          <span>{t("lessons.step", { current: index + 1, total: lesson.steps.length })}</span>
-          <div className="lesson-editor-stepbar-actions">
-            {complete
+      <LessonContentPanel aria-labelledby="lesson-step-title">
+        {lesson.steps.length > 0 && <LessonStepNavigation position={{ current: index + 1, total: lesson.steps.length }}
+          onPrevious={complete ? undefined : () => move(index - 1)} previousDisabled={index === 0}
+          actions={complete
               ? <button className="lesson-button" onClick={() => move(0)}>{t("lessons.review")}</button>
               : <button key={readingRestart} className="lesson-button lesson-primary" disabled={stepLocked(index + 1)}
                 data-reading={readingActive || undefined} data-read={read || undefined}
@@ -202,8 +175,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false,
                 if (index + 1 < lesson.steps.length) move(index + 1);
                 else updateProgress(current => ({ ...current, position: null }));
               }}>{t(index + 1 < lesson.steps.length ? "lessons.next" : "lessons.finish")}</button>}
-          </div>
-        </div>}
+          />}
         {progressUnsaved && <p className="model-status" role="status">{t("lessons.progressUnsaved")}</p>}
         <div className="information-content lesson-reader-body" ref={reader}>
         {complete ? <>
@@ -223,8 +195,6 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false,
             onCorrect={(key, choice) => updateProgress(current => ({ ...current, position: step.id, answers: { ...current.answers, [key]: choice } }))} />
         </div>
         </div>
-      </section>
-    </div>
-    </div>
-  </WorkspaceLayout>;
+      </LessonContentPanel>
+  </LessonWorkspace>;
 }
