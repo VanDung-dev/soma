@@ -127,11 +127,6 @@ export function SettingsPage({ section = "interface", fontSize }: {
           {section === "guide" && <div className="settings-guide-content">
             <h3>{t("controls.guide.title")}</h3>
             <ControlsGuide />
-            <h3>{t("module.lessons")}</h3>
-            <p>{t("lessons.guide.editor")}</p>
-            <p>{t("lessons.dragInstructions")}</p>
-            <p>{t("lessons.guide.reader")}</p>
-            <p>{t("lessons.guide.cameraFocus")}</p>
           </div>}
           {section === "licenses" && <div className="settings-guide-content">
             <p>{t("settings.licenses.description")}</p>
