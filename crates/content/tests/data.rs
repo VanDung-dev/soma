@@ -77,10 +77,52 @@ fn skull_search_returns_the_linked_group_without_midword_noise() {
     let path = data.reveal(&skull.id);
     assert_eq!(path[0].0, skull.id);
     assert_eq!(&path[1].0, skull.parent_id.as_ref().unwrap());
+    for query in ["sọ", "SO\u{323}", "so", "Cranium"] {
+        let tree = data.search_tree(query, "vi").unwrap();
+        assert_eq!(tree.best_id.as_deref(), Some(skull.id.as_str()));
+        assert!(tree.folders.contains(&skull.id));
+        let ancestors: Vec<_> = path.iter().skip(1).map(|(id, _)| id.clone()).collect();
+        assert_eq!(tree.initial_open, ancestors);
+        assert!(!tree.structures.contains_key("za:a250b6a53af7f133"));
+    }
+    let tree = data.search_tree("sọ", "vi").unwrap();
+    assert_eq!(tree.highlights["Sọ"], [0, 2]);
+    assert_eq!(tree.highlights["Cân trên sọ · trái"], [9, 11]);
+    for (query, end) in [("N", 1), ("n", 1), ("Ne", 2)] {
+        let tree = data.search_tree(query, "vi").unwrap();
+        assert!(tree.best_id.is_some());
+        assert_eq!(tree.highlights["Nervus opticus (II)"], [0, end]);
+    }
+    let tree = data.search_tree("so", "vi").unwrap();
+    assert!(!tree.highlights.contains_key("Các sợi vòng mi · phải"));
+    assert!(data.search_tree("---", "vi").is_none());
     assert_eq!(data.search("sọ", "vi", 0).total, page.total);
     assert!(data.search("sọ", "vi", 0).items.is_empty());
     data.clear_metadata();
     assert!(data.search("sọ", "vi", 20).items.is_empty());
+}
+
+#[test]
+fn tree_search_ranks_all_catalog_matches_without_the_editor_candidate_limit() {
+    let mut data = CatalogData::from_json(SOURCE).unwrap();
+    let mut metadata: serde_json::Value = serde_json::from_str(metadata()).unwrap();
+    let parts = metadata["structures"].as_array_mut().unwrap();
+    for part in &mut parts[..120] {
+        part["source_name"] = "Tree search sample".into();
+        part["laterality"] = "".into();
+    }
+    parts[120]["source_name"] = "Tree search".into();
+    parts[120]["laterality"] = "".into();
+    let exact_id = parts[120]["source_id"].as_str().unwrap().to_owned();
+    data.ingest("collection:baf3076d0495a617", &metadata.to_string())
+        .unwrap();
+    data.finish("en").unwrap();
+
+    let tree = data.search_tree("tree search", "en").unwrap();
+    assert_eq!(tree.best_id.as_deref(), Some(exact_id.as_str()));
+    assert_eq!(tree.structures.len(), 121);
+    assert_eq!(tree.structures[&exact_id], data.reveal(&exact_id)[0].0);
+    assert_eq!(tree.highlights["Tree search sample"], [0, 11]);
 }
 
 #[test]

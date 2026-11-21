@@ -75,6 +75,9 @@ impl CatalogData {
     pub fn search(&self, query: &str, language: &str, limit: usize) -> Result<JsValue, JsValue> {
         value(&self.data.search(query, language, limit))
     }
+    pub fn search_tree(&self, query: &str, language: &str) -> Result<JsValue, JsValue> {
+        value(&self.data.search_tree(query, language))
+    }
     pub fn search_targets(
         &self,
         query: &str,

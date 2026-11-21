@@ -15,6 +15,9 @@ use std::{
     sync::{LazyLock, OnceLock},
 };
 
+mod tree_search;
+pub use tree_search::TreeSearch;
+
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Names {
     pub vi: String,
@@ -627,16 +630,7 @@ impl CatalogData {
                     .collect(),
             };
         }
-        let entries = self
-            .order
-            .iter()
-            .map(|i| (&self.entries[*i], SearchHit::Structure(*i)))
-            .chain(
-                self.loaded_targets
-                    .iter()
-                    .map(|i| (&self.target_entries()[*i], SearchHit::Target(*i))),
-            );
-        let matches = ranked_matches(query, entries);
+        let matches = self.search_hits(query);
         SearchPage {
             total: matches.len(),
             items: matches
@@ -648,6 +642,19 @@ impl CatalogData {
                 })
                 .collect(),
         }
+    }
+
+    fn search_hits(&self, query: &str) -> Vec<SearchHit> {
+        let entries = self
+            .order
+            .iter()
+            .map(|i| (&self.entries[*i], SearchHit::Structure(*i)))
+            .chain(
+                self.loaded_targets
+                    .iter()
+                    .map(|i| (&self.target_entries()[*i], SearchHit::Target(*i))),
+            );
+        ranked_matches(query, entries)
     }
 
     pub fn search_targets(
