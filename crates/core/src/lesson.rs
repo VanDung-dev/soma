@@ -230,9 +230,9 @@ pub fn validate(lesson: &Value, draft: bool) -> Result<(), ValidationError> {
             .is_some_and(|version| (1..=9_007_199_254_740_991).contains(&version))
         || ["createdAt", "updatedAt"].into_iter().any(|field| {
             lesson.get(field).is_some_and(|value| {
-                !value
+                value
                     .as_u64()
-                    .is_some_and(|time| time <= 8_640_000_000_000_000)
+                    .is_none_or(|time| time > 8_640_000_000_000_000)
             })
         })
         || !localized(&lesson["title"], !draft)
