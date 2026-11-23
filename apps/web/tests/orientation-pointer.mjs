@@ -35,11 +35,19 @@ export async function checkAnatomyOverviewResize(page) {
   const expectProportions = (measured, expected, label) => {
     assert(measured.every((value, index) => Math.abs(value - expected[index]) < 0.004), `${label}: ${measured}`);
   };
-  const sizes = [[1280, 800], [1152, 720], [1120, 700], [800, 500], [1920, 1200], [1280, 800]];
+  const sizes = [[1280, 800], [1152, 720], [1120, 700], [800, 500], [1367, 854], [1920, 1200], [1280, 800]];
   try {
     for (const [width, height] of sizes) {
       await page.setViewportSize({ width, height });
       expectProportions(await measure(), [0.5, 0.5, 0.75], `Anatomy overview at ${width}×${height}`);
+      if (width >= 1141) {
+        const panelWidths = await page.locator('.catalog-panel, .information-panel').evaluateAll(async panels => {
+          await Promise.all(panels.flatMap(panel => panel.getAnimations()).map(animation => animation.finished.catch(() => {})));
+          return panels.map(panel => panel.getBoundingClientRect().width);
+        });
+        const totalWidth = Math.round(width * .46875);
+        assert.deepEqual(panelWidths, [Math.floor(totalWidth / 2), Math.ceil(totalWidth / 2)], `Anatomy panel widths at ${width}px`);
+      }
     }
     await page.evaluate(() => {
       const { viewer } = window.anatomyOverviewProbe;

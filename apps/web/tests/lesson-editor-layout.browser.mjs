@@ -63,9 +63,12 @@ export async function checkLessonResponsiveLayout(page) {
     assert(result.fill > 0.77 && result.fill <= 0.86, `Fit within 85% of the 3D frame, allowing for geometry and rasterization: ${JSON.stringify(result)}`);
   };
   const measure = async editor => {
-    const extraWritingWidth = editor ? 100 : 0;
-    const expectedWidths = ([, , outlineWidth, modelWidth, contentWidth]) =>
-      [outlineWidth, modelWidth - extraWritingWidth, contentWidth + extraWritingWidth];
+    const expectedWidths = ([width, , outlineWidth, modelWidth, contentWidth]) => {
+      if (!editor) return [outlineWidth, modelWidth, contentWidth];
+      const authorOutlineWidth = Math.round(width * .1875);
+      const writingWidth = Math.round(width * .46875);
+      return [authorOutlineWidth, outlineWidth + modelWidth + contentWidth - authorOutlineWidth - writingWidth, writingWidth];
+    };
     await page.locator('.model-canvas[aria-busy="false"] canvas').waitFor({ state: 'attached' });
     const shell = page.locator('.lesson-workspace-shell');
     assert.equal(await shell.locator(':scope > .lesson-header').count(), 1);
@@ -117,6 +120,13 @@ export async function checkLessonResponsiveLayout(page) {
       if (width === 1280) await requireAutoFit();
       results.push({ panels, statusBottom, creditInset });
     }
+    if (editor) {
+      for (const [width, outlineWidth, writingWidth] of [[1366, 256, 640], [1369, 257, 642]]) {
+        await page.setViewportSize({ width, height: 854 });
+        assert.equal((await outline(editor).boundingBox()).width, outlineWidth, `Outline width rounds to a whole pixel at ${width}px`);
+        assert.equal((await content(editor).boundingBox()).width, writingWidth, `Writing width rounds to a whole pixel at ${width}px`);
+      }
+    }
     for (const [width, height] of [[912, 570], [800, 500], [1280, 800], [1920, 1200]]) {
       await page.setViewportSize({ width, height });
       await requireAutoFit();
@@ -127,6 +137,7 @@ export async function checkLessonResponsiveLayout(page) {
       assert(scene.width >= 240 && scene.x + scene.width <= document.x, `Usable side-by-side model at ${width}px`);
       assert(document.y + document.height <= height, `Writing or reading stays within ${width}×${height}`);
       if (editor) {
+        assert.equal((await outline(editor).boundingBox()).width, Math.round(width * .1875), `Proportional outline width at ${width}px`);
         for (const tool of await model(editor).locator('.lesson-model-settings-trigger').all()) {
           const button = await tool.boundingBox();
           if (!button) continue;
@@ -147,7 +158,7 @@ export async function checkLessonResponsiveLayout(page) {
     await model(editor).waitFor({ state: 'hidden' });
     const [contentX, , contentWidth] = await bounds(content(editor));
     const [outlineX, , outlineWidth] = await bounds(outline(editor));
-    assert.equal(contentWidth, 600 + extraWritingWidth);
+    assert.equal(contentWidth, expectedWidths(sizes.at(-1))[2]);
     assert.equal(2 * (contentX - outlineX - outlineWidth - 16) + contentWidth, 1920 - 32 - outlineWidth - 16,
       'A step with 3D hidden stays centered in the space next to the outline');
     if (!editor) {

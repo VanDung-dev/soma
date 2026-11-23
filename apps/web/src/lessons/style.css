@@ -340,6 +340,20 @@ dialog.lesson-cover-modal:not([open]) {
 .lesson-editor-scene > .lesson-structure-tools .lesson-part-card .lesson-button { max-width: none; }
 .lesson-editor-scene > .lesson-structure-tools .lesson-restore-region { position: static; }
 .lesson-author-center { --lesson-document-width: var(--lesson-author-width); }
+@container lesson (width > 740px) {
+  .lesson-author-workspace {
+    --lesson-author-outline-width: calc((100cqw + 2 * var(--panel-inset)) * .1875);
+    --lesson-outline-width: var(--lesson-author-outline-width);
+  }
+  .lesson-author-center[data-step="true"] {
+    --lesson-writing-width: calc((100cqw + 2 * var(--panel-inset)) * .46875);
+    --lesson-document-width: var(--lesson-writing-width);
+  }
+  @supports (width: round(nearest, 1px, 1px)) {
+    .lesson-author-workspace { --lesson-outline-width: round(nearest, var(--lesson-author-outline-width), 1px); }
+    .lesson-author-center[data-step="true"] { --lesson-document-width: round(nearest, var(--lesson-writing-width), 1px); }
+  }
+}
 .lesson-author-center:has(.lesson-author-alerts) { grid-template-rows: auto minmax(0, 1fr); }
 .lesson-author-alerts { display: grid; grid-column: 1 / -1; gap: 4px; pointer-events: auto; }
 .lesson-author-alerts .model-status { justify-self: center; }

@@ -168,6 +168,14 @@
 }
 .study-shell :is(.catalog-panel, .information-panel, .hand-camera)[hidden] { display: none; }
 @media (min-width: 1141px) {
+  .study-shell > :is(.catalog-panel, .information-panel) { --panel-width: 23.4375%; }
+  @supports (width: round(nearest, 46.875%, 1px)) {
+    .study-shell > :is(.catalog-panel, .information-panel) {
+      --anatomy-panels-width: round(nearest, 46.875%, 1px);
+      --panel-width: round(down, var(--anatomy-panels-width) / 2, 1px);
+    }
+    .study-shell > .information-panel:not(.reader-expanded) { width: calc(var(--anatomy-panels-width) - var(--panel-width)); }
+  }
   .catalog-panel[data-collapsed="true"], .information-panel[data-collapsed="true"] { display: none; opacity: 0; translate: var(--sidebar-offset) 0; pointer-events: none; }
 }
 @media not all and (min-width: 1141px) {
