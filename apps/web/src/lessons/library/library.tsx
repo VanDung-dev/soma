@@ -146,11 +146,10 @@ export function LessonLibrary({ lessons, loading, saving, importing, error, expo
         const tag = lessonLanguageTag(lesson).replace("/", " / ").toUpperCase();
         const name = lessonText(lesson.title, language) || t("lessons.untitled");
         const summary = lessonPlainText(lesson.summary, language) || t("lessons.noDescription");
-        const badge = <span className="lesson-cover-badge" aria-label={`${t("lessons.languages")}: ${tag}`}>{tag}</span>;
         return <li className="lesson-card" key={lesson.id}>
-          {lesson.cover ? <LessonCover lesson={lesson}>{badge}</LessonCover> : <span className="lesson-card-language">
-            <span className="sr-only">{t("lessons.languages")}: </span>{tag}
-          </span>}
+          <LessonCover lesson={lesson}>
+            <span className="lesson-cover-badge"><span className="sr-only">{t("lessons.languages")}: </span>{tag}</span>
+          </LessonCover>
           <div className="lesson-card-content">
             <h3>{name}</h3>
             <p className="lesson-card-summary">{summary}</p>
