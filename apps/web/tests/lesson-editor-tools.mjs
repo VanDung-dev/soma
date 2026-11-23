@@ -1,4 +1,11 @@
-export const lessonBody = page => page.frameLocator('#lesson-write-body_ifr').locator('body[contenteditable="true"]');
+export const lessonBody = page => page.locator('#lesson-write-body[contenteditable="true"]');
+
+export async function chooseLessonImage(page, upload) {
+  await page.getByRole('button', { name: 'Chèn ảnh', exact: true }).click();
+  const button = page.getByRole('button', { name: 'Từ máy', exact: true });
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), button.click()]);
+  await chooser.setFiles(upload);
+}
 
 export async function createLesson(page) {
   await page.getByRole('button', { name: 'Tạo bài học', exact: true }).click();

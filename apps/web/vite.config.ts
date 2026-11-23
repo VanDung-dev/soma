@@ -6,6 +6,13 @@ import { defineConfig } from "vite";
 import { wikipediaProxyPlugin } from "./scripts/wikipedia-proxy.mjs";
 
 const require = createRequire(import.meta.url);
+const joditFreePlugins = {
+  name: "soma-jodit-free-plugins",
+  transform(code: string, id: string) {
+    if (!id.replaceAll("\\", "/").endsWith("/jodit/esm/plugins/all.js")) return;
+    return code.replace(/^import ["']\.\/(ai-assistant|ai-commands|speech-recognize)\/\1\.js["'];\r?\n/gm, "");
+  },
+};
 
 export default defineConfig(({ mode }) => {
   const desktop = mode === "desktop";
@@ -18,12 +25,13 @@ export default defineConfig(({ mode }) => {
     ["licenses/brotli.txt", fileURLToPath(new URL("../../licenses/brotli.txt", import.meta.url))],
     ["licenses/lesson-content.txt", fileURLToPath(new URL("../../licenses/lesson-content.txt", import.meta.url))],
     ["licenses/squoosh.txt", fileURLToPath(new URL("../../licenses/squoosh.txt", import.meta.url))],
-    ["licenses/tinymce.md", require.resolve("tinymce/license.md")],
+    ["licenses/jodit.txt", require.resolve("jodit/LICENSE.txt")],
     ["licenses/dompurify.txt", join(dirname(require.resolve("dompurify")), "../LICENSE")],
   ] as const;
   return {
     base: "/",
     plugins: [
+      joditFreePlugins,
       wikipediaProxyPlugin,
       {
         name: "soma-editor-notices",
@@ -57,6 +65,10 @@ export default defineConfig(({ mode }) => {
       },
     ],
     clearScreen: false,
+    optimizeDeps: {
+      include: ["jodit", "jodit/esm/modules/widget/index.js", "jodit/esm/plugins/all.js"],
+      rolldownOptions: { plugins: [joditFreePlugins] },
+    },
     server: { port: 5173, strictPort: true, watch: { ignored: ["**/src-tauri/**"] } },
     build: {
       target: "es2020",

@@ -63,6 +63,9 @@ export async function checkLessonResponsiveLayout(page) {
     assert(result.fill > 0.77 && result.fill <= 0.86, `Fit within 85% of the 3D frame, allowing for geometry and rasterization: ${JSON.stringify(result)}`);
   };
   const measure = async editor => {
+    const extraWritingWidth = editor ? 100 : 0;
+    const expectedWidths = ([, , outlineWidth, modelWidth, contentWidth]) =>
+      [outlineWidth, modelWidth - extraWritingWidth, contentWidth + extraWritingWidth];
     await page.locator('.model-canvas[aria-busy="false"] canvas').waitFor({ state: 'attached' });
     const shell = page.locator('.lesson-workspace-shell');
     assert.equal(await shell.locator(':scope > .lesson-header').count(), 1);
@@ -71,10 +74,11 @@ export async function checkLessonResponsiveLayout(page) {
     const frame = model(editor).locator('.lesson-model-surface > .model-focus-frame');
     assert.equal(await shell.locator('.lesson-header .sidebar-toggle').count(), 0);
     const results = [];
-    for (const [width, height, outlineWidth, modelWidth, contentWidth] of [...sizes, ...sizes.slice(0, -1).reverse()]) {
+    for (const size of [...sizes, ...sizes.slice(0, -1).reverse()]) {
+      const [width, height] = size;
       await page.setViewportSize({ width, height });
       const panels = await Promise.all([outline(editor), model(editor), content(editor), frame].map(bounds));
-      assert.deepEqual(panels.slice(0, 3).map(rect => rect[2]), [outlineWidth, modelWidth, contentWidth], `${width}px with outline`);
+      assert.deepEqual(panels.slice(0, 3).map(rect => rect[2]), expectedWidths(size), `${width}px with outline`);
       const [modelX, modelY, paneWidth, paneHeight] = panels[1];
       const [statusX, statusY, statusWidth, statusHeight] = await bounds(model(editor).locator('.lesson-model-hud > .model-status').first());
       assert(Math.abs(statusX + statusWidth / 2 - modelX - paneWidth / 2) <= 1, 'Model status stays centered in the 3D pane');
@@ -137,13 +141,13 @@ export async function checkLessonResponsiveLayout(page) {
     const workspace = page.locator(editor ? '.lesson-editor' : '.lesson-player');
     await workspace.evaluate(node => { node.style.width = 'calc(100% - 480px)'; });
     assert.deepEqual(await Promise.all([outline(editor), model(editor), content(editor)].map(async panel => (await bounds(panel))[2])),
-      sizes[1].slice(2), 'Column widths follow the workspace even when it is narrower than the viewport');
+      expectedWidths(sizes[1]), 'Column widths follow the workspace even when it is narrower than the viewport');
     await workspace.evaluate(node => { node.style.removeProperty('width'); });
     await choose(editor, 'Đọc');
     await model(editor).waitFor({ state: 'hidden' });
     const [contentX, , contentWidth] = await bounds(content(editor));
     const [outlineX, , outlineWidth] = await bounds(outline(editor));
-    assert.equal(contentWidth, 600);
+    assert.equal(contentWidth, 600 + extraWritingWidth);
     assert.equal(2 * (contentX - outlineX - outlineWidth - 16) + contentWidth, 1920 - 32 - outlineWidth - 16,
       'A step with 3D hidden stays centered in the space next to the outline');
     if (!editor) {
@@ -157,17 +161,17 @@ export async function checkLessonResponsiveLayout(page) {
   };
 
   await choose(true, 'Quan sát');
-  const editor = await measure(true);
+  await measure(true);
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
-  assert.deepEqual(await measure(false), editor, 'Preview uses the same layout and camera frame as the editor');
+  const preview = await measure(false);
   await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
   assert.equal(await page.getByLabel('Tên mục').inputValue(), 'Đọc');
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/lessons');
   await observeCamera();
   await page.locator('.lesson-card').filter({ hasText: 'Bài học co giãn' }).getByRole('button', { name: 'Vào học', exact: true }).click();
-  assert.deepEqual(await measure(false), editor, 'View uses the same layout and camera frame as the editor');
+  assert.deepEqual(await measure(false), preview, 'View uses the same layout and camera frame as the preview');
 }
 
 export async function checkLessonEditorLayout(page) {
@@ -209,21 +213,21 @@ export async function checkLessonEditorLayout(page) {
   assert.deepEqual(await document.evaluate(node => [...node.classList].filter(name => name.startsWith('lesson-author-document--'))), ['lesson-author-document--step']);
   await page.waitForFunction(() => {
     const scene = document.querySelector('.lesson-scene-region');
-    return !!scene && Math.abs(scene.getBoundingClientRect().width - 476) < 0.5;
+    return !!scene && Math.abs(scene.getBoundingClientRect().width - 376) < 0.5;
   });
   assert.deepEqual(await page.evaluate(() => ['#lesson-author-outline', '.lesson-scene-region', '#lesson-author-writing']
-    .map(selector => Math.round(document.querySelector(selector).getBoundingClientRect().width))), [240, 476, 500]);
+    .map(selector => Math.round(document.querySelector(selector).getBoundingClientRect().width))), [240, 376, 600]);
   const stepLabel = await document.getAttribute('aria-label');
   assert.match(stepLabel, /^(Mục|Section) 1 · Một$/);
   await page.getByRole('button', { name: 'Thiết lập 3D', exact: true }).click();
   const cancelModelSettings = page.locator('#lesson-model-settings').getByRole('button', { name: 'Hủy', exact: true });
   await cancelModelSettings.waitFor();
   await page.waitForFunction(() => document.activeElement === document.querySelector('#lesson-model-settings .lesson-model-settings-actions > :first-child'));
-  await document.locator('.tox-editor-header').waitFor();
+  await document.locator('.jodit-toolbar__box').waitFor();
   const coversToolbar = await page.locator('.lesson-model-settings[data-open="true"]').evaluate(async panel => {
     await Promise.all(panel.getAnimations().map(animation => animation.finished));
     const writing = window.document.getElementById('lesson-author-writing');
-    const toolbar = writing.querySelector('.tox-editor-header');
+    const toolbar = writing.querySelector('.jodit-toolbar__box');
     const { x, y, width, height } = toolbar.getBoundingClientRect();
     const wasInert = writing.inert;
     writing.inert = false;

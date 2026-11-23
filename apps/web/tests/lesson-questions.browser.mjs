@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { brotliDecompressSync } from 'node:zlib';
 import { readLessonMetadata, unpackLessonTar } from './lesson-package.fixture.mjs';
-import { lessonBody, savedLesson, saveLessonDraft } from './lesson-editor-tools.mjs';
+import { chooseLessonImage, lessonBody, savedLesson, saveLessonDraft } from './lesson-editor-tools.mjs';
 import { checkLessonHeader } from './lesson-editor-experience.browser.mjs';
 
 export async function checkLessonQuestions(page) {
@@ -39,7 +39,7 @@ export async function checkLessonQuestions(page) {
     assert.equal(await mode.getByRole('button', { pressed: true }).count(), 1);
     assert.deepEqual((await saved()).steps[0].questions, both.questions);
     assert.deepEqual((await saved()).steps[0].instruction, both.instruction);
-    assert.equal(await page.locator('.tox-tinymce').count(), value === 'questions' ? 0 : 1);
+    assert.equal(await page.locator('.lesson-rich-editor').count(), value === 'questions' ? 0 : 1);
     assert.equal(await questions.count(), value === 'content' ? 0 : 2);
   }
   await page.reload();
@@ -152,27 +152,17 @@ export async function checkLessonImageProgress(page) {
     assert.equal(await page.locator('.lesson-image-progress').count(), 0);
     await page.locator('#lesson-author-writing').getByRole('button', { name: 'Thêm mục', exact: true }).click();
     await lessonBody(page).fill('Ảnh trong nội dung');
-    await page.getByRole('button', { name: 'Insert/edit image', exact: true }).click();
-    const dialog = page.getByRole('dialog');
-    const [chooser] = await Promise.all([page.waitForEvent('filechooser'), dialog.getByRole('button', { name: 'Browse files', exact: true }).click()]);
-    await chooser.setFiles(upload);
+    const imageButton = page.getByRole('button', { name: 'Chèn ảnh', exact: true });
+    await chooseLessonImage(page, upload);
     await page.getByRole('status').filter({ hasText: 'Đang nén ảnh' }).waitFor();
-    assert(await dialog.locator('.tox-dialog__busy-spinner').isVisible(), 'The image dialog stays blocked while processing');
-    assert.equal(await dialog.locator('.tox-dialog__busy-spinner').evaluate(node => getComputedStyle(node, '::after').content), '"Đang nén ảnh…"');
+    await page.waitForFunction(button => button.disabled, await imageButton.elementHandle());
     if (process.env.SOMA_LESSON_VISUALS) await page.screenshot({ path: '/tmp/soma-content-compressing.png' });
     await release();
-    await dialog.locator('.tox-dialog__busy-spinner').waitFor({ state: 'hidden' });
-    await page.waitForFunction(input => input.value.startsWith('blob:'), await dialog.getByRole('combobox', { name: 'Source', exact: true }).elementHandle());
-    await dialog.getByRole('button', { name: 'Save', exact: true }).click();
     await lessonBody(page).locator('img').waitFor();
-    assert.equal(await page.locator('.lesson-image-progress').count(), 0);
-    await page.getByRole('button', { name: 'Insert/edit image', exact: true }).click();
-    const [invalidChooser] = await Promise.all([page.waitForEvent('filechooser'), dialog.getByRole('button', { name: 'Browse files', exact: true }).click()]);
-    await invalidChooser.setFiles({ name: 'invalid.png', mimeType: 'image/png', buffer: Buffer.from('invalid image') });
-    await page.locator('.tox-notification--error').waitFor();
-    assert.equal(await page.locator('.lesson-image-progress').count(), 0);
-    assert.equal(await dialog.locator('.tox-dialog__busy-spinner').count(), 0, 'Failed uploads unblock the dialog');
-    assert(await dialog.getByRole('combobox', { name: 'Source', exact: true }).isEditable());
-    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.locator('.lesson-image-progress').waitFor({ state: 'hidden' });
+    await chooseLessonImage(page, { name: 'invalid.png', mimeType: 'image/png', buffer: Buffer.from('invalid image') });
+    await page.getByRole('alert').filter({ hasText: 'Không thể thêm ảnh' }).waitFor();
+    assert.equal(await page.locator('.lesson-image-progress').count(), 0, 'Failed uploads clear progress');
+    assert(await imageButton.isEnabled(), 'Failed uploads allow another attempt');
   } finally { await page.evaluate(() => window.restoreLessonWorker()); }
 }

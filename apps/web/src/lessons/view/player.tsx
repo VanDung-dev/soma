@@ -182,7 +182,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false,
         {step.sceneRef && <p className="model-status" role="status">{t("lessons.sceneFileUnavailable")}</p>}
         {step.questionRef && <p className="model-status" role="status">{t("lessons.questionFileUnavailable")}</p>}
         {issue && <p className="model-status lesson-preview-issue" role="status">{t(`lessons.validation.${issue.reason}`, { step: issue.step })}</p>}
-        {mode !== "questions" && (lessonPlainText(step.instruction, language) || instruction.includes("<img ")
+        {mode !== "questions" && (lessonPlainText(step.instruction, language) || /<(?:img|iframe|video|audio)\b/i.test(instruction)
           ? <div className="lesson-instructions lesson-rich-content" dangerouslySetInnerHTML={{ __html: instruction }} />
           : !step.questionRef && <p className="lesson-instructions">{t("lessons.previewNoContent")}</p>)}
         {!lesson.steps.length && <button className="lesson-button lesson-primary" onClick={() => (onEdit ?? onBack)()}>{t("lessons.continueEditing")}</button>}

@@ -1,7 +1,7 @@
 use html5ever::tokenizer::{BufferQueue, StartTag, Token, TokenSink, TokenSinkResult, Tokenizer};
 use serde::Serialize;
 use serde_json::Value;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 pub const ARCHIVE_LIMIT: usize = 64 * 1024 * 1024;
@@ -47,6 +47,8 @@ pub fn image_path(path: &str) -> bool {
 struct HtmlContent {
     text: RefCell<String>,
     images: RefCell<BTreeSet<String>>,
+    has_media: Cell<bool>,
+    inside_media: Cell<bool>,
 }
 
 impl TokenSink for HtmlContent {
@@ -54,14 +56,39 @@ impl TokenSink for HtmlContent {
     fn process_token(&self, token: Token, _: u64) -> TokenSinkResult<()> {
         match token {
             Token::CharacterTokens(text) => self.text.borrow_mut().push_str(&text),
-            Token::TagToken(tag) if tag.kind == StartTag && tag.name.as_ref() == "img" => {
-                if let Some(src) = tag
-                    .attrs
-                    .iter()
-                    .find(|attr| attr.name.local.as_ref() == "src")
-                    && image_path(&src.value)
+            Token::TagToken(tag) => {
+                let name = tag.name.as_ref();
+                if matches!(name, "video" | "audio") {
+                    self.inside_media.set(tag.kind == StartTag);
+                }
+                if tag.kind == StartTag
+                    && let Some(src) = tag
+                        .attrs
+                        .iter()
+                        .find(|attr| attr.name.local.as_ref() == "src")
                 {
-                    self.images.borrow_mut().insert(src.value.to_string());
+                    match name {
+                        "img" if image_path(&src.value) => {
+                            self.images.borrow_mut().insert(src.value.to_string());
+                        }
+                        "video" | "audio" | "source"
+                            if self.inside_media.get() && src.value.starts_with("https://") =>
+                        {
+                            self.has_media.set(true);
+                        }
+                        "iframe"
+                            if [
+                                "https://www.youtube.com/embed/",
+                                "https://www.youtube-nocookie.com/embed/",
+                                "https://player.vimeo.com/video/",
+                            ]
+                            .iter()
+                            .any(|prefix| src.value.starts_with(prefix)) =>
+                        {
+                            self.has_media.set(true);
+                        }
+                        _ => {}
+                    }
                 }
             }
             _ => {}
@@ -112,7 +139,9 @@ fn localized(value: &Value, required: bool) -> bool {
             let text = value[locale].as_str().unwrap_or_default();
             if locales.contains(locale) {
                 let content = html_content(text);
-                !content.text.borrow().trim().is_empty() || !content.images.borrow().is_empty()
+                !content.text.borrow().trim().is_empty()
+                    || !content.images.borrow().is_empty()
+                    || content.has_media.get()
             } else {
                 !text.trim().is_empty()
             }

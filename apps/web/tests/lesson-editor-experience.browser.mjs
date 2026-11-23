@@ -11,7 +11,7 @@ export async function checkLessonEditorExperience(page) {
   const saved = () => savedLesson(page, id);
   const writing = page.locator('#lesson-author-writing');
   const frame = page.locator('.lesson-scene-region');
-  assert.equal(await page.locator('.lesson-model:visible, .tox-tinymce, .structure-search:visible').count(), 0, 'Lesson details are a simple card form');
+  assert.equal(await page.locator('.lesson-model:visible, .lesson-rich-editor, .structure-search:visible').count(), 0, 'Lesson details are a simple card form');
   await page.getByLabel('Tên bài học').fill('Thông tin và từng bước');
   await page.getByLabel('Mô tả ngắn').fill('Mô tả trên thẻ bài học.');
   const cover = await readFile(new URL('../public/home/anatomy.png', import.meta.url));
@@ -30,7 +30,7 @@ export async function checkLessonEditorExperience(page) {
   await card.locator('img').waitFor();
   await card.getByRole('button', { name: 'Chỉnh sửa', exact: true }).click();
   assert.equal(await page.getByLabel('Mô tả ngắn').inputValue(), details.summary.vi);
-  assert.equal(await page.locator('.tox-tinymce').count(), 0);
+  assert.equal(await page.locator('.lesson-rich-editor').count(), 0);
   await writing.getByRole('button', { name: 'Thêm mục', exact: true }).click();
   await page.getByLabel('Tên mục').fill('Hai dòng');
   assert.equal(await page.locator('#lesson-author-inspector, #lesson-toggle-inspector, #lesson-scene-structures').count(), 0);
@@ -101,7 +101,7 @@ export async function checkLessonEditorExperience(page) {
   assert.deepEqual(hidden.view, first.view, 'Hiding 3D preserves the authored scene');
   await page.reload();
   await page.getByLabel('Tên bài học').waitFor();
-  assert.equal(await page.locator('.lesson-model:visible, .tox-tinymce').count(), 0);
+  assert.equal(await page.locator('.lesson-model:visible, .lesson-rich-editor').count(), 0);
   await page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: 'Chỉ nội dung' }).click();
   assert(await frame.isHidden());
   assert.equal(await body.innerText(), hidden.instruction.vi.replace(/<[^>]+>/g, ''));

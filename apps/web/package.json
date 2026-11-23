@@ -22,9 +22,9 @@
     "@noble/hashes": "^2.4.0",
     "@tauri-apps/api": ">=2 <3",
     "dompurify": "^3.4.17",
+    "jodit": "4.21.0",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "tinymce": "^8.10.1"
+    "react-dom": "^19.3.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": ">=2 <3",

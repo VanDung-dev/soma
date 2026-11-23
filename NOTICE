@@ -36,12 +36,9 @@ Material Line Icons (line-md)
 Copyright 2020 Vjacheslav Trushkin. Licensed under the MIT License.
 https://github.com/cyberalien/line-md/blob/main/license.txt
 
-TinyMCE 8.10.1
-Copyright (c) 2025 Ephox Corporation DBA Tiny Technologies, Inc.
-Bundled self-hosted editor configured for GNU GPL Version 2 or later.
-https://www.tiny.cloud/docs/tinymce/latest/license-key/
-The TinyMCE license applies to TinyMCE and its distribution obligations;
-it does not replace LICENSE for Soma's original source files.
+Jodit 4.21.0
+Copyright (c) 2013-2026 https://xdsoft.net
+Licensed under the MIT License. See licenses/jodit.txt.
 
 DOMPurify
 Copyright (c) 2015 Mario Heiderich.

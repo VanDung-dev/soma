@@ -44,7 +44,7 @@
       "../../../licenses/brotli.txt": "licenses/brotli.txt",
       "../../../licenses/lesson-content.txt": "licenses/lesson-content.txt",
       "../../../licenses/squoosh.txt": "licenses/squoosh.txt",
-      "../../../node_modules/tinymce/license.md": "licenses/tinymce.md",
+      "../../../node_modules/jodit/LICENSE.txt": "licenses/jodit.txt",
       "../../../node_modules/dompurify/LICENSE": "licenses/dompurify.txt"
     },
     "publisher": "Nguyễn Lê Văn Dũng",

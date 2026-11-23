@@ -339,7 +339,7 @@ dialog.lesson-cover-modal:not([open]) {
 .lesson-editor-scene > .lesson-structure-tools .lesson-part-actions { justify-content: flex-start; }
 .lesson-editor-scene > .lesson-structure-tools .lesson-part-card .lesson-button { max-width: none; }
 .lesson-editor-scene > .lesson-structure-tools .lesson-restore-region { position: static; }
-.lesson-author-center[data-step="false"] { --lesson-document-width: var(--lesson-author-width); }
+.lesson-author-center { --lesson-document-width: var(--lesson-author-width); }
 .lesson-author-center:has(.lesson-author-alerts) { grid-template-rows: auto minmax(0, 1fr); }
 .lesson-author-alerts { display: grid; grid-column: 1 / -1; gap: 4px; pointer-events: auto; }
 .lesson-author-alerts .model-status { justify-self: center; }
@@ -396,26 +396,46 @@ dialog.lesson-cover-modal:not([open]) {
 .lesson-drag-handle[aria-pressed="true"] { cursor: grabbing; }
 .lesson-drag-handle > span { font-size: 22px; }
 .lesson-rich-editor { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 120px; }
-.lesson-rich-editor .tox-tinymce { flex: 1; border: 1px solid var(--line-strong); border-radius: var(--detail-radius); }
-.lesson-rich-editor .tox:not(.tox-tinymce-inline) .tox-editor-header { background: var(--control-hover); box-shadow: none; border-bottom: 1px solid var(--line-strong); }
-.lesson-rich-editor .tox :is(.tox-toolbar-overlord, .tox-toolbar, .tox-toolbar__primary, .tox-toolbar__overflow) { background: var(--control-hover); }
-.lesson-rich-editor .tox .tox-tbtn { background: transparent; color: var(--text); }
-.lesson-rich-editor .tox .tox-tbtn svg { fill: var(--text); }
-.lesson-rich-editor .tox .tox-tbtn--select { background: var(--surface); }
-.lesson-rich-editor .tox .tox-tbtn:not(:disabled):is(:hover, :focus, :active), .lesson-rich-editor .tox .tox-tbtn--enabled { background: var(--selected-bg); color: var(--text); }
-.lesson-rich-editor .tox .tox-tbtn:is(:disabled, .tox-tbtn--disabled) { background: transparent; color: var(--muted); }
-.lesson-rich-editor .tox .tox-tbtn:is(:disabled, .tox-tbtn--disabled) svg { fill: var(--muted); }
-.lesson-rich-editor .tox .tox-tbtn:focus::after, .lesson-rich-editor .tox.tox-edit-focus .tox-edit-area::before { box-shadow: none; border: 0; }
-body:has(.lesson-rich-editor) .tox .tox-dialog__busy-spinner { flex-direction: column; gap: 12px; background: var(--surface); color: var(--text); }
-body:has(.lesson-rich-editor) .tox .tox-dialog__busy-spinner::after { content: attr(aria-label); font: 14px/1.5 var(--font-ui); }
+.lesson-rich-editor .jodit-container {
+  --jd-color-background-default: var(--surface);
+  --jd-color-panel: var(--control-hover);
+  --jd-color-border: var(--line-strong);
+  --jd-color-text: var(--text);
+  --jd-color-text-icons: var(--text);
+  --jd-color-button-background-hover: var(--selected-bg);
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--detail-radius);
+}
+.lesson-rich-editor .jodit-container > .jodit-toolbar__box { flex-shrink: 0; }
+.lesson-rich-editor .jodit-workplace { display: flex; flex: 1; }
+.lesson-rich-editor .jodit-workplace .lesson-rich-content { flex: 1; min-width: 0; padding: 10px; font: 10pt/1.6 var(--font-ui); }
+:root[data-theme="dark"] .lesson-rich-editor .jodit-workplace .lesson-rich-content {
+  --text: #000;
+  --muted: #565656;
+  --accent: #9e4b48;
+  --line-strong: #d7d5cc;
+  --selected-bg: #e7ddd2;
+  --jd-color-border: var(--line-strong);
+  color-scheme: light;
+  background-color: #fff;
+  color: var(--text);
+  caret-color: currentColor;
+}
+.lesson-rich-editor .jodit-workplace .lesson-rich-content:focus { outline: none; }
+.lesson-rich-editor .jodit-toolbar__box .jodit-toolbar-button_paragraph > .jodit-toolbar-button__button { min-inline-size: 76px; white-space: nowrap; }
+body:has(.lesson-rich-editor) :is(.jodit, .jodit-dialog, .jodit-popup) :focus-visible { outline: none; box-shadow: none; background-color: var(--selected-bg); }
+.lesson-editor-tools { display: grid; width: min(248px, calc(100vw - 28px)); gap: 6px; }
+.lesson-editor-tools > .jodit-ui-group { display: grid; min-width: 0; }
+.lesson-editor-tools-label { width: 100%; padding: 2px 4px; color: var(--muted); font: 600 11px/1.4 var(--font-ui); }
 .lesson-model[hidden] { display: none; }
 .lesson-languages { display: flex; align-items: center; gap: 4px; }
 .lesson-languages button { display: inline-flex; align-items: center; justify-content: center; min-height: 28px; height: 28px; padding: 2px 10px; border: 1px solid var(--line); border-radius: var(--inner-radius); color: var(--muted-dark); background: var(--surface); font: 650 11px var(--font-ui); cursor: pointer; }
 .lesson-languages button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--selected-bg); }
 .lesson-languages button:disabled { opacity: .45; cursor: default; }
-.lesson-author-document .lesson-write-body { display: block; width: 100%; min-width: 0; flex: 1; min-height: 0; padding: 10px; border: 0; border-radius: var(--detail-radius); color: var(--text); background: transparent; resize: none; font: 14px/1.55 var(--font-ui); }
-.lesson-author-document .lesson-write-body:focus { background: color-mix(in srgb, var(--selected-bg) 40%, var(--surface)); outline: none; }
-.lesson-author-document .lesson-write-body::placeholder { color: var(--muted); }
 .lesson-author-document .lesson-write-title { display: block; width: 100%; min-width: 0; flex-shrink: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--detail-radius); box-shadow: none; color: var(--text); background: var(--surface); font: 700 22px/1.35 var(--font-ui); }
 .lesson-author-document--step .lesson-write-title { font-size: 17px; }
 .lesson-author-document .lesson-write-title:focus { background: color-mix(in srgb, var(--selected-bg) 40%, var(--surface)); outline: none; }
