@@ -76,6 +76,8 @@
     "lessons.sectionList": {"vi":"Danh sách mục","en":"Sections"},
     "lessons.addContent": {"vi":"Thêm nội dung","en":"Insert content"},
     "lessons.writingLanguage": {"vi":"Ngôn ngữ soạn thảo","en":"Writing language"},
+    "lessons.expandWritingPanel": {"vi":"Mở rộng khung nội dung","en":"Widen content panel"},
+    "lessons.collapseWritingPanel": {"vi":"Thu gọn khung nội dung","en":"Restore content panel width"},
     "lessons.languages": {"vi": "Ngôn ngữ bài học", "en": "Lesson language"},
     "lessons.languagesBoth": {"vi": "Song ngữ", "en": "Both languages"},
     "lessons.languagesVi": {"vi": "Tiếng Việt", "en": "Vietnamese"},

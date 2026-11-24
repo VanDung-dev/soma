@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { Catalog } from "../../anatomy/catalog/types";
 import { translateMessage, useLanguage } from "../../i18n";
 import type { Language } from "../../i18n";
+import { LineIcon } from "../../icons";
 import { LessonValidationError, lessonMode, lessonSceneStep, lessonText, readLesson, updateLessonQuestions } from "../shared/contract";
 import type { Lesson, LessonScene, LessonStep, LessonText } from "../shared/contract";
 import { EditorScene } from "./editor-scene";
@@ -52,6 +53,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
   const [resetVersion, setResetVersion] = useState(0);
   const [modelReloadVersion, setModelReloadVersion] = useState(0);
   const [modelSettingsOpen, setModelSettingsOpen] = useState(false);
+  const [writingExpanded, setWritingExpanded] = useState(false);
   const [previewScene, setPreviewScene] = useState<LessonScene & { modelIds: string[]; visibleIds: string[]; sceneRef?: string }>();
   const previewDirty = useRef(false);
   const [modelControlsHost, setModelControlsHost] = useState<HTMLDivElement | null>(null);
@@ -357,6 +359,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
     ? writingText("lessons.stepHeading", { current: index + 1,
       title: lessonText(active.title, editorLanguage) || writingText("lessons.untitledSection") })
     : writingText("lessons.details");
+  const writingToggleLabel = t(writingExpanded ? "lessons.collapseWritingPanel" : "lessons.expandWritingPanel");
   const sceneTargetId = scene && targets.some(target => target.id === scene.targetId) ? scene.targetId : primarySceneModelId;
   const displayModelIds = previewScene?.modelIds ?? modelIds;
   const displayTargetId = previewScene?.targetId ?? sceneTargetId;
@@ -442,6 +445,11 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
         </div>}
         </div>
       </div>
+      {active && !modelSettingsOpen && <button type="button" className="lesson-author-width-toggle"
+        aria-controls="lesson-author-writing" aria-expanded={writingExpanded} aria-label={writingToggleLabel}
+        title={writingToggleLabel} onClick={() => setWritingExpanded(expanded => !expanded)}>
+        <LineIcon name="chevron-small-right" size={18} />
+      </button>}
       <LessonContentPanel className={`lesson-author-document lesson-author-document--${active ? "step" : "details"}`} id="lesson-author-writing" inert={modelSettingsOpen}
         aria-label={writingLabel}>
         <LessonStepNavigation editing position={active ? { current: index + 1, total: draft.steps.length } : undefined}

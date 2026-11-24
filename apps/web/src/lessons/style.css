@@ -340,14 +340,59 @@ dialog.lesson-cover-modal:not([open]) {
 .lesson-editor-scene > .lesson-structure-tools .lesson-part-card .lesson-button { max-width: none; }
 .lesson-editor-scene > .lesson-structure-tools .lesson-restore-region { position: static; }
 .lesson-author-center { --lesson-document-width: var(--lesson-author-width); }
+.lesson-author-width-toggle { display: none; }
 @container lesson (width > 740px) {
   .lesson-author-workspace {
     --lesson-author-outline-width: calc((100cqw + 2 * var(--panel-inset)) * .1875);
     --lesson-outline-width: var(--lesson-author-outline-width);
   }
   .lesson-author-center[data-step="true"] {
+    --lesson-writing-expansion: 60%;
     --lesson-writing-width: calc((100cqw + 2 * var(--panel-inset)) * .46875);
     --lesson-document-width: var(--lesson-writing-width);
+  }
+  .lesson-author-width-toggle {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-column: 2;
+    grid-row: 1;
+    left: 0%;
+    place-items: center;
+    place-self: center start;
+    width: 25px;
+    height: 56px;
+    padding: 0;
+    border: 0;
+    color: var(--accent);
+    background-color: var(--panel-bg);
+    clip-path: path("M 25 0 L 6.14 10.56 A 12 12 0 0 0 0 21.03 V 34.97 A 12 12 0 0 0 6.14 45.44 L 25 56 Z");
+    translate: calc(-100% + 1px) 0;
+    pointer-events: auto;
+  }
+  .lesson-author-width-toggle::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--line);
+    clip-path: path(evenodd,
+      "M 25 0 L 6.14 10.56 A 12 12 0 0 0 0 21.03 V 34.97 A 12 12 0 0 0 6.14 45.44 L 25 56 Z M 25 1.15 L 6.63 11.44 A 11 11 0 0 0 1 21.03 V 34.97 A 11 11 0 0 0 6.63 44.56 L 25 54.85 Z"
+    );
+    pointer-events: none;
+  }
+  .lesson-author-width-toggle[aria-expanded="false"] .line-md-icon { rotate: 180deg; }
+  .lesson-author-width-toggle[aria-expanded="true"] { left: calc(-1 * var(--lesson-writing-expansion)); }
+  .lesson-author-width-toggle + .lesson-author-document--step {
+    width: 100%;
+    justify-self: end;
+  }
+  .lesson-author-width-toggle[aria-expanded="true"] + .lesson-author-document--step {
+    width: calc(100% + var(--lesson-writing-expansion));
+  }
+  .lesson-author-center:has(> .lesson-author-width-toggle) > .lesson-scene-region { z-index: 0; }
+  @media (prefers-reduced-motion: no-preference) {
+    .lesson-author-width-toggle { transition: left .24s ease; }
+    .lesson-author-width-toggle + .lesson-author-document--step { transition: width .24s ease; }
   }
   @supports (width: round(nearest, 1px, 1px)) {
     .lesson-author-workspace { --lesson-outline-width: round(nearest, var(--lesson-author-outline-width), 1px); }
@@ -458,7 +503,7 @@ dialog.lesson-cover-modal:not([open]) {
 .lesson-scene-tree > .lesson-inspector-actions { margin-bottom: 12px; }
 .lesson-model-settings { z-index: 1; display: flex; flex-direction: column; gap: var(--panel-padding); overflow: hidden; background: var(--panel-bg); backdrop-filter: none; visibility: visible; opacity: 1; translate: 0 0; transition: translate .28s cubic-bezier(.22,1,.36,1), opacity .28s ease; }
 .lesson-model-settings[data-open="false"] { visibility: hidden; opacity: 0; translate: calc(100% + var(--panel-gap)) 0; pointer-events: none; transition: translate .28s cubic-bezier(.22,1,.36,1), opacity .28s ease, visibility 0s linear .28s; }
-.lesson-author-center:has(.lesson-author-alerts) > :is(.lesson-author-document, .lesson-model-settings) { grid-row: 2; }
+.lesson-author-center:has(.lesson-author-alerts) > :is(.lesson-author-document, .lesson-model-settings, .lesson-author-width-toggle) { grid-row: 2; }
 .lesson-model-settings > .guide-heading { flex-shrink: 0; flex-wrap: wrap; margin-bottom: 0; }
 .lesson-model-settings-controls { display: grid; flex-shrink: 0; gap: 8px; min-width: 0; }
 .lesson-model-settings-controls > div:empty { display: none; }
