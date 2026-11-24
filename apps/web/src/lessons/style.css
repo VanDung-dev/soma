@@ -380,29 +380,10 @@ dialog.lesson-cover-modal:not([open]) {
     grid-column: 2;
     grid-row: 1;
     left: calc(100% - var(--lesson-content-panel-width));
-    place-items: center;
     place-self: center start;
-    width: 25px;
-    height: 56px;
-    padding: 0;
-    border: 0;
-    color: var(--accent);
-    background-color: var(--panel-bg);
-    clip-path: path("M 25 0 L 6.14 10.56 A 12 12 0 0 0 0 21.03 V 34.97 A 12 12 0 0 0 6.14 45.44 L 25 56 Z");
     translate: calc(-100% + 1px) 0;
     pointer-events: auto;
   }
-  .lesson-author-width-toggle::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: var(--line);
-    clip-path: path(evenodd,
-      "M 25 0 L 6.14 10.56 A 12 12 0 0 0 0 21.03 V 34.97 A 12 12 0 0 0 6.14 45.44 L 25 56 Z M 25 1.15 L 6.63 11.44 A 11 11 0 0 0 1 21.03 V 34.97 A 11 11 0 0 0 6.63 44.56 L 25 54.85 Z"
-    );
-    pointer-events: none;
-  }
-  .lesson-author-width-toggle[aria-expanded="false"] .line-md-icon { rotate: 180deg; }
   .lesson-author-width-toggle + .lesson-content-panel {
     width: var(--lesson-content-panel-width);
     justify-self: end;

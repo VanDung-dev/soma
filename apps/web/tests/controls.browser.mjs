@@ -288,6 +288,7 @@ export async function checkHudCentering() {
   let center, calls = 0;
   proto.center = function(...args) { center = args; calls++; return originalCenter.apply(this,args); };
   const panel = document.querySelector('.information-panel');
+  const readerToggle = panel.querySelector('.information-width-toggle');
   const assert = (ok, message) => { if (!ok) throw Error(message); };
   const frames = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   const settleCamera = async () => {
@@ -300,7 +301,7 @@ export async function checkHudCentering() {
   const states = [];
   try {
     if (panel.classList.contains('reader-expanded')) {
-      document.querySelector('.reader-expand').click(); await frames();
+      readerToggle.click(); await frames();
       await settleCamera();
     }
     const collapsedWidth = panel.getBoundingClientRect().width;
@@ -313,7 +314,7 @@ export async function checkHudCentering() {
     let before = calls;
     for (const part of parts) { part.click(); await frames(); }
     assert(calls === before, 'Normal information view must not recenter when the selection changes');
-    assert(document.querySelector('.reader-expand') && !document.querySelector('.reader-expand').disabled,
+    assert(readerToggle && !readerToggle.disabled,
       'Keep reading controls visible and enabled for ordinary structures');
     let movingPart;
     const enableReading = async part => {
@@ -341,12 +342,21 @@ export async function checkHudCentering() {
     for (const expanded of [true, false, true, false]) {
       before = calls;
       if (expanded) beforeExpand = viewMatrix;
-      document.querySelector('.reader-expand').click();
+      readerToggle.click();
       await frames();
       await Promise.all(panel.getAnimations().map(animation => animation.finished.catch(() => {})));
       await frames();
       await settleCamera();
       assert(panel.classList.contains('reader-expanded') === expanded, 'Toggle the real information panel state');
+      const panelBounds = panel.getBoundingClientRect();
+      if (panelBounds.width) {
+        const tab = readerToggle.getBoundingClientRect();
+        const centerY = tab.top + tab.height / 2;
+        assert(tab.left < panelBounds.left && Math.abs(tab.right - panelBounds.left) <= 2
+          && Math.abs(centerY - (panelBounds.top + panelBounds.height / 2)) <= 1
+          && readerToggle.contains(document.elementFromPoint(tab.left + tab.width / 2, centerY)),
+          'The reader toggle stays clickable at the center of the left edge');
+      }
       assert(expanded ? calls > before : calls === before,
         'Automatic centering must run only while the information panel is expanded');
       if (!expanded) assert(beforeExpand && viewMatrix === beforeExpand,
@@ -355,11 +365,11 @@ export async function checkHudCentering() {
       const next = parts.find(part => part !== movingPart);
       next.click(); await frames();
       await settleCamera();
-      assert(calls === before && !panel.classList.contains('reader-expanded') && !document.querySelector('.reader-expand').disabled,
+      assert(calls === before && !panel.classList.contains('reader-expanded') && !readerToggle.disabled,
         'Selecting an ordinary structure must close reading without recentering');
       if (expanded) {
         await enableReading(next); await settleCamera(); beforeExpand = viewMatrix;
-        document.querySelector('.reader-expand').click(); await frames();
+        readerToggle.click(); await frames();
         await Promise.all(panel.getAnimations().map(animation => animation.finished.catch(() => {})));
         await settleCamera();
         assert(calls > before, 'Reopening reading for a separated structure must center it');
@@ -397,7 +407,7 @@ export async function checkHudCentering() {
       normalSelectionKeepsView: true, closeRestoresCamera: true, states };
   } finally {
     if (panel.classList.contains('reader-expanded')) {
-      document.querySelector('.reader-expand').click(); await frames();
+      readerToggle.click(); await frames();
       await settleCamera();
     }
     document.querySelector('canvas').focus();

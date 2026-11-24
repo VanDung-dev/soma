@@ -54,9 +54,22 @@
 }
 .information-panel, .catalog-panel { position: absolute; z-index: 3; top: calc(var(--panel-inset) + var(--menu-height) + var(--panel-gap)); bottom: var(--panel-inset); min-width: 0; overflow-y: auto; scrollbar-gutter: stable; padding: var(--panel-padding); border: 0; transition: translate .24s cubic-bezier(.22,1,.36,1), opacity .24s ease, display .24s allow-discrete, width .32s cubic-bezier(.22,1,.36,1), box-shadow .32s ease; }
 .catalog-panel { left: var(--panel-inset); width: var(--panel-width); padding: var(--panel-padding); display: flex; flex-direction: column; overflow: hidden; scrollbar-gutter: auto; }
-.information-panel { position: absolute; right: var(--panel-inset); width: var(--panel-width); display: flex; flex-direction: column; gap: var(--panel-padding); overflow: hidden; padding: var(--panel-padding); scrollbar-gutter: auto; }
+.information-panel {
+  --information-width: var(--panel-width);
+  /* Keep 180px for controls and 12px clearance on each side of the 3D area. */
+  --information-width-limit: calc(100% - var(--panel-width) - 2 * var(--panel-inset) - 204px);
+  position: absolute;
+  right: var(--panel-inset);
+  width: var(--information-width);
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+  padding: var(--panel-padding);
+  scrollbar-gutter: auto;
+}
+.information-panel-body { display: flex; flex: 1; flex-direction: column; gap: var(--panel-padding); min-height: 0; overflow: hidden; }
+.information-width-toggle { position: absolute; z-index: 1; top: 50%; left: 0; display: grid; translate: calc(-100% + 1px) -50%; }
 .information-heading { position: relative; flex-shrink: 0; padding: var(--panel-padding); border-radius: var(--inner-radius); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
-.information-heading-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; min-width: 0; }
 .information-heading h2, .information-heading .international-name { padding: 5px; }
 .information-details { flex-shrink: 0; font-size: 14px; line-height: 1.8; }
 .information-details:empty { display: none; }
@@ -144,10 +157,8 @@
 @keyframes wikipedia-shimmer { to { transform: translateX(100%); } }
 .reader-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .reader-actions button, .reader-actions a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 28px; height: 28px; padding: 3px 10px; border: 1px solid var(--line-strong); border-radius: var(--inner-radius); background: var(--surface); color: inherit; font-size: 12px; line-height: 1.5; text-decoration: none; }
-.reader-actions button:hover, .reader-actions a:hover, .reader-expand:hover { background: var(--control-hover); border-color: var(--line-hover); }
-.reader-expand { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 76px; min-height: 28px; height: 28px; margin-top: 3px; padding: 3px 10px; border: 1px solid var(--line-strong); border-radius: var(--inner-radius); background: var(--surface); color: var(--accent); font-size: 12px; line-height: 1.5; text-decoration: none; }
-/* Keep 180px for controls and 12px clearance on each side of the 3D area. */
-.information-panel.reader-expanded { z-index: 5; width: min(calc(600px + var(--workspace-panel-growth)), calc(100% - var(--panel-width) - var(--panel-inset) - var(--panel-inset) - 204px)); background: var(--panel-bg); box-shadow: 0 28px 80px rgba(var(--shadow-rgb),.24), 0 4px 16px rgba(var(--shadow-rgb),.08); }
+.reader-actions button:hover, .reader-actions a:hover { background: var(--control-hover); border-color: var(--line-hover); }
+.information-panel.reader-expanded { z-index: 5; width: clamp(var(--information-width), calc(2 * var(--information-width)), var(--information-width-limit)); background: var(--panel-bg); box-shadow: 0 28px 80px rgba(var(--shadow-rgb),.24), 0 4px 16px rgba(var(--shadow-rgb),.08); }
 .reader-expanded .wikipedia-reader { animation: reader-reveal .32s ease-out; }
 .reader-expanded .wikipedia-article { min-height: clamp(120px, calc(var(--scaled-viewport-height) - 500px), 360px); }
 .information-heading h2 { min-width: 0; }
@@ -174,13 +185,17 @@
       --anatomy-panels-width: round(nearest, 46.875%, 1px);
       --panel-width: round(down, var(--anatomy-panels-width) / 2, 1px);
     }
-    .study-shell > .information-panel:not(.reader-expanded) { width: calc(var(--anatomy-panels-width) - var(--panel-width)); }
+    .study-shell > .information-panel { --information-width: calc(var(--anatomy-panels-width) - var(--panel-width)); }
   }
   .catalog-panel[data-collapsed="true"], .information-panel[data-collapsed="true"] { display: none; opacity: 0; translate: var(--sidebar-offset) 0; pointer-events: none; }
 }
 @media not all and (min-width: 1141px) {
-  .catalog-panel, .information-panel { display: none; width: min(var(--panel-width), calc(100% - var(--panel-inset) * 2)); }
+  .catalog-panel, .information-panel { display: none; }
+  .catalog-panel { width: min(var(--panel-width), calc(100% - var(--panel-inset) * 2)); }
+  .information-panel {
+    --information-width-limit: calc(100% - var(--panel-inset) - max(var(--panel-inset), var(--panel-edge-toggle-width)));
+    --information-width: min(var(--panel-width), var(--information-width-limit));
+  }
   .catalog-panel[data-open="false"], .information-panel[data-open="false"] { opacity: 0; translate: var(--sidebar-offset) 0; pointer-events: none; }
   .catalog-panel[data-open="true"], .information-panel[data-open="true"] { display: flex; }
-  .information-panel.reader-expanded { width: calc(100% - var(--panel-inset) * 2); }
 }

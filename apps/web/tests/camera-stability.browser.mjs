@@ -91,8 +91,9 @@ export async function checkCameraStability() {
     throw Error('Find visible anatomy inside the interaction frame');
   };
   const results = [];
+  const readerToggle = document.querySelector('.information-width-toggle');
   try {
-    if (document.querySelector('.reader-expanded')) { document.querySelector('.reader-expand').click(); await wait(); }
+    if (document.querySelector('.reader-expanded')) { readerToggle.click(); await wait(); }
     for (const amount of [0, 30]) {
       await overview();
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(slider, String(amount));
@@ -122,7 +123,7 @@ export async function checkCameraStability() {
       assert(reframes === 0, 'Selection in the collapsed information view must not reframe the scene');
       if (amount === 0) assert(same(snapshot(), zoomed), 'Normal model selection must preserve the zoomed camera');
       canvas.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
-      assert(document.querySelector('.reader-expand') && !document.querySelector('.reader-expand').disabled,
+      assert(readerToggle && !readerToggle.disabled,
         'Keep the reader control visible and enabled for ordinary selection');
       if (amount > 0) {
         results.push({ separation: amount, hoverKeepsZoom: true, selectionDoesNotReframe: true, readerRequiresManualSeparation: true });
@@ -155,7 +156,7 @@ export async function checkCameraStability() {
       canvas.dispatchEvent(new PointerEvent('pointerup', { pointerType: 'mouse', pointerId: 999,
         button: 0, clientX: point.x + 35, clientY: point.y, bubbles: true })); await wait();
       assert(viewer.structure_offset(moving).some(value => value !== 0), 'Drag the held structure without a second press');
-      document.querySelector('.reader-expand').click(); await wait();
+      readerToggle.click(); await wait();
       await Promise.all(document.querySelector('.information-panel').getAnimations().map(animation => animation.finished));
       await wait();
       viewer.finish_camera_transition();
@@ -170,7 +171,7 @@ export async function checkCameraStability() {
         `Reader hover must not override manual zoom or recenter the scene: ${JSON.stringify({ amount, reframes, readerZoom, afterReaderHover })}`);
       canvas.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' })); await wait();
       assert(same(snapshot(), readerZoom), 'Removing a reader hover label must preserve manual zoom');
-      document.querySelector('.reader-expand').click(); await wait();
+      readerToggle.click(); await wait();
       await Promise.all(document.querySelector('.information-panel').getAnimations().map(animation => animation.finished));
       await wait();
       viewer.finish_camera_transition();
@@ -181,7 +182,7 @@ export async function checkCameraStability() {
     }
     return { states: results };
   } finally {
-    if (document.querySelector('.reader-expanded')) { document.querySelector('.reader-expand').click(); await wait(); }
+    if (document.querySelector('.reader-expanded')) { readerToggle.click(); await wait(); }
     await overview();
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(slider, '0');
     slider.dispatchEvent(new Event('input', { bubbles: true })); await wait();

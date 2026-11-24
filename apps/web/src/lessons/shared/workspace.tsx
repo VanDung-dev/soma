@@ -113,7 +113,7 @@ export function LessonContentPanel({ className, id, expandable, ...props }: HTML
   const label = t(expanded ? "lessons.collapseWritingPanel" : "lessons.expandWritingPanel");
 
   return <>
-    {expandable && <button type="button" className="lesson-author-width-toggle"
+    {expandable && <button type="button" className="panel-edge-toggle lesson-author-width-toggle"
       aria-controls={panelId} aria-expanded={expanded} aria-label={label}
       title={label} onClick={() => setExpanded(value => !value)}>
       <LineIcon name="chevron-small-right" size={18} />

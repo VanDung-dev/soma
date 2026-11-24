@@ -12,6 +12,7 @@ import { CameraDevicesContext, useCameraDevices } from "./camera-devices";
 import { WikipediaReader } from "./wikipedia-reader";
 import { OpenStaxLink, OpenStaxReading } from "./openstax-reference";
 import { useLanguage } from "../i18n";
+import { LineIcon } from "../icons";
 import { canReadStructure, StudySession } from "./study/session";
 import { ViewerRuntime } from "./viewer/runtime";
 import { ViewerStatusNotice } from "./viewer-status";
@@ -172,6 +173,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const otherLanguage = language === "vi" ? "en" : "vi";
   const heading = selectedPart ? selectedPart.names[language] : target ? target.names[language] : t("information.defaultTitle");
   const otherHeading = selectedPart ? selectedPart.names[otherLanguage] : target ? target.names[otherLanguage] : "";
+  const readerToggleLabel = t(readerExpanded ? "information.collapse" : "information.expand");
   const panelToggle = (target: "catalog" | "information", name: string) => {
     const expanded = desktopPanels ? !collapsedPanels[target] : panel === target;
     return <SidebarToggle expanded={expanded} controls={target === "catalog" ? catalogId : informationId}
@@ -230,31 +232,31 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         </section>
       </main>
       <aside id={informationId} ref={informationPanel} className={`information-panel${readerExpanded ? " reader-expanded" : ""}`} data-open={panel === "information"} data-collapsed={collapsedPanels.information} aria-label={t("information.panel.label")}>
-        <header className="information-heading" data-structure-id={readingId || undefined}>
-          <div className="information-heading-row">
+        <button type="button" className="panel-edge-toggle information-width-toggle" aria-expanded={readerExpanded} aria-controls={informationId}
+          aria-label={readerToggleLabel} title={readerToggleLabel} onClick={session.toggleReader}>
+          <LineIcon name="chevron-small-right" size={18} />
+        </button>
+        <div className="information-panel-body">
+          <header className="information-heading" data-structure-id={readingId || undefined}>
             <h2>{heading}</h2>
-            <button className="reader-expand" aria-expanded={readerExpanded} aria-controls="information-content"
-              onClick={session.toggleReader}>
-              {t(readerExpanded ? "information.collapse" : "information.expand")}
-            </button>
-          </div>
-          {otherHeading && otherHeading !== heading && <p className="international-name" lang={otherLanguage}>{otherHeading}</p>}
-        </header>
-        <div className="information-content" id="information-content">
-          <div className="information-details">
-            {!selectedPart && target && !target.count && <p>{t("information.noLinkedModel")}</p>}
-            {selectedPart ? <>
-              {selectedPart.latin && <p className="latin-name" lang="la">{selectedPart.latin}</p>}
-              <p className="collection-names">{selectedPart.collection_names.map(name => name[language]).join(" · ")}</p>
-            </> : !target && <p className="information-overview">{t("information.overview")}</p>}
-          </div>
-          {referenceName ? <WikipediaReader key={referenceName} name={referenceName} expanded={readerExpanded}
-            actions={<OpenStaxLink reference={openstaxReference} compact={!readerExpanded} />} />
-            : openstaxReference && <div className="reader-actions"><OpenStaxLink reference={openstaxReference} compact={!readerExpanded} /></div>}
-          <div className="model-credit">
-            <div className="credit-sources">
-              <a href={`${import.meta.env.BASE_URL}models/z-anatomy/ATTRIBUTION.md`} target="_blank" rel="noreferrer" aria-label={t("credit.link")} title={t("credit.summary")}>{readerExpanded ? t("credit.summary") : "Z-Anatomy"}</a>
-              <OpenStaxReading reference={openstaxReference} compact={!readerExpanded} />
+            {otherHeading && otherHeading !== heading && <p className="international-name" lang={otherLanguage}>{otherHeading}</p>}
+          </header>
+          <div className="information-content" id="information-content">
+            <div className="information-details">
+              {!selectedPart && target && !target.count && <p>{t("information.noLinkedModel")}</p>}
+              {selectedPart ? <>
+                {selectedPart.latin && <p className="latin-name" lang="la">{selectedPart.latin}</p>}
+                <p className="collection-names">{selectedPart.collection_names.map(name => name[language]).join(" · ")}</p>
+              </> : !target && <p className="information-overview">{t("information.overview")}</p>}
+            </div>
+            {referenceName ? <WikipediaReader key={referenceName} name={referenceName} expanded={readerExpanded}
+              actions={<OpenStaxLink reference={openstaxReference} compact={!readerExpanded} />} />
+              : openstaxReference && <div className="reader-actions"><OpenStaxLink reference={openstaxReference} compact={!readerExpanded} /></div>}
+            <div className="model-credit">
+              <div className="credit-sources">
+                <a href={`${import.meta.env.BASE_URL}models/z-anatomy/ATTRIBUTION.md`} target="_blank" rel="noreferrer" aria-label={t("credit.link")} title={t("credit.summary")}>{readerExpanded ? t("credit.summary") : "Z-Anatomy"}</a>
+                <OpenStaxReading reference={openstaxReference} compact={!readerExpanded} />
+              </div>
             </div>
           </div>
         </div>
