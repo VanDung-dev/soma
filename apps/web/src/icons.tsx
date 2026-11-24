@@ -3,6 +3,7 @@ import arrowSmallLeft from "./icons/line-md/arrow-small-left.svg?raw";
 import arrowSmallRight from "./icons/line-md/arrow-small-right.svg?raw";
 import chevronSmallDown from "./icons/line-md/chevron-small-down.svg?raw";
 import chevronSmallRight from "./icons/line-md/chevron-small-right.svg?raw";
+import chevronWideRight from "./icons/chevron-wide-right.svg?raw";
 import closeSmall from "./icons/line-md/close-small.svg?raw";
 import confirmSquareTwotoneToSquareTransition from "./icons/line-md/confirm-square-twotone-to-square-transition.svg?raw";
 import cog from "./icons/line-md/cog.svg?raw";
@@ -21,6 +22,7 @@ const icons = {
   "arrow-small-right": arrowSmallRight,
   "chevron-small-down": chevronSmallDown,
   "chevron-small-right": chevronSmallRight,
+  "chevron-wide-right": chevronWideRight,
   "close-small": closeSmall,
   "confirm-square-twotone-to-square-transition": confirmSquareTwotoneToSquareTransition,
   cog,

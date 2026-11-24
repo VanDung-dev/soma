@@ -116,7 +116,7 @@ export function LessonContentPanel({ className, id, expandable, ...props }: HTML
     {expandable && <button type="button" className="panel-edge-toggle lesson-author-width-toggle"
       aria-controls={panelId} aria-expanded={expanded} aria-label={label}
       title={label} onClick={() => setExpanded(value => !value)}>
-      <LineIcon name="chevron-small-right" size={18} />
+      <LineIcon name="chevron-wide-right" size={24} />
     </button>}
     <section id={panelId} className={`lesson-content-panel workspace-panel-surface ${className ?? "lesson-step"}`} {...props} />
   </>;

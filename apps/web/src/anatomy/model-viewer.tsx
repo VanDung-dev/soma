@@ -234,7 +234,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       <aside id={informationId} ref={informationPanel} className={`information-panel${readerExpanded ? " reader-expanded" : ""}`} data-open={panel === "information"} data-collapsed={collapsedPanels.information} aria-label={t("information.panel.label")}>
         <button type="button" className="panel-edge-toggle information-width-toggle" aria-expanded={readerExpanded} aria-controls={informationId}
           aria-label={readerToggleLabel} title={readerToggleLabel} onClick={session.toggleReader}>
-          <LineIcon name="chevron-small-right" size={18} />
+          <LineIcon name="chevron-wide-right" size={24} />
         </button>
         <div className="information-panel-body">
           <header className="information-heading" data-structure-id={readingId || undefined}>

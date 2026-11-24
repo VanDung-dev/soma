@@ -1,4 +1,4 @@
-.workspace-shell { --panel-edge-toggle-width: 25px; position: relative; isolation: isolate; height: 100%; min-height: 0; overflow: hidden; }
+.workspace-shell { --panel-edge-toggle-width: 20px; position: relative; isolation: isolate; height: 100%; min-height: 0; overflow: hidden; }
 .app-menu-bar { position: absolute; z-index: 6; inset: var(--panel-inset) var(--panel-inset) auto; height: var(--menu-height); display: grid; grid-template-columns: 180px minmax(0, 1fr) 180px; align-items: center; gap: var(--panel-gap); padding: 3px 9px; border: 1px solid var(--line); border-radius: var(--panel-radius); background: var(--panel-bg); }
 .app-menu-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; margin: 0; font: 20px/1.2 var(--font-ui); text-align: center; white-space: nowrap; }
 .app-menu-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
@@ -24,6 +24,7 @@
 .settings-switch:focus-visible + .camera-mode-switch { background: var(--selected-bg); }
 .workspace-panel-surface, .information-panel, .catalog-panel { border-radius: var(--panel-radius); background: var(--panel-bg); box-shadow: inset 0 0 0 1px var(--line); }
 .panel-edge-toggle {
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   width: var(--panel-edge-toggle-width);
   height: 56px;
@@ -31,7 +32,7 @@
   border: 0;
   color: var(--accent);
   background-color: var(--panel-bg);
-  clip-path: path("M 25 0 L 6.14 10.56 A 12 12 0 0 0 0 21.03 V 34.97 A 12 12 0 0 0 6.14 45.44 L 25 56 Z");
+  clip-path: path("M 20 0 L 5.12 10.42 A 12 12 0 0 0 0 20.25 V 35.75 A 12 12 0 0 0 5.12 45.58 L 20 56 Z");
 }
 .panel-edge-toggle::before {
   content: "";
@@ -39,10 +40,11 @@
   inset: 0;
   background: var(--line);
   clip-path: path(evenodd,
-    "M 25 0 L 6.14 10.56 A 12 12 0 0 0 0 21.03 V 34.97 A 12 12 0 0 0 6.14 45.44 L 25 56 Z M 25 1.15 L 6.63 11.44 A 11 11 0 0 0 1 21.03 V 34.97 A 11 11 0 0 0 6.63 44.56 L 25 54.85 Z"
+    "M 20 0 L 5.12 10.42 A 12 12 0 0 0 0 20.25 V 35.75 A 12 12 0 0 0 5.12 45.58 L 20 56 Z M 20 1.22 L 5.69 11.24 A 11 11 0 0 0 1 20.25 V 35.75 A 11 11 0 0 0 5.69 44.76 L 20 54.78 Z"
   );
   pointer-events: none;
 }
+.panel-edge-toggle > .line-md-icon { translate: 2px 0; }
 .panel-edge-toggle[aria-expanded="false"] .line-md-icon { rotate: 180deg; }
 .catalog-heading, .structure-search, .tree-actions { flex-shrink: 0; }
 .catalog-tree { position: relative; z-index: 1; isolation: isolate; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: auto; padding: 9px; border: 1px solid var(--line); border-radius: var(--inner-radius); background: var(--surface); box-shadow: 0 4px 12px rgba(var(--shadow-rgb),.06); }
