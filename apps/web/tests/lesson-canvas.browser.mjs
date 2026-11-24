@@ -109,14 +109,18 @@ export async function checkLessonCanvas(page) {
     assert(await region.locator('.orientation-axes').isVisible());
 
     const before = await pose();
-    let bounds = await canvas.boundingBox();
+    let bounds = await region.locator('.model-focus-frame').boundingBox();
     const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
     await page.mouse.move(center.x, center.y);
     await page.mouse.down();
     await page.mouse.move(center.x + 40, center.y + 15, { steps: 4 });
     await page.mouse.up();
+    await page.mouse.move(center.x, center.y);
     await page.mouse.wheel(0, -100);
-    await page.waitForFunction(before => JSON.stringify(window.lessonCanvasViewer.camera_pose()) !== JSON.stringify(before), before);
+    await page.waitForFunction(before => {
+      const camera = window.lessonCanvasViewer.camera_pose();
+      return camera.yaw !== before.yaw && camera.distance !== before.distance;
+    }, before);
     const rotated = await pose();
     assert.notEqual(rotated.yaw, before.yaw);
     assert.notEqual(rotated.distance, before.distance);

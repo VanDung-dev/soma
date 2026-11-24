@@ -165,7 +165,7 @@ export async function checkLessons(page) {
   await scene.getByRole('button', { name: 'Áp dụng', exact: true }).click();
   await confirm.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
   await scene.waitFor({ state: 'hidden' });
-  await frame.locator('.model-canvas[aria-busy="false"]').waitFor();
+  await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
   await saveLessonDraft(page);
   const revised = await savedLesson(page);
   assert.equal(revised.steps[1].targetId, 'collection:baf3076d0495a617');
@@ -175,7 +175,7 @@ export async function checkLessons(page) {
   await compose.click();
   await scene.getByRole('button', { name: 'Sao chép cảnh mục trước', exact: true }).click();
   await scene.getByRole('button', { name: 'Áp dụng', exact: true }).click();
-  await frame.locator('.model-canvas[aria-busy="false"]').waitFor();
+  await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
   await saveLessonDraft(page);
   const added = await savedLesson(page);
   assert.equal(added.steps[2].targetId, revised.steps[1].targetId);

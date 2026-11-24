@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { brotliDecompressSync } from 'node:zlib';
 import { readLessonMetadata, unpackLessonTar } from './lesson-package.fixture.mjs';
-import { chooseLessonImage, lessonBody, savedLesson, saveLessonDraft } from './lesson-editor-tools.mjs';
+import { chooseLessonImage, lessonBody, lessonToolbarButton, savedLesson, saveLessonDraft } from './lesson-editor-tools.mjs';
 import { checkLessonHeader } from './lesson-editor-experience.browser.mjs';
 
 export async function checkLessonQuestions(page) {
@@ -152,7 +152,7 @@ export async function checkLessonImageProgress(page) {
     assert.equal(await page.locator('.lesson-image-progress').count(), 0);
     await page.locator('#lesson-author-writing').getByRole('button', { name: 'Thêm mục', exact: true }).click();
     await lessonBody(page).fill('Ảnh trong nội dung');
-    const imageButton = page.getByRole('button', { name: 'Chèn ảnh', exact: true });
+    const imageButton = lessonToolbarButton(page, 'lessonImage');
     await chooseLessonImage(page, upload);
     await page.getByRole('status').filter({ hasText: 'Đang nén ảnh' }).waitFor();
     await page.waitForFunction(button => button.disabled, await imageButton.elementHandle());

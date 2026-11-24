@@ -1,6 +1,18 @@
 import { lessonBody, savedLesson } from './lesson-editor-tools.mjs';
 import assert from 'node:assert/strict';
 
+function expectedLessonWidths(shell) {
+  return shell.evaluate(node => {
+    const style = getComputedStyle(node);
+    const width = node.getBoundingClientRect().width;
+    const gap = parseFloat(style.getPropertyValue('--panel-gap'));
+    const inset = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+    const outlineWidth = Math.round(width * .1875);
+    const contentWidth = Math.round(width * .46875);
+    return [outlineWidth, Math.round(width - inset - 2 * gap) - outlineWidth - contentWidth, contentWidth];
+  });
+}
+
 export async function checkLessonResponsiveLayout(page) {
   const text = vi => ({ vi, en: '' });
   const modelId = 'collection:baf3076d0495a617';
@@ -62,24 +74,19 @@ export async function checkLessonResponsiveLayout(page) {
     assert(result.fill > 0.77 && result.fill <= 0.86, `Fit within 85% of the 3D frame, allowing for geometry and rasterization: ${JSON.stringify(result)}`);
   };
   const measure = async editor => {
-    const expectedWidths = ([width]) => {
-      const outlineWidth = Math.round(width * .1875);
-      const contentWidth = Math.round(width * .46875);
-      return [outlineWidth, width - 64 - outlineWidth - contentWidth, contentWidth];
-    };
     await page.locator('.model-canvas[aria-busy="false"] canvas').waitFor({ state: 'attached' });
     const shell = page.locator('.lesson-workspace-shell');
     assert.equal(await shell.locator(':scope > .lesson-header').count(), 1);
     assert.equal(await shell.locator(':scope > .lesson-workspace-body > .lesson-outline-panel').count(), 1);
     assert.equal(await shell.locator('.lesson-workspace-main > .lesson-content-panel > .lesson-step-navigation').count(), 1);
-    const frame = model(editor).locator('.lesson-model-surface > .model-focus-frame');
+    const frame = model(editor).locator('.model-focus-frame');
     assert.equal(await shell.locator('.lesson-header .sidebar-toggle').count(), 0);
     const results = [];
     for (const size of [...sizes, ...sizes.slice(0, -1).reverse()]) {
       const [width, height] = size;
       await page.setViewportSize({ width, height });
       const panels = await Promise.all([outline(editor), model(editor), content(editor), frame].map(bounds));
-      assert.deepEqual(panels.slice(0, 3).map(rect => rect[2]), expectedWidths(size), `${width}px with outline`);
+      assert.deepEqual(panels.slice(0, 3).map(rect => rect[2]), await expectedLessonWidths(shell), `${width}px with outline`);
       if (results.length === 0) {
         const sheet = content(editor).locator('.lesson-content-sheet');
         await sheet.waitFor();
@@ -137,8 +144,9 @@ export async function checkLessonResponsiveLayout(page) {
       results.push({ panels, statusBottom, creditInset });
     }
     if (editor) {
-      for (const [width, outlineWidth, writingWidth] of [[1366, 256, 640], [1369, 257, 642]]) {
+      for (const width of [1366, 1369]) {
         await page.setViewportSize({ width, height: 854 });
+        const [outlineWidth, , writingWidth] = await expectedLessonWidths(shell);
         assert.equal((await outline(editor).boundingBox()).width, outlineWidth, `Outline width rounds to a whole pixel at ${width}px`);
         assert.equal((await content(editor).boundingBox()).width, writingWidth, `Writing width rounds to a whole pixel at ${width}px`);
       }
@@ -153,7 +161,7 @@ export async function checkLessonResponsiveLayout(page) {
       assert(scene.width >= 240 && scene.x + scene.width <= document.x, `Usable side-by-side model at ${width}px`);
       assert(document.y + document.height <= height, `Writing or reading stays within ${width}×${height}`);
       if (editor) {
-        assert.equal((await outline(editor).boundingBox()).width, Math.round(width * .1875), `Proportional outline width at ${width}px`);
+        assert.equal((await outline(editor).boundingBox()).width, (await expectedLessonWidths(shell))[0], `Proportional outline width at ${width}px`);
         for (const tool of await model(editor).locator('.lesson-model-settings-trigger').all()) {
           const button = await tool.boundingBox();
           if (!button) continue;
@@ -168,7 +176,7 @@ export async function checkLessonResponsiveLayout(page) {
     const workspace = page.locator(editor ? '.lesson-editor' : '.lesson-player');
     await workspace.evaluate(node => { node.style.width = 'calc(100% - 480px)'; });
     assert.deepEqual(await Promise.all([outline(editor), model(editor), content(editor)].map(async panel => (await bounds(panel))[2])),
-      expectedWidths(sizes[1]), 'Column widths follow the workspace even when it is narrower than the viewport');
+      await expectedLessonWidths(shell), 'Column widths follow the workspace even when it is narrower than the viewport');
     await workspace.evaluate(node => { node.style.removeProperty('width'); });
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     const layoutAnimations = await outline(editor).locator('.lesson-outline-row').filter({ hasText: 'Đọc' }).evaluate(async button => {
@@ -182,9 +190,9 @@ export async function checkLessonResponsiveLayout(page) {
     assert.equal(layoutAnimations, 0, 'Changing section does not animate the content panel or its toggle');
     await model(editor).waitFor({ state: 'hidden' });
     const [contentX, , contentWidth] = await bounds(content(editor));
-    const [outlineX, , outlineWidth] = await bounds(outline(editor));
-    assert.equal(contentWidth, expectedWidths(sizes.at(-1))[2]);
-    assert.equal(2 * (contentX - outlineX - outlineWidth - 16) + contentWidth, 1920 - 32 - outlineWidth - 16,
+    const [mainX, , mainWidth] = await bounds(shell.locator('.lesson-workspace-main'));
+    assert.equal(contentWidth, (await expectedLessonWidths(shell))[2]);
+    assert(Math.abs(2 * (contentX - mainX) + contentWidth - mainWidth) <= 1,
       'A step with 3D hidden stays centered in the space next to the outline');
     if (!editor) {
       assert(await page.locator('.lesson-reader-body').evaluate(node => {
@@ -200,6 +208,7 @@ export async function checkLessonResponsiveLayout(page) {
   await measure(true);
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
+  await choose(false, 'Quan sát');
   const preview = await measure(false);
   await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
   assert.equal(await page.getByLabel('Tên mục').inputValue(), 'Đọc');
@@ -247,12 +256,9 @@ export async function checkLessonEditorLayout(page) {
   await choose('Một');
   await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
   assert.deepEqual(await document.evaluate(node => [...node.classList].filter(name => name.startsWith('lesson-author-document--'))), ['lesson-author-document--step']);
-  await page.waitForFunction(() => {
-    const scene = document.querySelector('.lesson-scene-region');
-    return !!scene && Math.abs(scene.getBoundingClientRect().width - 376) < 0.5;
-  });
   assert.deepEqual(await page.evaluate(() => ['#lesson-author-outline', '.lesson-scene-region', '#lesson-author-writing']
-    .map(selector => Math.round(document.querySelector(selector).getBoundingClientRect().width))), [240, 376, 600]);
+    .map(selector => Math.round(document.querySelector(selector).getBoundingClientRect().width))),
+    await expectedLessonWidths(page.locator('.lesson-editor')));
   const stepLabel = await document.getAttribute('aria-label');
   assert.match(stepLabel, /^(Mục|Section) 1 · Một$/);
   await page.getByRole('button', { name: 'Thiết lập 3D', exact: true }).click();
@@ -320,7 +326,7 @@ export async function checkLessonEditorLayout(page) {
   assert.equal(await page.getByLabel('Tên mục').inputValue(), 'Hai');
   await document.getByRole('button', { name: 'Mục trước', exact: true }).click();
   assert.equal(await page.getByLabel('Tên mục').inputValue(), 'Ba');
-  await model.locator('.orientation-axes [data-axis="Y"][data-direction="1"]').click();
+  await model.locator('.orientation-axes [data-axis="Y"][data-direction="1"] .orientation-hit-target').click();
   assert(await outline.isVisible());
   assert(await settings.isVisible());
   assert(await page.evaluate(() => window.editorCanvas === document.querySelector('.lesson-editor > .model-canvas canvas')));

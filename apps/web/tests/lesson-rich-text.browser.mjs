@@ -15,7 +15,7 @@ export async function checkLessonRichText(page) {
   const saved = () => savedLesson(page, id);
   await lessonBody(page).fill('Quan sát mô hình');
   await lessonBody(page).press('ControlOrMeta+a');
-  await page.getByRole('button', { name: 'Bold', exact: true }).click();
+  await page.getByRole('button', { name: 'Đậm', exact: true }).click();
   assert.equal(await lessonBody(page).locator('strong').textContent(), 'Quan sát mô hình');
   await saveLessonDraft(page);
   assert((await saved()).steps[0].instruction.vi.includes('<strong>'));

@@ -45,7 +45,8 @@ export async function checkAnatomyOverviewResize(page) {
           await Promise.all(panels.flatMap(panel => panel.getAnimations()).map(animation => animation.finished.catch(() => {})));
           return panels.map(panel => panel.getBoundingClientRect().width);
         });
-        const totalWidth = Math.round(width * .46875);
+        const workspaceWidth = await page.locator('.study-shell').evaluate(node => node.getBoundingClientRect().width);
+        const totalWidth = Math.round(workspaceWidth * .46875);
         assert.deepEqual(panelWidths, [Math.floor(totalWidth / 2), Math.ceil(totalWidth / 2)], `Anatomy panel widths at ${width}px`);
       }
     }

@@ -127,7 +127,7 @@
   border-radius: 50%;
 }
 .lesson-color-picker .jodit-color-picker__color-item:hover { border-color: var(--text); }
-.lesson-color-picker .jodit-color-picker__color-item:focus-visible { outline: none; box-shadow: none; }
+.lesson-color-picker .jodit-color-picker__color-item:focus-visible { outline: none; box-shadow: none; --lesson-focused-color-check: var(--text); }
 .lesson-color-picker .jodit-color-picker__color-item:focus-visible::before {
   content: "";
   grid-area: 1 / 1;
@@ -142,11 +142,10 @@
   box-sizing: border-box;
   width: 5px;
   height: 10px;
-  border: solid var(--lesson-color-check, var(--text));
+  border: solid var(--lesson-focused-color-check, var(--lesson-color-check, var(--text)));
   border-width: 0 2px 2px 0;
   transform: translateY(-1px) rotate(45deg);
 }
-.lesson-color-picker .jodit-color-picker__color-item[aria-pressed="true"]:focus-visible::after { border-color: var(--text); }
 .lesson-color-picker .jodit-color-picker__remove {
   justify-content: flex-start;
   gap: 8px;
@@ -155,8 +154,8 @@
   padding: 3px 8px;
   border-radius: var(--row-radius);
 }
+.lesson-color-picker .jodit-color-picker__remove:is([aria-pressed="true"], :hover) { border-color: transparent; }
 .lesson-color-picker .jodit-color-picker__remove:is([aria-pressed="true"], :hover, :focus-visible) {
-  border-color: transparent;
   outline: none;
   background-color: var(--selected-bg);
 }
