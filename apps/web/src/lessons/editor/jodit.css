@@ -1,0 +1,135 @@
+.lesson-rich-editor { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 120px; }
+.lesson-rich-editor .jodit-container {
+  --jd-color-background-default: var(--surface);
+  --jd-color-panel: var(--control-hover);
+  --jd-color-border: var(--line-strong);
+  --jd-color-text: var(--text);
+  --jd-color-text-icons: var(--text);
+  --jd-color-button-background-hover: var(--selected-bg);
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--detail-radius);
+}
+.lesson-rich-editor .jodit-container > .jodit-toolbar__box { flex-shrink: 0; }
+.lesson-rich-editor .jodit-workplace { display: flex; flex: 1; }
+.lesson-rich-editor .jodit-workplace .lesson-rich-content { flex: 1; min-width: 0; padding: 10px; font: 10pt/1.6 var(--font-ui); }
+:root[data-theme="dark"] .lesson-rich-editor .jodit-workplace .lesson-rich-content {
+  --text: #000;
+  --muted: #565656;
+  --accent: #9e4b48;
+  --line-strong: #d7d5cc;
+  --selected-bg: #e7ddd2;
+  --jd-color-border: var(--line-strong);
+  color-scheme: light;
+  background-color: #fff;
+  color: var(--text);
+  caret-color: currentColor;
+}
+.lesson-rich-editor .jodit-workplace .lesson-rich-content:focus { outline: none; }
+.lesson-rich-editor .jodit-toolbar__box .jodit-toolbar-button_paragraph > .jodit-toolbar-button__button { min-inline-size: 76px; white-space: nowrap; }
+.lesson-color-swatch { position: relative; }
+.jodit-toolbar-button .lesson-color-swatch .jodit-icon { width: 19px; height: 19px; stroke-width: 2.8; }
+.lesson-color-swatch::after {
+  content: "";
+  position: absolute;
+  inset-inline: -2px;
+  inset-block-end: -2px;
+  block-size: 6px;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, currentColor 45%, transparent);
+  border-radius: 2px;
+  background-color: var(--lesson-selected-color);
+  pointer-events: none;
+}
+.lesson-color-swatch_empty::after {
+  background: repeating-linear-gradient(135deg, var(--control-hover) 0 3px, var(--line-hover) 3px 4px);
+}
+.jodit-color-picker.lesson-color-picker {
+  display: grid;
+  gap: 8px;
+  box-sizing: border-box;
+  inline-size: min(310px, calc(100vw - 40px));
+  max-block-size: calc(100dvh - 48px);
+  padding: 8px;
+  overflow: auto;
+  color: var(--text);
+  background-color: var(--surface);
+  font: 600 13px/1.4 var(--font-ui);
+}
+.lesson-color-picker .jodit-color-picker__groups { display: grid; gap: 4px; }
+.lesson-color-picker .jodit-color-picker__group {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 4px;
+  max-width: none;
+  margin: 0;
+}
+.jodit-color-picker.lesson-color-picker .jodit-color-picker__color-item {
+  display: grid;
+  place-items: center;
+  justify-self: center;
+  box-sizing: border-box;
+  width: min(22px, 100%);
+  min-width: 0;
+  height: auto;
+  min-height: 0;
+  aspect-ratio: 1;
+  border: 1px solid color-mix(in srgb, var(--text) 24%, transparent);
+  border-radius: 50%;
+}
+.lesson-color-picker .jodit-color-picker__color-item:hover { border-color: var(--text); }
+.lesson-color-picker .jodit-color-picker__color-item:focus-visible { outline: none; box-shadow: none; }
+.lesson-color-picker .jodit-color-picker__color-item:is([aria-pressed="true"], :focus-visible)::before {
+  content: "";
+  grid-area: 1 / 1;
+  width: 65%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background-color: var(--surface);
+}
+.lesson-color-picker .jodit-color-picker__color-item:focus-visible::before { background-color: var(--selected-bg); }
+.lesson-color-picker .jodit-color-picker__color-item[aria-pressed="true"]::after {
+  content: "";
+  grid-area: 1 / 1;
+  width: 4px;
+  height: 7px;
+  border: solid var(--text);
+  border-width: 0 2px 2px 0;
+  transform: translateY(-1px) rotate(42deg);
+}
+.lesson-color-picker .jodit-color-picker__remove {
+  justify-content: flex-start;
+  gap: 8px;
+  min-height: 32px;
+  margin: 0;
+  padding: 3px 8px;
+  border-radius: var(--row-radius);
+}
+.lesson-color-picker .jodit-color-picker__remove:is([aria-pressed="true"], :hover, :focus-visible) {
+  border-color: transparent;
+  outline: none;
+  background-color: var(--selected-bg);
+}
+.lesson-color-picker-label { padding-block-start: 8px; border-block-start: 1px solid var(--line); color: var(--muted-dark); }
+.lesson-color-picker .jodit-color-picker__extra { justify-content: flex-start; gap: 12px; }
+.lesson-color-picker .jodit-color-picker__hex input {
+  box-sizing: border-box;
+  width: 104px;
+  min-height: 30px;
+  padding-inline: 8px;
+  border-color: var(--line-strong);
+  background-color: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+.lesson-color-picker .jodit-color-picker__hex input:focus-visible { background-color: var(--selected-bg); }
+.lesson-color-picker .jodit-color-picker__native { display: flex; align-items: center; gap: 4px; }
+.lesson-color-picker .jodit-color-picker__native input { width: 24px; height: 24px; cursor: pointer; }
+body:has(.lesson-rich-editor) :is(.jodit, .jodit-dialog, .jodit-popup) :focus-visible { outline: none; box-shadow: none; background-color: var(--selected-bg); }
+.lesson-editor-tools { display: grid; width: min(248px, calc(100vw - 28px)); gap: 6px; }
+.lesson-editor-tools > .jodit-ui-group { display: grid; min-width: 0; }
+.lesson-editor-tools-label { width: 100%; padding: 2px 4px; color: var(--muted); font: 600 11px/1.4 var(--font-ui); }

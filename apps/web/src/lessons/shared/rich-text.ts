@@ -7,7 +7,7 @@ const lessonElements = "div span p br strong b em i u s strike del ins sub sup m
 export const lessonImageAlignment = { left: "lesson-image-left", right: "lesson-image-right", center: "lesson-image-center" };
 export const lessonTextClasses = { "lesson-text-muted": "Muted text", "lesson-text-highlight": "Highlight" };
 const alignments = Object.values(lessonImageAlignment);
-const lessonStyles = new Set("color background-color font-family font-size font-style font-weight line-height text-align text-decoration-line text-indent vertical-align margin-left margin-right margin-inline-start margin-inline-end padding-left padding-right padding-inline-start padding-inline-end list-style-type border-width border-style border-color border-top-width border-right-width border-bottom-width border-left-width border-top-style border-right-style border-bottom-style border-left-style border-top-color border-right-color border-bottom-color border-left-color border-collapse border-spacing border-radius".split(" "));
+const lessonStyles = new Set("color background-color font-style font-weight line-height text-align text-decoration-line text-indent vertical-align margin-left margin-right margin-inline-start margin-inline-end padding-left padding-right padding-inline-start padding-inline-end list-style-type border-width border-style border-color border-top-width border-right-width border-bottom-width border-left-width border-top-style border-right-style border-bottom-style border-left-style border-top-color border-right-color border-bottom-color border-left-color border-collapse border-spacing border-radius".split(" "));
 
 function secureMediaUrl(value: string | null) {
   if (!value) return undefined;
@@ -40,6 +40,7 @@ export function sanitizeLessonHtml(html: string, urls?: Map<string, string>, pat
     const textClasses = element.matches("span, p, div") ? Object.keys(lessonTextClasses).filter(name => element.classList.contains(name)) : [];
     const supportsWidth = isImageLayout || element.matches("table, td, th, col, iframe, video");
     const width = supportsWidth && /^(\d+(?:\.\d+)?)(px|%)$/.exec(element.style.width);
+    const hasCustomFont = element.style.fontFamily || element.style.fontSize;
     const styles = Array.from(element.style, name => [name, element.style.getPropertyValue(name)] as const)
       .filter(([name, value]) => lessonStyles.has(name) && !/\b(?:url|var|attr|env|image|expression)\s*\(/i.test(value));
     element.removeAttribute("class");
@@ -49,6 +50,9 @@ export function sanitizeLessonHtml(html: string, urls?: Map<string, string>, pat
     for (const [name, value] of styles) element.style.setProperty(name, value);
     if (width && Number(width[1]) > 0 && Number(width[1]) <= (width[2] === "%" ? 100 : 8192)) {
       element.style.width = width[0];
+    }
+    if (hasCustomFont && element.tagName === "SPAN" && !element.attributes.length) {
+      element.replaceWith(...element.childNodes);
     }
   });
   template.content.querySelectorAll("[id]").forEach(element => {

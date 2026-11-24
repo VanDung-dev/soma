@@ -10,6 +10,7 @@
 .lesson-rich-content > :first-child { margin-top: 0; }
 .lesson-rich-content > :last-child { margin-bottom: 0; }
 .lesson-rich-content p { margin: 0 0 12px; line-height: inherit; }
+.lesson-rich-content :is(code, pre) { font-family: inherit; }
 .lesson-rich-content :is(h1, h2, h3, h4, h5, h6) { margin: 20px 0 10px; font-family: var(--font-ui, Lato, sans-serif); font-weight: 700; }
 .lesson-rich-content h1 { font-size: 20pt; line-height: 1.25; }
 .lesson-rich-content h2 { font-size: 16pt; line-height: 1.3; }
