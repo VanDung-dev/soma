@@ -11,6 +11,7 @@ import { useLanguage } from "../../i18n";
 import { editorHtml, lessonImageAlignment, resolveLessonImages, sanitizeLessonHtml } from "../shared/rich-text";
 import { useLessonImages } from "../shared/image-context";
 import type { LessonImageStage } from "../shared/archive";
+import { setupLessonToolbars } from "./jodit-toolbar";
 import joditVietnamese from "./jodit-vi.json";
 
 Jodit.lang.vi = joditVietnamese;
@@ -125,6 +126,9 @@ export default function RichEditor({ value, language, label, onChange }: {
     const input = picker.current!;
     const textarea = target.current!;
     let editor: Jodit | undefined;
+    let disposeToolbars: (() => void) | undefined;
+    let closeMoreTools: (() => void) | undefined;
+    let overflowButtons: string[] = [];
     let selection: Range | undefined;
     let disposed = false;
     let uploading = false;
@@ -216,8 +220,7 @@ export default function RichEditor({ value, language, label, onChange }: {
         imageDefaultWidth: 240,
         buttons: [
           "find", "|", "undo", "redo", "spellcheck", "copyformat", "|",
-          "paragraph", "|", "bold", "italic", "underline", ...colorButtons,
-          "\n",
+          "paragraph", "|", "bold", "italic", "underline", ...colorButtons, "|",
           "link", "lessonImage", "table", "|", "align", "lineHeight", "ul", "ol", "outdent", "indent", "|",
           "eraser", "lessonMoreTools",
         ],
@@ -271,15 +274,19 @@ export default function RichEditor({ value, language, label, onChange }: {
           lessonMoreTools: {
             icon: "dots", tooltip: "More tools",
             list: [],
-            popup(instance: IJodit) {
+            popup(instance: IJodit, _current: Node | null, close: () => void) {
+              closeMoreTools = close;
               const menu = new Jodit.modules.UIGroup(instance);
               menu.container.classList.add("lesson-editor-tools");
-              for (const { label, buttons } of extraToolGroups) {
+              const groups = [
+                ...(overflowButtons.length ? [{ label: instance.i18n("Default tools"), buttons: overflowButtons }] : []),
+                ...extraToolGroups.map(({ label, buttons }) => ({ label: t(label), buttons })),
+              ];
+              for (const { label, buttons } of groups) {
                 const section = new Jodit.modules.UIGroup(instance);
                 const heading = instance.c.div("lesson-editor-tools-label");
-                const title = t(label);
-                heading.textContent = title;
-                section.container.setAttribute("aria-label", title);
+                heading.textContent = label;
+                section.container.setAttribute("aria-label", label);
                 section.container.append(heading);
                 const tools = new Jodit.modules.ToolbarEditorCollection(instance);
                 tools.buttonSize = instance.o.toolbarButtonSize;
@@ -305,6 +312,10 @@ export default function RichEditor({ value, language, label, onChange }: {
       instance.editor.setAttribute("role", "textbox");
       instance.editor.setAttribute("aria-multiline", "true");
       instance.editor.setAttribute("aria-label", label);
+      disposeToolbars = setupLessonToolbars(instance, buttons => {
+        overflowButtons = buttons;
+        closeMoreTools?.();
+      });
       instance.e.fire("updateToolbar");
       if (interfaceLanguage === "vi") {
         instance.e.on("afterTableOpenPopup", (popup: HTMLElement) => {
@@ -359,6 +370,7 @@ export default function RichEditor({ value, language, label, onChange }: {
     }
     return () => {
       disposed = true;
+      disposeToolbars?.();
       input.removeEventListener("change", insertImage);
       editor?.editor.removeEventListener("drop", onDrop, true);
       editor?.destruct();

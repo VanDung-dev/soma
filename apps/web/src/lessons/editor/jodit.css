@@ -14,6 +14,24 @@
   border-radius: var(--detail-radius);
 }
 .lesson-rich-editor .jodit-container > .jodit-toolbar__box { flex-shrink: 0; }
+.lesson-primary-toolbar > .jodit-ui-group_line_true > .jodit-ui-group { flex-wrap: nowrap; }
+.lesson-primary-toolbar > .jodit-ui-group_line_true > .jodit-ui-group > * { flex: none; }
+.lesson-primary-toolbar > .jodit-ui-group_line_true > .jodit-ui-group > [hidden] { display: none; }
+.lesson-context-toolbar-row { min-block-size: 38px; border-block-start: 1px solid var(--line-strong); }
+.jodit-popup.lesson-context-toolbar {
+  position: static;
+  display: block;
+  transform: none;
+  box-shadow: none;
+}
+.lesson-context-toolbar > .jodit-popup__content {
+  max-height: none;
+  padding: 0;
+  overflow-x: auto;
+  background: transparent;
+}
+.lesson-context-toolbar > .jodit-popup__content > .jodit-toolbar-editor-collection { flex-direction: row; width: max-content; }
+.lesson-context-toolbar > .jodit-popup__content > .jodit-toolbar-editor-collection > .jodit-ui-group_line_true > .jodit-ui-group { flex-wrap: nowrap; }
 .lesson-rich-editor .jodit-workplace { display: flex; flex: 1; }
 .lesson-rich-editor .jodit-workplace .lesson-rich-content { flex: 1; min-width: 0; padding: 10px; font: 10pt/1.6 var(--font-ui); }
 :root[data-theme="dark"] .lesson-rich-editor .jodit-workplace .lesson-rich-content {
