@@ -11,7 +11,7 @@ mod shaders;
 mod uniforms;
 mod util;
 
-use ::renderer::{Camera, Explosion, PackedScene, Reconstruction, Scene, Separation};
+use ::renderer::{Bounds, Camera, Explosion, PackedScene, Reconstruction, Scene, Separation};
 use js_sys::{Float32Array, Uint32Array};
 use std::cell::Cell;
 use std::collections::HashSet;
@@ -22,6 +22,13 @@ use resources::Resources;
 use shaders::{FRAGMENT, OUTLINE_FRAGMENT, OUTLINE_VERTEX, SPHERE_FRAGMENT, SPHERE_VERTEX, VERTEX};
 use uniforms::{OutlineUniforms, SphereUniforms, Uniforms};
 use util::{js_error, program};
+
+fn background_bounds() -> Bounds {
+    Bounds {
+        min: [-1.0; 3].into(),
+        max: [1.0; 3].into(),
+    }
+}
 
 #[wasm_bindgen]
 pub struct AnatomyViewer {

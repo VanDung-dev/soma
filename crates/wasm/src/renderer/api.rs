@@ -4,6 +4,7 @@ use wasm_bindgen::prelude::*;
 use web_sys::HtmlCanvasElement;
 
 use super::AnatomyViewer;
+use super::background_bounds;
 use super::io::{load_packages, prepared_buffers};
 use super::util::js_error;
 
@@ -15,10 +16,7 @@ impl AnatomyViewer {
             ::renderer::PackedScene {
                 scene: ::renderer::Scene {
                     parts: Vec::new(),
-                    bounds: ::renderer::Bounds {
-                        min: [-1.0, -1.0, -1.0].into(),
-                        max: [1.0, 1.0, 1.0].into(),
-                    },
+                    bounds: background_bounds(),
                     selected: String::new(),
                 },
                 draws: Vec::new(),
