@@ -352,6 +352,16 @@ dialog.lesson-cover-modal:not([open]) {
 .lesson-editor-scene > .lesson-structure-tools .lesson-part-card .lesson-button { max-width: none; }
 .lesson-editor-scene > .lesson-structure-tools .lesson-restore-region { position: static; }
 :is(.lesson-author-center, .lesson-workspace-main[data-step="true"]) { --lesson-document-width: var(--lesson-author-width); }
+@property --lesson-content-scale {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
+}
+.lesson-workspace-main { --lesson-content-scale: 1; }
+.lesson-workspace-main:has(> .lesson-content-panel[data-expanded="true"]) { --lesson-content-scale: 1.6; }
+@media (prefers-reduced-motion: no-preference) {
+  .lesson-workspace-main { transition: --lesson-content-scale .24s ease; }
+}
 .lesson-author-width-toggle { display: none; }
 @container lesson (width > 740px) {
   .lesson-workspace-body {
@@ -359,19 +369,12 @@ dialog.lesson-cover-modal:not([open]) {
     --lesson-outline-width: var(--lesson-author-outline-width);
   }
   .lesson-workspace-main[data-step="true"] {
-    --lesson-writing-scale: 1.6;
     --lesson-writing-width: calc((100cqw + 2 * var(--panel-inset)) * .46875);
     --lesson-document-width: var(--lesson-writing-width);
-    --lesson-content-panel-width: 100%;
-  }
-  .lesson-workspace-main:has(> .lesson-author-width-toggle[aria-expanded="true"]) {
-    --lesson-content-panel-width: calc(100% * var(--lesson-writing-scale));
+    --lesson-content-panel-width: calc(100% * var(--lesson-content-scale));
   }
   .lesson-workspace-main[data-step="true"][data-model="false"] {
-    --lesson-content-panel-width: min(100%, var(--lesson-document-width));
-  }
-  .lesson-workspace-main[data-model="false"]:has(> .lesson-author-width-toggle[aria-expanded="true"]) {
-    --lesson-content-panel-width: min(calc(var(--lesson-document-width) * var(--lesson-writing-scale)), calc(100% - 2 * var(--panel-gap)));
+    --lesson-content-panel-width: min(calc(var(--lesson-document-width) * var(--lesson-content-scale)), calc(100% - 2 * var(--panel-gap)));
   }
   .lesson-author-width-toggle {
     position: relative;
@@ -394,10 +397,6 @@ dialog.lesson-cover-modal:not([open]) {
   }
   .lesson-workspace-main[data-model="false"] > .lesson-author-width-toggle + .lesson-content-panel { justify-self: center; }
   .lesson-workspace-main:has(> .lesson-author-width-toggle) > .lesson-model { z-index: 0; }
-  @media (prefers-reduced-motion: no-preference) {
-    .lesson-author-width-toggle { transition: left .24s ease; }
-    .lesson-author-width-toggle + .lesson-content-panel { transition: width .24s ease; }
-  }
   @supports (width: round(nearest, 1px, 1px)) {
     .lesson-workspace-body { --lesson-outline-width: round(nearest, var(--lesson-author-outline-width), 1px); }
     .lesson-workspace-main[data-step="true"] { --lesson-document-width: round(nearest, var(--lesson-writing-width), 1px); }

@@ -170,7 +170,16 @@ export async function checkLessonResponsiveLayout(page) {
     assert.deepEqual(await Promise.all([outline(editor), model(editor), content(editor)].map(async panel => (await bounds(panel))[2])),
       expectedWidths(sizes[1]), 'Column widths follow the workspace even when it is narrower than the viewport');
     await workspace.evaluate(node => { node.style.removeProperty('width'); });
-    await choose(editor, 'Đọc');
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    const layoutAnimations = await outline(editor).locator('.lesson-outline-row').filter({ hasText: 'Đọc' }).evaluate(async button => {
+      const main = button.closest('.lesson-workspace-body').querySelector('.lesson-workspace-main');
+      button.click();
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const controls = main.querySelectorAll(':scope > :is(.lesson-content-panel, .lesson-author-width-toggle)');
+      return [main, ...controls].flatMap(element => element.getAnimations()).length;
+    });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    assert.equal(layoutAnimations, 0, 'Changing section does not animate the content panel or its toggle');
     await model(editor).waitFor({ state: 'hidden' });
     const [contentX, , contentWidth] = await bounds(content(editor));
     const [outlineX, , outlineWidth] = await bounds(outline(editor));

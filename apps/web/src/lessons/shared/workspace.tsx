@@ -118,6 +118,7 @@ export function LessonContentPanel({ className, id, expandable, ...props }: HTML
       title={label} onClick={() => setExpanded(value => !value)}>
       <LineIcon name="chevron-wide-right" size={24} />
     </button>}
-    <section id={panelId} className={`lesson-content-panel workspace-panel-surface ${className ?? "lesson-step"}`} {...props} />
+    <section id={panelId} className={`lesson-content-panel workspace-panel-surface ${className ?? "lesson-step"}`}
+      data-expanded={expanded || undefined} {...props} />
   </>;
 }
