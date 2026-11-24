@@ -21,12 +21,27 @@ function lessonColorPicker(instance: IJodit, property: ColorProperty, activeColo
   const picker = ColorPickerWidget(instance as Parameters<typeof ColorPickerWidget>[0], apply, activeColor ?? "");
   picker.classList.add("lesson-color-picker");
 
+  const activeSwatch = picker.querySelector<HTMLButtonElement>('.jodit-color-picker__color-item[aria-pressed="true"]');
+  const swatchColor = activeSwatch?.dataset.color;
+  if (activeSwatch && swatchColor && /^#[0-9a-f]{6}$/i.test(swatchColor)) {
+    const linearChannel = (offset: number) => {
+      const channel = Number.parseInt(swatchColor.slice(offset, offset + 2), 16) / 255;
+      return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    };
+    const luminance = 0.2126 * linearChannel(1) + 0.7152 * linearChannel(3) + 0.0722 * linearChannel(5);
+    activeSwatch.style.setProperty("--lesson-color-check", luminance > 0.179 ? "#000" : "#fff");
+  }
+
   const reset = picker.querySelector<HTMLButtonElement>(".jodit-color-picker__remove")!;
-  const resetLabel = instance.i18n(property === "background-color" ? "No color" : "Default");
-  reset.append(resetLabel);
-  reset.title = resetLabel;
-  reset.setAttribute("aria-pressed", String(activeColor === ""));
-  picker.prepend(reset);
+  if (property === "color") {
+    reset.remove();
+  } else {
+    const resetLabel = instance.i18n(property === "background-color" ? "No color" : "Default");
+    reset.append(resetLabel);
+    reset.title = resetLabel;
+    reset.setAttribute("aria-pressed", String(activeColor === ""));
+    picker.prepend(reset);
+  }
 
   const custom = picker.querySelector<HTMLElement>(".jodit-color-picker__extra")!;
   const customLabel = instance.c.div("lesson-color-picker-label");
@@ -43,32 +58,34 @@ function lessonColorPicker(instance: IJodit, property: ColorProperty, activeColo
 }
 
 export function lessonColorControl(property: TextColorProperty) {
-  const command = property === "color" ? "forecolor" : "background";
+  const isTextColor = property === "color";
+  const command = isTextColor ? "forecolor" : "background";
   let selectedColor = "";
   return {
-    update(instance: IJodit, { icon, state }: IUIButton) {
-      const cells = cellsForTextColor(instance);
+    update(instance: IJodit, { icon }: IUIButton) {
+      const cells = isTextColor ? cellsForTextColor(instance) : [];
       if (cells.length) {
-        state.tooltip = property === "color" ? "Cell text color" : "Cell background color";
         showSwatch(icon, cellSwatchColor(instance, cells, property));
         return;
       }
-      state.tooltip = property === "color" ? "Text color" : "Background color";
-      const color = selectedColor || (property === "color" ? instance.ew.getComputedStyle(instance.editor).color : "");
+      const color = selectedColor || (isTextColor ? instance.ew.getComputedStyle(instance.editor).color : "");
       showSwatch(icon, color);
     },
     popup(instance: IJodit, current: Node | null, close: () => void) {
-      const cells = cellsForTextColor(instance);
+      const cells = isTextColor ? cellsForTextColor(instance) : [];
       if (cells.length) return openCellColorPicker(instance, cells, property, close);
       const { editor, s } = instance;
       const range = s.isInsideArea ? s.range.cloneRange() : undefined;
-      const target = current instanceof HTMLElement && current !== editor && s.isCollapsed() && !current.matches("br, hr")
+      const target = isTextColor && current instanceof HTMLElement && current !== editor && s.isCollapsed() && !current.matches("br, hr")
         ? current : null;
       let element = current instanceof HTMLElement ? current : current?.parentElement;
-      while (element && element !== editor && !element.style.getPropertyValue(property)) {
+      let activeColor = "";
+      while (element && element !== editor) {
+        if (!isTextColor && element.matches("td, th, table")) break;
+        activeColor = element.style.getPropertyValue(property);
+        if (activeColor) break;
         element = element.parentElement;
       }
-      const activeColor = element && element !== editor ? element.style.getPropertyValue(property) : "";
       return lessonColorPicker(instance, property, activeColor, color => {
         if (target && editor.contains(target)) {
           setColor(target, property, color);

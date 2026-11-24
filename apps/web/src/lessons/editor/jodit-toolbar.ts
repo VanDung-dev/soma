@@ -107,7 +107,7 @@ export function setupLessonToolbars(instance: IJodit, onOverflow: (buttons: stri
     }
     const target = event?.target;
     if (!contextRow.hasAttribute(cellToolsAttribute) || !(target instanceof Element) || !primary.contains(target)) return;
-    if (target.closest('[data-ref="lessonTextColor"], [data-ref="lessonBackgroundColor"], [data-ref="lessonMoreTools"]')) {
+    if (target.closest('[data-ref="lessonTextColor"], [data-ref="lessonHighlightColor"], [data-ref="lessonMoreTools"]')) {
       instance.e.stopPropagation("outsideClick");
     }
   };

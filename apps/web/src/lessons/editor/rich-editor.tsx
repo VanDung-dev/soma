@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Jodit } from "jodit";
 import type { ButtonsGroups, IJodit, IUIButton } from "jodit/types/types";
+import type { Table } from "jodit/types/modules/table/table";
 import { FileSelectorWidget } from "jodit/esm/modules/widget/index.js";
 import "jodit/esm/plugins/all.js";
 import "./jodit.css";
@@ -29,7 +30,7 @@ const blockFormats: Record<string, string> = {
 
 const primaryToolbarButtons = [
   "find", "|", "undo", "redo", "spellcheck", "copyformat", "|",
-  "paragraph", "|", "bold", "italic", "underline", "lessonTextColor", "lessonBackgroundColor", "|",
+  "paragraph", "|", "bold", "italic", "underline", "|", "lessonTextColor", "lessonHighlightColor", "|",
   "link", "lessonImage", "table", "|", "align", "lineHeight", "ul", "ol", "outdent", "indent", "|",
   "eraser", "lessonMoreTools",
 ];
@@ -55,7 +56,6 @@ export default function RichEditor({ value, language, label, onChange }: {
   const [failed, setFailed] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
   const [imageStage, setImageStage] = useState<LessonImageStage>();
-  const [mode, setMode] = useState(document.documentElement.dataset.theme);
   const content = useEffectEvent(() => editorHtml(value, language, images.urls));
   const change = useEffectEvent((html: string) => {
     const clean = sanitizeLessonHtml(html, images.urls, images.paths);
@@ -65,11 +65,6 @@ export default function RichEditor({ value, language, label, onChange }: {
   const addImage = useEffectEvent((blob: Blob, onProgress: (stage: LessonImageStage) => void) => images.add(blob, onProgress));
   const safeContent = useEffectEvent((html: string) => resolveLessonImages(sanitizeLessonHtml(html, images.urls, images.paths), images.urls));
 
-  useEffect(() => {
-    const observer = new MutationObserver(() => setMode(document.documentElement.dataset.theme));
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    return () => observer.disconnect();
-  }, []);
   useEffect(() => {
     const input = picker.current!;
     const textarea = target.current!;
@@ -156,7 +151,7 @@ export default function RichEditor({ value, language, label, onChange }: {
     try {
       textarea.value = content();
       editor = Jodit.make(textarea, {
-        theme: mode === "dark" ? "dark" : "default",
+        theme: "default",
         language: interfaceLanguage,
         defaultTimeout: 0, spellcheck: true, toolbarAdaptive: false,
         showXPathInStatusbar: false, allowTabNavigation: true,
@@ -171,7 +166,9 @@ export default function RichEditor({ value, language, label, onChange }: {
         buttons: primaryToolbarButtons,
         events: {
           beforeToolbarBuild(buttons: ButtonsGroups): ButtonsGroups {
-            return buttons.map(button => button === "brushCell" ? "lessonCellBorderColor" : button);
+            return buttons.flatMap(button => button === "brushCell"
+              ? ["lessonCellBackgroundColor", "lessonCellBorderColor", "|"]
+              : [button]);
           },
         },
         controls: {
@@ -188,9 +185,22 @@ export default function RichEditor({ value, language, label, onChange }: {
                 : blockFormats[format] ?? "Paragraph";
             },
           },
-          lessonTextColor: { icon: "font", tooltip: "Text color", ...lessonColorControl("color") },
-          lessonBackgroundColor: { icon: "brush", tooltip: "Background color", ...lessonColorControl("background-color") },
-          lessonCellBorderColor: { icon: "th", tooltip: "Cell border color", ...lessonCellColorControl("border-color") },
+          lessonTextColor: {
+            icon: '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path fill="none" d="m5 20 7-16 7 16M8 14h8"/></svg>',
+            tooltip: "Text color",
+            ...lessonColorControl("color"),
+          },
+          lessonHighlightColor: {
+            icon: '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path fill="none" d="m5 14 9-9 5 5-9 9H5v-5Zm0 5-2 2h5l2-2"/><path fill="currentColor" d="m10 9 6-6 5 5-6 6Z"/></svg>',
+            tooltip: "Highlight color",
+            ...lessonColorControl("background-color"),
+          },
+          lessonCellBackgroundColor: {
+            icon: '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path fill="none" d="m3 12 8-8 8 8-7 7a1.5 1.5 0 0 1-2 0l-7-7Zm0 0h16M8 2l6 6"/><path fill="currentColor" stroke="none" d="M20 14c1.6 2 2.5 3.2 2.5 4.5a2.5 2.5 0 0 1-5 0c0-1.3.9-2.5 2.5-4.5Z"/></svg>',
+            tooltip: "Cell background color",
+            ...lessonCellColorControl("background-color"),
+          },
+          lessonCellBorderColor: { icon: "pencil", tooltip: "Cell border color", ...lessonCellColorControl("border-color") },
           image: { popup: imageUrlPopup },
           lessonImage: {
             icon: "image", tooltip: "Insert Image",
@@ -245,7 +255,7 @@ export default function RichEditor({ value, language, label, onChange }: {
         },
         cleanHTML: { denyTags: "script,object,embed" },
         alignClasses: { img: lessonImageAlignment },
-        table: { selectionCellStyle: "background-image: var(--lesson-cell-selection);" },
+        table: { selectionCellStyle: "" },
         image: {
           editSrc: false, editLink: false, useImageEditor: false, editBorderRadius: false,
           editMargins: true, editClass: false, editStyle: false, editId: false,
@@ -258,6 +268,12 @@ export default function RichEditor({ value, language, label, onChange }: {
       instance.editor.setAttribute("role", "textbox");
       instance.editor.setAttribute("aria-multiline", "true");
       instance.editor.setAttribute("aria-label", label);
+      const tableModule = instance.getInstance<Table>("Table", instance.o);
+      Object.defineProperty(instance.o.table, "selectionCellStyle", {
+        get: () => tableModule.getAllSelectedCells().filter(cell => instance.editor.contains(cell)).length > 1
+          ? "background-image: var(--lesson-cell-selection);"
+          : "",
+      });
       disposeToolbars = setupLessonToolbars(instance, buttons => {
         overflowButtons = buttons;
         closeMoreTools?.();
@@ -321,7 +337,7 @@ export default function RichEditor({ value, language, label, onChange }: {
       editor?.editor.removeEventListener("drop", onDrop, true);
       editor?.destruct();
     };
-  }, [mode, label, language, interfaceLanguage, t]);
+  }, [label, language, interfaceLanguage, t]);
 
   return <div className="lesson-rich-editor">
     <textarea ref={target} hidden />
