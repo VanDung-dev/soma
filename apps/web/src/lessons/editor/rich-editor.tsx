@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Jodit } from "jodit";
 import type { ButtonsGroups, IJodit, IUIButton } from "jodit/types/types";
-import { ColorPickerWidget, FileSelectorWidget } from "jodit/esm/modules/widget/index.js";
+import { FileSelectorWidget } from "jodit/esm/modules/widget/index.js";
 import "jodit/esm/plugins/all.js";
 import "./jodit.css";
 import "jodit/es2021/jodit.min.css";
@@ -11,6 +11,7 @@ import { useLanguage } from "../../i18n";
 import { editorHtml, lessonImageAlignment, resolveLessonImages, sanitizeLessonHtml } from "../shared/rich-text";
 import { useLessonImages } from "../shared/image-context";
 import type { LessonImageStage } from "../shared/archive";
+import { lessonCellColorControl, lessonColorControl } from "./jodit-colors";
 import { setupLessonToolbars } from "./jodit-toolbar";
 import joditVietnamese from "./jodit-vi.json";
 
@@ -26,65 +27,12 @@ const blockFormats: Record<string, string> = {
   pre: "Code block",
 };
 
-const colorButtons = ["lessonTextColor", "lessonBackgroundColor"];
-
-function lessonColorControl(property: "color" | "background-color") {
-  const command = property === "color" ? "forecolor" : "background";
-  let selectedColor = "";
-  return {
-    update(instance: IJodit, { icon }: IUIButton) {
-      const color = selectedColor || (property === "color" ? instance.ew.getComputedStyle(instance.editor).color : "");
-      icon.classList.add("lesson-color-swatch");
-      icon.classList.toggle("lesson-color-swatch_empty", !color);
-      icon.style.setProperty("--lesson-selected-color", color);
-    },
-    popup(instance: IJodit, current: Node | null, close: () => void) {
-      const { editor, s } = instance;
-      const range = s.isInsideArea ? s.range.cloneRange() : undefined;
-      const target = current instanceof HTMLElement && current !== editor && s.isCollapsed() && !current.matches("br, hr")
-        ? current : null;
-      let element = current instanceof HTMLElement ? current : current?.parentElement;
-      while (element && element !== editor && !element.style.getPropertyValue(property)) {
-        element = element.parentElement;
-      }
-      const activeColor = element && element !== editor ? element.style.getPropertyValue(property) : "";
-      const picker = ColorPickerWidget(instance as Parameters<typeof ColorPickerWidget>[0], color => {
-        if (target && editor.contains(target)) {
-          target.style.setProperty(property, color);
-          if (!target.style.length) target.removeAttribute("style");
-          instance.synchronizeValues();
-        } else {
-          if (range && !s.isFocused() && editor.contains(range.commonAncestorContainer)) s.selectRange(range);
-          instance.execCommand(command, false, color);
-        }
-        selectedColor = color;
-        close();
-        instance.e.fire("updateToolbar");
-      }, activeColor);
-
-      picker.classList.add("lesson-color-picker");
-      const reset = picker.querySelector<HTMLButtonElement>(".jodit-color-picker__remove")!;
-      const resetLabel = instance.i18n(property === "color" ? "Default" : "No color");
-      reset.append(resetLabel);
-      reset.title = resetLabel;
-      reset.setAttribute("aria-pressed", String(!activeColor));
-      picker.prepend(reset);
-
-      const custom = picker.querySelector<HTMLElement>(".jodit-color-picker__extra")!;
-      const customLabel = instance.c.div("lesson-color-picker-label");
-      const customText = instance.i18n("Custom color");
-      customLabel.textContent = customText;
-      picker.insertBefore(customLabel, custom);
-      const nativeColor = custom.querySelector<HTMLInputElement>('input[type="color"]');
-      if (nativeColor) {
-        nativeColor.setAttribute("aria-label", customText);
-        const hex = custom.querySelector<HTMLInputElement>("[data-ref=hexInput]")?.value;
-        if (hex) nativeColor.value = hex;
-      }
-      return picker;
-    },
-  };
-}
+const primaryToolbarButtons = [
+  "find", "|", "undo", "redo", "spellcheck", "copyformat", "|",
+  "paragraph", "|", "bold", "italic", "underline", "lessonTextColor", "lessonBackgroundColor", "|",
+  "link", "lessonImage", "table", "|", "align", "lineHeight", "ul", "ol", "outdent", "indent", "|",
+  "eraser", "lessonMoreTools",
+];
 
 const extraToolGroups = [
   {
@@ -216,17 +164,14 @@ export default function RichEditor({ value, language, label, onChange }: {
         disablePlugins: ["font", "classSpan", "source", "print"],
         toolbarInlineDisabledButtons: [
           "source", "font", "fontsize", "cut", "copy", "paste", "selectall", "fullsize", "preview", "about",
+          "brush", ...primaryToolbarButtons.filter(button => button !== "|"),
+          ...extraToolGroups.flatMap<string>(({ buttons }) => buttons),
         ],
         imageDefaultWidth: 240,
-        buttons: [
-          "find", "|", "undo", "redo", "spellcheck", "copyformat", "|",
-          "paragraph", "|", "bold", "italic", "underline", ...colorButtons, "|",
-          "link", "lessonImage", "table", "|", "align", "lineHeight", "ul", "ol", "outdent", "indent", "|",
-          "eraser", "lessonMoreTools",
-        ],
+        buttons: primaryToolbarButtons,
         events: {
           beforeToolbarBuild(buttons: ButtonsGroups): ButtonsGroups {
-            return buttons.flatMap(button => button === "brush" ? colorButtons : [button]);
+            return buttons.map(button => button === "brushCell" ? "lessonCellBorderColor" : button);
           },
         },
         controls: {
@@ -243,9 +188,9 @@ export default function RichEditor({ value, language, label, onChange }: {
                 : blockFormats[format] ?? "Paragraph";
             },
           },
-          brush: { isVisible: () => false },
           lessonTextColor: { icon: "font", tooltip: "Text color", ...lessonColorControl("color") },
           lessonBackgroundColor: { icon: "brush", tooltip: "Background color", ...lessonColorControl("background-color") },
+          lessonCellBorderColor: { icon: "th", tooltip: "Cell border color", ...lessonCellColorControl("border-color") },
           image: { popup: imageUrlPopup },
           lessonImage: {
             icon: "image", tooltip: "Insert Image",
@@ -300,6 +245,7 @@ export default function RichEditor({ value, language, label, onChange }: {
         },
         cleanHTML: { denyTags: "script,object,embed" },
         alignClasses: { img: lessonImageAlignment },
+        table: { selectionCellStyle: "background-image: var(--lesson-cell-selection);" },
         image: {
           editSrc: false, editLink: false, useImageEditor: false, editBorderRadius: false,
           editMargins: true, editClass: false, editStyle: false, editId: false,
