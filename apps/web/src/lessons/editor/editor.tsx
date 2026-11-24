@@ -2,7 +2,6 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { Catalog } from "../../anatomy/catalog/types";
 import { translateMessage, useLanguage } from "../../i18n";
 import type { Language } from "../../i18n";
-import { LineIcon } from "../../icons";
 import { LessonValidationError, lessonMode, lessonSceneStep, lessonText, readLesson, updateLessonQuestions } from "../shared/contract";
 import type { Lesson, LessonScene, LessonStep, LessonText } from "../shared/contract";
 import { EditorScene } from "./editor-scene";
@@ -24,24 +23,25 @@ const RichEditor = lazy(() => import("./rich-editor"));
 
 export const emptyText = { vi: "", en: "" };
 
-export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFailed, onSelect, onChange, onDraftChange, onPreview, onBack }: {
+export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFailed, initialLocale, onSelect, onChange, onDraftChange, onPreview, onBack }: {
   catalog: Catalog;
   lesson: Lesson;
   saved: Lesson;
   selected?: string;
   saving: boolean;
   saveFailed: boolean;
+  initialLocale?: Language;
   onSelect: (id?: string) => void;
   onChange: (lesson: Lesson) => Promise<boolean>;
   onDraftChange?: (lesson: Lesson) => void;
-  onPreview: (lesson: Lesson) => void;
+  onPreview: (lesson: Lesson, locale: Language) => void;
   onBack: (lesson: Lesson) => void;
 }) {
   const { language, t } = useLanguage();
   const confirm = useLessonConfirm();
   const [graphics] = useGraphicsSettings();
   const [draft, setDraft] = useState<Lesson>(lesson);
-  const [locale, setLocale] = useState<Language>();
+  const [locale, setLocale] = useState<Language | undefined>(initialLocale);
   const [error, setError] = useState("");
   const [saveNotice, setSaveNotice] = useState("");
   const [draftDirty, setDraftDirty] = useState(() => JSON.stringify(lesson) !== JSON.stringify(saved));
@@ -53,7 +53,6 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
   const [resetVersion, setResetVersion] = useState(0);
   const [modelReloadVersion, setModelReloadVersion] = useState(0);
   const [modelSettingsOpen, setModelSettingsOpen] = useState(false);
-  const [writingExpanded, setWritingExpanded] = useState(false);
   const [previewScene, setPreviewScene] = useState<LessonScene & { modelIds: string[]; visibleIds: string[]; sceneRef?: string }>();
   const previewDirty = useRef(false);
   const [modelControlsHost, setModelControlsHost] = useState<HTMLDivElement | null>(null);
@@ -262,7 +261,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
   function preview() {
     if (saving) return;
     const current = stageSceneDraft();
-    if (current) onPreview(current);
+    if (current) onPreview(current, editorLanguage);
   }
 
   function copyPreviousScene() {
@@ -359,7 +358,6 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
     ? writingText("lessons.stepHeading", { current: index + 1,
       title: lessonText(active.title, editorLanguage) || writingText("lessons.untitledSection") })
     : writingText("lessons.details");
-  const writingToggleLabel = t(writingExpanded ? "lessons.collapseWritingPanel" : "lessons.expandWritingPanel");
   const sceneTargetId = scene && targets.some(target => target.id === scene.targetId) ? scene.targetId : primarySceneModelId;
   const displayModelIds = previewScene?.modelIds ?? modelIds;
   const displayTargetId = previewScene?.targetId ?? sceneTargetId;
@@ -445,13 +443,8 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
         </div>}
         </div>
       </div>
-      {active && !modelSettingsOpen && <button type="button" className="lesson-author-width-toggle"
-        aria-controls="lesson-author-writing" aria-expanded={writingExpanded} aria-label={writingToggleLabel}
-        title={writingToggleLabel} onClick={() => setWritingExpanded(expanded => !expanded)}>
-        <LineIcon name="chevron-small-right" size={18} />
-      </button>}
       <LessonContentPanel className={`lesson-author-document lesson-author-document--${active ? "step" : "details"}`} id="lesson-author-writing" inert={modelSettingsOpen}
-        aria-label={writingLabel}>
+        aria-label={writingLabel} expandable={!!active && !modelSettingsOpen}>
         <LessonStepNavigation editing position={active ? { current: index + 1, total: draft.steps.length } : undefined}
           onPrevious={active ? () => select(draft.steps[index - 1]?.id) : undefined} previousDisabled={index === 0}
           actions={<>

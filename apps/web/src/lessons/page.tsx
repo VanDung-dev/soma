@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { getCatalog, getContent } from "../anatomy/core";
 import type { Catalog } from "../anatomy/catalog/types";
 import { useLanguage } from "../i18n";
+import type { Language } from "../i18n";
 import { LessonValidationError, lessonText, readLesson } from "./shared/contract";
 import type { Lesson } from "./shared/contract";
 import { emptyText, LessonEditor } from "./editor/editor";
@@ -32,6 +33,7 @@ function LessonsPageContent({ editId, viewId, studyVisible, navigate }: LessonsP
   const [pending, setPending] = useState<Lesson>();
   const [selected, setSelected] = useState<string>();
   const [preview, setPreview] = useState(false);
+  const [previewLocale, setPreviewLocale] = useState<Language>();
   const [error, setError] = useState<"load" | "save" | "import" | "export">();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -62,7 +64,7 @@ function LessonsPageContent({ editId, viewId, studyVisible, navigate }: LessonsP
   const viewing = !!viewId && !editing;
   const savedLesson = lessons.find(item => item.id === activeId);
   const draft = editing && pending?.id === activeId ? pending : savedLesson;
-  useEffect(() => { setSelected(undefined); setPreview(false); }, [editId, viewId]);
+  useEffect(() => { setSelected(undefined); setPreview(false); setPreviewLocale(undefined); }, [editId, viewId]);
   useEffect(() => { title.current?.focus(); }, [editing, viewing, preview]);
 
   async function update(next: Lesson) {
@@ -186,10 +188,12 @@ function LessonsPageContent({ editId, viewId, studyVisible, navigate }: LessonsP
       <LessonImageProvider key={draft.id} lesson={draft}>
       <WithLessonCatalog key={`${draft.id}/${viewing ? "view" : preview ? "preview" : "editor"}`}>{catalog => viewing || preview
         ? <LessonPlayer lesson={draft} catalog={catalog} preview={!viewing} studyVisible={viewing ? studyVisible : undefined}
-          initialStepId={viewing ? undefined : selected} onBack={leave} onEdit={viewing ? undefined : () => setPreview(false)} />
+          previewLocale={viewing ? undefined : previewLocale} initialStepId={viewing ? undefined : selected}
+          onBack={leave} onEdit={viewing ? undefined : () => setPreview(false)} />
         : <LessonEditor catalog={catalog} lesson={draft} saved={savedLesson ?? draft} selected={selected} onSelect={setSelected}
-          saving={saving} saveFailed={error === "save"} onChange={update} onDraftChange={setPending} onPreview={current => {
+          saving={saving} saveFailed={error === "save"} initialLocale={previewLocale} onChange={update} onDraftChange={setPending} onPreview={(current, locale) => {
             setPending({ ...current, createdAt: savedLesson?.createdAt, updatedAt: savedLesson?.updatedAt });
+            setPreviewLocale(locale);
             setPreview(true);
           }}
           onBack={leave} />}

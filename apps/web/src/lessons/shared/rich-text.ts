@@ -130,13 +130,18 @@ export function editorHtml(value: LessonText, language: Language, urls?: Map<str
   return text.innerHTML.replace(/\r?\n/g, "<br>");
 }
 
-export function lessonHtml(value: LessonText, language: Language, urls?: Map<string, string>) {
-  return editorHtml(value, value[language].trim() ? language : language === "vi" ? "en" : "vi", urls);
+export function lessonHtml(value: LessonText, language: Language, urls?: Map<string, string>, fallback = true) {
+  const resolvedLanguage = fallback && !value[language].trim() ? language === "vi" ? "en" : "vi" : language;
+  return editorHtml(value, resolvedLanguage, urls);
 }
 
 export function lessonPlainText(value: LessonText, language: Language) {
+  return plainLessonHtml(lessonHtml(value, language));
+}
+
+export function plainLessonHtml(html: string) {
   const template = document.createElement("template");
-  template.innerHTML = lessonHtml(value, language);
+  template.innerHTML = html;
   template.content.querySelectorAll("img").forEach(image => image.replaceWith(document.createTextNode(image.alt)));
   template.content.querySelectorAll("br, div, p, li, h1, h2, h3, h4, h5, h6, tr").forEach(node => node.append(" "));
   return template.content.textContent?.trim() ?? "";

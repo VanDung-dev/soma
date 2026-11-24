@@ -1,3 +1,4 @@
+import { useId, useState } from "react";
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode, Ref, UIEventHandler } from "react";
 import { LineIcon } from "../../icons";
 import { useLanguage } from "../../i18n";
@@ -102,6 +103,21 @@ export function LessonStepNavigation({ editing = false, position, onPrevious, pr
   </div>;
 }
 
-export function LessonContentPanel({ className, ...props }: HTMLAttributes<HTMLElement>) {
-  return <section className={`lesson-content-panel workspace-panel-surface ${className ?? "lesson-step"}`} {...props} />;
+export function LessonContentPanel({ className, id, expandable, ...props }: HTMLAttributes<HTMLElement> & {
+  expandable?: boolean;
+}) {
+  const { t } = useLanguage();
+  const generatedId = useId();
+  const panelId = id ?? generatedId;
+  const [expanded, setExpanded] = useState(false);
+  const label = t(expanded ? "lessons.collapseWritingPanel" : "lessons.expandWritingPanel");
+
+  return <>
+    {expandable && <button type="button" className="lesson-author-width-toggle"
+      aria-controls={panelId} aria-expanded={expanded} aria-label={label}
+      title={label} onClick={() => setExpanded(value => !value)}>
+      <LineIcon name="chevron-small-right" size={18} />
+    </button>}
+    <section id={panelId} className={`lesson-content-panel workspace-panel-surface ${className ?? "lesson-step"}`} {...props} />
+  </>;
 }

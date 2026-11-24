@@ -48,8 +48,8 @@ export class LessonValidationError extends Error {
   }
 }
 
-export function lessonText(value: LessonText, language: "vi" | "en") {
-  return value[language].trim() || value[language === "vi" ? "en" : "vi"].trim();
+export function lessonText(value: LessonText, language: "vi" | "en", fallback = true) {
+  return value[language].trim() || (fallback ? value[language === "vi" ? "en" : "vi"].trim() : "");
 }
 
 export function lessonLanguageTag(lesson: Lesson): "vi" | "en" | "vi/en" {

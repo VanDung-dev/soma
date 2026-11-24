@@ -1,7 +1,7 @@
 :root { font-family: "Avenir Next", "Segoe UI", sans-serif; background: var(--page-bg); font-synthesis: none; --panel-width: clamp(330px, 24vw, 350px); --reference-diameter: 48px; --panel-inset: 16px; --panel-gap: 16px; --panel-padding: 10px; --menu-height: var(--reference-diameter); --panel-radius: calc(var(--reference-diameter) / 2); --radius-0: calc(var(--panel-radius) + var(--panel-padding)); --inner-radius: calc(var(--panel-radius) - var(--panel-padding)); --detail-radius: calc(var(--inner-radius) - var(--panel-padding)); --control-radius: 8px; --row-radius: 6px; --pill-radius: 999px; }
 :root, .lesson-rich-editor { color: var(--text); }
 :root,
-:where(.lesson-rich-editor, .jodit-box.jodit_theme_default, .jodit-popup.jodit_theme_default, .jodit-dialog_theme_default) {
+:where(.lesson-content-sheet, .lesson-rich-editor, .jodit-box.jodit_theme_default, .jodit-popup.jodit_theme_default, .jodit-dialog_theme_default) {
   color-scheme: light;
   --text: #292d2c;
   --page-bg: #f5f2ec;

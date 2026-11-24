@@ -11,8 +11,7 @@ export async function checkLessonResponsiveLayout(page) {
       { id: 'read', kind: 'text', showModel: false, title: text('Đọc'), instruction: text('Nội dung kiểm tra cuộn.\n\n'.repeat(100)) },
     ],
   };
-  const sizes = [[1280, 800, 240, 476, 500], [1440, 900, 265, 586, 525],
-    [1600, 1000, 290, 696, 550], [1920, 1200, 340, 916, 600]];
+  const sizes = [[1280, 800], [1440, 900], [1600, 1000], [1920, 1200]];
   const viewPath = `/lessons/${lesson.id}`;
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -63,11 +62,10 @@ export async function checkLessonResponsiveLayout(page) {
     assert(result.fill > 0.77 && result.fill <= 0.86, `Fit within 85% of the 3D frame, allowing for geometry and rasterization: ${JSON.stringify(result)}`);
   };
   const measure = async editor => {
-    const expectedWidths = ([width, , outlineWidth, modelWidth, contentWidth]) => {
-      if (!editor) return [outlineWidth, modelWidth, contentWidth];
-      const authorOutlineWidth = Math.round(width * .1875);
-      const writingWidth = Math.round(width * .46875);
-      return [authorOutlineWidth, outlineWidth + modelWidth + contentWidth - authorOutlineWidth - writingWidth, writingWidth];
+    const expectedWidths = ([width]) => {
+      const outlineWidth = Math.round(width * .1875);
+      const contentWidth = Math.round(width * .46875);
+      return [outlineWidth, width - 64 - outlineWidth - contentWidth, contentWidth];
     };
     await page.locator('.model-canvas[aria-busy="false"] canvas').waitFor({ state: 'attached' });
     const shell = page.locator('.lesson-workspace-shell');
@@ -82,6 +80,24 @@ export async function checkLessonResponsiveLayout(page) {
       await page.setViewportSize({ width, height });
       const panels = await Promise.all([outline(editor), model(editor), content(editor), frame].map(bounds));
       assert.deepEqual(panels.slice(0, 3).map(rect => rect[2]), expectedWidths(size), `${width}px with outline`);
+      if (results.length === 0) {
+        const sheet = content(editor).locator('.lesson-content-sheet');
+        await sheet.waitFor();
+        assert.equal(await sheet.evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(255, 255, 255)');
+        if (!editor) {
+          assert(await sheet.evaluate(node => Math.abs(node.getBoundingClientRect().bottom
+            - node.parentElement.getBoundingClientRect().bottom) <= 1), 'Short content fills the reading area');
+        }
+        const toggle = shell.locator('.lesson-author-width-toggle');
+        await toggle.click();
+        const [expandedX, , expandedWidth] = await bounds(content(editor));
+        const [collapsedX, , collapsedWidth] = panels[2];
+        assert.equal(expandedX + expandedWidth, collapsedX + collapsedWidth, 'Expansion keeps the right edge in place');
+        assert(Math.abs(expandedWidth - collapsedWidth * 1.6) <= 1, 'Expansion widens the content panel by 60%');
+        assert.deepEqual(await bounds(frame), panels[3], 'Expansion keeps the model frame in place');
+        await toggle.click();
+        assert.deepEqual(await bounds(content(editor)), panels[2], 'Collapse restores the content panel');
+      }
       const [modelX, modelY, paneWidth, paneHeight] = panels[1];
       const [statusX, statusY, statusWidth, statusHeight] = await bounds(model(editor).locator('.lesson-model-hud > .model-status').first());
       assert(Math.abs(statusX + statusWidth / 2 - modelX - paneWidth / 2) <= 1, 'Model status stays centered in the 3D pane');

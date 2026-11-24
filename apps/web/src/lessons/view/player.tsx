@@ -1,14 +1,15 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { Catalog } from "../../anatomy/catalog/types";
 import { useLanguage } from "../../i18n";
+import type { Language } from "../../i18n";
 import { LineIcon } from "../../icons";
-import type { Lesson, LessonStep } from "../shared/contract";
+import type { Lesson, LessonStep, LessonText } from "../shared/contract";
 import { lessonMode, lessonPreviewIssues, lessonSceneStep, lessonText, validateLessonTargets } from "../shared/contract";
 import { useLessonViewer } from "../shared/viewer";
 import { LessonModelHud } from "../shared/model-hud";
 import { LessonModelFrame } from "../shared/model-frame";
 import { LessonQuestions } from "./questions";
-import { lessonHtml, lessonPlainText } from "../shared/rich-text";
+import { lessonHtml, plainLessonHtml } from "../shared/rich-text";
 import { useLessonImages } from "../shared/image-context";
 import { lessonModels } from "../shared/targets";
 import { useGraphicsSettings } from "../../pages/use-graphics-settings";
@@ -16,16 +17,19 @@ import { LessonContentPanel, LessonHeader, LessonOutlinePanel, LessonOutlineRow,
 import { useLessonProgress } from "./progress";
 import { READING_DURATION_MS, useReadingTimer } from "./reading-timer";
 
-export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false, initialStepId, studyVisible = true }: {
+export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false, previewLocale, initialStepId, studyVisible = true }: {
   lesson: Lesson;
   catalog: Catalog;
   onBack: () => void;
   onEdit?: () => void;
   preview?: boolean;
+  previewLocale?: Language;
   initialStepId?: string;
   studyVisible?: boolean;
 }) {
   const { language, t } = useLanguage();
+  const contentLanguage = previewLocale ?? language;
+  const readText = (value: LessonText) => lessonText(value, contentLanguage, previewLocale === undefined);
   const [graphics] = useGraphicsSettings();
   const images = useLessonImages();
   const usesModel = lesson.steps.some(step => step.kind !== "text") && lesson.steps.some(step => step.showModel !== false);
@@ -74,7 +78,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false,
   }, [catalog, lesson, scene, modelMembers]);
   const mode = step.questionRef ? "content" : lessonMode(step);
   const questions = stepQuestions(step);
-  const instruction = lessonHtml(step.instruction, language, images.urls);
+  const instruction = lessonHtml(step.instruction, contentLanguage, images.urls, previewLocale === undefined);
   const ready = !state.building && !state.error && !failed;
   const modelMissing = modelIds.some(id => !catalog.roots.some(root => root.id === id));
 
@@ -116,10 +120,11 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false,
     updateProgress(current => ({ ...current, position: lesson.steps[next]?.id }));
   }
 
-  return <LessonWorkspace modelVisible={modelVisible} bodyRef={body} onScroll={() => runtime.current?.resize()}
+  const hasStep = lesson.steps.length > 0 && !complete;
+  return <LessonWorkspace modelVisible={modelVisible} hasStep={hasStep} bodyRef={body} onScroll={() => runtime.current?.resize()}
     background={<div className="lesson-model-canvas model-canvas" ref={host} inert={!modelVisible}
       aria-busy={!modelMissing && state.building && !state.error && !failed} />}
-    header={<LessonHeader title={lessonText(lesson.title, language) || t("lessons.untitled")} lesson={lesson}
+    header={<LessonHeader title={readText(lesson.title) || t("lessons.untitled")} lesson={lesson}
       subtitle={<>
         {lesson.author?.trim() && `${t("lessons.author")}: ${lesson.author} · `}
         {preview && `${t("lessons.draftPreview")} · `}
@@ -137,7 +142,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false,
     outline={<LessonOutlinePanel>
       <ol className="lesson-outline-list">
         {lesson.steps.map((item, i) => {
-          const name = lessonText(item.title, language) || t("lessons.untitledSection");
+          const name = readText(item.title) || t("lessons.untitledSection");
           const itemRead = progress.read.includes(item.id);
           return <li key={item.id} className="lesson-outline-item">
             <LessonOutlineRow label={name} aria-current={!complete && i === index ? "true" : undefined}
@@ -160,7 +165,7 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false,
           actions={<button className="lesson-button lesson-player-reset" disabled={!ready || !sceneUsable}
             onClick={() => session.applyScene(sceneIds, scene?.view)}>{t("lessons.resetStudyScene")}</button>} />
       </section>
-      <LessonContentPanel aria-labelledby="lesson-step-title" data-preview={preview || undefined}>
+      <LessonContentPanel aria-labelledby="lesson-step-title" data-preview={preview || undefined} expandable={hasStep}>
         {lesson.steps.length > 0 && <LessonStepNavigation position={{ current: index + 1, total: lesson.steps.length }}
           onPrevious={complete ? undefined : () => move(index - 1)} previousDisabled={index === 0}
           actions={complete
@@ -178,17 +183,18 @@ export function LessonPlayer({ lesson, catalog, onBack, onEdit, preview = false,
         {complete ? <>
           <h2 id="lesson-step-title" ref={heading} tabIndex={-1}>{t("lessons.completed")}</h2>
         </> : <>
-        <h2 id="lesson-step-title" ref={heading} tabIndex={-1}>{lessonText(step.title, language) || t(lesson.steps.length ? "lessons.untitledSection" : "lessons.addContent")}</h2>
+        <h2 id="lesson-step-title" className={hasStep ? "lesson-step-title" : undefined} ref={heading} tabIndex={-1}
+          lang={previewLocale && step.title[previewLocale].trim() ? previewLocale : undefined}>{readText(step.title) || t(lesson.steps.length ? "lessons.untitledSection" : "lessons.addContent")}</h2>
         {step.sceneRef && <p className="model-status" role="status">{t("lessons.sceneFileUnavailable")}</p>}
         {step.questionRef && <p className="model-status" role="status">{t("lessons.questionFileUnavailable")}</p>}
         {issue && <p className="model-status lesson-preview-issue" role="status">{t(`lessons.validation.${issue.reason}`, { step: issue.step })}</p>}
-        {mode !== "questions" && (lessonPlainText(step.instruction, language) || /<(?:img|iframe|video|audio)\b/i.test(instruction)
-          ? <div className="lesson-instructions lesson-rich-content" dangerouslySetInnerHTML={{ __html: instruction }} />
-          : !step.questionRef && <p className="lesson-instructions">{t("lessons.previewNoContent")}</p>)}
+        {mode !== "questions" && (plainLessonHtml(instruction) || /<(?:img|iframe|video|audio)\b/i.test(instruction)
+          ? <div className="lesson-instructions lesson-rich-content lesson-content-sheet" lang={previewLocale} dangerouslySetInnerHTML={{ __html: instruction }} />
+          : !step.questionRef && <p className="lesson-instructions lesson-rich-content lesson-content-sheet">{t("lessons.previewNoContent")}</p>)}
         {!lesson.steps.length && <button className="lesson-button lesson-primary" onClick={() => (onEdit ?? onBack)()}>{t("lessons.continueEditing")}</button>}
         </>}
         <div className="lesson-reader-questions" hidden={complete || !questions.length}>
-          <LessonQuestions stepId={step.id} questions={questions} disabled={!preview && !!issue} correctAnswers={progress.answers}
+          <LessonQuestions stepId={step.id} questions={questions} previewLocale={previewLocale} disabled={!preview && !!issue} correctAnswers={progress.answers}
             onCorrect={(key, choice) => updateProgress(current => ({ ...current, position: step.id, answers: { ...current.answers, [key]: choice } }))} />
         </div>
         </div>

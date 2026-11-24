@@ -20,6 +20,9 @@
 .lesson-rich-content blockquote { margin: 0 0 12px; padding-inline-start: 12px; border-inline-start: 3px solid var(--accent); }
 .lesson-rich-content table { width: 100%; margin: 0 0 12px; border-collapse: collapse; }
 .lesson-rich-content :is(td, th) { padding: 6px; border: 1px solid var(--line-strong); }
+.lesson-content-sheet { padding: 8px; background-color: var(--highlight); }
+.lesson-content-sheet table { max-width: 100%; margin: 1em 0; empty-cells: show; }
+.lesson-content-sheet :is(td, th) { min-width: 2em; padding: .4em; vertical-align: middle; }
 .lesson-rich-content a { color: var(--accent); }
 .lesson-rich-content img { max-width: 100%; height: auto; }
 .lesson-rich-content :is(audio, video, iframe) { max-width: 100%; }

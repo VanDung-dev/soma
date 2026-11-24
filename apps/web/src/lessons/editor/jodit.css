@@ -41,7 +41,7 @@
 .lesson-context-toolbar > .jodit-popup__content > .jodit-toolbar-editor-collection { flex-direction: row; width: max-content; }
 .lesson-context-toolbar > .jodit-popup__content > .jodit-toolbar-editor-collection > .jodit-ui-group_line_true > .jodit-ui-group { flex-wrap: nowrap; }
 .lesson-rich-editor .jodit-workplace { display: flex; flex: 1; }
-.lesson-rich-editor .jodit-workplace .lesson-rich-content { flex: 1; min-width: 0; padding: 10px; font: 10pt/1.6 var(--font-ui); background-color: #fff; }
+.lesson-rich-editor .jodit-workplace .lesson-rich-content { flex: 1; min-width: 0; font: 10pt/1.6 var(--font-ui); }
 .lesson-rich-editor .jodit-workplace .lesson-rich-content:focus { outline: none; }
 .lesson-rich-editor .jodit-toolbar__box .jodit-toolbar-button_paragraph > .jodit-toolbar-button__button { min-inline-size: 76px; white-space: nowrap; }
 .jodit-form__inserter .jodit-form__table-creator-box .jodit-form__container[role="grid"] {

@@ -262,7 +262,7 @@ export default function RichEditor({ value, language, label, onChange }: {
         },
       });
       const instance = editor;
-      instance.editor.classList.add("lesson-rich-content");
+      instance.editor.classList.add("lesson-rich-content", "lesson-content-sheet");
       instance.editor.id = "lesson-write-body";
       instance.editor.lang = language;
       instance.editor.setAttribute("role", "textbox");
