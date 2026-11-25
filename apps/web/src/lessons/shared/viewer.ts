@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import type { Catalog } from "../../anatomy/catalog/types";
-import type { OrientationAxesHandle } from "../../anatomy/orientation-axes";
-import { StudySession } from "../../anatomy/study/session";
-import { useCameraKeys } from "../../anatomy/use-camera-keys";
-import type { ViewerHold } from "../../anatomy/viewer/contracts";
-import { viewportInFrame } from "../../anatomy/viewer/layout";
-import { ViewerRuntime } from "../../anatomy/viewer/runtime";
+import type { Catalog } from "../../catalog/types";
+import type { OrientationAxesHandle } from "../../viewer/orientation-axes";
+import { StudySession } from "../../viewer/session";
+import { useCameraKeys } from "../../viewer/use-camera-keys";
+import type { ViewerHold } from "../../viewer/contracts";
+import { viewportInFrame } from "../../viewer/layout";
+import { ViewerRuntime } from "../../viewer/runtime";
 import { useGraphicsSettings } from "../../pages/use-graphics-settings";
 import { shortcutAction } from "../../shortcuts";
 import type { LessonScene } from "./contract";

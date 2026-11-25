@@ -5,7 +5,7 @@ import { createServer } from 'vite';
 test('focus frames remain inside the canvas when the lesson workspace scrolls', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
-    const { viewportInFrame } = await server.ssrLoadModule('/src/anatomy/viewer/layout.ts');
+    const { viewportInFrame } = await server.ssrLoadModule('/src/viewer/layout.ts');
     const box = (left, top, width, height) => ({ getBoundingClientRect: () => ({ left, top, width, height, right: left + width, bottom: top + height }) });
     const host = box(100, 50, 1000, 800);
     assert.deepEqual(viewportInFrame(host, box(300, 100, 600, 600)), [0.2, 0.0625, 0.6, 0.75]);
@@ -18,7 +18,7 @@ test('focus frames remain inside the canvas when the lesson workspace scrolls', 
 test('hand start region follows the letterboxed image and excludes visible panels', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
-    const { measureHandRegion } = await server.ssrLoadModule('/src/anatomy/viewer/layout.ts');
+    const { measureHandRegion } = await server.ssrLoadModule('/src/anatomy/hand-camera/layout.ts');
     const box = (left, top, width, height) => ({ getBoundingClientRect: () => ({ left, top, width, height, right: left + width, bottom: top + height }) });
     const host = box(100, 50, 1000, 800), frame = box(300, 100, 600, 600);
     const video = { videoWidth: 640, videoHeight: 480 };
@@ -43,7 +43,7 @@ test('camera mode reclaims hidden panels without collapsing the viewport', async
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   const originalWindow = globalThis.window;
   try {
-    const { measureViewport } = await server.ssrLoadModule('/src/anatomy/viewer/layout.ts');
+    const { measureViewport } = await server.ssrLoadModule('/src/anatomy/layout.ts');
     let desktop = true;
     globalThis.window = { matchMedia: () => ({ matches: desktop }) };
     const box = (left, top, width, height) => ({ hidden: false, getBoundingClientRect() {

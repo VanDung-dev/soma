@@ -76,7 +76,7 @@ export async function checkLessonScenes(page) {
 
   const beforeLearning = await saved();
   await page.evaluate(async () => {
-    const { AnatomyViewer } = await (await import('/src/anatomy/core.ts')).getWasm();
+    const { AnatomyViewer } = await (await import('/src/core.ts')).getWasm();
     const applyScene = AnatomyViewer.prototype.apply_scene;
     AnatomyViewer.prototype.apply_scene = function (...args) {
       window.lessonScenesViewer = this;

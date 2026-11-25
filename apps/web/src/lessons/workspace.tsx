@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import type { Catalog } from "../anatomy/catalog/types";
-import { useCatalog } from "../anatomy/use-catalog";
+import type { Catalog } from "../catalog/types";
+import { useCatalog } from "../catalog/use-catalog";
 import { useLanguage } from "../i18n";
 import type { Language } from "../i18n";
 import { LessonEditor } from "./editor/editor";

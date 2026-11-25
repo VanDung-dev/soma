@@ -1,10 +1,10 @@
-import { getWasm } from '../src/anatomy/core.ts';
+import { getWasm } from '../src/core.ts';
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { HandInteractionOverlay } from '../src/anatomy/hand-interaction-overlay.tsx';
 import { handLandmarks } from './hand-pose.fixture.mjs';
-import { measureHandRegion } from '../src/anatomy/viewer/layout.ts';
+import { measureHandRegion } from '../src/anatomy/hand-camera/layout.ts';
 
 const fullRegion = new Float32Array([0, 0, 1, 1]);
 
@@ -71,7 +71,7 @@ export async function checkHandInput() {
     assert(zoom.zoom === 'in' && zoom.hands.length === 2, 'Rust must report zoom direction and both hand cursors');
   } finally { gestures.free(); }
 
-  const worker = new Worker(new URL('../src/anatomy/viewer/hand-worker.ts', import.meta.url), { type: 'module' });
+  const worker = new Worker(new URL('../src/anatomy/hand-camera/hand-worker.ts', import.meta.url), { type: 'module' });
   let timeout;
   let stage = 'loading';
   try {

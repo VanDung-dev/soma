@@ -46,7 +46,7 @@ export async function checkLessonPlayerBackground(page) {
     assert(await model.isHidden());
     assert(await canvasHost.evaluate(node => node.inert && node.getBoundingClientRect().width === node.parentElement.getBoundingClientRect().width));
     await page.evaluate(async () => {
-      const { AnatomyViewer } = await (await import('/src/anatomy/core.ts')).getWasm();
+      const { AnatomyViewer } = await (await import('/src/core.ts')).getWasm();
       const proto = AnatomyViewer.prototype, apply = proto.apply_scene, reframe = proto.reframe;
       proto.apply_scene = function(...args) { window.playerViewer = this; return apply.apply(this, args); };
       proto.reframe = function(...args) { window.playerFrame = args; return reframe.apply(this, args); };

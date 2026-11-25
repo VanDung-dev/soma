@@ -1,4 +1,4 @@
-import { useCatalog } from "./use-catalog";
+import { useCatalog } from "../catalog/use-catalog";
 import { useLanguage } from "../i18n";
 import { StudyApp } from "./study-app";
 import "./style.css";

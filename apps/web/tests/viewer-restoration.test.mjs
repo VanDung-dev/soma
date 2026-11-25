@@ -8,7 +8,7 @@ test('runtime delegates restoration to WASM and synchronizes completion, reduced
     .map(key => [key, globalThis[key]]));
   let runtime;
   try {
-    const { ViewerRuntime } = await server.ssrLoadModule('/src/anatomy/viewer/runtime.ts');
+    const { ViewerRuntime } = await server.ssrLoadModule('/src/viewer/runtime.ts');
     let now = 100, nextFrame = 0, active = false, selected = 'a';
     let ids = ['a', 'b'], separated = ['a', 'b', 'c'];
     const pending = new Map(), calls = [], patches = [];

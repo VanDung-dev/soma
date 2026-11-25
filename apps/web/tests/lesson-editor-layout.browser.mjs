@@ -33,7 +33,7 @@ export async function checkLessonResponsiveLayout(page) {
     for (const panel of ['editorOutline', 'readerOutline']) localStorage.setItem(`soma.lessons.panel:${panel}`, 'false');
   }, lesson);
   const observeCamera = () => page.evaluate(async () => {
-    const { getWasm } = await import('/src/anatomy/core.ts');
+    const { getWasm } = await import('/src/core.ts');
     const { AnatomyViewer } = await getWasm();
     const reframe = AnatomyViewer.prototype.reframe;
     AnatomyViewer.prototype.reframe = function (...frame) {

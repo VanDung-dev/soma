@@ -1,7 +1,7 @@
 import { useLanguage } from "../i18n";
 import type { MessageKey } from "../i18n";
-import type { StudyState } from "./study/session";
-import type { ViewerHold, ViewerStatus } from "./viewer/contracts";
+import type { StudyState } from "./session";
+import type { ViewerHold, ViewerStatus } from "./contracts";
 
 const statusMessages = {
   loading: "viewer.status.loading", preparing: "viewer.status.preparing", finishing: "viewer.status.finishing",

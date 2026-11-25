@@ -11,7 +11,7 @@ test('one GLB and one JSON supply ordered metadata and clean up cancellation and
   }));
   let workerFailure = false, badMetadata = false;
   try {
-    const { loadModels } = await server.ssrLoadModule('/src/anatomy/viewer/loader.ts');
+    const { loadModels } = await server.ssrLoadModule('/src/viewer/loader.ts');
     globalThis.fetch = async (url, { signal }) => {
       requests.push(url); signals.push(signal);
       if (url.endsWith('.json')) return Response.json({
@@ -79,7 +79,7 @@ test('model cache reuses unchanged files, replaces changed versions and tolerate
   const openedDatabases = [];
   let version = 'first', modelRequests = 0, storageFails = false;
   try {
-    const { loadModels } = await server.ssrLoadModule('/src/anatomy/viewer/loader.ts');
+    const { loadModels } = await server.ssrLoadModule('/src/viewer/loader.ts');
     const database = {
       createObjectStore() {}, close() {},
       transaction() {

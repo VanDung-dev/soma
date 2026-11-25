@@ -1,4 +1,4 @@
-import { getCatalog, getContent, getWasm } from '../src/anatomy/core.ts';
+import { getCatalog, getContent, getWasm } from '../src/core.ts';
 
 export async function checkExplosionEntry() {
   const assert = (ok, message) => { if (!ok) throw Error(message); };

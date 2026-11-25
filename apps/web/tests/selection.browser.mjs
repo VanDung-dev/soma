@@ -1,4 +1,4 @@
-import { getWasm } from '../src/anatomy/core.ts';
+import { getWasm } from '../src/core.ts';
 
 // Run in Vite: (await import('/tests/selection.browser.mjs')).checkSelectionOutline()
 export async function checkSelectionOutline() {

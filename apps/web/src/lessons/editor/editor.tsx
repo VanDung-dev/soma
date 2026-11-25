@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import type { Catalog } from "../../anatomy/catalog/types";
+import type { Catalog } from "../../catalog/types";
 import { translateMessage, useLanguage } from "../../i18n";
 import type { Language } from "../../i18n";
 import { emptyLessonText, LessonValidationError, lessonMode, lessonSceneStep, lessonText, readLesson, updateLessonQuestions } from "../shared/contract";
@@ -14,7 +14,7 @@ import { exportLesson, newLessonId } from "../shared/source";
 import { lessonModels, lessonSceneModels, lessonSceneVisibleIds, lessonTargets } from "../shared/targets";
 import { findLessonSection, lessonSectionAt, lessonSectionTitle, resolveLessonSectionScene } from "../shared/sections";
 import { useLessonSceneVisibleIds } from "../shared/viewer";
-import type { SceneView } from "../../anatomy/viewer/contracts";
+import type { SceneView } from "../../viewer/contracts";
 import { LessonOutline } from "./outline";
 import { LessonContentPanel, LessonHeader, LessonOutlinePanel, LessonStepNavigation, LessonWorkspaceLayout } from "../shared/workspace";
 import { useLessonConfirm } from "../shared/confirm";

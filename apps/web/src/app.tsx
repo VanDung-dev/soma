@@ -6,6 +6,7 @@ import { GamesPage } from "./games/page";
 import { LessonsPage } from "./lessons/page";
 import { lessonEditId, lessonViewId } from "./lessons/routes";
 import { AnatomyPage } from "./anatomy/page";
+import "./viewer/style.css";
 import { ModuleLayout } from "./pages/module-layout";
 import { pageAtPath } from "./pages/routes";
 import { PageMessage } from "./pages/workspace-layout";

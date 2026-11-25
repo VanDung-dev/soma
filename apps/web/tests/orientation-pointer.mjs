@@ -4,7 +4,7 @@ export async function checkAnatomyOverviewResize(page) {
   const originalSize = page.viewportSize();
   const canvas = page.locator('.model-canvas canvas');
   await page.evaluate(async () => {
-    const { AnatomyViewer } = await import('/src/anatomy/core.ts').then(module => module.getWasm());
+    const { AnatomyViewer } = await import('/src/core.ts').then(module => module.getWasm());
     const resize = AnatomyViewer.prototype.resize;
     const probe = window.anatomyOverviewProbe = { restore: () => { AnatomyViewer.prototype.resize = resize; } };
     AnatomyViewer.prototype.resize = function (...args) {
@@ -77,7 +77,7 @@ export async function checkAnatomyOverviewResize(page) {
 
 export async function checkOrientationPointer(page, { touch = false } = {}) {
   await page.evaluate(async () => {
-    const { AnatomyViewer } = await import('/src/anatomy/core.ts').then(module => module.getWasm());
+    const { AnatomyViewer } = await import('/src/core.ts').then(module => module.getWasm());
     const probe = window.__orientationPointer = { originals: {}, viewer: null, views: [], rotations: 0 };
     for (const name of ['camera_axes', 'orient', 'rotate']) {
       probe.originals[name] = AnatomyViewer.prototype[name];
@@ -204,7 +204,7 @@ export async function checkOrientationPointer(page, { touch = false } = {}) {
   } finally {
     await page.mouse.up();
     await page.evaluate(async () => {
-      const { AnatomyViewer } = await import('/src/anatomy/core.ts').then(module => module.getWasm());
+      const { AnatomyViewer } = await import('/src/core.ts').then(module => module.getWasm());
       Object.assign(AnatomyViewer.prototype, window.__orientationPointer.originals);
       delete window.__orientationPointer;
     });

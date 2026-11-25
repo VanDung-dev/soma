@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
-import { ViewerOrientation } from "../../anatomy/orientation-axes";
+import { ViewerOrientation } from "../../viewer/orientation-axes";
 import { LessonModelHud } from "./model-hud";
 import type { useLessonViewer } from "./viewer";
 

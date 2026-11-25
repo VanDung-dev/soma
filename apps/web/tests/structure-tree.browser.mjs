@@ -1,4 +1,4 @@
-import { getCatalog, getContent } from '../src/anatomy/core.ts';
+import { getCatalog, getContent } from '../src/core.ts';
 
 export async function checkStructureTree() {
   const assert = (ok, message) => { if (!ok) throw Error(message); };

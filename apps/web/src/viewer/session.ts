@@ -1,5 +1,5 @@
 import type { Catalog } from "../catalog/types";
-import type { CameraCommand, SceneView, StudyViewer, ViewerState } from "../viewer/contracts";
+import type { CameraCommand, SceneView, StudyViewer, ViewerState } from "./contracts";
 
 export interface StudyState extends ViewerState {
   canGoBack: boolean;

@@ -64,7 +64,7 @@ export async function checkLessonCanvas(page) {
     await page.goto('/lessons/' + lesson.id + '/edit');
     await page.getByLabel('Tên bài học', { exact: true }).waitFor();
     await page.evaluate(async () => {
-      const { AnatomyViewer } = await (await import('/src/anatomy/core.ts')).getWasm();
+      const { AnatomyViewer } = await (await import('/src/core.ts')).getWasm();
       const proto = AnatomyViewer.prototype;
       const apply = proto.apply_scene, reframe = proto.reframe;
       window.lessonCanvasFrames = [];
@@ -134,7 +134,7 @@ export async function checkLessonCanvas(page) {
     assert(await canvasHost.locator('.model-selection-box').isHidden());
 
     await page.evaluate(async () => {
-      const { getCatalog } = await import('/src/anatomy/core.ts');
+      const { getCatalog } = await import('/src/core.ts');
       const catalog = await getCatalog();
       try { window.lessonCanvasPart = catalog.members('collection:cc46df69f8495544')[0]; }
       finally { catalog.free(); }

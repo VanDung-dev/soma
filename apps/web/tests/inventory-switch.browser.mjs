@@ -1,4 +1,4 @@
-import { getCatalog, getWasm } from '../src/anatomy/core.ts';
+import { getCatalog, getWasm } from '../src/core.ts';
 
 export async function checkInventorySwitch() {
   const assert = (ok, message) => { if (!ok) throw Error(message); };

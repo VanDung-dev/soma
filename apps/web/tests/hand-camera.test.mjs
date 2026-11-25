@@ -10,7 +10,7 @@ test('camera input keeps one frame in flight, yields to manual input, and releas
   const install = (name, value) => Object.defineProperty(globalThis, name, { value, configurable: true, writable: true });
   let dispose;
   try {
-    const { startHandCamera } = await server.ssrLoadModule('/src/anatomy/viewer/hand-camera.ts');
+    const { startHandCamera } = await server.ssrLoadModule('/src/anatomy/hand-camera/camera.ts');
     let now = 0, next = 0, captures = 0, stopped = 0, terminated = 0, allowed = true, cameraAllowed = true, popover = null, focused = true;
     let suspensionChecks = 0, started = 0;
     const constraints = [];

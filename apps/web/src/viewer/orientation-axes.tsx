@@ -1,7 +1,7 @@
 import { useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { Ref } from "react";
 import { useLanguage } from "../i18n";
-import type { CameraCommand } from "./viewer/contracts";
+import type { CameraCommand } from "./contracts";
 
 export type OrientationAxesHandle = { update: (axes: Float32Array) => void };
 type AxisCommand = Extract<CameraCommand, { kind: "orient" }>;

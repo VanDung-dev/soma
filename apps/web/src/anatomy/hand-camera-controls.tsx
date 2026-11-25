@@ -3,9 +3,9 @@ import { createPortal } from "react-dom";
 import { useLanguage } from "../i18n";
 import { AlertCard } from "../pages/alert-card";
 import { HandInteractionOverlay } from "./hand-interaction-overlay";
-import { measureHandImage, measureHandRegion, type HandImageBounds } from "./viewer/layout";
-import { startHandCamera, type HandCameraError, type HandFeedback } from "./viewer/hand-camera";
-import type { CameraCommand } from "./viewer/contracts";
+import { measureHandImage, measureHandRegion, type HandImageBounds } from "./hand-camera/layout";
+import { startHandCamera, type HandCameraError, type HandFeedback } from "./hand-camera/camera";
+import type { CameraCommand } from "../viewer/contracts";
 
 export function HandCameraControls({ enabled, disabled, cameraDisabled = false, deviceId = "", onCameraStarted, onCameraActiveChange, onControl, sceneHost, interactionFrame,
   obstacles, onEnabledChange }: {

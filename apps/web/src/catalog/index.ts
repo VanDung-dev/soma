@@ -1,4 +1,4 @@
-import type { CatalogData } from "../../content/content";
+import type { CatalogData } from "../content/content";
 import type { FolderView, OpenStaxReference, SearchPage, StructureDetail, StudyTarget, TreeSearchResult } from "./types";
 
 export class Catalog {

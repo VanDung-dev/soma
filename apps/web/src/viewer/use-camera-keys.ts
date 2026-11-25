@@ -2,7 +2,7 @@ import { useEffect, useEffectEvent } from "react";
 import type { RefObject } from "react";
 import { cameraControls } from "./camera-controls";
 import { cameraShortcutAction } from "../shortcuts";
-import type { CameraCommand } from "./viewer/contracts";
+import type { CameraCommand } from "./contracts";
 
 export function useCameraKeys(disabled: boolean, onControl: (commands: CameraCommand[]) => boolean, scope?: RefObject<HTMLElement | null>) {
   const run = useEffectEvent((keys: Set<string>, step: number) => onControl(cameraControls.filter(control => keys.has(control.key)).map(control => control.action(step))));

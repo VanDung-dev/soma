@@ -1,5 +1,5 @@
-import type { AnatomyViewer } from "../../wasm/wasm";
-import { cameraShortcutAction, shortcutAction } from "../../shortcuts";
+import type { AnatomyViewer } from "../wasm/wasm";
+import { cameraShortcutAction, shortcutAction } from "../shortcuts";
 import type { ViewerHold } from "./contracts";
 
 export function bindViewerInput(canvas: HTMLCanvasElement, options: {

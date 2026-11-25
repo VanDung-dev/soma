@@ -1,4 +1,4 @@
-import type { Catalog, FolderView, StudyTarget } from "../../anatomy/catalog/types";
+import type { Catalog, FolderView, StudyTarget } from "../../catalog/types";
 import type { Lesson, LessonScene } from "./contract";
 
 export function lessonSceneVisibleIds(catalog: Catalog, scene?: Pick<LessonScene, "targetId" | "visibleIds">) {

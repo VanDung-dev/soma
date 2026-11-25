@@ -1,12 +1,12 @@
 import { useEffect, useImperativeHandle, useMemo, useRef } from "react";
 import type { ReactNode, Ref } from "react";
 import { createPortal } from "react-dom";
-import type { Catalog } from "../../anatomy/catalog/types";
-import { ExplodeControls } from "../../anatomy/explode-controls";
-import { useCatalog } from "../../anatomy/use-catalog";
-import { ViewerHoldProgress } from "../../anatomy/viewer-status";
+import type { Catalog } from "../../catalog/types";
+import { ExplodeControls } from "../../viewer/explode-controls";
+import { useCatalog } from "../../catalog/use-catalog";
+import { ViewerHoldProgress } from "../../viewer/viewer-status";
 import { useLanguage } from "../../i18n";
-import type { SceneView } from "../../anatomy/viewer/contracts";
+import type { SceneView } from "../../viewer/contracts";
 import type { LessonScene } from "../shared/contract";
 import { useLessonViewer } from "../shared/viewer";
 import { LessonModelHud } from "../shared/model-hud";

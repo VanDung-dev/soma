@@ -1,6 +1,6 @@
-import { getCatalog, getWasm } from '../src/anatomy/core.ts';
-import { StudySession } from '../src/anatomy/study/session.ts';
-import { ViewerRuntime } from '../src/anatomy/viewer/runtime.ts';
+import { getCatalog, getWasm } from '../src/core.ts';
+import { StudySession } from '../src/viewer/session.ts';
+import { ViewerRuntime } from '../src/viewer/runtime.ts';
 
 export async function checkRestoration() {
   const assert = (ok, message) => { if (!ok) throw Error(message); };

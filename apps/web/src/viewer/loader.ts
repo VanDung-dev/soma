@@ -1,7 +1,7 @@
 import type { StudyTarget } from "../catalog/types";
 import type { PreparedGeometry } from "./contracts";
-import { openIndexedDatabase, transactionComplete } from "../../indexed-db";
-import { fetchModelAsset, fetchModelMetadata, modelMetadataPath, requireRootMetadata, usesBundledModels } from "../../model-assets";
+import { openIndexedDatabase, transactionComplete } from "../indexed-db";
+import { fetchModelAsset, fetchModelMetadata, modelMetadataPath, requireRootMetadata, usesBundledModels } from "../model-assets";
 
 export async function* loadModels(roots: StudyTarget[], signal: AbortSignal, onProgress: (loaded: number) => void,
   ingest: (root: StudyTarget, json: string) => string[], overview?: boolean) {

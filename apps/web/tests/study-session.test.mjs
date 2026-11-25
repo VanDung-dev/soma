@@ -8,7 +8,7 @@ import { readFile } from 'node:fs/promises';
 test('manual movement blocks automatic explosion and preserves study navigation', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
-    const { StudySession } = await server.ssrLoadModule('/src/anatomy/study/session.ts');
+    const { StudySession } = await server.ssrLoadModule('/src/viewer/session.ts');
     const catalog = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
     const session = new StudySession(await createCatalogFixture(server, catalog)), calls = [];
     const id = catalog.targets.find(target => target.model).model.structure_ids[0];
@@ -37,7 +37,7 @@ test('manual movement blocks automatic explosion and preserves study navigation'
 test('reader panel toggles at all times while reference reading remains limited to moving or separated structures', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
-    const { StudySession, canReadStructure } = await server.ssrLoadModule('/src/anatomy/study/session.ts');
+    const { StudySession, canReadStructure } = await server.ssrLoadModule('/src/viewer/session.ts');
     const catalog = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
     const session = new StudySession(await createCatalogFixture(server, catalog));
     const [a, b] = catalog.targets.find(target => target.model).model.structure_ids;
@@ -69,7 +69,7 @@ test('reader panel toggles at all times while reference reading remains limited 
 test('study commands share folder visibility policy independently of UI selection', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
-    const { StudySession } = await server.ssrLoadModule('/src/anatomy/study/session.ts');
+    const { StudySession } = await server.ssrLoadModule('/src/viewer/session.ts');
     const catalog = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
     const data = await createCatalogFixture(server, catalog);
     const index = { roots: data.roots };
@@ -165,7 +165,7 @@ test('study commands share folder visibility policy independently of UI selectio
 test('Back and Forward follow anatomy navigation without recording hover or manual camera controls', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
-    const { StudySession } = await server.ssrLoadModule('/src/anatomy/study/session.ts');
+    const { StudySession } = await server.ssrLoadModule('/src/viewer/session.ts');
     const catalog = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
     const roots = catalog.targets.filter(target => !target.parent_id && target.model);
     const structureIds = [...new Set(roots.flatMap(target => target.model.structure_ids))];

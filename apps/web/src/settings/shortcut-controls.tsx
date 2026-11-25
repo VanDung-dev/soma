@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from "react";
-import { cameraControlGroups } from "../anatomy/camera-controls";
+import { cameraControlGroups } from "../viewer/camera-controls";
 import { useLanguage } from "../i18n";
 import {
   appShortcuts, bindingFromEvent, removeShortcut, resetShortcuts, setShortcut, shortcutLabel,

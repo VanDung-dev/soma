@@ -19,7 +19,7 @@ export async function checkLessonModelRemoval(page) {
   assert.equal(await page.locator('.lesson-editor .model-error').count(), 0, 'Both model roots should load before removal');
   await page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: 'Bones' }).click();
   await page.evaluate(async () => {
-    const { getWasm } = await import('/src/anatomy/core.ts');
+    const { getWasm } = await import('/src/core.ts');
     const { AnatomyViewer } = await getWasm();
     const append = AnatomyViewer.prototype.appendPrepared;
     const canvas = document.querySelector('.lesson-editor > .model-canvas canvas');

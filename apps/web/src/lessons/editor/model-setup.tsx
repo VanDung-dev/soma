@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import type { Catalog } from "../../anatomy/catalog/types";
+import type { Catalog } from "../../catalog/types";
 import { StructureSearch, useStructureSearch } from "../../anatomy/structure-search";
 import { StructureTree } from "../../anatomy/structure-tree";
 import { useLanguage } from "../../i18n";

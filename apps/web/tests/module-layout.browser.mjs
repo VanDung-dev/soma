@@ -4,7 +4,7 @@ import { flushSync } from 'react-dom';
 
 export async function checkModuleNavigation() {
   const { App } = await import('/src/app.tsx');
-  const { getContent } = await import('/src/anatomy/core.ts');
+  const { getContent } = await import('/src/core.ts');
   const catalog = (await getContent()).get_catalog();
   const assert = (ok, message) => { if (!ok) throw Error(message); };
   const originalTauri = Object.getOwnPropertyDescriptor(window, 'isTauri');

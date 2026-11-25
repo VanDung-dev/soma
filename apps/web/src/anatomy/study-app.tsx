@@ -1,4 +1,4 @@
-import type { Catalog } from "./catalog/types";
+import type { Catalog } from "../catalog/types";
 import { useLanguage } from "../i18n";
 import { ModelViewer } from "./model-viewer";
 import { WorkspaceLayout } from "../pages/workspace-layout";

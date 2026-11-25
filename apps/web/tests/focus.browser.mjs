@@ -1,4 +1,4 @@
-import { getContent, getWasm } from '../src/anatomy/core.ts';
+import { getContent, getWasm } from '../src/core.ts';
 
 // Run after loading in Vite: (await import('/tests/focus.browser.mjs')).checkFocusTree()
 export async function checkFocusTree() {

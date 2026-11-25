@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { createPortal } from "react-dom";
-import type { Catalog } from "../../anatomy/catalog/types";
-import type { StudySession, StudyState } from "../../anatomy/study/session";
+import type { Catalog } from "../../catalog/types";
+import type { StudySession, StudyState } from "../../viewer/session";
 import { useLanguage } from "../../i18n";
 
 export function LessonStructureTools({ catalog, session, state, ids, detailsHost }: {

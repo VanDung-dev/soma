@@ -1,5 +1,5 @@
 import type { MessageKey } from "../i18n";
-import type { CameraCommand } from "./viewer/contracts";
+import type { CameraCommand } from "./contracts";
 
 export const cameraControlGroups: { label: MessageKey; controls: { key: string; label: MessageKey; action: (step: number) => CameraCommand }[] }[] = [
   { label: "controls.group.camera", controls: [

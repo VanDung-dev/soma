@@ -1,4 +1,4 @@
-import { readSetting } from "../../settings/storage";
+import { readSetting } from "../settings/storage";
 
 export type GraphicsQuality = "low" | "high";
 export type GraphicsSettings = {

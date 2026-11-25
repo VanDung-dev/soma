@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { getContent } from "../anatomy/core";
+import { getContent } from "../core";
 import { useLanguage } from "../i18n";
 import { emptyLessonText, LessonValidationError, lessonText, readLesson } from "./shared/contract";
 import type { Lesson } from "./shared/contract";

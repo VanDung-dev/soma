@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { useLanguage } from "../i18n";
-import type { GraphicsSettings } from "../anatomy/viewer/graphics";
+import type { GraphicsSettings } from "../viewer/graphics";
 
 export function GraphicsControls({ id, graphics, onChange, buttons = false }: {
   id: string; graphics: GraphicsSettings; onChange: (settings: GraphicsSettings) => void; buttons?: boolean;

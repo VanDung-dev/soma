@@ -1,4 +1,4 @@
-import init, { prepare_model } from "../../wasm/wasm";
+import init, { prepare_model } from "../wasm/wasm";
 
 self.onmessage = async ({ data }) => {
   try {

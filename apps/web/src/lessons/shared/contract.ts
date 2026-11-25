@@ -1,5 +1,5 @@
 import * as content from "../../content/content.js";
-import type { SceneView } from "../../anatomy/viewer/contracts";
+import type { SceneView } from "../../viewer/contracts";
 
 export const LESSON_STORAGE_PREFIX = "soma.lesson-v1:";
 

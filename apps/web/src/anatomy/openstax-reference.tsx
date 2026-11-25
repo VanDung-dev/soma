@@ -1,4 +1,4 @@
-import type { OpenStaxReference } from "./catalog/types";
+import type { OpenStaxReference } from "../catalog/types";
 import { useLanguage } from "../i18n";
 
 export function OpenStaxReading({ reference, compact = false }: { reference?: OpenStaxReference; compact?: boolean }) {

@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { StudyApp } from '../src/anatomy/study-app.tsx';
-import { getContent, getWasm } from '../src/anatomy/core.ts';
+import { getContent, getWasm } from '../src/core.ts';
 
 // Run in Vite: (await import('/tests/reconstruction.browser.mjs')).checkStartupCamera()
 export async function checkStartupCamera(reducedMotion = false) {

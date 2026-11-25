@@ -12,7 +12,7 @@ export async function checkLessonBackground(page) {
   await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
   const emptyCanvas = await canvas.elementHandle();
   assert(await page.evaluate(async () => {
-    const { AnatomyViewer } = await (await import('/src/anatomy/core.ts')).getWasm();
+    const { AnatomyViewer } = await (await import('/src/core.ts')).getWasm();
     const canvas = document.createElement('canvas');
     canvas.width = 64; canvas.height = 64;
     const viewer = AnatomyViewer.background(canvas);
@@ -36,7 +36,7 @@ export async function checkLessonBackground(page) {
   await page.getByText('277/277 cấu trúc đang hiện', { exact: true }).waitFor();
   const original = await canvas.elementHandle();
   await page.evaluate(async () => {
-    const { AnatomyViewer } = await (await import('/src/anatomy/core.ts')).getWasm();
+    const { AnatomyViewer } = await (await import('/src/core.ts')).getWasm();
     const proto = AnatomyViewer.prototype, original = proto.apply_scene, reframe = proto.reframe;
     proto.apply_scene = function(...args) { window.backgroundViewer = this; return original.apply(this, args); };
     proto.reframe = function(...args) { window.backgroundFrame = args; return reframe.apply(this, args); };

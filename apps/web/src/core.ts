@@ -1,10 +1,10 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { Catalog } from "./catalog";
-import * as bindings from "../wasm/wasm";
-import * as content from "../content/content";
+import * as bindings from "./wasm/wasm";
+import * as content from "./content/content";
 
-let wasm: Promise<typeof import("../wasm/wasm.js")> | undefined;
-let data: Promise<typeof import("../content/content.js")> | undefined;
+let wasm: Promise<typeof import("./wasm/wasm.js")> | undefined;
+let data: Promise<typeof import("./content/content.js")> | undefined;
 
 export function getWasm() {
   return wasm ??= bindings.default().then(() => bindings);

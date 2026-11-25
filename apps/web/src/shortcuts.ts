@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { cameraControls } from "./anatomy/camera-controls";
+import { cameraControls } from "./viewer/camera-controls";
 import type { MessageKey } from "./i18n";
 import { readSetting, writeSetting } from "./settings/storage";
 

@@ -61,7 +61,7 @@ export async function checkLessonBackgroundStability(page) {
   await page.goto('/home');
   const result = await page.evaluate(async () => {
     const { readLessonFocus } = await import('/tests/lesson-background-stability.browser.mjs');
-    const { getWasm, getCatalog } = await import('/src/anatomy/core.ts');
+    const { getWasm, getCatalog } = await import('/src/core.ts');
     const wasm = await getWasm(), catalog = await getCatalog();
     const assert = (ok, message) => { if (!ok) throw Error(message); };
     const create = () => {

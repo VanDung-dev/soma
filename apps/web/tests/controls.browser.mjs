@@ -1,4 +1,4 @@
-import { getWasm } from '../src/anatomy/core.ts';
+import { getWasm } from '../src/core.ts';
 import { appShortcuts } from '../src/shortcuts.ts';
 import { closeSettings, openSettings } from './settings.fixture.mjs';
 

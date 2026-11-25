@@ -1,4 +1,4 @@
-import type { CameraCommand } from "./contracts";
+import type { CameraCommand } from "../../viewer/contracts";
 
 export type HandMode = "idle" | "rotate" | "pan" | "zoom" | "paused";
 export interface HandFeedback {

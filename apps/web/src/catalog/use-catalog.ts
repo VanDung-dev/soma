@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import type { Catalog } from "./catalog/types";
-import { getCatalog } from "./core";
+import type { Catalog } from "./types";
+import { getCatalog } from "../core";
 
 export function useCatalog(errorMessage: string, { logAfterUnmount = false } = {}) {
   const [catalog, setCatalog] = useState<Catalog>();

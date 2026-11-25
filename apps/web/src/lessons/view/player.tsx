@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import type { Catalog } from "../../anatomy/catalog/types";
+import type { Catalog } from "../../catalog/types";
 import { useLanguage } from "../../i18n";
 import type { Language } from "../../i18n";
 import { LineIcon } from "../../icons";

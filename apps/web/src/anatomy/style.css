@@ -1,25 +1,4 @@
 .study-shell { --panel-width: calc(300px + var(--workspace-panel-growth)); }
-.model-orientation { position: absolute; top: 12px; right: 12px; display: flex; flex-direction: column; align-items: center; gap: 12px; pointer-events: none; -webkit-user-select: none; user-select: none; cursor: default; }
-.orientation-axes { display: block; width: 80px; height: 80px; overflow: visible; border-radius: 50%; pointer-events: auto; touch-action: none; cursor: grab; }
-.orientation-axes[data-dragging="true"] { cursor: grabbing; }
-.orientation-axes[aria-disabled="true"] { cursor: default; }
-.orientation-axes:hover { background: rgba(var(--panel-rgb), .45); box-shadow: inset 0 0 0 1px var(--line-strong); }
-.orientation-origin { fill: var(--muted); pointer-events: none; }
-.orientation-axes [data-axis="X"] { color: #f43f5e; }
-.orientation-axes [data-axis="Y"] { color: #84cc16; }
-.orientation-axes [data-axis="Z"] { color: #3b82f6; }
-.orientation-axes line { stroke: currentColor; stroke-width: 3; stroke-linecap: round; pointer-events: none; }
-.orientation-axes g circle { fill: currentColor; stroke: currentColor; stroke-width: 2; }
-.orientation-axes [data-direction="-1"] circle:not(.orientation-hit-target) { fill: rgba(18, 23, 21, .75); }
-.orientation-axes g[aria-pressed="true"] circle:not(.orientation-hit-target) { fill: currentColor; }
-.orientation-axes g .orientation-hit-target { fill: transparent; stroke: none; pointer-events: all; }
-.orientation-axes g:is(:hover, :focus-visible) { opacity: 1; }
-.orientation-axes text { fill: #101827; font: 600 14px var(--font-ui); }
-.orientation-axes [data-direction="-1"] text { opacity: 0; }
-.orientation-axes g[aria-pressed="true"] text { opacity: 1; }
-.orientation-axes g:hover text { fill: #fff; opacity: 1; }
-.orientation-axes g:focus-visible circle:not(.orientation-hit-target) { fill: var(--selected-bg); stroke: var(--selected-bg); }
-.orientation-axes g:focus-visible text { fill: var(--text); opacity: 1; }
 .hand-camera-toggle { display: inline-flex; flex-shrink: 0; align-items: center; gap: 6px; height: 28px; min-height: 28px; padding: 0 4px; border: 0; border-radius: var(--inner-radius); background: transparent; color: var(--accent); font: 12px var(--font-ui); cursor: pointer; }
 .hand-camera-toggle[aria-checked="true"] .camera-mode-switch::before { transform: translateX(20px); background: var(--panel-bg); }
 .hand-camera-toggle[aria-checked="true"] .camera-mode-switch { background: var(--accent); border-color: var(--accent); }
@@ -87,26 +66,6 @@
 .credit-sources > a { min-width: 0; }
 #workspace { position: absolute; inset: 0; min-width: 0; min-height: 0; }
 .anatomy-space { position: absolute; inset: 0; overflow: hidden; }
-.model-canvas { position: absolute; inset: 0; isolation: isolate; touch-action: none; overflow: hidden; }
-.model-canvas canvas { position: relative; z-index: 1; display: block; width: 100%; height: 100%; }
-.model-selection-box { position: absolute; z-index: 2; pointer-events: none; border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
-.model-hold-progress { position: fixed; z-index: 7; width: 40px; height: 40px; transform: translate(-50%, -50%) rotate(-90deg); pointer-events: none; fill: none; stroke: var(--panel-bg); stroke-width: 4; filter: drop-shadow(0 1px 3px rgba(var(--shadow-rgb),.5)); visibility: hidden; animation: model-hold-show 0s .5s forwards; }
-.model-hold-fill { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: model-hold-fill .5s .5s linear forwards; }
-.model-hold-progress[data-action="hide"] { transform: translate(-50%, -50%) rotate(-90deg) scaleY(-1); }
-@keyframes model-hold-show { to { visibility: visible; } }
-@keyframes model-hold-fill { to { stroke-dashoffset: 0; } }
-.model-focus-frame { position: absolute; z-index: 1; border-radius: var(--panel-radius); pointer-events: none; }
-.model-hud { position: absolute; z-index: 2; bottom: 0; left: 50%; transform: translateX(-50%); width: min(780px, 100%); display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
-.model-status { margin: 0; max-width: 100%; overflow-wrap: anywhere; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--status); padding: 6px 10px; border-radius: var(--inner-radius); background: rgba(var(--panel-rgb),.86); }
-.model-error { color: var(--accent); }
-.model-snap-hint { color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-.model-progress { width: 180px; height: 4px; accent-color: var(--status); }
-.explode-control { pointer-events: auto; width: 100%; max-width: 300px; min-width: 0; margin: 0; padding: 12px 14px 6px; border: 1px solid var(--line); border-radius: var(--panel-radius); background: rgba(var(--panel-rgb),.96); }
-.explode-label { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; }
-.explode-label > span { display: flex; flex-direction: column; gap: 2px; }
-.explode-label small { color: var(--muted); font-size: 10px; line-height: 1.35; }
-.explode-label output { color: var(--accent); font-variant-numeric: tabular-nums; }
-.explode-control input { display: block; width: 100%; min-height: 32px; margin: 0; accent-color: var(--accent); cursor: pointer; }
 .tree-actions > button { min-height: 28px; height: 28px; padding: 3px 10px; border: 1px solid var(--line-strong); border-radius: var(--inner-radius); background: var(--surface); color: var(--muted-dark); font-size: 12px; white-space: nowrap; }
 .tree-actions > button:hover { background: var(--accent-hover); }
 .tree-actions { display: flex; align-items: center; gap: 8px; padding: calc(var(--panel-gap) / 2) 0; }

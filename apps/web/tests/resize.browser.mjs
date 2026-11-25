@@ -1,4 +1,4 @@
-import { getWasm } from '../src/anatomy/core.ts';
+import { getWasm } from '../src/core.ts';
 
 export async function monitorViewerResize() {
   const { AnatomyViewer } = await getWasm(), proto = AnatomyViewer.prototype;

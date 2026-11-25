@@ -11,7 +11,7 @@ test('structure search matches names, Latin and laterality, and reveals the sele
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
     const wasm = await initCatalogWasm(server);
-    const { Catalog } = await server.ssrLoadModule('/src/anatomy/catalog/index.ts');
+    const { Catalog } = await server.ssrLoadModule('/src/catalog/index.ts');
     const { StructureSearch, useStructureSearch } = await server.ssrLoadModule('/src/anatomy/structure-search.tsx');
     const fixture = parts => {
       const ids = parts.map((_, i) => 'za:' + i.toString(16).padStart(16, '0'));

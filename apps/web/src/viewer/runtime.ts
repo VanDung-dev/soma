@@ -1,6 +1,6 @@
 import type { Catalog, StudyTarget } from "../catalog/types";
 import { getContent, getWasm } from "../core";
-import type { AnatomyViewer } from "../../wasm/wasm";
+import type { AnatomyViewer } from "../wasm/wasm";
 import type { CameraCommand, PreparedGeometry, SceneView, StudyViewer, ViewerHold, ViewerState, ViewerStatus, Viewport } from "./contracts";
 import { bindViewerInput } from "./input";
 import { loadModels } from "./loader";

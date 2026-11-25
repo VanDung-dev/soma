@@ -7,7 +7,7 @@ test('student input permits camera controls while blocking picking, marquee, hid
   const previousWindow = globalThis.window;
   let unbind;
   try {
-    const { bindViewerInput } = await server.ssrLoadModule('/src/anatomy/viewer/input.ts');
+    const { bindViewerInput } = await server.ssrLoadModule('/src/viewer/input.ts');
     t.mock.timers.enable({ apis: ['setTimeout'] });
     globalThis.window = Object.assign(new EventTarget(), { setTimeout, clearTimeout });
     const canvas = Object.assign(new EventTarget(), { width: 300, height: 300, clientWidth: 300, clientHeight: 300,
@@ -42,7 +42,7 @@ test('Shift-left marquee selects a temporary group and left hold moves it togeth
   const previousWindow = globalThis.window;
   let unbind;
   try {
-    const { bindViewerInput } = await server.ssrLoadModule('/src/anatomy/viewer/input.ts');
+    const { bindViewerInput } = await server.ssrLoadModule('/src/viewer/input.ts');
     t.mock.timers.enable({ apis: ['setTimeout'] });
     globalThis.window = Object.assign(new EventTarget(), { setTimeout, clearTimeout });
     const canvas = Object.assign(new EventTarget(), { width: 600, height: 300, clientWidth: 300, clientHeight: 150,
@@ -141,7 +141,7 @@ test('touchpad pinch follows gesture scale at the cursor while wheel zoom keeps 
   const previousWindow = globalThis.window;
   let unbind;
   try {
-    const { bindViewerInput } = await server.ssrLoadModule('/src/anatomy/viewer/input.ts');
+    const { bindViewerInput } = await server.ssrLoadModule('/src/viewer/input.ts');
     globalThis.window = new EventTarget();
     const canvas = Object.assign(new EventTarget(), { clientHeight: 400,
       getBoundingClientRect: () => ({ left: 100, top: 50, width: 800, height: 400 }) });
@@ -188,7 +188,7 @@ test('left hold detaches after one second and cancels on interrupted gestures', 
   const previousWindow = globalThis.window;
   let unbind;
   try {
-    const { bindViewerInput } = await server.ssrLoadModule('/src/anatomy/viewer/input.ts');
+    const { bindViewerInput } = await server.ssrLoadModule('/src/viewer/input.ts');
     t.mock.timers.enable({ apis: ['setTimeout'] });
     globalThis.window = Object.assign(new EventTarget(), { setTimeout, clearTimeout });
     const canvas = Object.assign(new EventTarget(), { width: 300, height: 300, clientWidth: 300, clientHeight: 300,
@@ -288,7 +288,7 @@ test('right hold hides the hit structure or selected group and cancels interrupt
   const previousWindow = globalThis.window;
   let unbind;
   try {
-    const { bindViewerInput } = await server.ssrLoadModule('/src/anatomy/viewer/input.ts');
+    const { bindViewerInput } = await server.ssrLoadModule('/src/viewer/input.ts');
     t.mock.timers.enable({ apis: ['setTimeout'] });
     globalThis.window = Object.assign(new EventTarget(), { setTimeout, clearTimeout });
     const canvas = Object.assign(new EventTarget(), { width: 300, height: 300, clientWidth: 300, clientHeight: 300,
@@ -353,7 +353,7 @@ test('manual separation drags only its structure and rotates only from empty bac
   const previousWindow = globalThis.window;
   let unbind;
   try {
-    const { bindViewerInput } = await server.ssrLoadModule('/src/anatomy/viewer/input.ts');
+    const { bindViewerInput } = await server.ssrLoadModule('/src/viewer/input.ts');
     globalThis.window = Object.assign(new EventTarget(), { setTimeout, clearTimeout });
     const bounds = { left: 0, top: 0, right: 300, bottom: 300, width: 300, height: 300 };
     const canvas = Object.assign(new EventTarget(), { width: 300, height: 300, clientWidth: 300, clientHeight: 300,

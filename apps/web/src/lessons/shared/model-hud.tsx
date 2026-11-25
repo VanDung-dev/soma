@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import type { StudyState } from "../../anatomy/study/session";
-import { ViewerLoadingProgress, ViewerStatusNotice } from "../../anatomy/viewer-status";
+import type { StudyState } from "../../viewer/session";
+import { ViewerLoadingProgress, ViewerStatusNotice } from "../../viewer/viewer-status";
 import { useLanguage } from "../../i18n";
 
 export function LessonModelHud({

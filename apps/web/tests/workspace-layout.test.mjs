@@ -33,7 +33,7 @@ test('settings render as a page and guides respect manipulation and camera capab
   try {
     const { SettingsPage } = await server.ssrLoadModule('/src/settings/page.tsx');
     const { GraphicsControls } = await server.ssrLoadModule('/src/settings/graphics-controls.tsx');
-    const { defaultGraphics } = await server.ssrLoadModule('/src/anatomy/viewer/graphics.ts');
+    const { defaultGraphics } = await server.ssrLoadModule('/src/viewer/graphics.ts');
     const { translateMessage } = await server.ssrLoadModule('/src/i18n.tsx');
     const t = key => translateMessage(key, 'vi');
     const fontSize = { fontSize: '12', setFontSize() {}, failed: false };
