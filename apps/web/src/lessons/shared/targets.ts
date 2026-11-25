@@ -1,11 +1,15 @@
 import type { Catalog, FolderView, StudyTarget } from "../../anatomy/catalog/types";
 import type { Lesson, LessonScene } from "./contract";
 
+export function lessonSceneVisibleIds(catalog: Catalog, scene?: Pick<LessonScene, "targetId" | "visibleIds">) {
+  return scene ? scene.visibleIds ?? catalog.members(scene.targetId) : [];
+}
+
 export function lessonSceneModels(catalog: Catalog, lesson: Lesson, scene?: LessonScene): string[] {
   if (scene?.modelIds !== undefined) return scene.modelIds;
   const initial = lesson.modelIds?.length ? lesson.modelIds : (lesson.modelId ? [lesson.modelId] : []);
   const models = [...initial];
-  const needed = new Set(scene ? scene.visibleIds ?? catalog.members(scene.targetId) : []);
+  const needed = new Set(lessonSceneVisibleIds(catalog, scene));
   for (const mid of models) {
     catalog.members(mid).forEach(id => needed.delete(id));
   }

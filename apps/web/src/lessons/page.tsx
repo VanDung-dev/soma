@@ -1,19 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
 import { getContent } from "../anatomy/core";
-import { useCatalog } from "../anatomy/use-catalog";
-import type { Catalog } from "../anatomy/catalog/types";
 import { useLanguage } from "../i18n";
-import type { Language } from "../i18n";
-import { LessonValidationError, lessonText, readLesson } from "./shared/contract";
+import { emptyLessonText, LessonValidationError, lessonText, readLesson } from "./shared/contract";
 import type { Lesson } from "./shared/contract";
-import { emptyText, LessonEditor } from "./editor/editor";
-import { LessonPlayer } from "./view/player";
+import { LessonWorkspace } from "./workspace";
 import { lessonEditPath, lessonViewPath } from "./routes";
 import { exportLesson, importLesson, listLessons, newLessonId, removeLesson, saveLesson } from "./shared/source";
 import "./style.css";
 import "./shared/rich-content.css";
-import { LessonImageProvider } from "./shared/image-context";
 import { checkImageCollection, loadLessonImages, retainLessonImages, storeLessonImages } from "./shared/images";
 import { lessonJob } from "./shared/archive";
 import { lessonImagePaths } from "./shared/rich-text";
@@ -32,9 +26,6 @@ function LessonsPageContent({ editId, viewId, studyVisible, navigate }: LessonsP
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [unreadableCount, setUnreadableCount] = useState(0);
   const [pending, setPending] = useState<Lesson>();
-  const [selected, setSelected] = useState<string>();
-  const [preview, setPreview] = useState(false);
-  const [previewLocale, setPreviewLocale] = useState<Language>();
   const [error, setError] = useState<"load" | "save" | "import" | "export">();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -62,11 +53,9 @@ function LessonsPageContent({ editId, viewId, studyVisible, navigate }: LessonsP
 
   const activeId = editId || viewId;
   const editing = !!editId;
-  const viewing = !!viewId && !editing;
   const savedLesson = lessons.find(item => item.id === activeId);
   const draft = editing && pending?.id === activeId ? pending : savedLesson;
-  useEffect(() => { setSelected(undefined); setPreview(false); setPreviewLocale(undefined); }, [editId, viewId]);
-  useEffect(() => { title.current?.focus(); }, [editing, viewing, preview]);
+  useEffect(() => { title.current?.focus(); }, [editId, viewId]);
 
   async function update(next: Lesson) {
     if (saveBusy.current) return false;
@@ -96,7 +85,7 @@ function LessonsPageContent({ editId, viewId, studyVisible, navigate }: LessonsP
   async function create() {
     if (saveBusy.current || importBusy.current) return;
     const id = newLessonId();
-    await update({ id, version: 1, title: emptyText, summary: emptyText, modelId: "", steps: [] });
+    await update({ id, version: 1, title: emptyLessonText, summary: emptyLessonText, modelId: "", steps: [] });
     navigate(lessonEditPath(id));
   }
 
@@ -180,52 +169,27 @@ function LessonsPageContent({ editId, viewId, studyVisible, navigate }: LessonsP
     }
     setPending(undefined);
     setError(undefined);
-    setPreview(false);
     navigate("/lessons");
   }
 
-  return <><main className="lessons-screen" data-library={!activeId} data-editor={editing && !preview} data-player={viewing || (editing && preview)}>
-    {draft ? <>
-      <LessonImageProvider key={draft.id} lesson={draft}>
-      <WithLessonCatalog key={`${draft.id}/${viewing ? "view" : preview ? "preview" : "editor"}`}>{catalog => viewing || preview
-        ? <LessonPlayer lesson={draft} catalog={catalog} preview={!viewing} studyVisible={viewing ? studyVisible : undefined}
-          previewLocale={viewing ? undefined : previewLocale} initialStepId={viewing ? undefined : selected}
-          onBack={leave} onEdit={viewing ? undefined : () => setPreview(false)} />
-        : <LessonEditor catalog={catalog} lesson={draft} saved={savedLesson ?? draft} selected={selected} onSelect={setSelected}
-          saving={saving} saveFailed={error === "save"} initialLocale={previewLocale} onChange={update} onDraftChange={setPending} onPreview={(current, locale) => {
-            setPending({ ...current, createdAt: savedLesson?.createdAt, updatedAt: savedLesson?.updatedAt });
-            setPreviewLocale(locale);
-            setPreview(true);
-          }}
-          onBack={leave} />}
-      </WithLessonCatalog>
-      </LessonImageProvider>
-    </> : activeId ? <>
-      <h1 ref={title} tabIndex={-1}>{t("module.lessons")}</h1>
-      <p role={loading ? "status" : "alert"}>{t(loading ? "lessons.loading" : error === "load" ? "lessons.indexError" : "lessons.notFound")}</p>
-      <button className="lesson-button" onClick={() => navigate("/lessons")}>{t("lessons.library")}</button>
-    </> : <LessonLibrary lessons={lessons} loading={loading} importing={importing} exportingId={exportingId} titleRef={title} dragging={dragging} onDraggingChange={setDragging}
-      error={error ? t(error === "load" ? "lessons.indexError" : error === "import" ? "lessons.importError"
-        : error === "export" ? "lessons.exportError" : "lessons.saveError")
-        : unreadableCount ? t("lessons.unreadableCount", { count: unreadableCount }) : undefined}
-      saving={saving} onCreate={create} onImport={importFile} onStart={lesson => navigate(lessonViewPath(lesson.id))}
-      onEdit={lesson => { setError(pending?.id === lesson.id ? "save" : undefined); navigate(lessonEditPath(lesson.id)); }}
-      onExport={lesson => { void handleExport(lesson); }} onRemove={remove} />}
-  </main>
+  return <>
+    {draft ? <LessonWorkspace key={draft.id} lesson={draft} studyVisible={studyVisible} onBack={leave}
+      authoring={editing ? { saved: savedLesson, saving, saveFailed: error === "save", onSave: update, onDraftChange: setPending } : undefined} />
+      : <main className="lessons-screen" data-library={!activeId} data-editor={editing} data-player={!!viewId && !editing}>
+        {activeId ? <>
+          <h1 ref={title} tabIndex={-1}>{t("module.lessons")}</h1>
+          <p role={loading ? "status" : "alert"}>{t(loading ? "lessons.loading" : error === "load" ? "lessons.indexError" : "lessons.notFound")}</p>
+          <button className="lesson-button" onClick={() => navigate("/lessons")}>{t("lessons.library")}</button>
+        </> : <LessonLibrary lessons={lessons} loading={loading} importing={importing} exportingId={exportingId} titleRef={title} dragging={dragging} onDraggingChange={setDragging}
+          error={error ? t(error === "load" ? "lessons.indexError" : error === "import" ? "lessons.importError"
+            : error === "export" ? "lessons.exportError" : "lessons.saveError")
+            : unreadableCount ? t("lessons.unreadableCount", { count: unreadableCount }) : undefined}
+          saving={saving} onCreate={create} onImport={importFile} onStart={lesson => navigate(lessonViewPath(lesson.id))}
+          onEdit={lesson => { setError(pending?.id === lesson.id ? "save" : undefined); navigate(lessonEditPath(lesson.id)); }}
+          onExport={lesson => { void handleExport(lesson); }} onRemove={remove} />}
+      </main>}
     {!activeId && dragging && <div className="lesson-library-drop-overlay" role="status">
       <span className="lesson-import-symbol" aria-hidden="true"><LessonImportIcon /></span><strong>{t(importing ? "lessons.importing" : loading ? "lessons.loading" : "lessons.dropToImport")}</strong><span>{t("lessons.importFileHint")}</span>
     </div>}
   </>;
-}
-
-function WithLessonCatalog({ children }: { children: (catalog: Catalog) => ReactNode }) {
-  const { t } = useLanguage();
-  const { catalog, failed, retry } = useCatalog("Lesson catalog failed");
-
-  if (catalog) return children(catalog);
-  if (failed) return <>
-    <p role="alert">{t("app.startup.error.title")}</p>
-    <button className="lesson-button" onClick={retry}>{t("lessons.retry")}</button>
-  </>;
-  return <p role="status">{t("app.startup.loading")}</p>;
 }

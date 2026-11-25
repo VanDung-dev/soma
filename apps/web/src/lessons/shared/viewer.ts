@@ -1,47 +1,69 @@
-import { useEffect, useEffectEvent, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import type { RefObject } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { Catalog } from "../../anatomy/catalog/types";
 import type { OrientationAxesHandle } from "../../anatomy/orientation-axes";
 import { StudySession } from "../../anatomy/study/session";
 import { useCameraKeys } from "../../anatomy/use-camera-keys";
 import type { ViewerHold } from "../../anatomy/viewer/contracts";
-import type { GraphicsSettings } from "../../anatomy/viewer/graphics";
 import { viewportInFrame } from "../../anatomy/viewer/layout";
 import { ViewerRuntime } from "../../anatomy/viewer/runtime";
+import { useGraphicsSettings } from "../../pages/use-graphics-settings";
 import { shortcutAction } from "../../shortcuts";
+import type { LessonScene } from "./contract";
+import { lessonSceneVisibleIds } from "./targets";
 
-export function useLessonViewer(catalog: Catalog, graphics: GraphicsSettings, modelId: string | readonly string[], onPick?: (id: string) => void, frame?: HTMLElement | RefObject<HTMLElement | null>,
-  onEditVisibility?: (hiddenIds: string[]) => void, allowSeparation = true, animateInitialReconstruction = true, background = false, onCameraChange?: () => void,
-  modelLoading: "replace" | "append" = "replace") {
+export function useLessonSceneVisibleIds(catalog: Catalog, scene?: Pick<LessonScene, "targetId" | "visibleIds">) {
+  const { targetId, visibleIds } = scene ?? {};
+  return useMemo(() => lessonSceneVisibleIds(catalog, targetId === undefined ? undefined : { targetId, visibleIds }),
+    [catalog, targetId, visibleIds]);
+}
+
+export function useLessonViewer({ catalog, modelIds, scene, visible, sceneUsable = true, sectionId, resetVersion, authoring }: {
+  catalog: Catalog;
+  modelIds: readonly string[];
+  scene?: Pick<LessonScene, "targetId" | "visibleIds" | "view">;
+  visible: boolean;
+  sceneUsable?: boolean;
+  sectionId?: string | null;
+  resetVersion?: number;
+  authoring?: { onVisibilityChange: (visibleIds: string[]) => void; onCameraChange?: () => void };
+}) {
+  const [graphics] = useGraphicsSettings();
   const host = useRef<HTMLDivElement>(null);
+  const focusFrame = useRef<HTMLDivElement>(null);
   const orientation = useRef<OrientationAxesHandle>(null);
   const runtime = useRef<ViewerRuntime | null>(null);
   const [fps, setFps] = useState(0);
   const [hold, setHold] = useState<ViewerHold | null>(null);
   const [snapTarget, setSnapTarget] = useState("");
-  const modelKey = typeof modelId === "string" ? modelId : modelId.join(",");
-  const canSelect = useEffectEvent(() => allowSeparation);
-  const cameraChanged = useEffectEvent(() => onCameraChange?.());
-  const sessionKey = modelLoading === "append" ? "" : modelKey;
+  const [sceneFailed, setSceneFailed] = useState(false);
+  const ids = useLessonSceneVisibleIds(catalog, scene);
+  const view = scene?.view;
+  const editing = !!authoring;
+  const modelKey = modelIds.join(",");
+  const canSelect = useEffectEvent(() => !!authoring && visible);
+  const cameraChanged = useEffectEvent(() => authoring?.onCameraChange?.());
+  const sessionKey = editing ? "" : modelKey;
   const session = useMemo(() => new StudySession(catalog), [catalog, sessionKey]);
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
+  const ready = !state.building && !state.error && !sceneFailed;
   useCameraKeys(!modelKey || state.building || state.error, session.control, host);
-  const hide = useEffectEvent((ids: string[]) => {
-    if (!allowSeparation || !session.changeVisibility(ids, false)) return false;
-    onEditVisibility?.(ids);
+  const hide = useEffectEvent((hiddenIds: string[]) => {
+    if (!authoring || !visible || !session.changeVisibility(hiddenIds, false)) return false;
+    const hidden = new Set(hiddenIds);
+    authoring.onVisibilityChange(ids.filter(id => !hidden.has(id)));
     return true;
   });
 
   useEffect(() => {
-    if ((!sessionKey && !background) || !host.current) return;
+    if (!host.current) return;
     const canvasHost = host.current;
-    const viewportFrame = frame && ("current" in frame ? frame.current : frame);
+    const viewportFrame = focusFrame.current;
     const viewer = new ViewerRuntime(canvasHost, {
       viewport: () => viewportFrame ? viewportInFrame(canvasHost, viewportFrame) : [0.04, 0.04, 0.92, 0.92],
       viewportElement: viewportFrame ?? undefined,
       onState: session.updateViewer,
       onCameraChange: cameraChanged,
-      onPick: id => { session.pick(id); onPick?.(id); },
+      onPick: session.pick,
       onHide: ids => hide(ids),
       onHold: setHold,
       onSnap: setSnapTarget,
@@ -50,8 +72,8 @@ export function useLessonViewer(catalog: Catalog, graphics: GraphicsSettings, mo
       canSeparate: () => false,
       canSelect,
       preserveCameraOnResize: true,
-      animateInitialReconstruction,
-      background,
+      animateInitialReconstruction: false,
+      background: true,
     });
     const keyDown = (event: KeyboardEvent) => {
       if (canSelect() && shortcutAction(event) === "restore") {
@@ -66,20 +88,38 @@ export function useLessonViewer(catalog: Catalog, graphics: GraphicsSettings, mo
       canvasHost.removeEventListener("keydown", keyDown); session.disconnect(viewer); viewer.dispose();
       if (runtime.current === viewer) runtime.current = null;
     };
-  }, [catalog, frame, sessionKey, onPick, session, background]);
+  }, [session]);
   useEffect(() => {
     const viewer = runtime.current;
-    if ((!modelKey && !background) || !viewer) return;
-    const ids = modelKey ? modelKey.split(",") : [];
-    const roots = catalog.roots.filter(root => ids.includes(root.id));
-    if (roots.length !== ids.length) {
+    if (!viewer) return;
+    const requestedIds = modelKey ? modelKey.split(",") : [];
+    const roots = catalog.roots.filter(root => requestedIds.includes(root.id));
+    if (roots.length !== requestedIds.length) {
       session.updateViewer({ error: true, building: false, status: "loadError" });
       return;
     }
-    if (modelLoading === "append") void viewer.updateBackgroundModels(catalog, roots, () => session.getSnapshot().visibleIds);
+    if (editing) void viewer.updateBackgroundModels(catalog, roots, () => session.getSnapshot().visibleIds);
     else void viewer.start(catalog, roots);
-  }, [catalog, frame, modelKey, modelLoading, onPick, session, background]);
-  useEffect(() => { runtime.current?.setGraphics(graphics); }, [graphics, session, frame, onPick]);
+  }, [catalog, editing, modelKey, session]);
+  useEffect(() => { runtime.current?.setGraphics(graphics); }, [graphics, session]);
 
-  return { host, orientation, showAxes: graphics.showAxes, fps, session, state, hold, snapTarget, runtime };
+  const resize = useCallback(() => runtime.current?.resize(), []);
+  const applyScene = useCallback(() => session.applyScene(ids, view), [session, ids, view]);
+
+  useEffect(() => {
+    const animation = requestAnimationFrame(resize);
+    return () => cancelAnimationFrame(animation);
+  }, [visible, resize, session]);
+
+  useEffect(() => {
+    if (!ready) return;
+    if (!visible || !sceneUsable) { session.changeVisibility(state.structureIds, false); return; }
+    const animation = requestAnimationFrame(() => {
+      if (!applyScene() && !editing) setSceneFailed(true);
+    });
+    return () => cancelAnimationFrame(animation);
+  }, [ready, visible, sceneUsable, editing, applyScene, sectionId, resetVersion, session, state.structureIds]);
+
+  return { host, focusFrame, orientation, showAxes: graphics.showAxes, fps: graphics.showFps ? fps : undefined,
+    session, state, hold, snapTarget, ids, ready, sceneFailed, resize, applyScene };
 }

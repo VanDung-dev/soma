@@ -4,6 +4,7 @@ import type { SceneView } from "../../anatomy/viewer/contracts";
 export const LESSON_STORAGE_PREFIX = "soma.lesson-v1:";
 
 export type LessonText = { vi: string; en: string; html?: ("vi" | "en")[] };
+export const emptyLessonText: LessonText = { vi: "", en: "" };
 export type LessonMode = "content" | "questions" | "content_questions";
 export type LessonQuestion = {
   id: string;

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { LessonStep } from "../shared/contract";
-import { lessonText } from "../shared/contract";
-import { LessonOutlineRow } from "../shared/workspace";
+import { lessonSectionTitle } from "../shared/sections";
+import { LessonSectionList } from "../shared/workspace";
 import { useLanguage } from "../../i18n";
 
 type Drag = { id: string; from: number; to: number; slot: number; pointer?: number; x: number; y: number;
@@ -64,7 +64,7 @@ export function LessonOutline({ steps, selected, onSelect, onMove, onRemove }: {
   }
   return <>
     <p id="lesson-drag-instructions" className="sr-only">{t("lessons.dragInstructions")}</p>
-    <ol className="lesson-outline-list" ref={list} onKeyDown={event => {
+    <LessonSectionList steps={steps} selected={selected} language={language} onSelect={onSelect} ref={list} onKeyDown={event => {
       if (event.key === "Escape" && dragging.current) { event.preventDefault(); cancel(); }
       else if ((event.key === "Delete" || event.key === "Backspace") && !event.repeat && !event.nativeEvent.isComposing
         && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && !dragging.current
@@ -72,14 +72,12 @@ export function LessonOutline({ steps, selected, onSelect, onMove, onRemove }: {
         event.preventDefault();
         onRemove();
       }
-    }}>
-      {steps.map((step, i) => {
-        const name = lessonText(step.title, language) || t("lessons.untitledSection");
-        return <li key={step.id} className="lesson-outline-item lesson-outline-card" data-lesson-step={step.id}
-          data-selected={step.id === selected}
-          data-dragging={drag?.id === step.id} data-drop-before={drag && drag.to !== drag.from && drag.slot === i}
-          data-drop-after={drag && drag.to !== drag.from && drag.slot === steps.length && i === steps.length - 1}>
-          <button className="lesson-drag-handle" aria-label={t("lessons.dragStep", { name })}
+    }} configureRow={(step, i, name, current) => ({
+      item: { className: "lesson-outline-item lesson-outline-card", "data-lesson-step": step.id, "data-selected": current,
+        "data-dragging": drag?.id === step.id, "data-drop-before": drag && drag.to !== drag.from && drag.slot === i,
+        "data-drop-after": drag && drag.to !== drag.from && drag.slot === steps.length && i === steps.length - 1 },
+      button: { "aria-keyshortcuts": current ? "Delete Backspace" : undefined },
+      controls: <button className="lesson-drag-handle" aria-label={t("lessons.dragStep", { name })}
             aria-describedby="lesson-drag-instructions" aria-pressed={drag?.id === step.id}
             onPointerDown={event => {
               if (event.button !== 0 || !event.isPrimary) return;
@@ -116,18 +114,14 @@ export function LessonOutline({ steps, selected, onSelect, onMove, onRemove }: {
                 dragging.current = { ...current, to, slot: to > current.from ? to + 1 : to };
                 setDrag(dragging.current);
               }
-            }}><span aria-hidden="true">⠿</span></button>
-          <LessonOutlineRow label={name} aria-current={step.id === selected ? "true" : undefined}
-            aria-keyshortcuts={step.id === selected ? "Delete Backspace" : undefined} onClick={() => onSelect(step.id)} />
-        </li>;
-      })}
-    </ol>
+            }}><span aria-hidden="true">⠿</span></button>,
+    })} />
     {drag?.preview && draggedStep && createPortal(<div className="lesson-outline-item lesson-outline-card lesson-outline-drag-preview"
       aria-hidden="true" data-selected={draggedStep.id === selected}
       style={{ left: drag.x - drag.preview.offsetX, top: drag.y - drag.preview.offsetY, width: drag.preview.width, height: drag.preview.height }}>
       <span className="lesson-drag-handle"><span>⠿</span></span>
       <div className="lesson-outline-row">
-        <strong className="lesson-outline-label">{lessonText(draggedStep.title, language) || t("lessons.untitledSection")}</strong>
+        <strong className="lesson-outline-label">{lessonSectionTitle(draggedStep, language, t("lessons.untitledSection"))}</strong>
       </div>
     </div>, document.body)}
     <p className="sr-only" role="status">{drag ? t("lessons.dragPosition", { position: drag.to + 1, total: steps.length }) : ""}</p>
