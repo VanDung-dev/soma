@@ -9,3 +9,19 @@ export async function fetchModelAsset(path: string, init: RequestInit): Promise<
     : `${import.meta.env.BASE_URL}${path}`;
   return fetch(url, init);
 }
+
+export function modelMetadataPath(path: string) {
+  return path.replace(/\.glb(?:\.br)?$/, ".json");
+}
+
+export async function fetchModelMetadata<T>(path: string, init: RequestInit): Promise<T> {
+  const response = await fetchModelAsset(path, init);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return await response.json() as T;
+}
+
+export function requireRootMetadata<T>(metadata: Record<string, T>, rootId: string): T {
+  const entry = metadata[rootId];
+  if (!entry) throw new Error("Missing system metadata");
+  return entry;
+}

@@ -13,7 +13,8 @@
 .settings-section:not(.controls-shortcuts) { overflow: hidden; }
 .settings-section.controls-shortcuts { overflow: hidden; }
 .settings-section h2 { flex-shrink: 0; margin: 0; padding: 4px var(--panel-padding); color: var(--text); font: 600 18px/1.4 var(--font-ui); }
-.settings-scroll { display: flex; flex: 1 1 auto; flex-direction: column; gap: var(--settings-row-gap); min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; container: settings-content / inline-size; }
+.settings-scroll, .shortcut-list { display: flex; flex: 1 1 auto; flex-direction: column; gap: var(--settings-row-gap); min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.settings-scroll { container: settings-content / inline-size; }
 .settings-section .settings-row { padding: 4px var(--panel-padding); flex-wrap: wrap; border-radius: var(--inner-radius); background: var(--settings-row-bg); }
 .settings-section :is(.settings-row > label, .graphics-options-label) { padding: 0; font-size: var(--settings-label-size); }
 .settings-section :is(.settings-option, .settings-select, .settings-number-control) { font-size: var(--settings-label-size); }
@@ -59,7 +60,6 @@
 .shortcut-toolbar p, .shortcut-status { margin: 0; color: var(--muted); font-size: 13px; }
 .shortcut-status { padding-inline: var(--panel-padding); }
 .shortcut-status:empty { display: none; }
-.shortcut-list { display: flex; flex: 1 1 auto; flex-direction: column; gap: var(--settings-row-gap); min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .shortcut-group { flex-shrink: 0; }
 .shortcut-group h3 { margin: 6px var(--panel-padding) 0; font-size: 14px; }
 .settings-section .shortcut-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
