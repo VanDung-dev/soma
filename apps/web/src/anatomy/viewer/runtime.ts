@@ -1,7 +1,7 @@
 import type { Catalog, StudyTarget } from "../catalog/types";
 import { getContent, getWasm } from "../core";
 import type { AnatomyViewer } from "../../wasm/wasm";
-import type { CameraCommand, PreparedGeometry, SceneView, StudyViewer, ViewerState, ViewerStatus, Viewport } from "./contracts";
+import type { CameraCommand, PreparedGeometry, SceneView, StudyViewer, ViewerHold, ViewerState, ViewerStatus, Viewport } from "./contracts";
 import { bindViewerInput } from "./input";
 import { loadModels } from "./loader";
 import { defaultGraphics, qualityLevels, renderScales } from "./graphics";
@@ -55,7 +55,7 @@ export class ViewerRuntime implements StudyViewer {
     background?: boolean;
     onFps?: (fps: number) => void;
     onOrientation?: (axes: Float32Array) => void;
-    onHold?: (point: { x: number; y: number; action: "hide" | "move" } | null) => void;
+    onHold?: (point: ViewerHold | null) => void;
     onSnap?: (id: string) => void;
   }) {
     this.canvas.setAttribute("role", "img");

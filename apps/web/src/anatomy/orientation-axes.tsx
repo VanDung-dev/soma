@@ -6,6 +6,23 @@ import type { CameraCommand } from "./viewer/contracts";
 export type OrientationAxesHandle = { update: (axes: Float32Array) => void };
 type AxisCommand = Extract<CameraCommand, { kind: "orient" }>;
 
+export function ViewerOrientation({ ref, orientation, showAxes, disabled, onControl, fps }: {
+  ref?: Ref<HTMLDivElement>;
+  orientation: Ref<OrientationAxesHandle>;
+  showAxes: boolean;
+  disabled: boolean;
+  onControl: (commands: CameraCommand[]) => boolean;
+  fps?: number;
+}) {
+  const { t } = useLanguage();
+  return <div className="model-orientation" ref={ref}>
+    <div hidden={!showAxes}>
+      <OrientationAxes ref={orientation} disabled={disabled || !showAxes} onControl={onControl} />
+    </div>
+    {fps !== undefined && <span className="model-fps" aria-label={t("graphics.fps.current", { count: fps || "—" })}>{fps || "—"} FPS</span>}
+  </div>;
+}
+
 export function OrientationAxes({ ref, disabled, onControl }: {
   ref: Ref<OrientationAxesHandle>; disabled: boolean; onControl: (commands: CameraCommand[]) => boolean;
 }) {

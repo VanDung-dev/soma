@@ -1,6 +1,7 @@
 import type { StudyTarget } from "../catalog/types";
 import type { PreparedGeometry } from "./contracts";
-import { fetchModelAsset, usesBundledModels } from "../../model-assets";
+import { openIndexedDatabase, transactionComplete } from "../../indexed-db";
+import { fetchModelAsset, fetchModelMetadata, modelMetadataPath, requireRootMetadata, usesBundledModels } from "../../model-assets";
 
 export async function* loadModels(roots: StudyTarget[], signal: AbortSignal, onProgress: (loaded: number) => void,
   ingest: (root: StudyTarget, json: string) => string[], overview?: boolean) {
@@ -19,28 +20,15 @@ export async function* loadModels(roots: StudyTarget[], signal: AbortSignal, onP
   try {
     try {
       if (!usesBundledModels && globalThis.indexedDB && model.sha256) {
-        cache = await new Promise<IDBDatabase>((resolve, reject) => {
-          const request = indexedDB.open("anatomy-models-v1", 1);
-          request.onupgradeneeded = () => request.result.createObjectStore("models");
-          request.onsuccess = () => resolve(request.result);
-          request.onerror = () => reject(request.error);
-        });
+        cache = await openIndexedDatabase("anatomy-models-v1", 1, db => db.createObjectStore("models"));
       }
     } catch {}
     signal.throwIfAborted();
-    const metadataResponse = await fetchModelAsset(model.path.replace(/\.glb(?:\.br)?$/, ".json"), {
-      signal: downloadAbort.signal, cache: "no-cache",
-    });
-    if (!metadataResponse.ok) throw new Error(`HTTP ${metadataResponse.status}`);
-    const bundle = await metadataResponse.json() as {
+    const bundle = await fetchModelMetadata<{
       manifest: { models: { source_ids: string[] }[] };
       metadata: Record<string, { structures: unknown[] }>;
-    };
-    const selected = roots.flatMap(root => {
-      const metadata = bundle.metadata[root.id];
-      if (!metadata) throw new Error("Missing system metadata");
-      return ingest(root, JSON.stringify(metadata));
-    });
+    }>(modelMetadataPath(model.path), { signal: downloadAbort.signal, cache: "no-cache" });
+    const selected = roots.flatMap(root => ingest(root, JSON.stringify(requireRootMetadata(bundle.metadata, root.id))));
     signal.throwIfAborted();
     let bytes: ArrayBuffer | undefined;
     if (cache) {
@@ -60,12 +48,9 @@ export async function* loadModels(roots: StudyTarget[], signal: AbortSignal, onP
       bytes = await response.arrayBuffer();
       if (cache) {
         try {
-          await new Promise<void>((resolve, reject) => {
-            const transaction = cache!.transaction("models", "readwrite");
-            transaction.objectStore("models").put({ version: model.sha256, bytes: new Blob([bytes!]) }, model.path);
-            transaction.oncomplete = () => resolve();
-            transaction.onabort = transaction.onerror = () => reject(transaction.error);
-          });
+          const transaction = cache.transaction("models", "readwrite");
+          transaction.objectStore("models").put({ version: model.sha256, bytes: new Blob([bytes]) }, model.path);
+          await transactionComplete(transaction);
         } catch {}
       }
     }
