@@ -50,7 +50,6 @@
 .lesson-language-options .lesson-button:not(:disabled):hover { background: var(--control-hover); border-color: var(--line-hover); color: var(--text); }
 .lesson-language-options .lesson-button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--selected-bg); font-weight: 650; }
 .lesson-cover-actions { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
-.lesson-cover-actions .lesson-button { display: inline-flex; align-items: center; justify-content: center; min-height: 28px; height: 28px; padding: 3px 10px; border-radius: var(--inner-radius); font-size: 12px; white-space: nowrap; }
 .lesson-cover-upload { position: relative; overflow: hidden; cursor: pointer; }
 .lesson-cover-upload input[type="file"] { position: absolute; width: 0.1px; height: 0.1px; opacity: 0; overflow: hidden; z-index: -1; }
 
@@ -182,17 +181,6 @@ dialog.lesson-cover-modal:not([open]) {
   gap: 12px;
   padding-top: 4px;
 }
-.lesson-cover-modal-footer .lesson-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 28px;
-  height: 28px;
-  padding: 3px 10px;
-  border-radius: var(--inner-radius);
-  font-size: 12px;
-  white-space: nowrap;
-}
 .lesson-cover-modal-actions {
   display: flex;
   align-items: center;
@@ -219,7 +207,7 @@ dialog.lesson-cover-modal:not([open]) {
 .lesson-workspace-shell { container: lesson / inline-size; display: flex; flex-direction: column; gap: var(--panel-gap); padding: var(--panel-inset); background: var(--workspace-bg); }
 .lesson-workspace-shell > .model-canvas { z-index: 0; }
 .lesson-header[data-layout="inline"] { height: auto; min-height: var(--reference-diameter); }
-.lesson-header .lesson-button { display: inline-flex; align-items: center; justify-content: center; min-height: 28px; height: 28px; padding: 3px 10px; border-radius: var(--inner-radius); font-size: 12px; white-space: nowrap; }
+.lesson-cover-actions .lesson-button, .lesson-cover-modal-footer .lesson-button, .lesson-header .lesson-button { display: inline-flex; align-items: center; justify-content: center; min-height: 28px; height: 28px; padding: 3px 10px; border-radius: var(--inner-radius); font-size: 12px; white-space: nowrap; }
 .lesson-header .lesson-button svg { width: 14px; height: 14px; }
 .lesson-header .lesson-exit { width: auto; height: 28px; padding: 3px 10px; gap: 4px; font-size: 12px; }
 .lesson-heading { min-width: 0; text-align: center; }

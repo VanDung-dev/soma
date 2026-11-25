@@ -1,9 +1,10 @@
-import { useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useMemo, useRef } from "react";
 import type { ReactNode, Ref } from "react";
 import { createPortal } from "react-dom";
-import { getCatalog } from "../../anatomy/core";
 import type { Catalog } from "../../anatomy/catalog/types";
 import { ExplodeControls } from "../../anatomy/explode-controls";
+import { useCatalog } from "../../anatomy/use-catalog";
+import { ViewerHoldProgress } from "../../anatomy/viewer-status";
 import { useLanguage } from "../../i18n";
 import { useLessonViewer } from "../shared/viewer";
 import { LessonModelHud } from "../shared/model-hud";
@@ -32,20 +33,7 @@ export type EditorSceneHandle = { capture: () => { view: SceneView; visibleIds: 
 
 export function EditorScene(props: SceneProps) {
   const { t } = useLanguage();
-  const [catalog, setCatalog] = useState<Catalog>();
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    let active = true;
-    let owned: Catalog | undefined;
-    getCatalog().then(value => {
-      if (!active) { value.free(); return; }
-      owned = value;
-      setCatalog(value);
-    }, error => {
-      if (active) { console.error("Lesson scene catalog failed", error); setFailed(true); }
-    });
-    return () => { active = false; owned?.free(); };
-  }, []);
+  const { catalog, failed } = useCatalog("Lesson scene catalog failed");
 
   if (catalog) return <Scene key={props.reloadVersion} catalog={catalog} {...props} />;
   return createPortal(<LessonModelHud className="lesson-editor-hud" showCredit={false} actions={!props.inactive && props.settingsButton}
@@ -123,10 +111,7 @@ function Scene({ catalog, graphics, modelIds, targetId, sectionId, frame, inacti
           {separated && <p className="model-status separation-status" role="status">{t("context.dragHint")}</p>}
         </>} />
       {ready && <LessonStructureTools key={sectionId} catalog={catalog} session={session} state={state} ids={ids} />}
-      {hold && <svg key={hold.action} className="model-hold-progress" data-action={hold.action} style={{ left: hold.x, top: hold.y }} viewBox="0 0 40 40" aria-hidden="true">
-        <circle cx="20" cy="20" r="16" />
-        <circle className="model-hold-fill" cx="20" cy="20" r="16" pathLength="100" />
-      </svg>}
+      {hold && <ViewerHoldProgress key={hold.action} hold={hold} />}
     </div>, frame)}
   </>;
 }

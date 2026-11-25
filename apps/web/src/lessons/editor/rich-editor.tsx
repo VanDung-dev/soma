@@ -11,6 +11,7 @@ import type { Language } from "../../i18n";
 import { useLanguage } from "../../i18n";
 import { editorHtml, lessonImageAlignment, resolveLessonImages, sanitizeLessonHtml } from "../shared/rich-text";
 import { useLessonImages } from "../shared/image-context";
+import { LessonImageProgress } from "../shared/image-progress";
 import type { LessonImageStage } from "../shared/archive";
 import { lessonCellColorControl, lessonColorControl } from "./jodit-colors";
 import { setupLessonToolbars } from "./jodit-toolbar";
@@ -344,6 +345,6 @@ export default function RichEditor({ value, language, label, onChange }: {
     <input ref={picker} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden />
     {failed && <p role="alert">{t("lessons.richEditorError")}</p>}
     {imageFailed && <p role="alert">{t("lessons.imageAddError")}</p>}
-    {imageStage && <div className="lesson-image-progress" role="status"><progress aria-label={t(`lessons.image.${imageStage}`)} /><span>{t(`lessons.image.${imageStage}`)}</span></div>}
+    {imageStage && <LessonImageProgress stage={imageStage} />}
   </div>;
 }

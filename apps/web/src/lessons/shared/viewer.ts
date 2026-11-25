@@ -4,6 +4,7 @@ import type { Catalog } from "../../anatomy/catalog/types";
 import type { OrientationAxesHandle } from "../../anatomy/orientation-axes";
 import { StudySession } from "../../anatomy/study/session";
 import { useCameraKeys } from "../../anatomy/use-camera-keys";
+import type { ViewerHold } from "../../anatomy/viewer/contracts";
 import type { GraphicsSettings } from "../../anatomy/viewer/graphics";
 import { viewportInFrame } from "../../anatomy/viewer/layout";
 import { ViewerRuntime } from "../../anatomy/viewer/runtime";
@@ -16,7 +17,7 @@ export function useLessonViewer(catalog: Catalog, graphics: GraphicsSettings, mo
   const orientation = useRef<OrientationAxesHandle>(null);
   const runtime = useRef<ViewerRuntime | null>(null);
   const [fps, setFps] = useState(0);
-  const [hold, setHold] = useState<{ x: number; y: number; action: "hide" | "move" } | null>(null);
+  const [hold, setHold] = useState<ViewerHold | null>(null);
   const [snapTarget, setSnapTarget] = useState("");
   const modelKey = typeof modelId === "string" ? modelId : modelId.join(",");
   const canSelect = useEffectEvent(() => allowSeparation);

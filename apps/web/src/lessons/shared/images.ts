@@ -1,5 +1,6 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import * as content from "../../content/content.js";
+import { openIndexedDatabase, transactionComplete } from "../../indexed-db";
 import { lessonJob } from "./archive";
 import type { LessonImageStage } from "./archive";
 import { LESSON_STORAGE_PREFIX } from "./contract";
@@ -7,19 +8,45 @@ import type { Lesson } from "./contract";
 
 export type LessonImages = Map<string, Blob>;
 
-async function database() {
-  return new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open("soma-lesson-images-v1", 1);
-    request.onupgradeneeded = () => {
-      if (!request.result.objectStoreNames.contains("images")) request.result.createObjectStore("images");
-      if (!request.result.objectStoreNames.contains("content")) request.result.createObjectStore("content");
-    };
+type LessonStore = "images" | "content";
+
+function database() {
+  return openIndexedDatabase("soma-lesson-images-v1", 1, db => {
+    if (!db.objectStoreNames.contains("images")) db.createObjectStore("images");
+    if (!db.objectStoreNames.contains("content")) db.createObjectStore("content");
+  }, { closeOnVersionChange: true, blockedMessage: "Lesson image storage is blocked" });
+}
+
+async function withLessonStore(storeName: LessonStore, mode: IDBTransactionMode, useStore: (store: IDBObjectStore) => void) {
+  const db = await database();
+  try {
+    const transaction = db.transaction(storeName, mode);
+    useStore(transaction.objectStore(storeName));
+    await transactionComplete(transaction);
+  } finally { db.close(); }
+}
+
+function scanLessonRecords(id: string, storeName: LessonStore, mode: IDBTransactionMode,
+  visit: (cursor: IDBCursorWithValue) => boolean | void) {
+  return withLessonStore(storeName, mode, store => {
+    const request = store.openCursor(IDBKeyRange.bound([id, ""], [id, "\uffff"]));
     request.onsuccess = () => {
-      request.result.onversionchange = () => request.result.close();
-      resolve(request.result);
+      const cursor = request.result;
+      if (cursor && visit(cursor) !== false) cursor.continue();
     };
-    request.onerror = () => reject(request.error);
-    request.onblocked = () => reject(new Error("Lesson image storage is blocked"));
+  });
+}
+
+function putLessonRecords(id: string, storeName: LessonStore, records: ReadonlyMap<string, string | Blob>) {
+  return withLessonStore(storeName, "readwrite", store => {
+    for (const [path, value] of records) store.put(value, [id, path]);
+  });
+}
+
+function removeLessonRecords(id: string, storeName: LessonStore, canRemove: () => boolean, keep?: ReadonlySet<string>) {
+  return scanLessonRecords(id, storeName, "readwrite", cursor => {
+    if (!canRemove()) return false;
+    if (!keep || !keep.has((cursor.key as string[])[1]!)) cursor.delete();
   });
 }
 
@@ -36,22 +63,11 @@ export async function loadLessonImages(id: string, paths?: ReadonlySet<string>) 
 }
 
 export async function loadBrowserLessonImages(id: string) {
-  const db = await database();
-  try {
-    return await new Promise<LessonImages>((resolve, reject) => {
-      const transaction = db.transaction("images");
-      const request = transaction.objectStore("images").openCursor(IDBKeyRange.bound([id, ""], [id, "\uffff"]));
-      const images: LessonImages = new Map();
-      request.onsuccess = () => {
-        const cursor = request.result;
-        if (!cursor) return;
-        images.set((cursor.key as string[])[1]!, cursor.value as Blob);
-        cursor.continue();
-      };
-      transaction.oncomplete = () => resolve(images);
-      transaction.onabort = transaction.onerror = () => reject(transaction.error);
-    });
-  } finally { db.close(); }
+  const images: LessonImages = new Map();
+  await scanLessonRecords(id, "images", "readonly", cursor => {
+    images.set((cursor.key as string[])[1]!, cursor.value as Blob);
+  });
+  return images;
 }
 
 export async function loadBrowserLessonContent(id: string, paths: ReadonlySet<string>) {
@@ -76,35 +92,12 @@ export async function loadBrowserLessonContent(id: string, paths: ReadonlySet<st
   } finally { db.close(); }
 }
 
-export async function storeBrowserLessonContent(id: string, contents: ReadonlyMap<string, string>) {
-  const db = await database();
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const transaction = db.transaction("content", "readwrite");
-      const store = transaction.objectStore("content");
-      for (const [path, html] of contents) store.put(html, [id, path]);
-      transaction.oncomplete = () => resolve();
-      transaction.onabort = transaction.onerror = () => reject(transaction.error);
-    });
-  } finally { db.close(); }
+export function storeBrowserLessonContent(id: string, contents: ReadonlyMap<string, string>) {
+  return putLessonRecords(id, "content", contents);
 }
 
-export async function retainBrowserLessonContent(id: string, paths: ReadonlySet<string>, canRemove: () => boolean = () => true) {
-  const db = await database();
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const transaction = db.transaction("content", "readwrite");
-      const request = transaction.objectStore("content").openCursor(IDBKeyRange.bound([id, ""], [id, "\uffff"]));
-      request.onsuccess = () => {
-        const cursor = request.result;
-        if (!cursor || !canRemove()) return;
-        if (!paths.has((cursor.key as string[])[1]!)) cursor.delete();
-        cursor.continue();
-      };
-      transaction.oncomplete = () => resolve();
-      transaction.onabort = transaction.onerror = () => reject(transaction.error);
-    });
-  } finally { db.close(); }
+export function retainBrowserLessonContent(id: string, paths: ReadonlySet<string>, canRemove: () => boolean = () => true) {
+  return removeLessonRecords(id, "content", canRemove, paths);
 }
 
 export async function loadLessonImage(id: string, path: string) {
@@ -133,55 +126,18 @@ export async function storeLessonImages(id: string, images: LessonImages) {
     }
     return;
   }
-  const db = await database();
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const transaction = db.transaction("images", "readwrite");
-      for (const [path, blob] of images) transaction.objectStore("images").put(blob, [id, path]);
-      transaction.oncomplete = () => resolve();
-      transaction.onabort = transaction.onerror = () => reject(transaction.error);
-    });
-  } finally { db.close(); }
+  return putLessonRecords(id, "images", images);
 }
 
-export async function removeLessonImages(id: string, canRemove: () => boolean) {
-  const db = await database();
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const transaction = db.transaction("images", "readwrite");
-      const request = transaction.objectStore("images").openCursor(IDBKeyRange.bound([id, ""], [id, "\uffff"]));
-      request.onsuccess = () => {
-        const cursor = request.result;
-        if (!cursor || !canRemove()) return;
-        cursor.delete();
-        cursor.continue();
-      };
-      transaction.oncomplete = () => resolve();
-      transaction.onabort = transaction.onerror = () => reject(transaction.error);
-    });
-  } finally { db.close(); }
+export function removeLessonImages(id: string, canRemove: () => boolean) {
+  return removeLessonRecords(id, "images", canRemove);
 }
 
 export async function retainLessonImages(id: string, paths: ReadonlySet<string>, expected?: Lesson | string) {
   const expectedJson = typeof expected === "string" ? expected : expected ? JSON.stringify(expected) : null;
   if (isTauri()) return invoke<void>("retain_lesson_images", { id, keep: [...paths], expected: expectedJson });
   const key = LESSON_STORAGE_PREFIX + id;
-  const db = await database();
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const transaction = db.transaction("images", "readwrite");
-      const request = transaction.objectStore("images").openCursor(IDBKeyRange.bound([id, ""], [id, "\uffff"]));
-      request.onsuccess = () => {
-        const cursor = request.result;
-        if (!cursor) return;
-        if (localStorage.getItem(key) !== expectedJson) return;
-        if (!paths.has((cursor.key as string[])[1]!)) cursor.delete();
-        cursor.continue();
-      };
-      transaction.oncomplete = () => resolve();
-      transaction.onabort = transaction.onerror = () => reject(transaction.error);
-    });
-  } finally { db.close(); }
+  return removeLessonRecords(id, "images", () => localStorage.getItem(key) === expectedJson, paths);
 }
 
 export async function readLessonImage(blob: Blob, onProgress?: (stage: LessonImageStage) => void) {

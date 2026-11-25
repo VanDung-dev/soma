@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { getCatalog, getContent } from "../anatomy/core";
+import { getContent } from "../anatomy/core";
+import { useCatalog } from "../anatomy/use-catalog";
 import type { Catalog } from "../anatomy/catalog/types";
 import { useLanguage } from "../i18n";
 import type { Language } from "../i18n";
@@ -16,7 +17,7 @@ import { LessonImageProvider } from "./shared/image-context";
 import { checkImageCollection, loadLessonImages, retainLessonImages, storeLessonImages } from "./shared/images";
 import { lessonJob } from "./shared/archive";
 import { lessonImagePaths } from "./shared/rich-text";
-import { LessonLibrary } from "./library/library";
+import { LessonImportIcon, LessonLibrary } from "./library/library";
 import { LessonConfirmProvider, useLessonConfirm } from "./shared/confirm";
 
 type LessonsPageProps = { editId?: string; viewId?: string; studyVisible: boolean; navigate: (path: string) => void };
@@ -212,36 +213,19 @@ function LessonsPageContent({ editId, viewId, studyVisible, navigate }: LessonsP
       onExport={lesson => { void handleExport(lesson); }} onRemove={remove} />}
   </main>
     {!activeId && dragging && <div className="lesson-library-drop-overlay" role="status">
-      <span className="lesson-import-symbol" aria-hidden="true"><svg width="24" height="28" viewBox="0 0 24 28" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H5a2 2 0 0 0-2 2v20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9z" /><path d="M14 2v7h7M12 13v8m-3-3 3 3 3-3" /></svg></span><strong>{t(importing ? "lessons.importing" : loading ? "lessons.loading" : "lessons.dropToImport")}</strong><span>{t("lessons.importFileHint")}</span>
+      <span className="lesson-import-symbol" aria-hidden="true"><LessonImportIcon /></span><strong>{t(importing ? "lessons.importing" : loading ? "lessons.loading" : "lessons.dropToImport")}</strong><span>{t("lessons.importFileHint")}</span>
     </div>}
   </>;
 }
 
 function WithLessonCatalog({ children }: { children: (catalog: Catalog) => ReactNode }) {
   const { t } = useLanguage();
-  const [catalog, setCatalog] = useState<Catalog>();
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-
-  useEffect(() => {
-    let active = true;
-    let current: Catalog | undefined;
-    getCatalog().then(value => {
-      if (!active) { value.free(); return; }
-      current = value;
-      setCatalog(value);
-    }, cause => {
-      if (!active) return;
-      console.error("Lesson catalog failed", cause);
-      setFailed(true);
-    });
-    return () => { active = false; current?.free(); };
-  }, [attempt]);
+  const { catalog, failed, retry } = useCatalog("Lesson catalog failed");
 
   if (catalog) return children(catalog);
   if (failed) return <>
     <p role="alert">{t("app.startup.error.title")}</p>
-    <button className="lesson-button" onClick={() => { setFailed(false); setAttempt(attempt + 1); }}>{t("lessons.retry")}</button>
+    <button className="lesson-button" onClick={retry}>{t("lessons.retry")}</button>
   </>;
   return <p role="status">{t("app.startup.loading")}</p>;
 }

@@ -113,8 +113,8 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
     return stage({ ...draft, ...patch });
   }
 
-  function captureSceneDraft(): Lesson | undefined {
-    if (!sceneDirty || !showModel || !hasModel) return draft;
+  function captureSceneDraft(captureUnchanged = false): Lesson | undefined {
+    if ((!sceneDirty && !captureUnchanged) || !showModel || !hasModel) return draft;
     const snapshot = sceneHandle.current?.capture();
     if (!snapshot) { setError(t("lessons.sceneSaveUnavailable")); return; }
     const patch = { modelIds, targetId: sceneTargetId, visibleIds: snapshot.visibleIds, view: snapshot.view, sceneRef: undefined };
@@ -277,23 +277,9 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
   async function save() {
     if (saving) return;
     const revision = editRevision.current;
-    let nextDraft = draft;
-    if (showModel && hasModel) {
-      const snapshot = sceneHandle.current?.capture();
-      if (!snapshot) { setError(t("lessons.sceneSaveUnavailable")); return; }
-      const patch = { modelIds, targetId: sceneTargetId, visibleIds: snapshot.visibleIds, view: snapshot.view, sceneRef: undefined };
-      if (!active) {
-        nextDraft = { ...draft, scene: patch, sceneRef: undefined };
-      } else {
-        nextDraft = {
-          ...draft,
-          steps: draft.steps.map(step => step.id === active.id
-            ? { ...step, kind: "observe", ...patch }
-            : step),
-        };
-      }
-    }
-    if (nextDraft !== draft) nextDraft = { ...nextDraft, preloadModelIds: undefined };
+    const capturedDraft = captureSceneDraft(true);
+    if (!capturedDraft) return;
+    const nextDraft = capturedDraft === draft ? draft : { ...capturedDraft, preloadModelIds: undefined };
     const success = await onChange(nextDraft);
     if (success && editRevision.current === revision) {
       setDraft(nextDraft);
