@@ -60,7 +60,7 @@ export async function checkLessonBackground(page) {
       assert.equal(animations, 0, 'The document layout updates without a grid transition');
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       const after = await writing.boundingBox();
-      assert(width > 900 ? after.width < before.width : after.y > before.y);
+      assert(width > 900 ? after.x + after.width > before.x + before.width : after.y > before.y);
       assert(await original.evaluate(canvas => canvas === document.querySelector('.lesson-editor > .model-canvas canvas')));
       await page.waitForFunction(() => window.backgroundViewer?.visible_count() === 277);
       assert(await page.evaluate(() => {

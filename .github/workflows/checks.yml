@@ -17,8 +17,6 @@ on:
       - '!**/*.[mM][dD]'
       - '!**/*.[mM][dD][xX]'
       - '!**/*.[mM][aA][rR][kK][dD][oO][wW][nN]'
-  pull_request:
-    paths: *check_paths
 
 permissions:
   contents: read

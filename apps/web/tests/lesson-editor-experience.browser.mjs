@@ -6,23 +6,24 @@ import { createLesson, lessonBody, savedLesson, saveLessonDraft } from './lesson
 
 export async function checkLessonEditorExperience(page) {
   await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/lessons');
   const id = await createLesson(page);
   const saved = () => savedLesson(page, id);
   const writing = page.locator('#lesson-author-writing');
   const frame = page.locator('.lesson-scene-region');
-  assert.equal(await page.locator('.lesson-model:visible, .tox-tinymce, .structure-search:visible').count(), 0, 'Lesson details are a simple card form');
+  assert.equal(await page.locator('.lesson-model:visible, .lesson-rich-editor, .structure-search:visible').count(), 0, 'Lesson details are a simple card form');
   await page.getByLabel('Tên bài học').fill('Thông tin và từng bước');
   await page.getByLabel('Mô tả ngắn').fill('Mô tả trên thẻ bài học.');
   const cover = await readFile(new URL('../public/home/anatomy.png', import.meta.url));
   await page.getByLabel('Ảnh bìa bài học', { exact: true }).setInputFiles({ name: 'cover.png', mimeType: 'image/png', buffer: cover });
   await writing.locator('.lesson-cover').waitFor();
-  await writing.getByRole('button', { name: 'Lưu thông tin', exact: true }).click();
+  await saveLessonDraft(page);
   const details = await saved();
   assert.equal(details.summary.vi, 'Mô tả trên thẻ bài học.');
   assert(!details.summary.html);
   assert.match(details.cover, /^images\/[a-f0-9]{64}\.(png|jpg|webp)$/);
-  await page.getByRole('button', { name: 'Danh sách bài học', exact: true }).click();
+  await page.getByRole('button', { name: 'Thoát', exact: true }).click();
   const card = page.locator('.lesson-card').filter({ hasText: 'Thông tin và từng bước' });
   await card.locator('img').waitFor();
   assert(await card.locator('img').evaluate(img => img.decode().then(() => img.naturalWidth > 0)));
@@ -30,7 +31,7 @@ export async function checkLessonEditorExperience(page) {
   await card.locator('img').waitFor();
   await card.getByRole('button', { name: 'Chỉnh sửa', exact: true }).click();
   assert.equal(await page.getByLabel('Mô tả ngắn').inputValue(), details.summary.vi);
-  assert.equal(await page.locator('.tox-tinymce').count(), 0);
+  assert.equal(await page.locator('.lesson-rich-editor').count(), 0);
   await writing.getByRole('button', { name: 'Thêm mục', exact: true }).click();
   await page.getByLabel('Tên mục').fill('Hai dòng');
   assert.equal(await page.locator('#lesson-author-inspector, #lesson-toggle-inspector, #lesson-scene-structures').count(), 0);
@@ -57,13 +58,12 @@ export async function checkLessonEditorExperience(page) {
   }
   const part = frame.getByRole('region', { name: 'Thông tin bộ phận' });
   await part.getByRole('heading').waitFor();
-  assert.equal(await part.locator('.information-heading .lesson-button').count(), 1);
-  assert(await part.evaluate(node => getComputedStyle(node).backgroundColor === 'rgba(0, 0, 0, 0)' && getComputedStyle(node).boxShadow === 'none'));
+  assert.equal(await part.locator('.lesson-part-actions .lesson-button').count(), 1);
   const bounds = await part.boundingBox();
   const canvas = await frame.boundingBox();
   assert(Math.abs(bounds.x - canvas.x - 10) <= 1);
-  assert(Math.abs(bounds.width - canvas.width + 20) <= 1, 'Part details span the model interaction region');
-  assert(bounds.y > canvas.y + canvas.height / 2, 'Part details sit near the bottom');
+  assert(Math.abs(bounds.width - Math.min(canvas.width - 20, 280)) <= 1, 'Part details fit in the model interaction region');
+  assert(Math.abs(bounds.y - canvas.y - 44) <= 1, 'Part details sit below the model attribution');
   await search.fill('');
   await settings.locator('.structure-tree > li > .tree-row .tree-name').first().click();
   await part.waitFor({ state: 'hidden' });
@@ -84,7 +84,10 @@ export async function checkLessonEditorExperience(page) {
   assert.equal(await page.locator('.lesson-author-alerts').count(), 0);
   await settingsButton.click();
   const slider = settings.getByRole('slider', { name: 'Mức độ tách', exact: true });
-  await slider.focus(); await slider.press('End');
+  await settings.getByRole('button', { name: 'Hủy', exact: true }).and(settings.locator(':focus')).waitFor();
+  await slider.and(settings.locator('input:enabled')).waitFor();
+  await slider.fill('100');
+  await settings.locator('.explode-control output').filter({ hasText: '100%' }).waitFor();
   await settings.getByRole('button', { name: 'Áp dụng', exact: true }).click();
   await saveLessonDraft(page);
   assert.equal(await part.count(), 0, 'Saving must not reopen dismissed part information');
@@ -93,15 +96,22 @@ export async function checkLessonEditorExperience(page) {
   await writing.getByRole('button', { name: 'Thêm mục', exact: true }).click();
   await page.getByLabel('Tên mục').fill('Chỉ nội dung');
   await body.fill('Bước này không hiển thị mô hình.');
+  await settingsButton.click();
+  await settings.getByRole('button', { name: 'Sao chép cảnh mục trước', exact: true }).click();
+  await slider.and(settings.locator('input:enabled')).waitFor();
+  await settings.getByRole('button', { name: 'Áp dụng', exact: true }).click();
+  await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
+  await saveLessonDraft(page);
+  const authored = (await saved()).steps[1];
   await page.getByRole('checkbox', { name: 'Hiển thị mô hình 3D ở mục này', exact: true }).uncheck();
   assert(await frame.isHidden());
-  await writing.getByRole('button', { name: 'Lưu bước', exact: true }).click();
+  await saveLessonDraft(page);
   const hidden = (await saved()).steps[1];
   assert.equal(hidden.showModel, false);
-  assert.deepEqual(hidden.view, first.view, 'Hiding 3D preserves the authored scene');
+  assert.deepEqual(hidden.view, authored.view, 'Hiding 3D preserves the authored scene');
   await page.reload();
   await page.getByLabel('Tên bài học').waitFor();
-  assert.equal(await page.locator('.lesson-model:visible, .tox-tinymce').count(), 0);
+  assert.equal(await page.locator('.lesson-model:visible, .lesson-rich-editor').count(), 0);
   await page.locator('#lesson-author-outline .lesson-outline-row').filter({ hasText: 'Chỉ nội dung' }).click();
   assert(await frame.isHidden());
   assert.equal(await body.innerText(), hidden.instruction.vi.replace(/<[^>]+>/g, ''));
@@ -130,7 +140,9 @@ export async function checkLessonEditorExperience(page) {
   await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
   await page.getByRole('checkbox', { name: 'Hiển thị mô hình 3D ở mục này', exact: true }).check();
   await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
+  await settingsButton.click();
   assert.equal(await slider.inputValue(), '100');
+  await settings.getByRole('button', { name: 'Hủy', exact: true }).click();
   for (const width of [320, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
@@ -139,6 +151,7 @@ export async function checkLessonEditorExperience(page) {
     assert.equal(await page.locator('.structure-search').count(), 1);
     assert((await frame.locator('.lesson-scene-viewport').boundingBox()).height >= 140);
   }
+  await saveLessonDraft(page);
   const expected = await saved();
   const downloadEvent = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Xuất .lesson.br', exact: true }).click();
@@ -162,6 +175,7 @@ export async function checkLessonEditorExperience(page) {
   try {
     const imported = await fresh.newPage();
     await imported.goto('/lessons');
+    await imported.getByRole('status').filter({ hasText: 'Chưa có bài học' }).waitFor();
     await imported.locator('input[type=file]').setInputFiles({ name: 'cover.lesson.br', mimeType: 'application/octet-stream', buffer: bytes });
     await imported.locator('.lesson-card img').waitFor();
     assert(await imported.locator('.lesson-card img').evaluate(img => img.decode().then(() => img.naturalWidth > 0)));
@@ -175,10 +189,10 @@ export async function checkLessonEditorExperience(page) {
     await imported.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
     await imported.getByLabel('Tên bài học').waitFor();
     await imported.getByRole('button', { name: 'Xem trước', exact: true }).click();
-    await imported.getByRole('button', { name: 'Danh sách bài học', exact: true }).click();
+    await imported.getByRole('button', { name: 'Thoát', exact: true }).click();
     assert.equal(new URL(imported.url()).pathname, '/lessons', 'Preview exit goes to the library');
     await imported.locator('.lesson-card:has(img)').getByRole('button', { name: 'Chỉnh sửa', exact: true }).click();
-    await imported.getByRole('button', { name: 'Danh sách bài học', exact: true }).click();
+    await imported.getByRole('button', { name: 'Thoát', exact: true }).click();
     assert.equal(new URL(imported.url()).pathname, '/lessons', 'Editor exit goes to the library');
   } finally { await fresh.close(); }
   await page.evaluate(() => {
@@ -189,7 +203,8 @@ export async function checkLessonEditorExperience(page) {
     };
   });
   await page.getByLabel('Tên mục').fill('Chưa ghi được');
-  await writing.getByRole('button', { name: 'Lưu bước', exact: true }).click();
+  await page.getByRole('button', { name: 'Lưu bài học', exact: true }).click();
+  await page.locator('.lesson-author-alerts').waitFor();
   assert.deepEqual(await saved(), expected);
   assert.equal(await writing.getByRole('status').filter({ hasText: 'Đã lưu bài học trên thiết bị.' }).count(), 0);
   await page.reload();
@@ -199,7 +214,8 @@ export async function checkLessonEditorExperience(page) {
   const external = await saved(); external.title.vi = 'Đã sửa ở tab khác';
   await page.evaluate(lesson => localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson)), external);
   await page.getByLabel('Tên mục').fill('Không ghi đè tab khác');
-  await writing.getByRole('button', { name: 'Lưu bước', exact: true }).click();
+  await page.getByRole('button', { name: 'Lưu bài học', exact: true }).click();
+  await page.locator('.lesson-author-alerts').waitFor();
   assert.deepEqual(await saved(), external);
   assert(await page.locator('.lesson-author-alerts').isVisible());
 }
@@ -224,7 +240,7 @@ export async function checkLessonHeader(page, selector, headingSelector) {
   assert(geometry.height >= 48);
   assert.equal(geometry.radius, '24px');
   assert(geometry.titleContained, 'Keep the title within the header');
-  if (geometry.editor) assert(Math.abs(geometry.center) <= 1, 'Center the editor title');
+  if (geometry.editor || page.viewportSize().width >= 601) assert(Math.abs(geometry.center) <= 1, 'Center the lesson title');
   for (const button of geometry.buttons) {
     assert.equal(button.height, 28);
     assert.equal(button.radius, '14px');

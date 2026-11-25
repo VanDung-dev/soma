@@ -1,5 +1,6 @@
 export type Viewport = [number, number, number, number];
 export type PreparedGeometry = [Float32Array, Uint32Array, string];
+export type ViewerHold = { x: number; y: number; action: "hide" | "move" };
 
 export type CameraPose = {
   target: [number, number, number];

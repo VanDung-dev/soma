@@ -34,7 +34,7 @@ fn open_attribution(app: AppHandle, path: &str) -> Result<(), String> {
         "/licenses/brotli.txt" => "licenses/brotli.txt",
         "/licenses/lesson-content.txt" => "licenses/lesson-content.txt",
         "/licenses/squoosh.txt" => "licenses/squoosh.txt",
-        "/licenses/tinymce.md" => "licenses/tinymce.md",
+        "/licenses/jodit.txt" => "licenses/jodit.txt",
         "/licenses/dompurify.txt" => "licenses/dompurify.txt",
         _ => return Err("Unknown source document".into()),
     };

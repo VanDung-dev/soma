@@ -4,7 +4,7 @@ import { StructureTree } from "./structure-tree";
 import { StructureSearch, useStructureSearch } from "./structure-search";
 import { useCameraKeys } from "./use-camera-keys";
 import { MenuBar } from "./menu-bar";
-import { OrientationAxes } from "./orientation-axes";
+import { ViewerOrientation } from "./orientation-axes";
 import type { OrientationAxesHandle } from "./orientation-axes";
 import { ExplodeControls } from "./explode-controls";
 import { HandCameraControls } from "./hand-camera-controls";
@@ -12,9 +12,11 @@ import { CameraDevicesContext, useCameraDevices } from "./camera-devices";
 import { WikipediaReader } from "./wikipedia-reader";
 import { OpenStaxLink, OpenStaxReading } from "./openstax-reference";
 import { useLanguage } from "../i18n";
+import { LineIcon } from "../icons";
 import { canReadStructure, StudySession } from "./study/session";
 import { ViewerRuntime } from "./viewer/runtime";
-import { ViewerStatusNotice } from "./viewer-status";
+import { ViewerHoldProgress, ViewerLoadingProgress, ViewerStatusNotice } from "./viewer-status";
+import type { ViewerHold } from "./viewer/contracts";
 import { desktopPanelQuery, measureViewport } from "./viewer/layout";
 import { useGraphicsSettings } from "../pages/use-graphics-settings";
 import { SidebarToggle } from "../pages/workspace-layout";
@@ -27,7 +29,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const [graphics] = useGraphicsSettings();
   const active = useContext(WorkspaceActiveContext);
   const [fps, setFps] = useState(0);
-  const [hold, setHold] = useState<{ x: number; y: number; action: "hide" | "move" } | null>(null);
+  const [hold, setHold] = useState<ViewerHold | null>(null);
   const [snapTarget, setSnapTarget] = useState("");
   const [panel, setPanel] = useState<"catalog" | "information" | null>(null);
   const [query, setQuery] = useState("");
@@ -172,6 +174,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
   const otherLanguage = language === "vi" ? "en" : "vi";
   const heading = selectedPart ? selectedPart.names[language] : target ? target.names[language] : t("information.defaultTitle");
   const otherHeading = selectedPart ? selectedPart.names[otherLanguage] : target ? target.names[otherLanguage] : "";
+  const readerToggleLabel = t(readerExpanded ? "information.collapse" : "information.expand");
   const panelToggle = (target: "catalog" | "information", name: string) => {
     const expanded = desktopPanels ? !collapsedPanels[target] : panel === target;
     return <SidebarToggle expanded={expanded} controls={target === "catalog" ? catalogId : informationId}
@@ -199,21 +202,14 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
       <main id="workspace" tabIndex={-1}>
         <section className="anatomy-space" aria-label={t("viewer.section.label")}>
           <div className="model-canvas" ref={host} aria-busy={building && !error} />
-          {hold && <svg key={hold.action} className="model-hold-progress" data-action={hold.action} style={{ left: hold.x, top: hold.y }} viewBox="0 0 40 40" aria-hidden="true">
-            <circle cx="20" cy="20" r="16" />
-            <circle className="model-hold-fill" cx="20" cy="20" r="16" pathLength="100" />
-          </svg>}
+          {hold && <ViewerHoldProgress key={hold.action} hold={hold} />}
           <div className="model-focus-frame" ref={focusFrame}>
             <HandCameraControls enabled={active && handCameraEnabled && !cameras.requesting} disabled={building || error} cameraDisabled={!!movingId || !!separatedIds.size} onControl={session.control}
               deviceId={cameras.deviceId} onCameraStarted={cameras.refresh} onCameraActiveChange={setHandCameraActive}
               sceneHost={host} interactionFrame={focusFrame} obstacles={[hud, catalogPanel, informationPanel, orientationHud]}
               onEnabledChange={setHandCameraEnabled} />
-            <div className="model-orientation" ref={orientationHud}>
-              <div hidden={!graphics.showAxes}>
-                <OrientationAxes ref={orientation} disabled={building || error || !graphics.showAxes} onControl={session.control} />
-              </div>
-              {graphics.showFps && <span className="model-fps" aria-label={t("graphics.fps.current", { count: fps || "—" })}>{fps || "—"} FPS</span>}
-            </div>
+            <ViewerOrientation ref={orientationHud} orientation={orientation} showAxes={graphics.showAxes} disabled={building || error}
+              onControl={session.control} fps={graphics.showFps ? fps : undefined} />
             <div ref={hud} className="model-hud">
               {snapPart && <div className="model-status model-snap-hint" role="status">
                 {t("viewer.snapHint", { name: snapPart.names[language] })}
@@ -222,7 +218,7 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
                 <span>{t("context.dragHint")}</span>
               </div>}
               <ViewerStatusNotice state={state} totalSystems={roots.length} />
-              {building && !error && <progress className="model-progress" aria-label={t("viewer.loading.systems")} value={loadedSystems} max={roots.length} />}
+              {building && !error && <ViewerLoadingProgress loadedSystems={loadedSystems} totalSystems={roots.length} />}
               <ExplodeControls value={explosionAmount} disabled={building || error || !!movingId || !!separatedIds.size}
                 locked={!!movingId || !!separatedIds.size} onChange={session.changeExplosion} />
             </div>
@@ -230,31 +226,31 @@ export function ModelViewer({ catalog }: { catalog: Catalog }) {
         </section>
       </main>
       <aside id={informationId} ref={informationPanel} className={`information-panel${readerExpanded ? " reader-expanded" : ""}`} data-open={panel === "information"} data-collapsed={collapsedPanels.information} aria-label={t("information.panel.label")}>
-        <header className="information-heading" data-structure-id={readingId || undefined}>
-          <div className="information-heading-row">
+        <button type="button" className="panel-edge-toggle information-width-toggle" aria-expanded={readerExpanded} aria-controls={informationId}
+          aria-label={readerToggleLabel} title={readerToggleLabel} onClick={session.toggleReader}>
+          <LineIcon name="chevron-wide-right" size={24} />
+        </button>
+        <div className="information-panel-body">
+          <header className="information-heading" data-structure-id={readingId || undefined}>
             <h2>{heading}</h2>
-            <button className="reader-expand" aria-expanded={readerExpanded} aria-controls="information-content"
-              onClick={session.toggleReader}>
-              {t(readerExpanded ? "information.collapse" : "information.expand")}
-            </button>
-          </div>
-          {otherHeading && otherHeading !== heading && <p className="international-name" lang={otherLanguage}>{otherHeading}</p>}
-        </header>
-        <div className="information-content" id="information-content">
-          <div className="information-details">
-            {!selectedPart && target && !target.count && <p>{t("information.noLinkedModel")}</p>}
-            {selectedPart ? <>
-              {selectedPart.latin && <p className="latin-name" lang="la">{selectedPart.latin}</p>}
-              <p className="collection-names">{selectedPart.collection_names.map(name => name[language]).join(" · ")}</p>
-            </> : !target && <p className="information-overview">{t("information.overview")}</p>}
-          </div>
-          {referenceName ? <WikipediaReader key={referenceName} name={referenceName} expanded={readerExpanded}
-            actions={<OpenStaxLink reference={openstaxReference} compact={!readerExpanded} />} />
-            : openstaxReference && <div className="reader-actions"><OpenStaxLink reference={openstaxReference} compact={!readerExpanded} /></div>}
-          <div className="model-credit">
-            <div className="credit-sources">
-              <a href={`${import.meta.env.BASE_URL}models/z-anatomy/ATTRIBUTION.md`} target="_blank" rel="noreferrer" aria-label={t("credit.link")} title={t("credit.summary")}>{readerExpanded ? t("credit.summary") : "Z-Anatomy"}</a>
-              <OpenStaxReading reference={openstaxReference} compact={!readerExpanded} />
+            {otherHeading && otherHeading !== heading && <p className="international-name" lang={otherLanguage}>{otherHeading}</p>}
+          </header>
+          <div className="information-content" id="information-content">
+            <div className="information-details">
+              {!selectedPart && target && !target.count && <p>{t("information.noLinkedModel")}</p>}
+              {selectedPart ? <>
+                {selectedPart.latin && <p className="latin-name" lang="la">{selectedPart.latin}</p>}
+                <p className="collection-names">{selectedPart.collection_names.map(name => name[language]).join(" · ")}</p>
+              </> : !target && <p className="information-overview">{t("information.overview")}</p>}
+            </div>
+            {referenceName ? <WikipediaReader key={referenceName} name={referenceName} expanded={readerExpanded}
+              actions={<OpenStaxLink reference={openstaxReference} compact={!readerExpanded} />} />
+              : openstaxReference && <div className="reader-actions"><OpenStaxLink reference={openstaxReference} compact={!readerExpanded} /></div>}
+            <div className="model-credit">
+              <div className="credit-sources">
+                <a href={`${import.meta.env.BASE_URL}models/z-anatomy/ATTRIBUTION.md`} target="_blank" rel="noreferrer" aria-label={t("credit.link")} title={t("credit.summary")}>{readerExpanded ? t("credit.summary") : "Z-Anatomy"}</a>
+                <OpenStaxReading reference={openstaxReference} compact={!readerExpanded} />
+              </div>
             </div>
           </div>
         </div>

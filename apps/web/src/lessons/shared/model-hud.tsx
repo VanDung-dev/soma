@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { StudyState } from "../../anatomy/study/session";
-import { ViewerStatusNotice } from "../../anatomy/viewer-status";
+import { ViewerLoadingProgress, ViewerStatusNotice } from "../../anatomy/viewer-status";
 import { useLanguage } from "../../i18n";
 
 export function LessonModelHud({
@@ -21,8 +21,7 @@ export function LessonModelHud({
     <div className={`model-hud lesson-model-hud ${className}`}>
       {beforeStatus}
       {status ?? (state && <ViewerStatusNotice state={state} totalSystems={totalSystems} />)}
-      {showProgress && state?.building && !state.error && <progress className="model-progress" aria-label={t("viewer.loading.systems")}
-        value={state.loadedSystems} max={totalSystems} />}
+      {showProgress && state?.building && !state.error && <ViewerLoadingProgress loadedSystems={state.loadedSystems} totalSystems={totalSystems} />}
       {afterStatus}
       {actions && <div className="lesson-model-tools">{actions}</div>}
     </div>

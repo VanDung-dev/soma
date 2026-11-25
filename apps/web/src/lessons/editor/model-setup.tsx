@@ -4,15 +4,12 @@ import type { Catalog } from "../../anatomy/catalog/types";
 import { StructureSearch, useStructureSearch } from "../../anatomy/structure-search";
 import { StructureTree } from "../../anatomy/structure-tree";
 import { useLanguage } from "../../i18n";
-import { fetchModelAsset } from "../../model-assets";
+import { fetchModelMetadata, modelMetadataPath, requireRootMetadata } from "../../model-assets";
 
 type ModelMetadata = { metadata?: Record<string, unknown> };
 
 export function metadataForRoot(payload: ModelMetadata, rootId: string) {
-  if (!payload.metadata) return payload;
-  const metadata = payload.metadata[rootId];
-  if (!metadata) throw new Error("Missing system metadata");
-  return metadata;
+  return payload.metadata ? requireRootMetadata(payload.metadata, rootId) : payload;
 }
 
 export function LessonModelSetup({ catalog, targetId, visibleIds, selectedPart, settingsOpen, controls, onCloseSettings, onApply, onChangeScene, onSelectPart }: {
@@ -61,13 +58,10 @@ export function LessonModelSetup({ catalog, targetId, visibleIds, selectedPart, 
     const abort = new AbortController();
     const downloads = new Map<string, Promise<ModelMetadata>>();
     void Promise.all(catalog.roots.map(async root => {
-      const path = root.model!.path.replace(/\.glb(?:\.br)?$/, ".json");
+      const path = modelMetadataPath(root.model!.path);
       let download = downloads.get(path);
       if (!download) {
-        download = fetchModelAsset(path, { signal: abort.signal }).then(async response => {
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          return await response.json() as ModelMetadata;
-        });
+        download = fetchModelMetadata<ModelMetadata>(path, { signal: abort.signal });
         downloads.set(path, download);
       }
       return [root, JSON.stringify(metadataForRoot(await download, root.id))] as const;

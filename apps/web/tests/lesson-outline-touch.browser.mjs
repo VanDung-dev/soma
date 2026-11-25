@@ -1,4 +1,4 @@
-import { lessonBody, savedLesson } from './lesson-editor-tools.mjs';
+import { lessonBody, savedLesson, saveLessonDraft } from './lesson-editor-tools.mjs';
 import assert from 'node:assert/strict';
 
 export async function checkLessonOutlineTouch(page) {
@@ -22,6 +22,7 @@ export async function checkLessonOutlineTouch(page) {
     await mobile.evaluate(()=>document.fonts.ready);
     const cdp = await context.newCDPSession(mobile);
     const saved = () => savedLesson(mobile, 'touch-outline-check');
+    const order = () => outline.locator('[data-lesson-step]').evaluateAll(rows => rows.map(row => row.dataset.lessonStep));
     const area = outline.locator('.catalog-tree');
     await area.evaluate(node => { node.scrollTop = node.querySelector('[data-lesson-step]').offsetTop; });
     const handle = outline.locator('[data-lesson-step="touch-0"] .lesson-drag-handle');
@@ -32,12 +33,16 @@ export async function checkLessonOutlineTouch(page) {
     await touch('touchStart', start.x + start.width / 2, start.y + start.height / 2);
     await touch('touchMove', target.x + 20, target.y + target.height * 0.6);
     await touch('touchEnd');
-    assert.deepEqual((await saved()).steps.slice(0, 2).map(step => step.id), ['touch-1', 'touch-0']);
+    await mobile.waitForFunction(() => document.querySelector('#lesson-author-outline [data-lesson-step]')?.dataset.lessonStep === 'touch-1');
+    const staged = await order();
+    assert.deepEqual(staged.slice(0, 2), ['touch-1', 'touch-0']);
     const unchanged = await saved();
+    assert.deepEqual(unchanged.steps.slice(0, 2).map(step => step.id), ['touch-0', 'touch-1']);
     const cancelledHandle = await outline.locator('[data-lesson-step="touch-1"] .lesson-drag-handle').boundingBox();
     await touch('touchStart', cancelledHandle.x + 12, cancelledHandle.y + 20);
     await touch('touchMove', target.x + 20, target.y + target.height * 0.6);
     await touch('touchCancel');
+    assert.deepEqual(await order(), staged);
     assert.deepEqual(await saved(), unchanged, 'Touch cancellation must not persist a partial reorder');
     const first = await outline.locator('[data-lesson-step="touch-1"] .lesson-drag-handle').boundingBox();
     const bounds = await area.boundingBox();
@@ -46,6 +51,7 @@ export async function checkLessonOutlineTouch(page) {
     await touch('touchMove', bounds.x + 20, bounds.y + bounds.height - 6);
     await mobile.waitForFunction(before => document.querySelector('#lesson-author-outline .catalog-tree').scrollTop > before + 70, beforeScroll, { timeout: 3000 });
     await touch('touchEnd');
+    await saveLessonDraft(mobile);
     const reordered = await saved();
     assert(reordered.steps.findIndex(step => step.id === 'touch-1') > 1, 'Dragging at the edge scrolls a long outline');
     assert.deepEqual([...reordered.steps].sort((a, b) => a.id.localeCompare(b.id)), [...lesson.steps].sort((a, b) => a.id.localeCompare(b.id)));

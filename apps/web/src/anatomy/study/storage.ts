@@ -1,18 +1,11 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { openIndexedDatabase, transactionComplete } from "../../indexed-db";
 
 let pendingWrite = Promise.resolve();
 
-async function database() {
-  return new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open("soma-anatomy-state", 1);
-    request.onupgradeneeded = () => request.result.createObjectStore("state");
-    request.onsuccess = () => {
-      request.result.onversionchange = () => request.result.close();
-      resolve(request.result);
-    };
-    request.onerror = () => reject(request.error);
-    request.onblocked = () => reject(new Error("Anatomy state storage is blocked"));
-  });
+function database() {
+  return openIndexedDatabase("soma-anatomy-state", 1, db => db.createObjectStore("state"),
+    { closeOnVersionChange: true, blockedMessage: "Anatomy state storage is blocked" });
 }
 
 export async function loadAnatomyHiddenIds() {
@@ -32,12 +25,9 @@ export function saveAnatomyHiddenIds(ids: string[]) {
     if (isTauri()) return invoke<void>("save_anatomy_hidden_ids", { ids });
     const db = await database();
     try {
-      await new Promise<void>((resolve, reject) => {
-        const transaction = db.transaction("state", "readwrite");
-        transaction.objectStore("state").put(ids, "hiddenIds");
-        transaction.oncomplete = () => resolve();
-        transaction.onabort = transaction.onerror = () => reject(transaction.error);
-      });
+      const transaction = db.transaction("state", "readwrite");
+      transaction.objectStore("state").put(ids, "hiddenIds");
+      await transactionComplete(transaction);
     } finally { db.close(); }
   };
   pendingWrite = pendingWrite.catch(() => {}).then(write);

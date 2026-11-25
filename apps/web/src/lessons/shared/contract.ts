@@ -4,6 +4,7 @@ import type { SceneView } from "../../anatomy/viewer/contracts";
 export const LESSON_STORAGE_PREFIX = "soma.lesson-v1:";
 
 export type LessonText = { vi: string; en: string; html?: ("vi" | "en")[] };
+export const emptyLessonText: LessonText = { vi: "", en: "" };
 export type LessonMode = "content" | "questions" | "content_questions";
 export type LessonQuestion = {
   id: string;
@@ -48,8 +49,8 @@ export class LessonValidationError extends Error {
   }
 }
 
-export function lessonText(value: LessonText, language: "vi" | "en") {
-  return value[language].trim() || value[language === "vi" ? "en" : "vi"].trim();
+export function lessonText(value: LessonText, language: "vi" | "en", fallback = true) {
+  return value[language].trim() || (fallback ? value[language === "vi" ? "en" : "vi"].trim() : "");
 }
 
 export function lessonLanguageTag(lesson: Lesson): "vi" | "en" | "vi/en" {

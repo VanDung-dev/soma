@@ -18,7 +18,12 @@ export async function checkLessonPlayerBackground(page) {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.goto('/home');
-    await page.evaluate(lesson => localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson)), lesson);
+    await page.evaluate(lesson => {
+      localStorage.setItem('soma.lesson-v1:' + lesson.id, JSON.stringify(lesson));
+      localStorage.setItem('soma.lesson-progress-v1:' + lesson.id, JSON.stringify({
+        read: lesson.steps.map(step => step.id), answers: {},
+      }));
+    }, lesson);
     await page.goto('/lessons/' + lesson.id + (mode === 'preview' ? '/edit' : ''));
     if (mode === 'preview') await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
     const player = page.locator('.lesson-player');
@@ -82,8 +87,7 @@ export async function checkLessonPlayerBackground(page) {
       }, before);
       await next.click();
       await player.getByRole('heading', { name: 'Đọc thêm', exact: true }).waitFor();
-      await settle();
-      assert(await model.isHidden());
+      await model.waitFor({ state: 'hidden' });
       await page.waitForFunction(() => window.playerViewer.visible_count() === 0);
       assert(await original.evaluate(canvas => canvas === document.querySelector('.lesson-player > .model-canvas canvas')));
       await next.click();

@@ -3,6 +3,11 @@ import type { Viewport } from "./contracts";
 export type HandImageBounds = Pick<DOMRect, "left" | "top" | "width" | "height">;
 export const desktopPanelQuery = "(min-width: 1141px)";
 
+function normalizeViewport(area: Pick<DOMRect, "width" | "height">,
+  { left, top, right, bottom }: Pick<DOMRect, "left" | "top" | "right" | "bottom">): Viewport {
+  return [left / area.width, top / area.height, (right - left) / area.width, (bottom - top) / area.height];
+}
+
 export function viewportInFrame(host: HTMLElement, frame: HTMLElement): Viewport {
   const area = host.getBoundingClientRect();
   const bounds = frame.getBoundingClientRect();
@@ -11,7 +16,7 @@ export function viewportInFrame(host: HTMLElement, frame: HTMLElement): Viewport
   const top = Math.max(0, Math.min(area.height - 1, bounds.top - area.top));
   const right = Math.max(left + 1, Math.min(area.width, bounds.right - area.left));
   const bottom = Math.max(top + 1, Math.min(area.height, bounds.bottom - area.top));
-  return [left / area.width, top / area.height, (right - left) / area.width, (bottom - top) / area.height];
+  return normalizeViewport(area, { left, top, right, bottom });
 }
 
 export function measureHandImage(host: HTMLElement, aspect: number): HandImageBounds {
@@ -57,5 +62,5 @@ export function measureViewport(elements: {
   // Reserve the controls inside the frame when fitting anatomy to the camera.
   const top = Math.min(area.height - 1, Math.max(110, frameTop));
   const bottom = Math.min(area.height, Math.max(top + 1, hud.getBoundingClientRect().top - area.top - 12));
-  return [left / area.width, top / area.height, (right - left) / area.width, (bottom - top) / area.height];
+  return normalizeViewport(area, { left, top, right, bottom });
 }

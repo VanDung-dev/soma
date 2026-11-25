@@ -12,6 +12,12 @@ import "./library.css";
 
 const searchable = (value: string) => value.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replaceAll("đ", "d");
 
+export function LessonImportIcon() {
+  return <svg width="24" height="28" viewBox="0 0 24 28" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H5a2 2 0 0 0-2 2v20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9z" /><path d="M14 2v7h7M12 13v8m-3-3 3 3 3-3" />
+  </svg>;
+}
+
 function renderLessonEmptyHint(text: string): ReactNode {
   const parts = text.split(".lesson.br");
   if (parts.length <= 1) return text;
@@ -109,9 +115,7 @@ export function LessonLibrary({ lessons, loading, saving, importing, error, expo
       </div>
       <button type="button" className="lesson-import-zone" disabled={busy} onClick={() => picker.current?.click()} aria-label={t("lessons.import")}>
         <span className="lesson-import-file-icon" aria-hidden="true">
-          <svg width="24" height="28" viewBox="0 0 24 28" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M14 2H5a2 2 0 0 0-2 2v20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9z" /><path d="M14 2v7h7M12 13v8m-3-3 3 3 3-3" />
-          </svg>
+          <LessonImportIcon />
         </span>
         <span><strong>{t(importing ? "lessons.importing" : "lessons.import")}</strong><small>{t("lessons.dropOrChoose")}</small></span>
         <span className="lesson-import-open" aria-hidden="true"><LineIcon name="arrow-small-right" size={18} /></span>
@@ -146,11 +150,10 @@ export function LessonLibrary({ lessons, loading, saving, importing, error, expo
         const tag = lessonLanguageTag(lesson).replace("/", " / ").toUpperCase();
         const name = lessonText(lesson.title, language) || t("lessons.untitled");
         const summary = lessonPlainText(lesson.summary, language) || t("lessons.noDescription");
-        const badge = <span className="lesson-cover-badge" aria-label={`${t("lessons.languages")}: ${tag}`}>{tag}</span>;
         return <li className="lesson-card" key={lesson.id}>
-          {lesson.cover ? <LessonCover lesson={lesson}>{badge}</LessonCover> : <span className="lesson-card-language">
-            <span className="sr-only">{t("lessons.languages")}: </span>{tag}
-          </span>}
+          <LessonCover lesson={lesson}>
+            <span className="lesson-cover-badge"><span className="sr-only">{t("lessons.languages")}: </span>{tag}</span>
+          </LessonCover>
           <div className="lesson-card-content">
             <h3>{name}</h3>
             <p className="lesson-card-summary">{summary}</p>

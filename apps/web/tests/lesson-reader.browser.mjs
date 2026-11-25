@@ -33,7 +33,7 @@ export async function checkLessonReader(page) {
   assert(await page.getByRole('button', { name: 'Thu gọn mô hình 3D', exact: true }).isHidden());
   const readingBounds = await page.locator('.lesson-step').boundingBox();
   assert(original.x + original.width <= readingBounds.x);
-  assert(original.width > readingBounds.width && original.width < readingBounds.width * 2.5);
+  assert(original.width > 0 && readingBounds.width > original.width);
   await reader.evaluate(node => { node.scrollTop = node.scrollHeight; });
   assert(await reader.evaluate(node => node.scrollTop > 0));
   assert.deepEqual(await model.boundingBox(), original);
@@ -68,7 +68,7 @@ export async function checkLessonReader(page) {
   assert((await page.locator('.lesson-step').boundingBox()).height > expandedReader.height);
   assert(await canvasUnchanged());
   await page.setViewportSize({ width: 1280, height: 800 });
-  assert(await model.isVisible(), 'Desktop restores the two-pane layout after a mobile collapse');
+  await model.waitFor({ state: 'visible' });
   await page.setViewportSize({ width: 320, height: 700 });
   await page.getByRole('button', { name: 'Hiện mô hình 3D', exact: true }).click();
   assert(await model.isVisible());

@@ -4,9 +4,14 @@ import { translateMessage, useLanguage } from "../../i18n";
 import { LineIcon } from "../../icons";
 import type { Lesson, LessonCoverCrop } from "../shared/contract";
 import { useLessonImages } from "../shared/image-context";
+import { LessonImageProgress } from "../shared/image-progress";
 import { lessonPlainText } from "../shared/rich-text";
 import type { LessonImageStage } from "../shared/archive";
-import { LessonCoverView, calculateCoverClamps, getCoverDimensions } from "./cover";
+import { LessonCoverImage, LessonCoverView, calculateCoverClamps, useCoverAspect } from "./cover";
+
+function clampCoverOffset(offset: number, limit: number) {
+  return Math.min(limit, Math.max(-limit, offset));
+}
 
 export function LessonCoverEditor({ lesson, onChange }: {
   lesson: Lesson;
@@ -17,7 +22,6 @@ export function LessonCoverEditor({ lesson, onChange }: {
   const [uploading, setUploading] = useState(false);
   const [stage, setStage] = useState<LessonImageStage>("preparing");
   const [failed, setFailed] = useState<string>();
-  const [aspect, setAspect] = useState<number>();
   const [dragging, setDragging] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const active = useRef(true);
@@ -41,26 +45,14 @@ export function LessonCoverEditor({ lesson, onChange }: {
     }
   }, [modalOpen, lesson.coverCrop]);
 
-  useEffect(() => {
-    setAspect(undefined);
-    if (!coverUrl) return;
-    const img = new Image();
-    img.onload = () => {
-      if (img.naturalWidth && img.naturalHeight) {
-        setAspect(img.naturalWidth / img.naturalHeight);
-      }
-    };
-    img.src = coverUrl;
-  }, [coverUrl]);
-
+  const { aspect } = useCoverAspect(coverUrl);
   const { clampX, clampY } = calculateCoverClamps(aspect, tempCrop.zoom);
-  const dims = getCoverDimensions(aspect);
 
   function updateZoom(targetZoom: number) {
     const nextZoom = Math.min(3, Math.max(1, Math.round(targetZoom * 100) / 100));
     const { clampX: newClampX, clampY: newClampY } = calculateCoverClamps(aspect, nextZoom);
-    const nextX = Math.min(newClampX, Math.max(-newClampX, tempCrop.x));
-    const nextY = Math.min(newClampY, Math.max(-newClampY, tempCrop.y));
+    const nextX = clampCoverOffset(tempCrop.x, newClampX);
+    const nextY = clampCoverOffset(tempCrop.y, newClampY);
     setTempCrop({ zoom: nextZoom, x: nextX, y: nextY });
   }
 
@@ -86,8 +78,8 @@ export function LessonCoverEditor({ lesson, onChange }: {
     const deltaY = e.clientY - startY;
     const percentX = (deltaX / rect.width) * 100;
     const percentY = (deltaY / rect.height) * 100;
-    const nextX = Math.min(clampX, Math.max(-clampX, Math.round((initX + percentX) * 10) / 10));
-    const nextY = Math.min(clampY, Math.max(-clampY, Math.round((initY + percentY) * 10) / 10));
+    const nextX = clampCoverOffset(Math.round((initX + percentX) * 10) / 10, clampX);
+    const nextY = clampCoverOffset(Math.round((initY + percentY) * 10) / 10, clampY);
     setTempCrop({ zoom: tempCrop.zoom, x: nextX, y: nextY });
   }
 
@@ -269,7 +261,7 @@ export function LessonCoverEditor({ lesson, onChange }: {
         </div>
       </div>
     )}
-    {uploading && <div className="lesson-image-progress" role="status"><progress aria-label={t(`lessons.image.${stage}`)} /><span>{t(`lessons.image.${stage}`)}</span></div>}
+    {uploading && <LessonImageProgress stage={stage} />}
     {failed && <p role="alert">{t("lessons.imageAddError")} {failed}</p>}
 
     {lesson.cover && coverUrl && <dialog
@@ -303,22 +295,7 @@ export function LessonCoverEditor({ lesson, onChange }: {
           onPointerCancel={handlePointerUp}
           onWheel={handleWheel}
         >
-          <div
-            className="lesson-cover-viewport"
-            style={{
-              transform: `translate(${tempCrop.x}%, ${tempCrop.y}%) scale(${tempCrop.zoom})`,
-            }}
-          >
-            <img
-              className="lesson-cover-img"
-              src={coverUrl}
-              alt={t("lessons.cover")}
-              style={{
-                width: `${dims.widthPercent}%`,
-                height: `${dims.heightPercent}%`,
-              }}
-            />
-          </div>
+          <LessonCoverImage src={coverUrl} alt={t("lessons.cover")} crop={tempCrop} aspect={aspect} />
           <div className="lesson-cover-grid" aria-hidden="true" />
           <span className="lesson-cover-hint" aria-hidden="true">
             <span className="lesson-cover-hint-icon">✥</span>

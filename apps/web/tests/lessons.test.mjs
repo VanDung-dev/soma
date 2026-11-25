@@ -80,6 +80,11 @@ test('rich lesson JSON keeps locale markers while legacy text remains unchanged'
   assert.doesNotThrow(() => readLesson({ ...lesson, steps: [{ ...lesson.steps[0], instruction: {
     vi: '<p><img src="images/' + 'a'.repeat(64) + '.png" alt=""></p>', en: '', html: ['vi'],
   } }] }));
+  const mediaOnly = vi => ({ ...lesson, steps: [{ ...lesson.steps[0], instruction: { vi, en: '', html: ['vi'] } }] });
+  assert.doesNotThrow(() => readLesson(mediaOnly('<video><source src="https://example.com/lesson.mp4"></video>')));
+  assert.doesNotThrow(() => readLesson(mediaOnly('<iframe src="https://www.youtube.com/embed/test"></iframe>')));
+  assert.throws(() => readLesson(mediaOnly('<source src="https://example.com/lesson.mp4">')), /needs a title/);
+  assert.throws(() => readLesson(mediaOnly('<iframe src="https://example.com/embed/test"></iframe>')), /needs a title/);
 });
 
 test('authored views survive JSON serialization and reject invalid camera and explosion values', () => {

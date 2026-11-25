@@ -1,5 +1,6 @@
 import type { AnatomyViewer } from "../../wasm/wasm";
 import { cameraShortcutAction, shortcutAction } from "../../shortcuts";
+import type { ViewerHold } from "./contracts";
 
 export function bindViewerInput(canvas: HTMLCanvasElement, options: {
   enabled: () => boolean;
@@ -16,7 +17,7 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
   beginGroup?: (id: string) => boolean;
   hide?: (ids: string[]) => boolean;
   onBox?: (rect: { x: number; y: number; width: number; height: number } | null) => void;
-  onHold?: (point: { x: number; y: number; action: "hide" | "move" } | null) => void;
+  onHold?: (point: ViewerHold | null) => void;
   snap?: (id: string, commit: boolean) => void;
   moved?: (id: string) => void;
   restore?: () => void;
@@ -36,16 +37,19 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     return { x: Math.min(x1, x2), y: Math.min(y1, y2), width: Math.abs(x2 - x1), height: Math.abs(y2 - y1) };
   };
   const cancelBox = () => { box = undefined; options.onBox?.(null); };
-  let hold: { pointerId: number; timer: number; button: number; action: "hide" | "move" } | undefined;
+  let hold: { pointerId: number; timer: number; button: number; action: ViewerHold["action"] } | undefined;
   const cancelHold = () => {
     if (!hold) return;
     window.clearTimeout(hold.timer); hold = undefined;
     options.onHold?.(null);
   };
-  const pickPosition = (event: PointerEvent): [number, number] => {
+  const pointerInCanvas = (event: MouseEvent): [number, number] => {
     const bounds = canvas.getBoundingClientRect();
-    return [Math.floor((event.clientX - bounds.left) / bounds.width * canvas.width),
-      canvas.height - 1 - Math.floor((event.clientY - bounds.top) / bounds.height * canvas.height)];
+    return [(event.clientX - bounds.left) / bounds.width, (event.clientY - bounds.top) / bounds.height];
+  };
+  const pickPosition = (event: PointerEvent): [number, number] => {
+    const [x, y] = pointerInCanvas(event);
+    return [Math.floor(x * canvas.width), canvas.height - 1 - Math.floor(y * canvas.height)];
   };
   const pointerDown = (event: PointerEvent) => {
     cancelHold();
@@ -234,10 +238,8 @@ export function bindViewerInput(canvas: HTMLCanvasElement, options: {
     if (!options.enabled()) return;
     if (event.deltaY) options.onCameraChange?.();
     const pixels = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? canvas.clientHeight : 1);
-    const bounds = canvas.getBoundingClientRect();
-    options.operate(renderer => renderer.zoom_at(
-      (event.clientX - bounds.left) / bounds.width,
-      (event.clientY - bounds.top) / bounds.height,
+    const [x, y] = pointerInCanvas(event);
+    options.operate(renderer => renderer.zoom_at(x, y,
       Math.exp(Math.max(-1, Math.min(1, pixels * (event.ctrlKey ? 0.01 : 0.001)))),
     ));
   };

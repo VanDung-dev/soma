@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { Lesson, LessonCoverCrop } from "../shared/contract";
 import { loadLessonImage } from "../shared/images";
@@ -28,55 +28,57 @@ export function calculateCoverClamps(aspect: number | undefined, zoom: number) {
   };
 }
 
+export function useCoverAspect(src: string | undefined) {
+  const [aspect, setAspect] = useState<number>();
+  const updateAspect = useCallback((image: HTMLImageElement) => {
+    if (image.naturalWidth && image.naturalHeight) setAspect(image.naturalWidth / image.naturalHeight);
+  }, []);
+
+  useEffect(() => {
+    setAspect(undefined);
+    if (!src) return;
+    const image = new Image();
+    image.onload = () => updateAspect(image);
+    image.src = src;
+  }, [src, updateAspect]);
+
+  return { aspect, updateAspect };
+}
+
+export function LessonCoverImage({ src, alt, crop, aspect, decoding, onLoad }: {
+  src: string;
+  alt: string;
+  crop?: LessonCoverCrop;
+  aspect?: number;
+  decoding?: HTMLImageElement["decoding"];
+  onLoad?: React.ReactEventHandler<HTMLImageElement>;
+}) {
+  const zoom = crop?.zoom ?? 1;
+  const x = crop?.x ?? 0;
+  const y = crop?.y ?? 0;
+  const dims = getCoverDimensions(aspect);
+
+  return <div className="lesson-cover-viewport" style={{ transform: `translate(${x}%, ${y}%) scale(${zoom})` }}>
+    <img className="lesson-cover-img" src={src} alt={alt} decoding={decoding} onLoad={onLoad}
+      style={{ width: `${dims.widthPercent}%`, height: `${dims.heightPercent}%` }} />
+  </div>;
+}
+
 export function LessonCoverView({ src, alt = "", crop, className = "", onLoad, children }: {
   src: string;
   alt?: string;
   crop?: LessonCoverCrop;
   className?: string;
-  onLoad?: (event: React.SyntheticEvent<HTMLImageElement>) => void;
+  onLoad?: React.ReactEventHandler<HTMLImageElement>;
   children?: ReactNode;
 }) {
-  const [aspect, setAspect] = useState<number>();
-  const zoom = crop?.zoom ?? 1;
-  const x = crop?.x ?? 0;
-  const y = crop?.y ?? 0;
-
-  useEffect(() => {
-    setAspect(undefined);
-    if (!src) return;
-    const img = new Image();
-    img.onload = () => {
-      if (img.naturalWidth && img.naturalHeight) {
-        setAspect(img.naturalWidth / img.naturalHeight);
-      }
-    };
-    img.src = src;
-  }, [src]);
-
-  const dims = getCoverDimensions(aspect);
+  const { aspect, updateAspect } = useCoverAspect(src);
 
   return <div className={`lesson-cover ${className}`.trim()}>
-    <div className="lesson-cover-viewport" style={{
-      transform: `translate(${x}%, ${y}%) scale(${zoom})`,
-    }}>
-      <img
-        className="lesson-cover-img"
-        src={src}
-        alt={alt}
-        decoding="async"
-        onLoad={e => {
-          onLoad?.(e);
-          const img = e.currentTarget;
-          if (img.naturalWidth && img.naturalHeight) {
-            setAspect(img.naturalWidth / img.naturalHeight);
-          }
-        }}
-        style={{
-          width: `${dims.widthPercent}%`,
-          height: `${dims.heightPercent}%`,
-        }}
-      />
-    </div>
+    <LessonCoverImage src={src} alt={alt} crop={crop} aspect={aspect} decoding="async" onLoad={event => {
+      onLoad?.(event);
+      updateAspect(event.currentTarget);
+    }} />
     {children}
   </div>;
 }

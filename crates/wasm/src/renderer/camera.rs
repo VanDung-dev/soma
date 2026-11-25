@@ -2,7 +2,7 @@ use ::renderer::{Camera, CameraPose};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
-use super::{AnatomyViewer, util::js_error};
+use super::{AnatomyViewer, background_bounds, util::js_error};
 
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -127,12 +127,17 @@ impl AnatomyViewer {
         if let Some(view) = &view {
             self.camera.apply_pose(&view.camera).map_err(js_error)?;
         }
-        if let Some(now) = now {
-            if amount > 0.0 || previous_explosion > 0.0 {
-                self.set_explode_mode(true)?;
-                self.set_explode(previous_explosion, now, false, Some(false), None)?;
-                self.set_explode(amount, now, true, Some(false), None)?;
-            }
+        if let Some(now) = now
+            && (amount > 0.0 || previous_explosion > 0.0)
+        {
+            self.set_explode_mode(true)?;
+            self.set_explode(previous_explosion, now, false, Some(false), None)?;
+            self.set_explode(amount, now, true, Some(false), None)?;
+        }
+        if let Some(camera) = &mut self.background_camera {
+            let mut reset = Camera::new(background_bounds());
+            reset.aspect = camera.aspect;
+            *camera = reset;
         }
         self.transition_camera(before, now);
         self.shadow_cached.set(false);

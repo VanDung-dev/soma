@@ -21,10 +21,12 @@
     "@mediapipe/tasks-vision": "1.1.1",
     "@noble/hashes": "^2.4.0",
     "@tauri-apps/api": ">=2 <3",
+    "clsx": "^2.1.1",
     "dompurify": "^3.4.17",
+    "jodit": "4.21.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "tinymce": "^8.10.1"
+    "tailwind-merge": "^3.7.1"
   },
   "devDependencies": {
     "@tauri-apps/cli": ">=2 <3",

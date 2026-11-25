@@ -1,6 +1,18 @@
 import { lessonBody, savedLesson } from './lesson-editor-tools.mjs';
 import assert from 'node:assert/strict';
 
+function expectedLessonWidths(shell) {
+  return shell.evaluate(node => {
+    const style = getComputedStyle(node);
+    const width = node.getBoundingClientRect().width;
+    const gap = parseFloat(style.getPropertyValue('--panel-gap'));
+    const inset = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+    const outlineWidth = Math.round(width * .1875);
+    const contentWidth = Math.round(width * .46875);
+    return [outlineWidth, Math.round(width - inset - 2 * gap) - outlineWidth - contentWidth, contentWidth];
+  });
+}
+
 export async function checkLessonResponsiveLayout(page) {
   const text = vi => ({ vi, en: '' });
   const modelId = 'collection:baf3076d0495a617';
@@ -11,8 +23,7 @@ export async function checkLessonResponsiveLayout(page) {
       { id: 'read', kind: 'text', showModel: false, title: text('Đọc'), instruction: text('Nội dung kiểm tra cuộn.\n\n'.repeat(100)) },
     ],
   };
-  const sizes = [[1280, 800, 240, 476, 500], [1440, 900, 265, 586, 525],
-    [1600, 1000, 290, 696, 550], [1920, 1200, 340, 916, 600]];
+  const sizes = [[1280, 800], [1440, 900], [1600, 1000], [1920, 1200]];
   const viewPath = `/lessons/${lesson.id}`;
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -68,13 +79,32 @@ export async function checkLessonResponsiveLayout(page) {
     assert.equal(await shell.locator(':scope > .lesson-header').count(), 1);
     assert.equal(await shell.locator(':scope > .lesson-workspace-body > .lesson-outline-panel').count(), 1);
     assert.equal(await shell.locator('.lesson-workspace-main > .lesson-content-panel > .lesson-step-navigation').count(), 1);
-    const frame = model(editor).locator('.lesson-model-surface > .model-focus-frame');
+    const frame = model(editor).locator('.model-focus-frame');
     assert.equal(await shell.locator('.lesson-header .sidebar-toggle').count(), 0);
     const results = [];
-    for (const [width, height, outlineWidth, modelWidth, contentWidth] of [...sizes, ...sizes.slice(0, -1).reverse()]) {
+    for (const size of [...sizes, ...sizes.slice(0, -1).reverse()]) {
+      const [width, height] = size;
       await page.setViewportSize({ width, height });
       const panels = await Promise.all([outline(editor), model(editor), content(editor), frame].map(bounds));
-      assert.deepEqual(panels.slice(0, 3).map(rect => rect[2]), [outlineWidth, modelWidth, contentWidth], `${width}px with outline`);
+      assert.deepEqual(panels.slice(0, 3).map(rect => rect[2]), await expectedLessonWidths(shell), `${width}px with outline`);
+      if (results.length === 0) {
+        const sheet = content(editor).locator('.lesson-content-sheet');
+        await sheet.waitFor();
+        assert.equal(await sheet.evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(255, 255, 255)');
+        if (!editor) {
+          assert(await sheet.evaluate(node => Math.abs(node.getBoundingClientRect().bottom
+            - node.parentElement.getBoundingClientRect().bottom) <= 1), 'Short content fills the reading area');
+        }
+        const toggle = shell.locator('.lesson-author-width-toggle');
+        await toggle.click();
+        const [expandedX, , expandedWidth] = await bounds(content(editor));
+        const [collapsedX, , collapsedWidth] = panels[2];
+        assert.equal(expandedX + expandedWidth, collapsedX + collapsedWidth, 'Expansion keeps the right edge in place');
+        assert(Math.abs(expandedWidth - collapsedWidth * 1.6) <= 1, 'Expansion widens the content panel by 60%');
+        assert.deepEqual(await bounds(frame), panels[3], 'Expansion keeps the model frame in place');
+        await toggle.click();
+        assert.deepEqual(await bounds(content(editor)), panels[2], 'Collapse restores the content panel');
+      }
       const [modelX, modelY, paneWidth, paneHeight] = panels[1];
       const [statusX, statusY, statusWidth, statusHeight] = await bounds(model(editor).locator('.lesson-model-hud > .model-status').first());
       assert(Math.abs(statusX + statusWidth / 2 - modelX - paneWidth / 2) <= 1, 'Model status stays centered in the 3D pane');
@@ -113,6 +143,14 @@ export async function checkLessonResponsiveLayout(page) {
       if (width === 1280) await requireAutoFit();
       results.push({ panels, statusBottom, creditInset });
     }
+    if (editor) {
+      for (const width of [1366, 1369]) {
+        await page.setViewportSize({ width, height: 854 });
+        const [outlineWidth, , writingWidth] = await expectedLessonWidths(shell);
+        assert.equal((await outline(editor).boundingBox()).width, outlineWidth, `Outline width rounds to a whole pixel at ${width}px`);
+        assert.equal((await content(editor).boundingBox()).width, writingWidth, `Writing width rounds to a whole pixel at ${width}px`);
+      }
+    }
     for (const [width, height] of [[912, 570], [800, 500], [1280, 800], [1920, 1200]]) {
       await page.setViewportSize({ width, height });
       await requireAutoFit();
@@ -123,6 +161,7 @@ export async function checkLessonResponsiveLayout(page) {
       assert(scene.width >= 240 && scene.x + scene.width <= document.x, `Usable side-by-side model at ${width}px`);
       assert(document.y + document.height <= height, `Writing or reading stays within ${width}×${height}`);
       if (editor) {
+        assert.equal((await outline(editor).boundingBox()).width, (await expectedLessonWidths(shell))[0], `Proportional outline width at ${width}px`);
         for (const tool of await model(editor).locator('.lesson-model-settings-trigger').all()) {
           const button = await tool.boundingBox();
           if (!button) continue;
@@ -137,14 +176,23 @@ export async function checkLessonResponsiveLayout(page) {
     const workspace = page.locator(editor ? '.lesson-editor' : '.lesson-player');
     await workspace.evaluate(node => { node.style.width = 'calc(100% - 480px)'; });
     assert.deepEqual(await Promise.all([outline(editor), model(editor), content(editor)].map(async panel => (await bounds(panel))[2])),
-      sizes[1].slice(2), 'Column widths follow the workspace even when it is narrower than the viewport');
+      await expectedLessonWidths(shell), 'Column widths follow the workspace even when it is narrower than the viewport');
     await workspace.evaluate(node => { node.style.removeProperty('width'); });
-    await choose(editor, 'Đọc');
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    const layoutAnimations = await outline(editor).locator('.lesson-outline-row').filter({ hasText: 'Đọc' }).evaluate(async button => {
+      const main = button.closest('.lesson-workspace-body').querySelector('.lesson-workspace-main');
+      button.click();
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const controls = main.querySelectorAll(':scope > :is(.lesson-content-panel, .lesson-author-width-toggle)');
+      return [main, ...controls].flatMap(element => element.getAnimations()).length;
+    });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    assert.equal(layoutAnimations, 0, 'Changing section does not animate the content panel or its toggle');
     await model(editor).waitFor({ state: 'hidden' });
     const [contentX, , contentWidth] = await bounds(content(editor));
-    const [outlineX, , outlineWidth] = await bounds(outline(editor));
-    assert.equal(contentWidth, 600);
-    assert.equal(2 * (contentX - outlineX - outlineWidth - 16) + contentWidth, 1920 - 32 - outlineWidth - 16,
+    const [mainX, , mainWidth] = await bounds(shell.locator('.lesson-workspace-main'));
+    assert.equal(contentWidth, (await expectedLessonWidths(shell))[2]);
+    assert(Math.abs(2 * (contentX - mainX) + contentWidth - mainWidth) <= 1,
       'A step with 3D hidden stays centered in the space next to the outline');
     if (!editor) {
       assert(await page.locator('.lesson-reader-body').evaluate(node => {
@@ -157,17 +205,18 @@ export async function checkLessonResponsiveLayout(page) {
   };
 
   await choose(true, 'Quan sát');
-  const editor = await measure(true);
+  await measure(true);
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
-  assert.deepEqual(await measure(false), editor, 'Preview uses the same layout and camera frame as the editor');
+  await choose(false, 'Quan sát');
+  const preview = await measure(false);
   await page.getByRole('button', { name: 'Quay lại soạn bài', exact: true }).click();
   assert.equal(await page.getByLabel('Tên mục').inputValue(), 'Đọc');
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/lessons');
   await observeCamera();
   await page.locator('.lesson-card').filter({ hasText: 'Bài học co giãn' }).getByRole('button', { name: 'Vào học', exact: true }).click();
-  assert.deepEqual(await measure(false), editor, 'View uses the same layout and camera frame as the editor');
+  assert.deepEqual(await measure(false), preview, 'View uses the same layout and camera frame as the preview');
 }
 
 export async function checkLessonEditorLayout(page) {
@@ -207,23 +256,20 @@ export async function checkLessonEditorLayout(page) {
   await choose('Một');
   await page.locator('.lesson-editor > .model-canvas[aria-busy="false"]').waitFor();
   assert.deepEqual(await document.evaluate(node => [...node.classList].filter(name => name.startsWith('lesson-author-document--'))), ['lesson-author-document--step']);
-  await page.waitForFunction(() => {
-    const scene = document.querySelector('.lesson-scene-region');
-    return !!scene && Math.abs(scene.getBoundingClientRect().width - 476) < 0.5;
-  });
   assert.deepEqual(await page.evaluate(() => ['#lesson-author-outline', '.lesson-scene-region', '#lesson-author-writing']
-    .map(selector => Math.round(document.querySelector(selector).getBoundingClientRect().width))), [240, 476, 500]);
+    .map(selector => Math.round(document.querySelector(selector).getBoundingClientRect().width))),
+    await expectedLessonWidths(page.locator('.lesson-editor')));
   const stepLabel = await document.getAttribute('aria-label');
   assert.match(stepLabel, /^(Mục|Section) 1 · Một$/);
   await page.getByRole('button', { name: 'Thiết lập 3D', exact: true }).click();
   const cancelModelSettings = page.locator('#lesson-model-settings').getByRole('button', { name: 'Hủy', exact: true });
   await cancelModelSettings.waitFor();
   await page.waitForFunction(() => document.activeElement === document.querySelector('#lesson-model-settings .lesson-model-settings-actions > :first-child'));
-  await document.locator('.tox-editor-header').waitFor();
+  await document.locator('.jodit-toolbar__box').waitFor();
   const coversToolbar = await page.locator('.lesson-model-settings[data-open="true"]').evaluate(async panel => {
     await Promise.all(panel.getAnimations().map(animation => animation.finished));
     const writing = window.document.getElementById('lesson-author-writing');
-    const toolbar = writing.querySelector('.tox-editor-header');
+    const toolbar = writing.querySelector('.jodit-toolbar__box');
     const { x, y, width, height } = toolbar.getBoundingClientRect();
     const wasInert = writing.inert;
     writing.inert = false;
@@ -280,7 +326,7 @@ export async function checkLessonEditorLayout(page) {
   assert.equal(await page.getByLabel('Tên mục').inputValue(), 'Hai');
   await document.getByRole('button', { name: 'Mục trước', exact: true }).click();
   assert.equal(await page.getByLabel('Tên mục').inputValue(), 'Ba');
-  await model.locator('.orientation-axes [data-axis="Y"][data-direction="1"]').click();
+  await model.locator('.orientation-axes [data-axis="Y"][data-direction="1"] .orientation-hit-target').click();
   assert(await outline.isVisible());
   assert(await settings.isVisible());
   assert(await page.evaluate(() => window.editorCanvas === document.querySelector('.lesson-editor > .model-canvas canvas')));

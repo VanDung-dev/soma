@@ -142,7 +142,7 @@ export function SettingsPage({ section = "interface", fontSize }: {
             <LicenseRow label="Brotli" path="/licenses/brotli.txt" />
             <LicenseRow label={t("settings.licenses.doc.lessonContent")} path="/licenses/lesson-content.txt" />
             <LicenseRow label="Squoosh / libwebp" path="/licenses/squoosh.txt" />
-            <LicenseRow label="TinyMCE" path="/licenses/tinymce.md" />
+            <LicenseRow label="Jodit" path="/licenses/jodit.txt" />
             <LicenseRow label="DOMPurify" path="/licenses/dompurify.txt" />
           </div>}
           </div>}

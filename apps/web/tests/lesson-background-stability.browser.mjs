@@ -108,8 +108,9 @@ export async function checkLessonBackgroundStability(page) {
       };
       focused([0.5, 0.5]);
       const ids = catalog.members('collection:baf3076d0495a617');
-      const bytes = new Uint8Array(await (await fetch('/models/z-anatomy/skeletal-system.glb.br')).arrayBuffer());
-      const prepared = wasm.prepare_packages([bytes], JSON.stringify([ids]));
+      const bytes = new Uint8Array(await (await fetch('/models/z-anatomy/z-anatomy.glb.br')).arrayBuffer());
+      const { manifest } = await (await fetch('/models/z-anatomy/z-anatomy.json')).json();
+      const prepared = wasm.prepare_model(bytes, manifest.models.flatMap(model => model.source_ids), ids);
       viewer.appendPrepared(prepared, 1, false);
       const frame = [0.24, 0.1, 0.35, 0.75], center = [frame[0] + frame[2] / 2, frame[1] + frame[3] / 2];
       viewer.reframe(...frame); viewer.apply_scene(ids); viewer.align_viewport(true);

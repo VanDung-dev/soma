@@ -3,7 +3,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { brotliCompressSync, brotliDecompressSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import { packLessonTar, readLessonMetadata, unpackLessonTar } from './lesson-package.fixture.mjs';
-import { lessonBody, savedLesson, saveLessonDraft } from './lesson-editor-tools.mjs';
+import { chooseLessonImage, lessonBody, savedLesson, saveLessonDraft } from './lesson-editor-tools.mjs';
 
 export async function checkLessonImages(page) {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -16,22 +16,15 @@ export async function checkLessonImages(page) {
   const id = new URL(page.url()).pathname.split('/')[2];
   const saved = () => savedLesson(page, id);
   const image = await readFile(new URL('../public/home/anatomy.png', import.meta.url));
-  const insert = async upload => {
-    await lessonBody(page).press('ControlOrMeta+End');
-    await page.getByRole('button', { name: 'Insert/edit image', exact: true }).click();
-    const dialog = page.getByRole('dialog');
-    const [chooser] = await Promise.all([page.waitForEvent('filechooser'), dialog.getByRole('button', { name: 'Browse files', exact: true }).click()]);
-    await chooser.setFiles(upload);
-    await page.waitForFunction(input => input.value.startsWith('blob:'), await dialog.getByRole('combobox', { name: 'Source', exact: true }).elementHandle());
-    await dialog.getByRole('textbox', { name: 'Alternative description', exact: true }).fill('Mô hình giải phẫu');
-    await dialog.getByRole('button', { name: 'Save', exact: true }).click();
-    await page.waitForFunction(() => {
-      const images = document.querySelector('#lesson-write-body_ifr')?.contentDocument?.querySelectorAll('img');
-      const last = images?.[images.length - 1];
-      return last?.complete && last.naturalWidth > 0;
-    });
+  const insert = async (upload, direction) => {
+    await lessonBody(page).press('ControlOrMeta+a');
+    await lessonBody(page).press(direction);
+    await chooseLessonImage(page, upload);
+    const inserted = lessonBody(page).getByAltText(upload.name, { exact: true });
+    await inserted.waitFor();
+    await inserted.evaluate(img => img.decode());
   };
-  await insert({ name: 'anatomy.png', mimeType: 'image/png', buffer: image });
+  await insert({ name: 'anatomy.png', mimeType: 'image/png', buffer: image }, 'ArrowLeft');
   const storedImage = Buffer.from(await lessonBody(page).locator('img').last().evaluate(async img =>
     [...new Uint8Array(await (await fetch(img.src)).arrayBuffer())]));
   assert(storedImage.length < image.length, 'Squoosh must reduce the uploaded PNG');
@@ -56,9 +49,12 @@ export async function checkLessonImages(page) {
     const ctx = canvas.getContext('2d'); ctx.fillStyle = '#5d8875'; ctx.fillRect(0, 0, 160, 90);
     return ['image/jpeg', 'image/webp'].map(type => ({ type, value: canvas.toDataURL(type).split(',')[1] }));
   });
+  await lessonBody(page).press('ControlOrMeta+a');
+  await lessonBody(page).press('ArrowRight');
+  await lessonBody(page).press('Enter');
   for (const format of formats) {
     const bytes = Buffer.from(format.value, 'base64');
-    await insert({ name: format.type === 'image/jpeg' ? 'test.jpg' : 'test.webp', mimeType: format.type, buffer: bytes });
+    await insert({ name: format.type === 'image/jpeg' ? 'test.jpg' : 'test.webp', mimeType: format.type, buffer: bytes }, 'ArrowRight');
     const stored = Buffer.from(await lessonBody(page).locator('img').last().evaluate(async img =>
       [...new Uint8Array(await (await fetch(img.src)).arrayBuffer())]));
     if (format.type === 'image/jpeg') {
@@ -67,12 +63,41 @@ export async function checkLessonImages(page) {
     } else assert.deepEqual(stored, bytes, 'Existing WebP is not recompressed');
   }
   assert.equal(await lessonBody(page).locator('img').count(), 3);
+  const illustration = lessonBody(page).getByAltText('anatomy.png', { exact: true });
+  const changeAlignment = async (alignment, addCaption = false) => {
+    await illustration.dblclick();
+    const properties = page.locator('.jodit-dialog_active_true');
+    if (addCaption) await properties.getByRole('checkbox', { name: 'Chú thích ảnh', exact: true }).check();
+    await properties.getByRole('tab', { name: 'Nâng cao', exact: true }).click();
+    await properties.getByRole('combobox').selectOption(alignment);
+    await properties.getByRole('button', { name: 'Áp dụng', exact: true }).click();
+    await properties.waitFor({ state: 'hidden' });
+  };
+  await illustration.click();
+  const handle = page.locator('.jodit-resizer__bottom-right');
+  await handle.waitFor();
+  const corner = await handle.boundingBox();
+  const widthBefore = (await illustration.boundingBox()).width;
+  await page.mouse.move(corner.x + corner.width / 2, corner.y + corner.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(corner.x - 30, corner.y, { steps: 4 });
+  await page.mouse.up();
+  const resizedWidth = Math.round((await illustration.boundingBox()).width);
+  assert(resizedWidth < widthBefore - 15, 'Dragging the resize handle reduces image width');
+  await changeAlignment('left', true);
+  const figure = lessonBody(page).locator('figure').filter({ has: page.getByAltText('anatomy.png', { exact: true }) });
+  assert.equal(await figure.evaluate(el => getComputedStyle(el).float), 'left');
+  await figure.locator('figcaption').fill('Mô hình giải phẫu');
+  await changeAlignment('right');
+  assert.equal(await figure.evaluate(el => getComputedStyle(el).float), 'right');
   assert.deepEqual(await page.evaluate(async () =>
     (await indexedDB.databases()).filter(({ name }) => name?.startsWith('soma-lesson-images'))),
   [{ name: 'soma-lesson-images-v1', version: 1 }]);
   await saveLessonDraft(page);
   const original = await saved();
   assert(original.steps[0].instruction.vi.includes(path));
+  assert.match(original.steps[0].instruction.vi, /<figure[^>]*lesson-image-right/);
+  assert.match(original.steps[0].instruction.vi, /<figcaption>Mô hình giải phẫu<\/figcaption>/);
   assert(!original.steps[0].instruction.vi.includes('blob:'));
   assert(!original.steps[0].instruction.vi.includes('data:'));
   assert(!original.steps[0].instruction.vi.includes('data-lesson-image'));
@@ -86,8 +111,25 @@ export async function checkLessonImages(page) {
   await rendered.first().waitFor();
   await rendered.evaluateAll(images => Promise.all(images.map(img => img.decode())));
   assert(await rendered.evaluateAll(images => images.every(img => img.complete && img.naturalWidth > 0)));
+  const renderedFigure = page.locator('.lesson-instructions figure.lesson-image-right');
+  assert.equal(await renderedFigure.locator('figcaption').innerText(), 'Mô hình giải phẫu');
+  assert(Math.abs((await renderedFigure.boundingBox()).width - resizedWidth) <= 1, 'The lesson player preserves the resized width');
+  assert(await renderedFigure.evaluate(el => {
+    const image = el.getBoundingClientRect();
+    const walker = document.createTreeWalker(el.parentElement, NodeFilter.SHOW_TEXT);
+    for (let node; (node = walker.nextNode());) {
+      if (!node.textContent.includes('Hình minh họa')) continue;
+      const range = document.createRange();
+      range.setStart(node, 0);
+      range.setEnd(node, 4);
+      const text = range.getBoundingClientRect();
+      return text.right < image.left && text.top >= image.top && text.top < image.bottom;
+    }
+    return false;
+  }), 'Lesson text wraps beside the right-aligned illustration');
   if (process.env.SOMA_PACKAGE_SCREENSHOT) await page.screenshot({ path: process.env.SOMA_PACKAGE_SCREENSHOT });
   await page.setViewportSize({ width: 320, height: 700 });
+  assert.equal(await renderedFigure.evaluate(el => getComputedStyle(el).float), 'none', 'Images stack on narrow layouts');
   assert(await page.locator('.lessons-screen').evaluate(node => node.scrollWidth <= node.clientWidth));
   const widths = await rendered.evaluateAll(images => images.map(img => [img.getBoundingClientRect().width, img.parentElement.clientWidth]));
   assert(widths.every(([imageWidth, contentWidth]) => imageWidth <= contentWidth + 0.5),
