@@ -34,7 +34,7 @@ export async function checkRestoration() {
       const timer = setTimeout(() => { unsubscribe(); reject(Error('Restoration completion timed out')); }, 3000);
       const unsubscribe = session.subscribe(() => {
         if (session.getSnapshot().error) { clearTimeout(timer); unsubscribe(); reject(Error('Restoration failed')); }
-        else if (!runtime.restoration) { clearTimeout(timer); unsubscribe(); resolve(); }
+        else if (!runtime.restoring) { clearTimeout(timer); unsubscribe(); resolve(); }
       });
       if (!runtime.restoreStructure(id)) { clearTimeout(timer); unsubscribe(); reject(Error('Restoration rejected')); }
     });
@@ -51,15 +51,15 @@ export async function checkRestoration() {
     assert(zero(a) && zero(b) && !session.getSnapshot().separatedIds.size, 'Repeated restore requests must merge and finish');
     viewer.move_structure(a, 0.12, 0); runtime.setMoving(a);
     motion.matches = true; runtime.restoreStructure('');
-    assert(zero(a) && !runtime.restoration && !session.getSnapshot().movingId, 'Reduced motion must restore immediately');
+    assert(zero(a) && !runtime.restoring && !session.getSnapshot().movingId, 'Reduced motion must restore immediately');
     viewer.move_structure(a, 0.12, 0); runtime.setMoving(a);
     motion.matches = false; runtime.restoreStructure('');
     motion.matches = true; motion.dispatchEvent(new Event('change'));
-    assert(zero(a) && !runtime.restoration && !session.getSnapshot().movingId, 'Changing reduced motion must finish the active Rust transition');
+    assert(zero(a) && !runtime.restoring && !session.getSnapshot().movingId, 'Changing reduced motion must finish the active Rust transition');
     viewer.move_structure(a, 0.12, 0); runtime.setMoving(a);
     motion.matches = false; runtime.restoreStructure(''); runtime.overview();
     await frames();
-    assert(zero(a) && !runtime.restoration && !session.getSnapshot().separatedIds.size, 'Overview must cancel restoration without replaying offsets');
+    assert(zero(a) && !runtime.restoring && !session.getSnapshot().separatedIds.size, 'Overview must cancel restoration without replaying offsets');
     assert(host.querySelector('canvas').getContext('webgl2').getError() === 0 && !session.getSnapshot().error,
       'Keep WebGL and the runtime healthy after cancellation');
     return { targeted: true, repeated: true, rustOwnsOffsets: true, reducedMotion: true, changedReducedMotion: true, overviewCancellation: true };

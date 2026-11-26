@@ -109,7 +109,7 @@ export async function checkMarqueeInput() {
   const frame = document.querySelector('.model-focus-frame').getBoundingClientRect();
   const bounds = canvas.getBoundingClientRect();
   const assert = (ok, message) => { if (!ok) throw Error(message); };
-  const capture = canvas.setPointerCapture, region = proto.select_region, move = proto.move_selection;
+  const capture = canvas.setPointerCapture, region = proto.select_region, move = proto.move_study_drag;
   let viewer, ids, moves = 0;
   const frames = async () => { for (let i = 0; i < 3; i++) await new Promise(requestAnimationFrame); };
   const pointer = (type, point, extra = {}) => canvas.dispatchEvent(new PointerEvent(type, {
@@ -117,7 +117,7 @@ export async function checkMarqueeInput() {
   }));
   canvas.setPointerCapture = () => {};
   proto.select_region = function(...args) { viewer = this; ids = region.apply(this, args); return ids; };
-  proto.move_selection = function(...args) { moves++; return move.apply(this, args); };
+  proto.move_study_drag = function(...args) { moves++; return move.apply(this, args); };
   let before;
   try {
     const start = { clientX: frame.left + 10, clientY: frame.top + 10 };
@@ -171,7 +171,7 @@ export async function checkMarqueeInput() {
     pointer('pointercancel', { clientX: 0, clientY: 0 });
     if (viewer && before) for (const [id, offset] of before) viewer.restore_structure(id, offset);
     canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 't', bubbles: true }));
-    proto.select_region = region; proto.move_selection = move; canvas.setPointerCapture = capture;
+    proto.select_region = region; proto.move_study_drag = move; canvas.setPointerCapture = capture;
   }
 }
 

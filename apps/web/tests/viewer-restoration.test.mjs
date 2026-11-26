@@ -28,14 +28,14 @@ test('runtime delegates restoration to WASM and synchronizes completion, reduced
     const viewer = runtime.viewer = {
       selected_id: () => selected, select_for_movement: id => { if (id) selected = id; return true; }, separated_ids: () => separated,
       clear_selection() {}, selection_ids: () => [],
-      begin_restoration: (...args) => {
+      begin_study_restoration: (...args) => {
         calls.push(['begin', ...args]); active = args[2];
-        if (!active) separated = separated.filter(id => !ids.includes(id));
-        return ids;
+        if (active) return undefined;
+        separated = separated.filter(id => !ids.includes(id));
+        return !args[0] || ids.includes(args[3]);
       },
-      restoration_active: () => active,
-      advance_restoration: time => { calls.push(['advance', time]); return active; },
-      finish_restoration: () => { calls.push(['finish']); active = false; separated = []; },
+      advance_study_restoration: (time, moving) => { calls.push(['advance', time, moving]); return active ? undefined : ids.includes(moving); },
+      finish_study_restoration: moving => { calls.push(['finish', moving]); active = false; separated = []; return ids.includes(moving); },
       advance_camera: () => false, advance_reconstruction: () => false, render() {}, free() {},
       explosion_active: () => false,
       finish_reconstruction() {}, finish_explosion() {}, finish_camera_transition() {},
@@ -53,9 +53,9 @@ test('runtime delegates restoration to WASM and synchronizes completion, reduced
       for (const frame of frames) frame(time);
     };
     assert(runtime.restoreStructure('b'));
-    assert.deepEqual(calls.at(-1), ['begin', 'b', 100, true]);
+    assert.deepEqual(calls.at(-1), ['begin', 'b', 100, true, 'a']);
     tick(200);
-    assert.deepEqual(calls.at(-1), ['advance', 200]);
+    assert.deepEqual(calls.at(-1), ['advance', 200, 'a']);
     assert.equal(runtime.movingId, 'a', 'Keep the active group locked until Rust finishes');
     active = false; separated = ['c']; tick(600);
     assert.equal(runtime.movingId, '');
@@ -63,14 +63,14 @@ test('runtime delegates restoration to WASM and synchronizes completion, reduced
     assert(!calls.some(([method]) => method === 'restore'), 'Frames must not send per-structure offsets back to WASM');
     ids = ['c']; runtime.setMoving('c'); motion.matches = true;
     assert(runtime.restoreStructure('c'));
-    assert.deepEqual(calls.at(-1), ['begin', 'c', 600, false]);
-    assert.equal(runtime.restoration, undefined, 'Reduced motion completes immediately');
+    assert.deepEqual(calls.at(-1), ['begin', 'c', 600, false, 'c']);
+    assert.equal(runtime.restoring, false, 'Reduced motion completes immediately');
     assert.equal(runtime.movingId, '');
     ids = ['a']; separated = ['a']; motion.matches = false;
     runtime.setMoving('a'); runtime.restoreStructure('a');
     motion.matches = true; motion.dispatchEvent(new Event('change'));
-    assert.deepEqual(calls.at(-1), ['finish']);
-    assert.equal(runtime.restoration, undefined, 'Changing reduced motion finishes the pending Rust animation');
+    assert.deepEqual(calls.at(-1), ['finish', 'a']);
+    assert.equal(runtime.restoring, false, 'Changing reduced motion finishes the pending Rust animation');
     assert.equal(runtime.movingId, '');
     motion.matches = false; separated = ['a'];
     runtime.restoreStructure('a');
@@ -78,13 +78,13 @@ test('runtime delegates restoration to WASM and synchronizes completion, reduced
     assert.deepEqual(calls.at(-1), ['reset', ['a', 'b', 'c'], 600, true]);
     const advanced = calls.filter(([method]) => method === 'advance').length;
     tick(1000);
-    assert.equal(runtime.restoration, undefined);
+    assert.equal(runtime.restoring, false);
     assert.equal(calls.filter(([method]) => method === 'advance').length, advanced, 'Overview must not replay cancelled offsets');
     motion.matches = true;
     assert(runtime.overview());
     assert.deepEqual(calls.at(-1), ['reset', ['a', 'b', 'c'], 1000, false]);
     t.mock.method(console, 'error', () => {});
-    viewer.begin_restoration = () => { throw Error('Rejected restoration'); };
+    viewer.begin_study_restoration = () => { throw Error('Rejected restoration'); };
     assert.equal(runtime.restoreStructure('missing'), false);
     assert.equal(patches.at(-1).status, 'processError');
   } finally {

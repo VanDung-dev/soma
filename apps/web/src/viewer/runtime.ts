@@ -2,7 +2,7 @@ import type { Catalog, ModelLoadPlan } from "../catalog/types";
 import { getWasm } from "../core";
 import type { AnatomyViewer } from "../wasm/wasm";
 import type { CameraCommand, SceneView, StudyViewer, ViewerHold, ViewerState, ViewerStatus, Viewport, VisibilityUpdate } from "./contracts";
-import { bindViewerInput } from "./input";
+import { bindViewerInput, type DragEnd } from "./input";
 import { loadModels } from "./loader";
 import { defaultGraphics, qualityLevels, renderScales } from "./graphics";
 import type { GraphicsSettings } from "./graphics";
@@ -35,7 +35,7 @@ export class ViewerRuntime implements StudyViewer {
   private movingId = "";
   private separatedIds = new Set<string>();
   private snapTarget = "";
-  private restoration: { ids: Set<string>; all: boolean } | undefined;
+  private restoring = false;
 
   constructor(private host: HTMLElement, private options: {
     viewport: () => Viewport;
@@ -64,7 +64,7 @@ export class ViewerRuntime implements StudyViewer {
     this.selectionBox.setAttribute("aria-hidden", "true");
     host.appendChild(this.selectionBox);
     this.unbindInput = bindViewerInput(this.canvas, {
-      enabled: () => !this.loading && !this.animating && !this.restoration && !this.failed,
+      enabled: () => !this.loading && !this.animating && !this.restoring && !this.failed,
       operate: this.operate, redraw: this.scheduleRender,
       onCameraChange: this.cameraChanged,
       pick: options.onPick,
@@ -73,8 +73,7 @@ export class ViewerRuntime implements StudyViewer {
       movable: id => id === this.movingId || this.separatedIds.has(id),
       joined: id => (this.viewer?.structure_group(id).length ?? 0) > 1,
       detachable: () => options.allowSeparation !== false && options.canSeparate?.() !== false && !!this.viewer?.can_move_structures(),
-      detach: id => this.setMoving(id) && this.operate(viewer => viewer.detach_structure(id)), onHold: options.onHold,
-      beginGroup: id => this.setMoving(id) && this.operate(viewer => viewer.begin_selection_drag()),
+      beginHeldDrag: (id, grouped) => this.beginHeldDrag(id, grouped), onHold: options.onHold,
       hide: options.onHide,
       onBox: rect => {
         this.selectionBox.hidden = !rect;
@@ -82,8 +81,8 @@ export class ViewerRuntime implements StudyViewer {
           left: `${rect.x}px`, top: `${rect.y}px`, width: `${rect.width}px`, height: `${rect.height}px`,
         });
       },
-      snap: (id, commit) => this.snapStructure(id, commit),
-      moved: () => this.publishSeparation(),
+      onSnap: id => this.updateSnapTarget(id),
+      endDrag: action => this.endDrag(action),
       restore: () => { this.restoreStructure(""); },
     });
     this.observer = new ResizeObserver(this.resize);
@@ -286,9 +285,10 @@ export class ViewerRuntime implements StudyViewer {
           this.animating = this.viewer!.render_reconstruction(now);
           if (this.animating) this.scheduleRender();
           else if (!this.loading) this.options.onState({ building: false });
-        } else if (this.restoration) {
-          if (this.viewer!.advance_restoration(now)) this.scheduleRender();
-          else this.finishRestoration();
+        } else if (this.restoring) {
+          const clearMoving = this.viewer!.advance_study_restoration(now, this.movingId);
+          if (clearMoving === undefined) this.scheduleRender();
+          else this.finishRestoration(clearMoving);
           this.viewer!.render();
         } else if (this.viewer!.explosion_active()) {
           if (this.viewer!.render_study_explosion(now)) this.scheduleRender();
@@ -374,9 +374,8 @@ export class ViewerRuntime implements StudyViewer {
     if (!this.loading && this.motion.matches && this.viewer) {
       this.viewer.finish_reconstruction(); this.animating = false; this.scheduleRender();
       this.viewer.finish_explosion(); this.viewer.finish_camera_transition();
-      if (this.restoration) {
-        this.operate(viewer => viewer.finish_restoration());
-        this.finishRestoration();
+      if (this.restoring) {
+        this.operate(viewer => this.finishRestoration(viewer.finish_study_restoration(this.movingId)));
       }
       if (!this.loading) this.options.onState({ building: false });
     }
@@ -397,51 +396,64 @@ export class ViewerRuntime implements StudyViewer {
     this.options.onState({ movingId: this.movingId, separatedIds: new Set(this.separatedIds) });
   }
 
-  private snapStructure(id: string, commit: boolean) {
-    if (!id && !this.snapTarget) return;
-    let target = "", anchored = false;
-    this.operate(viewer => {
-      const members = commit ? viewer.structure_group(id) : [];
-      target = commit ? viewer.connect_structure(id) : viewer.preview_connection(id);
-      anchored = !!target && commit && members.includes(this.movingId) && !viewer.structure_offset(id).some(value => value !== 0);
-    });
-    if (anchored) this.setMoving("");
-    if (commit) target = "";
+  private updateSnapTarget(target: string) {
     if (target !== this.snapTarget) { this.snapTarget = target; this.options.onSnap?.(target); }
+  }
+
+  private clearSnapTarget() {
+    if (!this.snapTarget) return;
+    this.operate(viewer => { viewer.preview_connection(""); });
+    this.updateSnapTarget("");
+  }
+
+  private beginHeldDrag(id: string, grouped: boolean) {
+    if (!this.operate(viewer => { if (!viewer.begin_held_study_drag(id, grouped)) return false; })) return false;
+    this.updateMoving(id);
+    this.publishSeparation();
+    return true;
+  }
+
+  private endDrag(action: DragEnd) {
+    const success = this.operate(viewer => {
+      if (action === "cancel") viewer.cancel_study_drag();
+      else if (viewer.finish_study_drag(action === "drop", this.movingId)) this.updateMoving("");
+    });
+    this.updateSnapTarget("");
+    if (success) this.publishSeparation();
   }
 
   setMoving(id: string, selectedOnly = false) {
     if (id && (this.loading || this.animating || !this.structureIds.includes(id))) return false;
     if (!this.operate(viewer => { if (!viewer.select_for_movement(id, selectedOnly)) return false; })) return false;
-    if (id) this.autoFitScene = false;
-    this.movingId = id;
-    this.canvas.dataset.moving = id ? "true" : "false";
-    this.canvas.dataset.draggable = "false";
+    this.updateMoving(id);
     this.publishSeparation();
     return true;
   }
 
+  private updateMoving(id: string) {
+    if (id) this.autoFitScene = false;
+    this.movingId = id;
+    this.canvas.dataset.moving = id ? "true" : "false";
+    this.canvas.dataset.draggable = "false";
+  }
+
   restoreStructure(id: string) {
-    this.snapStructure("", false);
-    const all = !id || this.restoration?.all === true;
     return this.operate(viewer => {
-      viewer.clear_selection();
-      const ids = viewer.begin_restoration(id, performance.now(), !this.motion.matches);
-      this.restoration = { ids: new Set(ids), all };
-      if (!viewer.restoration_active()) this.finishRestoration();
+      const clearMoving = viewer.begin_study_restoration(id, performance.now(), !this.motion.matches, this.movingId);
+      this.updateSnapTarget("");
+      this.restoring = clearMoving === undefined;
+      if (clearMoving !== undefined) this.finishRestoration(clearMoving);
     });
   }
 
-  private finishRestoration() {
-    const restoration = this.restoration;
-    if (!restoration) return;
-    this.restoration = undefined;
-    if (restoration.all || restoration.ids.has(this.movingId)) this.setMoving("");
-    else this.publishSeparation();
+  private finishRestoration(clearMoving: boolean) {
+    this.restoring = false;
+    if (clearMoving) this.updateMoving("");
+    this.publishSeparation();
   }
 
   changeVisibility(ids: string[], shown: boolean) {
-    this.snapStructure("", false);
+    this.clearSnapTarget();
     if (!shown && ids.includes(this.movingId)) this.setMoving("");
     let visibility: VisibilityUpdate | undefined;
     const success = this.operate(viewer => {
@@ -470,7 +482,7 @@ export class ViewerRuntime implements StudyViewer {
   }
 
   private clearSceneInteraction() {
-    this.restoration = undefined;
+    this.restoring = false;
     this.movingId = "";
     this.snapTarget = "";
     this.options.onSnap?.("");
@@ -481,7 +493,7 @@ export class ViewerRuntime implements StudyViewer {
   }
 
   focus(ids: string[], folder: boolean) {
-    this.snapStructure("", false);
+    this.clearSnapTarget();
     if (this.movingId) this.setMoving("");
     const motionTime = this.animationTime();
     let visibility: VisibilityUpdate | undefined;
@@ -515,14 +527,14 @@ export class ViewerRuntime implements StudyViewer {
   }
 
   overview() {
-    this.snapStructure("", false);
+    this.clearSnapTarget();
     let visibility: VisibilityUpdate | undefined;
     const success = this.operate(viewer => {
       visibility = viewer.reset_study_scene(this.structureIds, performance.now(), !this.motion.matches);
       this.cameraChanged();
     });
     if (success) {
-      this.restoration = undefined;
+      this.restoring = false;
       this.movingId = "";
       this.separatedIds.clear();
       this.canvas.dataset.moving = "false";

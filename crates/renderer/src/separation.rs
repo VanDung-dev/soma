@@ -6,7 +6,15 @@ use std::collections::{HashMap, HashSet};
 pub struct Separation {
     offsets: HashMap<String, Vec3>,
     groups: Vec<Vec<String>>,
+    drag: Option<Drag>,
     restoration: Option<Restoration>,
+}
+
+struct Drag {
+    anchor: String,
+    selection: bool,
+    members: Vec<String>,
+    offsets: Vec<Vec3>,
 }
 
 struct Restoration {
@@ -30,6 +38,7 @@ impl Separation {
     }
 
     pub fn clear(&mut self, id: &str) {
+        self.drag = None;
         self.restoration = None;
         if id.is_empty() {
             self.offsets.clear();
@@ -63,6 +72,57 @@ impl Separation {
             group.retain(|member| member != id);
         }
         self.groups.retain(|group| group.len() > 1);
+    }
+
+    pub fn begin_drag(&mut self, anchor: &str, selection: Option<Vec<String>>) {
+        let grouped = selection.is_some();
+        let members = selection.unwrap_or_else(|| self.members(anchor));
+        let offsets = members.iter().map(|id| self.offset(id)).collect();
+        self.drag = Some(Drag {
+            anchor: anchor.into(),
+            selection: grouped,
+            members,
+            offsets,
+        });
+    }
+
+    pub fn active_drag(&self) -> Option<(&str, bool)> {
+        self.drag
+            .as_ref()
+            .map(|drag| (drag.anchor.as_str(), drag.selection))
+    }
+
+    pub fn move_drag(
+        &mut self,
+        scene: &Scene,
+        camera: &Camera,
+        x: f32,
+        y: f32,
+    ) -> Result<(), String> {
+        let Some(drag) = self.drag.take() else {
+            return Ok(());
+        };
+        let result = if drag.selection {
+            self.drag_selection(scene, camera, &drag.members, &drag.anchor, x, y)
+        } else {
+            self.drag(scene, camera, &drag.anchor, x, y)
+        };
+        self.drag = Some(drag);
+        result
+    }
+
+    pub fn end_drag(&mut self, cancel: bool) {
+        if let Some(drag) = self.drag.take()
+            && cancel
+        {
+            for (id, offset) in drag.members.into_iter().zip(drag.offsets) {
+                if offset == Vec3::ZERO {
+                    self.offsets.remove(&id);
+                } else {
+                    self.offsets.insert(id, offset);
+                }
+            }
+        }
     }
 
     pub fn candidate(&self, scene: &Scene, id: &str, tolerance: f32) -> Option<String> {
@@ -160,6 +220,18 @@ impl Separation {
         now: f64,
         animate: bool,
     ) -> Result<Vec<String>, String> {
+        self.begin_restore_for(scene, id, now, animate, "")
+            .map(|(ids, _)| ids)
+    }
+
+    pub fn begin_restore_for(
+        &mut self,
+        scene: &Scene,
+        id: &str,
+        now: f64,
+        animate: bool,
+        moving_id: &str,
+    ) -> Result<(Vec<String>, Option<bool>), String> {
         self.check_restore_time(now)?;
         if !id.is_empty()
             && !scene
@@ -184,16 +256,18 @@ impl Separation {
         ids.sort();
         let offsets: HashMap<_, _> = ids.iter().map(|id| (id.clone(), self.offset(id))).collect();
         let moving = offsets.values().any(|offset| *offset != Vec3::ZERO);
+        self.drag = None;
         self.restoration = Some(Restoration {
             started: now,
             previous: now,
             offsets,
             all,
         });
-        if !animate || !moving {
-            self.finish_restore();
+        if animate && moving {
+            Ok((ids, None))
+        } else {
+            Ok((ids, Some(self.finish_restore_for(moving_id))))
         }
-        Ok(ids)
     }
 
     pub fn restoring(&self) -> bool {
@@ -214,15 +288,23 @@ impl Separation {
     }
 
     pub fn advance_restore(&mut self, now: f64) -> Result<bool, String> {
+        self.advance_restore_for(now, "")
+            .map(|completed| completed.is_none())
+    }
+
+    pub fn advance_restore_for(
+        &mut self,
+        now: f64,
+        moving_id: &str,
+    ) -> Result<Option<bool>, String> {
         self.check_restore_time(now)?;
         let Some(restore) = self.restoration.as_mut() else {
-            return Ok(false);
+            return Ok(Some(false));
         };
         restore.previous = now;
         let progress = ((now - restore.started) / 420.0).min(1.0);
         if progress >= 1.0 {
-            self.finish_restore();
-            return Ok(false);
+            return Ok(Some(self.finish_restore_for(moving_id)));
         }
         let remaining = (1.0 - progress).powi(3) as f32;
         for (id, offset) in &restore.offsets {
@@ -233,13 +315,18 @@ impl Separation {
                 *current = offset;
             }
         }
-        Ok(true)
+        Ok(None)
     }
 
     pub fn finish_restore(&mut self) {
+        self.finish_restore_for("");
+    }
+
+    pub fn finish_restore_for(&mut self, moving_id: &str) -> bool {
         let Some(restore) = self.restoration.take() else {
-            return;
+            return false;
         };
+        let clear_moving = restore.all || restore.offsets.contains_key(moving_id);
         if restore.all {
             self.clear("");
         } else {
@@ -247,6 +334,7 @@ impl Separation {
                 self.clear(id);
             }
         }
+        clear_moving
     }
 
     pub fn drag(

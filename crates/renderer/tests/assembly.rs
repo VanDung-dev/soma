@@ -74,14 +74,60 @@ fn snapping_merges_groups_and_dragging_either_member_preserves_the_assembly() {
     separation.snap(&scene, "a", "c", 0.04).unwrap();
     assert_eq!(separation.members("d"), ["a", "b", "c", "d"]);
     let before = separation.offset("a");
-    separation.drag(&scene, &camera, "b", 0.05, -0.02).unwrap();
+    separation.begin_drag("b", None);
+    assert_eq!(separation.active_drag(), Some(("b", false)));
+    separation.move_drag(&scene, &camera, 0.05, -0.02).unwrap();
     assert_ne!(separation.offset("a"), before);
     for id in ["b", "c", "d"] {
         assert_eq!(separation.offset(id), separation.offset("a"));
     }
     assert_eq!(separation.offset("remote"), Vec3::ZERO);
+    separation.end_drag(true);
+    for id in ["a", "b", "c", "d"] {
+        assert_eq!(separation.offset(id), before);
+    }
+    assert_eq!(separation.members("d"), ["a", "b", "c", "d"]);
+    assert_eq!(separation.active_drag(), None);
     assert_eq!(camera.matrix(), matrix);
     assert_eq!(serde_json::to_value(&scene).unwrap(), original);
+}
+
+#[test]
+fn selection_rollback_restores_each_offset_and_cannot_replay_a_finished_drag() {
+    let scene = scene();
+    let camera = Camera::new(scene.bounds);
+    let mut separation = Separation::default();
+    let ids = vec!["a".into(), "b".into()];
+    let before = Vec3::new(0.3, 0.0, 0.0);
+    separation.set(&scene, "a", before.to_array()).unwrap();
+    separation.begin_drag("a", Some(ids.clone()));
+    assert_eq!(separation.active_drag(), Some(("a", true)));
+    separation.move_drag(&scene, &camera, 0.05, 0.0).unwrap();
+    assert_ne!(separation.offset("a"), before);
+    assert_ne!(separation.offset("b"), Vec3::ZERO);
+    separation.end_drag(true);
+    assert_eq!(separation.offset("a"), before);
+    assert_eq!(separation.offset("b"), Vec3::ZERO);
+
+    separation.begin_drag("a", Some(ids.clone()));
+    separation.move_drag(&scene, &camera, 0.05, 0.0).unwrap();
+    separation.end_drag(false);
+    let dropped = separation.offset("a");
+    separation.end_drag(true);
+    assert_eq!(separation.offset("a"), dropped);
+    assert_ne!(dropped, before);
+
+    separation.begin_drag("a", Some(ids));
+    assert_eq!(
+        separation
+            .begin_restore_for(&scene, "a", 100.0, false, "b")
+            .unwrap()
+            .1,
+        Some(false)
+    );
+    separation.end_drag(true);
+    assert_eq!(separation.offset("a"), Vec3::ZERO);
+    assert_ne!(separation.offset("b"), Vec3::ZERO);
 }
 
 #[test]
@@ -150,7 +196,10 @@ fn restoration_interpolates_groups_and_finishes_at_exact_source_positions() {
     assert_eq!(separation.offset("a"), Vec3::new(0.1, 0.05, -0.025));
     assert_eq!(separation.offset("a"), separation.offset("b"));
     assert_eq!(separation.members("a"), ["a", "b"]);
-    assert!(!separation.advance_restore(520.0).unwrap());
+    assert_eq!(
+        separation.advance_restore_for(520.0, "a").unwrap(),
+        Some(true)
+    );
     assert!(!separation.restoring());
     assert_eq!(separation.offset("a"), Vec3::ZERO);
     assert_eq!(separation.offset("b"), Vec3::ZERO);
