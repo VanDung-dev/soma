@@ -53,6 +53,8 @@ The Rust catalog plans model loads and validates bundle metadata before the
 geometry worker runs. The browser host fetches and caches the bundle, handles
 cancellation, and commits the prepared metadata after the viewer accepts the
 geometry.
+The lesson editor also uses the Rust catalog to plan JSON downloads and index
+metadata from both combined bundles and per-model files.
 
 ## Lesson storage and sharing
 

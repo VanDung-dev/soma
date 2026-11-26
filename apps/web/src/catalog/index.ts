@@ -31,6 +31,8 @@ export class Catalog {
     return this.data.edit_lesson_scene_visibility(modelIds, targetId, visibleIds, root);
   }
   clearMetadata() { this.data.clear_metadata(); }
+  modelMetadataPaths(): string[] { return this.data.model_metadata_paths(); }
+  ingestModelMetadataFiles(files: Record<string, string>) { this.data.ingest_model_metadata_files(files); }
   modelLoadPlan(requested?: readonly string[], loaded: readonly string[] = []): ModelLoadPlan {
     return this.data.model_load_plan(requested, loaded);
   }

@@ -4,13 +4,7 @@ import type { Catalog } from "../../catalog/types";
 import { StructureSearch, useStructureSearch } from "../../anatomy/structure-search";
 import { StructureTree } from "../../anatomy/structure-tree";
 import { useLanguage } from "../../i18n";
-import { fetchModelMetadata, modelMetadataPath, requireRootMetadata } from "../../model-assets";
-
-type ModelMetadata = { metadata?: Record<string, unknown> };
-
-export function metadataForRoot(payload: ModelMetadata, rootId: string) {
-  return payload.metadata ? requireRootMetadata(payload.metadata, rootId) : payload;
-}
+import { loadModelMetadata } from "../../model-assets";
 
 export function LessonModelSetup({ catalog, targetId, visibleIds, selectedPart, settingsOpen, controls, onCloseSettings, onApply, onChangeScene, onSelectPart }: {
   catalog: Catalog;
@@ -56,19 +50,8 @@ export function LessonModelSetup({ catalog, targetId, visibleIds, selectedPart, 
   useEffect(() => {
     if (!settingsOpen || ready || failed) return;
     const abort = new AbortController();
-    const downloads = new Map<string, Promise<ModelMetadata>>();
-    void Promise.all(catalog.roots.map(async root => {
-      const path = modelMetadataPath(root.model!.path);
-      let download = downloads.get(path);
-      if (!download) {
-        download = fetchModelMetadata<ModelMetadata>(path, { signal: abort.signal });
-        downloads.set(path, download);
-      }
-      return [root, JSON.stringify(metadataForRoot(await download, root.id))] as const;
-    })).then(entries => {
+    void loadModelMetadata(catalog, abort.signal).then(() => {
       if (abort.signal.aborted) return;
-      for (const [root, json] of entries) catalog.ingestMetadata(root, json);
-      catalog.finish();
       setMetadata({ catalog, ready: true });
     }).catch(error => {
       if (abort.signal.aborted) return;

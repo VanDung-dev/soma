@@ -111,6 +111,20 @@ impl CatalogData {
     pub fn clear_metadata(&mut self) {
         self.data.clear_metadata();
     }
+    pub fn model_metadata_paths(&self) -> Result<JsValue, JsValue> {
+        value(
+            &self
+                .data
+                .model_metadata_paths()
+                .map_err(|error| JsValue::from_str(&error))?,
+        )
+    }
+    pub fn ingest_model_metadata_files(&mut self, files: JsValue) -> Result<(), JsValue> {
+        self.data
+            .ingest_model_metadata_files(&read(files)?)
+            .map_err(|error| JsValue::from_str(&error))?;
+        self.finish()
+    }
     pub fn model_load_plan(&self, requested: JsValue, loaded: JsValue) -> Result<JsValue, JsValue> {
         let requested: Option<Vec<String>> = read(requested)?;
         let loaded: Vec<String> = read(loaded)?;

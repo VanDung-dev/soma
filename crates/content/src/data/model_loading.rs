@@ -1,4 +1,5 @@
 use super::{CatalogData, Structure, parse_metadata};
+use catalog::Model;
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 use std::collections::{HashMap, HashSet};
@@ -25,7 +26,15 @@ pub struct ModelBundlePlan<'a> {
 struct ModelBundle<'a> {
     manifest: Manifest,
     #[serde(borrow)]
-    metadata: HashMap<String, &'a RawValue>,
+    metadata: RootMetadata<'a>,
+}
+
+type RootMetadata<'a> = HashMap<String, &'a RawValue>;
+
+#[derive(Deserialize)]
+struct MetadataFile<'a> {
+    #[serde(borrow)]
+    metadata: Option<RootMetadata<'a>>,
 }
 
 #[derive(Deserialize)]
@@ -56,6 +65,53 @@ impl PreparedModelMetadata {
 }
 
 impl CatalogData {
+    fn model_roots(&self) -> impl Iterator<Item = (&str, &Model)> {
+        self.catalog
+            .targets
+            .iter()
+            .filter_map(|target| Some((target.id.as_str(), target.model.as_ref()?)))
+    }
+
+    pub fn model_metadata_paths(&self) -> Result<Vec<String>, String> {
+        let mut seen = HashSet::new();
+        let mut paths = Vec::new();
+        for (_, model) in self.model_roots() {
+            let path = metadata_path(&model.path)?;
+            if seen.insert(path.clone()) {
+                paths.push(path);
+            }
+        }
+        Ok(paths)
+    }
+
+    pub fn ingest_model_metadata_files(
+        &mut self,
+        files: &HashMap<String, String>,
+    ) -> Result<(), String> {
+        let files: HashMap<_, _> = files
+            .iter()
+            .map(|(path, json)| {
+                let file: MetadataFile<'_> =
+                    serde_json::from_str(json).map_err(|_| "Metadata không hợp lệ")?;
+                Ok::<_, &str>((path.as_str(), (json.as_str(), file.metadata)))
+            })
+            .collect::<Result<_, _>>()?;
+        let mut parts = Vec::new();
+        for (root, model) in self.model_roots() {
+            let path = metadata_path(&model.path)?;
+            let (json, metadata) = files
+                .get(path.as_str())
+                .ok_or("Missing model metadata file")?;
+            let json = match metadata {
+                Some(metadata) => system_metadata(metadata, root)?,
+                None => *json,
+            };
+            parts.extend(parse_metadata(json, &model.structure_ids)?);
+        }
+        self.ingest_model_parts(parts);
+        Ok(())
+    }
+
     pub fn model_load_plan(
         &self,
         requested: Option<&[String]>,
@@ -68,9 +124,7 @@ impl CatalogData {
         let mut loaded_count = 0;
         let mut missing = Vec::new();
         let mut explosion_groups = Vec::new();
-        for target in &self.catalog.targets {
-            let Some(model) = &target.model else { continue };
-            let id = target.id.as_str();
+        for (id, model) in self.model_roots() {
             let requested = requested_ids.as_ref().is_none_or(|ids| ids.contains(id));
             let loaded = loaded_ids.contains(id);
             if requested {
@@ -95,14 +149,10 @@ impl CatalogData {
             {
                 return Err("Model roots must share one bundle".into());
             }
-            let path = model.path.strip_suffix(".br").unwrap_or(&model.path);
-            let stem = path
-                .strip_suffix(".glb")
-                .ok_or("Invalid model bundle path")?;
             Some(ModelBundlePlan {
                 path: &model.path,
                 sha256: &model.sha256,
-                metadata_path: format!("{stem}.json"),
+                metadata_path: metadata_path(&model.path)?,
                 root_ids: missing.iter().map(|(id, _)| *id).collect(),
             })
         } else {
@@ -127,8 +177,10 @@ impl CatalogData {
         let mut parts = Vec::new();
         for root in root_ids {
             let model = self.model(root)?;
-            let metadata = bundle.metadata.get(root).ok_or("Missing system metadata")?;
-            parts.extend(parse_metadata(metadata.get(), &model.structure_ids)?);
+            parts.extend(parse_metadata(
+                system_metadata(&bundle.metadata, root)?,
+                &model.structure_ids,
+            )?);
         }
         let ids = bundle
             .manifest
@@ -142,4 +194,19 @@ impl CatalogData {
     pub fn ingest_model_metadata(&mut self, prepared: PreparedModelMetadata) {
         self.ingest_model_parts(prepared.parts);
     }
+}
+
+fn metadata_path(path: &str) -> Result<String, &'static str> {
+    let path = path.strip_suffix(".br").unwrap_or(path);
+    let stem = path
+        .strip_suffix(".glb")
+        .ok_or("Invalid model bundle path")?;
+    Ok(format!("{stem}.json"))
+}
+
+fn system_metadata<'a>(metadata: &RootMetadata<'a>, root: &str) -> Result<&'a str, &'static str> {
+    metadata
+        .get(root)
+        .map(|json| json.get())
+        .ok_or("Missing system metadata")
 }

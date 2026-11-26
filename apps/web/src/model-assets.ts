@@ -1,5 +1,6 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { resolveResource } from "@tauri-apps/api/path";
+import type { Catalog } from "./catalog/types";
 
 export const usesBundledModels = import.meta.env.MODE === "desktop";
 
@@ -10,18 +11,13 @@ export async function fetchModelAsset(path: string, init: RequestInit): Promise<
   return fetch(url, init);
 }
 
-export function modelMetadataPath(path: string) {
-  return path.replace(/\.glb(?:\.br)?$/, ".json");
-}
-
-export async function fetchModelMetadata<T>(path: string, init: RequestInit): Promise<T> {
-  const response = await fetchModelAsset(path, init);
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return await response.json() as T;
-}
-
-export function requireRootMetadata<T>(metadata: Record<string, T>, rootId: string): T {
-  const entry = metadata[rootId];
-  if (!entry) throw new Error("Missing system metadata");
-  return entry;
+export async function loadModelMetadata(catalog: Catalog, signal: AbortSignal) {
+  signal.throwIfAborted();
+  const files = await Promise.all(catalog.modelMetadataPaths().map(async path => {
+    const response = await fetchModelAsset(path, { signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return [path, await response.text()] as const;
+  }));
+  signal.throwIfAborted();
+  catalog.ingestModelMetadataFiles(Object.fromEntries(files));
 }

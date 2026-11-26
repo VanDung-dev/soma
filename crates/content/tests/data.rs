@@ -141,6 +141,60 @@ fn prepared_model_metadata_leaves_the_catalog_untouched_until_commit() {
 }
 
 #[test]
+fn editor_metadata_ingest_requires_valid_metadata_for_every_planned_system() {
+    let mut data = CatalogData::from_json(SOURCE).unwrap();
+    let bundled_path = "models/z-anatomy/z-anatomy.json".to_owned();
+    assert_eq!(data.model_metadata_paths().unwrap(), [bundled_path.clone()]);
+    let roots: Vec<_> = data.roots().iter().map(|root| root.id.to_owned()).collect();
+    let first_part = bundle()["metadata"][&roots[0]]["structures"][0]["source_id"]
+        .as_str()
+        .unwrap();
+
+    let mut bundled_metadata = bundle()["metadata"].clone();
+    let last_root = roots.last().unwrap();
+    let last_metadata = bundled_metadata
+        .as_object_mut()
+        .unwrap()
+        .remove(last_root)
+        .unwrap();
+    let mut files = HashMap::from([(
+        bundled_path.clone(),
+        json!({ "metadata": bundled_metadata }).to_string(),
+    )]);
+    assert_eq!(
+        data.ingest_model_metadata_files(&files).unwrap_err(),
+        "Missing system metadata"
+    );
+    assert!(data.detail(first_part).is_none());
+
+    let legacy_path = "models/z-anatomy/legacy.json".to_owned();
+    data.catalog
+        .targets
+        .iter_mut()
+        .find(|target| &target.id == last_root)
+        .unwrap()
+        .model
+        .as_mut()
+        .unwrap()
+        .path = "models/z-anatomy/legacy.glb".into();
+    assert_eq!(
+        data.model_metadata_paths().unwrap(),
+        [bundled_path, legacy_path.clone()]
+    );
+    assert_eq!(
+        data.ingest_model_metadata_files(&files).unwrap_err(),
+        "Missing model metadata file"
+    );
+    files.insert(legacy_path, last_metadata.to_string());
+    data.ingest_model_metadata_files(&files).unwrap();
+    assert!(data.detail(first_part).is_some());
+    let last_part = last_metadata["structures"][0]["source_id"]
+        .as_str()
+        .unwrap();
+    assert!(data.detail(last_part).is_some());
+}
+
+#[test]
 fn skull_search_returns_the_linked_group_without_midword_noise() {
     let mut data = CatalogData::from_json(SOURCE).unwrap();
     let packages: Vec<_> = data
