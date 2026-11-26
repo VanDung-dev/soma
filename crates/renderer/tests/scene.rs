@@ -1,6 +1,6 @@
 mod support;
 
-use renderer::Scene;
+use renderer::{FocusVisibility, Scene};
 use support::ModelFixture;
 
 #[test]
@@ -114,6 +114,24 @@ fn scopes_selection_and_inspection_to_the_current_category() {
     let scoped = ids[..2].to_vec();
     scene.subset(&scoped).unwrap();
     assert_eq!(scene.visible_count(), 2);
+    assert!(
+        matches!(scene.focus_visibility(&scoped[..1], true).unwrap(),
+        FocusVisibility::Folder { hide, reveal: false } if hide.as_slice() == &scoped[1..])
+    );
+    assert!(matches!(
+        scene.focus_visibility(&scoped[..1], false).unwrap(),
+        FocusVisibility::Isolate
+    ));
+    assert!(matches!(
+        scene.focus_visibility(&scoped, false).unwrap(),
+        FocusVisibility::Add
+    ));
+    assert!(scene.focus_visibility(&[ids[2].clone()], true).is_err());
+    assert!(
+        scene
+            .focus_visibility(&[ids[0].clone(), ids[0].clone()], true)
+            .is_err()
+    );
     assert!(scene.select(&ids[2]).is_err());
     assert!(scene.bounds_for(&[ids[2].clone()]).is_err());
     assert!(scene.bounds_for(&[ids[0].clone(), ids[0].clone()]).is_err());
@@ -122,6 +140,9 @@ fn scopes_selection_and_inspection_to_the_current_category() {
     scene.change_visibility(&[ids[0].clone()], false).unwrap();
     assert_eq!(scene.visible_count(), 1);
     assert!(scene.selected.is_empty());
+    assert!(
+        matches!(scene.focus_visibility(&scoped, true).unwrap(), FocusVisibility::Folder { hide, reveal: true } if hide.is_empty())
+    );
     let focused_bounds = scene.bounds_for(&scoped).unwrap().unwrap();
     let parts: Vec<_> = scene.parts.iter().filter(|p| p.active).collect();
     assert_eq!(

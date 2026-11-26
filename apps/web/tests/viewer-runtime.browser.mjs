@@ -52,6 +52,9 @@ export async function checkViewerRuntime() {
     assert(first.session.getSnapshot().visibleIds.size === 0 && second.session.getSnapshot().visibleIds.size === ids.length,
       'A command in one session must not affect the other');
     assert(first.session.applyScene(ids), 'Lesson scenes restore their own visibility');
+    const beforeInvalidScene = first.session.getSnapshot();
+    assert(!first.session.applyScene(['unknown']) && !first.session.applyScene([ids[0], ids[0]])
+      && first.session.getSnapshot() === beforeInvalidScene, 'Reject invalid visibility before publishing or mutating the scene');
     const initialView = first.session.captureView();
     first.session.control([{ kind: 'rotate', x: 0.7, y: -0.2 }, { kind: 'zoom', factor: 0.8 }, { kind: 'pan', x: 0.1, y: -0.1 }]);
     first.session.changeExplosion(30);
@@ -68,6 +71,11 @@ export async function checkViewerRuntime() {
     const interrupted = first.session.captureView();
     assert(Math.abs(interrupted.camera.yaw - initialView.camera.yaw) > 0.01, 'Manual input cancels the pending authored camera transition');
     assert(interrupted.explosion === 0, 'Rapid step changes retain the latest explosion state');
+    assert(!first.session.setMoving(ids[0]), 'Movement needs a selected structure');
+    assert(first.session.browseStructure(ids[0]) && first.session.setMoving(ids[0]), 'Allow movement of the visible selection');
+    first.session.changeExplosion(45);
+    assert(first.session.getSnapshot().explosionAmount === 0, 'The Rust viewer must reject explosion during movement');
+    assert(first.session.setMoving('') && first.session.overview(), 'Leave movement and reset the scene');
     first.runtime.dispose();
     assert(!first.host.querySelector('canvas') && !first.session.control([{ kind: 'reset' }]),
       'Disposed runtimes must release their canvas and reject commands');

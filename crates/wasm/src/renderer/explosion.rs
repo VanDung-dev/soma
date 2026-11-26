@@ -47,44 +47,11 @@ impl AnatomyViewer {
         overview: Option<bool>,
         target_json: Option<JsValue>,
     ) -> Result<(), JsValue> {
-        if !self.exploding {
-            return Err(js_error("Explosion mode is not enabled"));
-        }
         let ids: Vec<String> = target_json
             .map(super::util::read)
             .transpose()?
             .unwrap_or_default();
-        self.scene.bounds_for(&ids).map_err(js_error)?;
-        let focusing = amount == self.explosion.amount() && self.camera_transition.is_some();
-        self.explosion.set(amount, now).map_err(js_error)?;
-        if focusing {
-            self.explosion_camera = self
-                .camera_transition
-                .as_ref()
-                .map(|(goal, _)| goal.clone());
-        } else if ids != self.explosion_target {
-            self.cancel_camera_transition();
-            self.explosion_camera = None;
-        }
-        let overview =
-            overview.unwrap_or(false) && (amount > 0.0 || self.explosion_camera.is_some());
-        let tracking = !ids.is_empty() && (amount > 0.0 || self.explosion_camera.is_some());
-        if !focusing && (overview || tracking || self.explosion_camera.is_some()) {
-            self.cancel_camera_transition();
-        }
-        self.explosion_target = ids;
-        if overview || tracking {
-            self.explosion_camera
-                .get_or_insert_with(|| self.camera.clone());
-        } else {
-            self.explosion_camera = None;
-        }
-        self.relayout_explosion()?;
-        if !animate {
-            self.finish_explosion()?;
-        }
-        self.shadow_cached.set(false);
-        Ok(())
+        self.update_explosion(amount, now, animate, overview.unwrap_or(false), ids)
     }
 
     pub fn finish_explosion(&mut self) -> Result<(), JsValue> {
@@ -117,6 +84,49 @@ impl AnatomyViewer {
 }
 
 impl AnatomyViewer {
+    pub(super) fn update_explosion(
+        &mut self,
+        amount: f32,
+        now: f64,
+        animate: bool,
+        overview: bool,
+        ids: Vec<String>,
+    ) -> Result<(), JsValue> {
+        if !self.exploding {
+            return Err(js_error("Explosion mode is not enabled"));
+        }
+        self.scene.bounds_for(&ids).map_err(js_error)?;
+        let focusing = amount == self.explosion.amount() && self.camera_transition.is_some();
+        self.explosion.set(amount, now).map_err(js_error)?;
+        if focusing {
+            self.explosion_camera = self
+                .camera_transition
+                .as_ref()
+                .map(|(goal, _)| goal.clone());
+        } else if ids != self.explosion_target {
+            self.cancel_camera_transition();
+            self.explosion_camera = None;
+        }
+        let overview = overview && (amount > 0.0 || self.explosion_camera.is_some());
+        let tracking = !ids.is_empty() && (amount > 0.0 || self.explosion_camera.is_some());
+        if !focusing && (overview || tracking || self.explosion_camera.is_some()) {
+            self.cancel_camera_transition();
+        }
+        self.explosion_target = ids;
+        if overview || tracking {
+            self.explosion_camera
+                .get_or_insert_with(|| self.camera.clone());
+        } else {
+            self.explosion_camera = None;
+        }
+        self.relayout_explosion()?;
+        if !animate {
+            self.finish_explosion()?;
+        }
+        self.shadow_cached.set(false);
+        Ok(())
+    }
+
     pub(super) fn stop_explosion_follow(&mut self) {
         self.explosion_target.clear();
         self.explosion_camera = None;

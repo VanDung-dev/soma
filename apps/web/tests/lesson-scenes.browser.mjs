@@ -77,12 +77,12 @@ export async function checkLessonScenes(page) {
   const beforeLearning = await saved();
   await page.evaluate(async () => {
     const { AnatomyViewer } = await (await import('/src/core.ts')).getWasm();
-    const applyScene = AnatomyViewer.prototype.apply_scene;
-    AnatomyViewer.prototype.apply_scene = function (...args) {
+    const applyScene = AnatomyViewer.prototype.apply_study_scene;
+    AnatomyViewer.prototype.apply_study_scene = function (...args) {
       window.lessonScenesViewer = this;
       return applyScene.apply(this, args);
     };
-    window.restoreLessonScenesViewer = () => { AnatomyViewer.prototype.apply_scene = applyScene; };
+    window.restoreLessonScenesViewer = () => { AnatomyViewer.prototype.apply_study_scene = applyScene; };
   });
   await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   const player = page.locator('.lesson-player');

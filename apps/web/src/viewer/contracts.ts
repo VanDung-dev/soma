@@ -11,6 +11,7 @@ export type CameraPose = {
 };
 
 export type SceneView = { camera: CameraPose; explosion: number };
+export type VisibilityUpdate = { change: "replace" | "show" | "hide"; ids: string[] };
 
 export type ViewerStatus = "loading" | "preparing" | "finishing" | "loadError" | "processError" | "renderError" | "contextLost";
 
@@ -33,14 +34,14 @@ export interface ViewerState {
 
 export interface StudyViewer {
   captureView(): SceneView | undefined;
-  applyScene(ids: string[], view?: SceneView): boolean;
+  applyScene(ids: string[], view?: SceneView): VisibilityUpdate | undefined;
   select(id: string): boolean;
-  changeVisibility(ids: string[], shown: boolean): boolean;
-  focus(ids: string[], folder: boolean, reveal: boolean): boolean;
+  changeVisibility(ids: string[], shown: boolean): VisibilityUpdate | undefined;
+  focus(ids: string[], folder: boolean): VisibilityUpdate | undefined;
   setExplosion(value: number, ids: string[]): boolean;
   retargetExplosion(value: number, ids: string[]): void;
-  overview(): boolean;
+  overview(): VisibilityUpdate | undefined;
   control(commands: CameraCommand[]): boolean;
-  setMoving(id: string): boolean;
+  setMoving(id: string, selectedOnly?: boolean): boolean;
   restoreStructure(id: string): boolean;
 }

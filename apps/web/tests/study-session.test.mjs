@@ -12,9 +12,17 @@ test('manual movement blocks automatic explosion and preserves study navigation'
     const catalog = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
     const session = new StudySession(await createCatalogFixture(server, catalog)), calls = [];
     const id = catalog.targets.find(target => target.model).model.structure_ids[0];
-    session.connect({ setMoving: id => { calls.push(['move', id]); return true; },
+    session.connect({ setMoving: (id, selectedOnly) => {
+      const state = session.getSnapshot();
+      if (selectedOnly && id && (id !== state.selected || state.explosionAmount || !state.visibleIds.has(id))) return false;
+      calls.push(['move', id]); return true;
+    },
       restoreStructure: id => { calls.push(['restore', id]); return true; },
-      setExplosion: value => { calls.push(['explode', value]); return true; } });
+      setExplosion: value => {
+        const state = session.getSnapshot();
+        if (state.movingId || state.separatedIds.size) return false;
+        calls.push(['explode', value]); return true;
+      } });
     session.updateViewer({ structureIds: [id], building: false });
     assert.equal(session.setMoving('missing'), false);
     session.changeExplosion(30);
@@ -82,13 +90,17 @@ test('study commands share folder visibility policy independently of UI selectio
     let succeeds = true;
     const viewer = {
       select: id => { calls.push(['select', id]); return succeeds; },
-      changeVisibility: () => succeeds,
+      changeVisibility: (ids, shown) => succeeds ? { change: shown ? 'show' : 'hide', ids } : undefined,
       captureView: () => ({ camera: { target: [0, 0, 0], yaw: 0.5, pitch: 0, distance: 2, pan: [0, 0] }, explosion: 30.000002 }),
-      applyScene: (...args) => { calls.push(['scene', ...args]); return succeeds; },
-      focus: (...args) => { calls.push(['focus', ...args]); return succeeds; },
+      applyScene: (ids, view) => {
+        calls.push(['scene', ids, view]);
+        if (!succeeds || new Set(ids).size !== ids.length || !ids.every(id => structureIds.includes(id))) return;
+        return { change: 'replace', ids };
+      },
+      focus: (ids, folder) => { calls.push(['focus', ids, folder]); return succeeds ? { change: folder || ids.length === 1 ? 'replace' : 'show', ids } : undefined; },
       setExplosion: (...args) => { calls.push(['explode', ...args]); return succeeds; },
       retargetExplosion: (...args) => { calls.push(['retarget', ...args]); },
-      overview: () => succeeds,
+      overview: () => succeeds ? { change: 'replace', ids: structureIds } : undefined,
       control: () => succeeds,
     };
     const session = new StudySession(await createCatalogFixture(server, catalog));
@@ -99,14 +111,14 @@ test('study commands share folder visibility policy independently of UI selectio
     assert.equal(notifications, 0, 'Unchanged renderer snapshots must not trigger UI updates');
     session.browseTarget(roots[1].id);
     assert(session.focus([], root.id));
-    assert.deepEqual(calls.findLast(c => c[0] === 'focus'), ['focus', ids, true, false]);
+    assert.deepEqual(calls.findLast(c => c[0] === 'focus'), ['focus', ids, true]);
     assert.deepEqual([...session.getSnapshot().visibleIds], ids);
     assert(session.changeVisibility([ids[0]], false));
     assert(session.focus([], root.id));
-    assert.equal(calls.findLast(c => c[0] === 'focus')[3], true, 'Mixed checkbox needs a reveal even on a selected row');
+    assert.deepEqual([...session.getSnapshot().visibleIds], ids, 'Mirror the viewer visibility when a mixed folder is focused');
     session.browseTarget(roots[1].id);
     assert(session.focus([], root.id));
-    assert.equal(calls.findLast(c => c[0] === 'focus')[3], false, 'Checked checkbox skips reveal even on an unselected row');
+    assert.deepEqual(calls.findLast(c => c[0] === 'focus'), ['focus', ids, true]);
     session.browseStructure(ids[0]);
     session.updateViewer({ hovered: ids[1] });
     assert.equal(session.getSnapshot().readingId, ids[0], 'Hover must not replace the article being read');
@@ -126,10 +138,10 @@ test('study commands share folder visibility policy independently of UI selectio
     const scene = [ids[0], roots[1].model.structure_ids[0]];
     assert(session.showScene(scene));
     assert.deepEqual([...session.getSnapshot().visibleIds], scene);
-    assert.deepEqual(calls.findLast(c => c[0] === 'focus'), ['focus', scene, true, false]);
+    assert.deepEqual(calls.findLast(c => c[0] === 'focus'), ['focus', scene, true]);
     assert(session.focus([scene[0]]));
     assert(session.showScene(scene));
-    assert.equal(calls.findLast(c => c[0] === 'focus')[3], true, 'Restore every member of a custom scene after isolation');
+    assert.deepEqual([...session.getSnapshot().visibleIds], scene, 'Restore every member of a custom scene after isolation');
     const custom = session.getSnapshot();
     assert.equal(session.showScene(['missing']), false);
     succeeds = false;
@@ -173,9 +185,10 @@ test('Back and Forward follow anatomy navigation without recording hover or manu
     const calls = [];
     const viewer = {
       select: id => { calls.push(['select', id]); return succeeds; },
-      focus: (...args) => { calls.push(['focus', ...args]); return succeeds; },
-      overview: () => { calls.push(['overview']); return succeeds; },
-      changeVisibility: () => succeeds, setExplosion: () => succeeds, retargetExplosion() {}, control: () => true,
+      focus: (ids, folder) => { calls.push(['focus', ids, folder]); return succeeds ? { change: 'replace', ids } : undefined; },
+      overview: () => { calls.push(['overview']); return succeeds ? { change: 'replace', ids: structureIds } : undefined; },
+      changeVisibility: (ids, shown) => succeeds ? { change: shown ? 'show' : 'hide', ids } : undefined,
+      setExplosion: () => succeeds, retargetExplosion() {}, control: () => true,
     };
     const session = new StudySession(await createCatalogFixture(server, catalog));
     session.connect(viewer); session.updateViewer({ structureIds, building: false });

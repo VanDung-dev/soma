@@ -54,45 +54,13 @@ impl AnatomyViewer {
         shown: bool,
         now: Option<f64>,
     ) -> Result<(), JsValue> {
-        if let Some(now) = now {
-            self.reconstruction.check_time(now).map_err(js_error)?;
-        }
         let ids: Vec<String> = super::util::read(ids_json)?;
-        let inventory = self.exploding && self.explosion.amount() == 1.0;
-        let before = self.camera.clone();
-        self.scene
-            .change_visibility(&ids, shown)
-            .map_err(js_error)?;
-        if inventory {
-            self.reconstruction
-                .set_inventory_visibility(&self.scene.parts, now)
-        } else {
-            self.reconstruction.set_visibility(&self.scene.parts, now)
-        }
-        .map_err(js_error)?;
-        self.relayout_explosion()?;
-        if inventory {
-            if now.is_none() {
-                self.explosion.finish();
-            } else if self.explosion_camera.is_some() {
-                self.cancel_camera_transition();
-                self.follow_explosion()?;
-                self.transition_camera(before, now);
-            }
-        }
-        self.shadow_cached.set(false);
-        Ok(())
+        self.change_visibility_ids(&ids, shown, now)
     }
 
     pub fn set_visibility(&mut self, ids_json: JsValue) -> Result<(), JsValue> {
         let ids: Vec<String> = super::util::read(ids_json)?;
-        self.scene.set_visibility(&ids).map_err(js_error)?;
-        self.reconstruction
-            .set_visibility(&self.scene.parts, None)
-            .map_err(js_error)?;
-        self.relayout_explosion()?;
-        self.shadow_cached.set(false);
-        Ok(())
+        self.set_visibility_ids(&ids)
     }
 
     pub fn subset(&mut self, ids_json: JsValue) -> Result<(), JsValue> {
@@ -214,5 +182,50 @@ impl AnatomyViewer {
         }
         result?;
         Ok(id)
+    }
+}
+
+impl AnatomyViewer {
+    pub(super) fn change_visibility_ids(
+        &mut self,
+        ids: &[String],
+        shown: bool,
+        now: Option<f64>,
+    ) -> Result<(), JsValue> {
+        if let Some(now) = now {
+            self.reconstruction.check_time(now).map_err(js_error)?;
+        }
+        let inventory = self.exploding && self.explosion.amount() == 1.0;
+        let before = self.camera.clone();
+        self.scene.change_visibility(ids, shown).map_err(js_error)?;
+        if inventory {
+            self.reconstruction
+                .set_inventory_visibility(&self.scene.parts, now)
+        } else {
+            self.reconstruction.set_visibility(&self.scene.parts, now)
+        }
+        .map_err(js_error)?;
+        self.relayout_explosion()?;
+        if inventory {
+            if now.is_none() {
+                self.explosion.finish();
+            } else if self.explosion_camera.is_some() {
+                self.cancel_camera_transition();
+                self.follow_explosion()?;
+                self.transition_camera(before, now);
+            }
+        }
+        self.shadow_cached.set(false);
+        Ok(())
+    }
+
+    pub(super) fn set_visibility_ids(&mut self, ids: &[String]) -> Result<(), JsValue> {
+        self.scene.set_visibility(ids).map_err(js_error)?;
+        self.reconstruction
+            .set_visibility(&self.scene.parts, None)
+            .map_err(js_error)?;
+        self.relayout_explosion()?;
+        self.shadow_cached.set(false);
+        Ok(())
     }
 }

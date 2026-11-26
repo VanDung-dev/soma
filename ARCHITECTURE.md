@@ -46,6 +46,9 @@ Camera → MediaPipe worker → Rust HandGestureController → StudySession
 Each host creates one `StudySession` and `ViewerRuntime`, connects them, subscribes
 to snapshots, routes user actions through the session, then disconnects and disposes
 both on unmount. A new mount gets a new runtime.
+The Rust viewer runs focus, authored-scene and overview commands and returns
+visibility updates for the session. The browser host supplies viewport geometry
+and frame timing.
 
 ## Lesson storage and sharing
 

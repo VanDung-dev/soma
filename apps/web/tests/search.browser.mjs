@@ -2,8 +2,7 @@ import { getWasm } from '../src/core.ts';
 
 export async function checkStructureSearch() {
   const { AnatomyViewer } = await getWasm();
-  const originalFocus = AnatomyViewer.prototype.focus;
-  const originalAnimated = AnatomyViewer.prototype.focus_animated;
+  const originalFocus = AnatomyViewer.prototype.focus_scene;
   const originalSelect = AnatomyViewer.prototype.select;
   const panel = document.querySelector('.catalog-panel');
   const input = panel.querySelector('.structure-search input');
@@ -25,15 +24,10 @@ export async function checkStructureSearch() {
   const catalogToggle = document.querySelector('.app-menu-history .sidebar-toggle');
   const wasClosed = catalogToggle.getAttribute('aria-expanded') === 'false';
   let focused, viewer, calls = 0, selections = 0;
-  AnatomyViewer.prototype.focus = function(ids, ...viewport) {
+  AnatomyViewer.prototype.focus_scene = function(ids, ...options) {
     focused = typeof ids === 'string' ? JSON.parse(ids) : ids;
     viewer = this; calls++;
-    return originalFocus.call(this, ids, ...viewport);
-  };
-  AnatomyViewer.prototype.focus_animated = function(ids, ...viewport) {
-    focused = typeof ids === 'string' ? JSON.parse(ids) : ids;
-    viewer = this; calls++;
-    return originalAnimated.call(this, ids, ...viewport);
+    return originalFocus.call(this, ids, ...options);
   };
   AnatomyViewer.prototype.select = function(...args) {
     selections++;
@@ -97,8 +91,7 @@ export async function checkStructureSearch() {
     assert(input.value === 'xuong dui trai' && best(), 'Keep the search results visible after model focus');
     return { inline: true, restoredTree: true, exactMatch: true, bilingualNames: true, latinSearch: true, explicitFocus: true };
   } finally {
-    AnatomyViewer.prototype.focus = originalFocus;
-    AnatomyViewer.prototype.focus_animated = originalAnimated;
+    AnatomyViewer.prototype.focus_scene = originalFocus;
     AnatomyViewer.prototype.select = originalSelect;
     await enter(originalValue);
     for (const back = document.querySelector('.app-menu-history .history-back'); !back.disabled;) { back.click(); await wait(); }

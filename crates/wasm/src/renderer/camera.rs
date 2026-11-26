@@ -6,7 +6,7 @@ use super::{AnatomyViewer, background_bounds, util::js_error};
 
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-struct SceneView {
+pub(super) struct SceneView {
     camera: CameraPose,
     explosion: f32,
 }
@@ -91,57 +91,7 @@ impl AnatomyViewer {
     ) -> Result<(), JsValue> {
         let ids: Vec<String> = super::util::read(ids)?;
         let view: Option<SceneView> = view.map(super::util::read).transpose()?;
-        if now.is_some_and(|time| !time.is_finite() || time < 0.0) {
-            return Err(js_error("Invalid scene timestamp"));
-        }
-        if let Some(view) = &view {
-            view.camera.validate().map_err(js_error)?;
-            if !view.explosion.is_finite() || !(0.0..=100.0).contains(&view.explosion) {
-                return Err(js_error("Invalid scene explosion"));
-            }
-        }
-        self.scene.set_visibility(&ids).map_err(js_error)?;
-        let before = self.camera.clone();
-        let previous_explosion = self.explosion.displayed_amount();
-        self.clear_selection();
-        self.view_center = None;
-        self.uncentered_camera = None;
-        self.restore_structure("", None)?;
-        self.set_explode_mode(false)?;
-        self.reconstruction
-            .set_visibility(&self.scene.parts, None)
-            .map_err(js_error)?;
-        self.camera = Camera::new(self.scene.bounds);
-        self.camera
-            .resize(self.canvas.width(), self.canvas.height());
-        self.camera.reframe(self.layout_frame).map_err(js_error)?;
-        if !ids.is_empty() {
-            self.focus_ids(&ids, self.layout_frame)?;
-        }
-        let amount = view.as_ref().map_or(0.0, |view| view.explosion / 100.0);
-        if amount > 0.0 {
-            self.set_explode_mode(true)?;
-            self.set_explode(amount, now.unwrap_or(0.0), false, Some(true), None)?;
-        }
-        self.stop_explosion_follow();
-        if let Some(view) = &view {
-            self.camera.apply_pose(&view.camera).map_err(js_error)?;
-        }
-        if let Some(now) = now
-            && (amount > 0.0 || previous_explosion > 0.0)
-        {
-            self.set_explode_mode(true)?;
-            self.set_explode(previous_explosion, now, false, Some(false), None)?;
-            self.set_explode(amount, now, true, Some(false), None)?;
-        }
-        if let Some(camera) = &mut self.background_camera {
-            let mut reset = Camera::new(background_bounds());
-            reset.aspect = camera.aspect;
-            *camera = reset;
-        }
-        self.transition_camera(before, now);
-        self.shadow_cached.set(false);
-        Ok(())
+        self.apply_scene_view(&ids, view, now)
     }
 
     pub fn camera_axes(&self) -> Vec<f32> {
@@ -173,14 +123,8 @@ impl AnatomyViewer {
         height: f32,
         now: f64,
     ) -> Result<(), JsValue> {
-        if !now.is_finite() || now < 0.0 {
-            return Err(js_error("Invalid focus timestamp"));
-        }
         let ids: Vec<String> = super::util::read(ids_json)?;
-        let before = self.camera.clone();
-        self.focus_ids(&ids, [left, top, width, height])?;
-        self.transition_camera(before, Some(now));
-        Ok(())
+        self.focus_with_transition(&ids, [left, top, width, height], Some(now))
     }
 
     pub fn reframe(&mut self, left: f32, top: f32, width: f32, height: f32) -> Result<(), JsValue> {
@@ -451,6 +395,84 @@ impl AnatomyViewer {
 }
 
 impl AnatomyViewer {
+    pub(super) fn apply_scene_view(
+        &mut self,
+        ids: &[String],
+        view: Option<SceneView>,
+        now: Option<f64>,
+    ) -> Result<(), JsValue> {
+        if now.is_some_and(|time| !time.is_finite() || time < 0.0) {
+            return Err(js_error("Invalid scene timestamp"));
+        }
+        if let Some(view) = &view {
+            view.camera.validate().map_err(js_error)?;
+            if !view.explosion.is_finite() || !(0.0..=100.0).contains(&view.explosion) {
+                return Err(js_error("Invalid scene explosion"));
+            }
+        }
+        self.scene.set_visibility(ids).map_err(js_error)?;
+        let before = self.camera.clone();
+        let previous_explosion = self.explosion.displayed_amount();
+        self.clear_selection();
+        self.view_center = None;
+        self.uncentered_camera = None;
+        self.restore_structure("", None)?;
+        self.set_explode_mode(false)?;
+        self.reconstruction
+            .set_visibility(&self.scene.parts, None)
+            .map_err(js_error)?;
+        self.camera = Camera::new(self.scene.bounds);
+        self.camera
+            .resize(self.canvas.width(), self.canvas.height());
+        self.camera.reframe(self.layout_frame).map_err(js_error)?;
+        if !ids.is_empty() {
+            self.focus_ids(ids, self.layout_frame)?;
+        }
+        let amount = view.as_ref().map_or(0.0, |view| view.explosion / 100.0);
+        if amount > 0.0 {
+            self.set_explode_mode(true)?;
+            self.set_explode(amount, now.unwrap_or(0.0), false, Some(true), None)?;
+        }
+        self.stop_explosion_follow();
+        if let Some(view) = &view {
+            self.camera.apply_pose(&view.camera).map_err(js_error)?;
+        }
+        if let Some(now) = now
+            && (amount > 0.0 || previous_explosion > 0.0)
+        {
+            self.set_explode_mode(true)?;
+            self.set_explode(previous_explosion, now, false, Some(false), None)?;
+            self.set_explode(amount, now, true, Some(false), None)?;
+        }
+        if let Some(camera) = &mut self.background_camera {
+            let mut reset = Camera::new(background_bounds());
+            reset.aspect = camera.aspect;
+            *camera = reset;
+        }
+        self.transition_camera(before, now);
+        self.shadow_cached.set(false);
+        Ok(())
+    }
+
+    pub(super) fn focus_with_transition(
+        &mut self,
+        ids: &[String],
+        frame: [f32; 4],
+        now: Option<f64>,
+    ) -> Result<(), JsValue> {
+        if let Some(now) = now {
+            if !now.is_finite() || now < 0.0 {
+                return Err(js_error("Invalid focus timestamp"));
+            }
+            let before = self.camera.clone();
+            self.focus_ids(ids, frame)?;
+            self.transition_camera(before, Some(now));
+            Ok(())
+        } else {
+            self.focus_ids(ids, frame)
+        }
+    }
+
     pub(super) fn transition_camera(&mut self, before: Camera, now: Option<f64>) {
         if let Some(now) = now {
             let goal = std::mem::replace(&mut self.camera, before);

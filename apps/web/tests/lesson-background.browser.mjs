@@ -37,10 +37,10 @@ export async function checkLessonBackground(page) {
   const original = await canvas.elementHandle();
   await page.evaluate(async () => {
     const { AnatomyViewer } = await (await import('/src/core.ts')).getWasm();
-    const proto = AnatomyViewer.prototype, original = proto.apply_scene, reframe = proto.reframe;
-    proto.apply_scene = function(...args) { window.backgroundViewer = this; return original.apply(this, args); };
+    const proto = AnatomyViewer.prototype, original = proto.apply_study_scene, reframe = proto.reframe;
+    proto.apply_study_scene = function(...args) { window.backgroundViewer = this; if (args[2]) window.backgroundFrame = args[2]; return original.apply(this, args); };
     proto.reframe = function(...args) { window.backgroundFrame = args; return reframe.apply(this, args); };
-    window.restoreBackgroundViewer = () => { proto.apply_scene = original; proto.reframe = reframe; };
+    window.restoreBackgroundViewer = () => { proto.apply_study_scene = original; proto.reframe = reframe; };
   });
   const outline = page.locator('#lesson-author-outline');
   const details = () => outline.getByRole('button', { name: 'Thông tin bài học', exact: true }).click();

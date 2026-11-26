@@ -5,7 +5,7 @@ export async function checkInventorySwitch() {
   const catalog = await getCatalog(), { AnatomyViewer } = await getWasm(), proto = AnatomyViewer.prototype;
   const canvas = document.querySelector('.model-canvas canvas'), gl = canvas.getContext('webgl2');
   const slider = document.querySelector('.explode-control input');
-  const original = { explode: proto.set_explode, matrix: gl.uniformMatrix4fv };
+  const original = { explode: proto.set_study_explosion, matrix: gl.uniformMatrix4fv };
   const wait = time => new Promise(resolve => setTimeout(resolve, time));
   const input = value => {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(slider, String(value));
@@ -17,7 +17,7 @@ export async function checkInventorySwitch() {
     name.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 }));
   };
   let viewer, matrix;
-  proto.set_explode = function(...args) { viewer = this; return original.explode.apply(this, args); };
+  proto.set_study_explosion = function(...args) { viewer = this; return original.explode.apply(this, args); };
   gl.uniformMatrix4fv = function(...args) {
     const result = original.matrix.apply(this, args), program = this.getParameter(this.CURRENT_PROGRAM);
     const location = program && this.getUniformLocation(program, 'view_projection');
@@ -65,6 +65,6 @@ export async function checkInventorySwitch() {
     return { smoothCamera: true, noSecondRepack: true, rapidSwitch: true, systems: results };
   } finally {
     input(0); document.querySelector('.tree-actions button').click(); await wait(700);
-    proto.set_explode = original.explode; gl.uniformMatrix4fv = original.matrix; catalog.free();
+    proto.set_study_explosion = original.explode; gl.uniformMatrix4fv = original.matrix; catalog.free();
   }
 }

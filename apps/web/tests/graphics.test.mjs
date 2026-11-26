@@ -69,6 +69,7 @@ test('viewer coalesces redraws, reacts to display scaling, and stops when idle o
       onOrientation: axes => orientations.push(axes) });
     runtime.viewer = {
       advance_camera: () => false, advance_reconstruction: () => false,
+      explosion_active: () => false,
       camera_axes: () => axes.slice(),
       render: () => draws++, render_reconstruction: () => { draws++; return --remaining > 0; },
       set_graphics: (_shadow, _lighting, grid, width, height) => { grids.push(grid); renderSizes.push([width, height]); }, selected_id: () => '', free() {},

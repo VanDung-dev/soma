@@ -15,5 +15,5 @@ pub use glb::read_glb;
 pub use hand_input::{HandCameraCommand, HandCursor, HandInput, HandInputResult};
 pub use packed::PackedScene;
 pub use reconstruction::Reconstruction;
-pub use scene::Scene;
+pub use scene::{FocusVisibility, Scene};
 pub use separation::Separation;

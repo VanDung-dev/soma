@@ -1,5 +1,6 @@
 mod api;
 mod camera;
+mod commands;
 mod draw;
 mod explosion;
 mod graphics;

@@ -392,8 +392,8 @@ export async function checkExplosion() {
 
 export async function checkExplosionControls() {
   const { AnatomyViewer } = await getWasm(), proto = AnatomyViewer.prototype;
-  const original = proto.set_explode, originalMode = proto.set_explode_mode;
-  const originalRender = proto.render_explosion;
+  const original = proto.set_study_explosion, originalReset = proto.reset_study_scene;
+  const originalRender = proto.render_study_explosion;
   const media = window.matchMedia;
   const assert = (ok, message) => { if (!ok) throw Error(message); };
   const wait = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
@@ -408,15 +408,28 @@ export async function checkExplosionControls() {
     return media.call(this, query === '(prefers-reduced-motion: reduce)'
       ? reduced ? '(min-width: 0px)' : '(max-width: 0px)' : query);
   };
-  proto.set_explode_mode = function(value) {
-    enabled = value; switches.push(value); return originalMode.call(this,value);
+  const modeChanged = (viewer, previous) => {
+    enabled = viewer.explosion_active();
+    if (enabled !== previous) switches.push(enabled);
   };
-  proto.set_explode = function(value, time, animate, fitOverview, targets) {
-    amount = value; overview = fitOverview; trackedIds = (typeof targets === "string" ? JSON.parse(targets) : targets ?? []);
-    assert(animate === !reduced, 'Respect reduced motion'); return original.call(this,value,time,animate,fitOverview,targets);
+  proto.reset_study_scene = function(...args) {
+    const previous = this.explosion_active(), result = originalReset.apply(this, args);
+    modeChanged(this, previous);
+    return result;
   };
-  proto.render_explosion = function(time) {
-    const moving = originalRender.call(this,time);
+  proto.set_study_explosion = function(value, targets, frame, time, animate, moving) {
+    const previous = this.explosion_active();
+    const result = original.call(this, value, targets, frame, time, animate, moving);
+    modeChanged(this, previous);
+    if (result && (previous || enabled)) {
+      amount = value; trackedIds = targets; overview = !trackedIds.length;
+      assert(animate === !reduced, 'Respect reduced motion');
+    }
+    return result;
+  };
+  proto.render_study_explosion = function(time) {
+    const previous = this.explosion_active(), moving = originalRender.call(this,time);
+    modeChanged(this, previous);
     if (amount === 0) {
       movingReturn ||= moving;
       if (!moving) finishReturn?.();
@@ -544,8 +557,8 @@ export async function checkExplosionControls() {
     clearTimeout(timeout); reduced = true;
     input('0');
     for (const back = document.querySelector('.app-menu-history .history-back'); !back.disabled;) { back.click(); await wait(); }
-    window.matchMedia = media; proto.set_explode = original; proto.set_explode_mode = originalMode;
-    proto.render_explosion = originalRender;
+    window.matchMedia = media; proto.set_study_explosion = original; proto.reset_study_scene = originalReset;
+    proto.render_study_explosion = originalRender;
   }
 }
 

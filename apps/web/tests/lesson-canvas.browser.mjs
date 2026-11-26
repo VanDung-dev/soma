@@ -66,11 +66,11 @@ export async function checkLessonCanvas(page) {
     await page.evaluate(async () => {
       const { AnatomyViewer } = await (await import('/src/core.ts')).getWasm();
       const proto = AnatomyViewer.prototype;
-      const apply = proto.apply_scene, reframe = proto.reframe;
+      const apply = proto.apply_study_scene, reframe = proto.reframe;
       window.lessonCanvasFrames = [];
-      proto.apply_scene = function(...args) { window.lessonCanvasViewer = this; return apply.apply(this, args); };
+      proto.apply_study_scene = function(...args) { window.lessonCanvasViewer = this; if (args[2]) window.lessonCanvasFrames.push(args[2]); return apply.apply(this, args); };
       proto.reframe = function(...args) { window.lessonCanvasFrames.push(args); return reframe.apply(this, args); };
-      window.restoreLessonCanvas = () => { proto.apply_scene = apply; proto.reframe = reframe; };
+      window.restoreLessonCanvas = () => { proto.apply_study_scene = apply; proto.reframe = reframe; };
     });
     await choose('Quan sát');
     await page.locator('.lesson-editor > .model-canvas[aria-busy="true"]').waitFor();

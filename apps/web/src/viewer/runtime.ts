@@ -1,7 +1,7 @@
 import type { Catalog, StudyTarget } from "../catalog/types";
 import { getContent, getWasm } from "../core";
 import type { AnatomyViewer } from "../wasm/wasm";
-import type { CameraCommand, PreparedGeometry, SceneView, StudyViewer, ViewerHold, ViewerState, ViewerStatus, Viewport } from "./contracts";
+import type { CameraCommand, PreparedGeometry, SceneView, StudyViewer, ViewerHold, ViewerState, ViewerStatus, Viewport, VisibilityUpdate } from "./contracts";
 import { bindViewerInput } from "./input";
 import { loadModels } from "./loader";
 import { defaultGraphics, qualityLevels, renderScales } from "./graphics";
@@ -20,8 +20,6 @@ export class ViewerRuntime implements StudyViewer {
   private failed = false;
   private loading = true;
   private animating = false;
-  private exploding = false;
-  private reassembling = false;
   private renderFrame = 0;
   private resizePending = false;
   private autoFitScene = false;
@@ -74,7 +72,7 @@ export class ViewerRuntime implements StudyViewer {
       moving: () => this.movingId || this.separatedIds.values().next().value || "",
       movable: id => id === this.movingId || this.separatedIds.has(id),
       joined: id => (this.viewer?.structure_group(id).length ?? 0) > 1,
-      detachable: () => options.allowSeparation !== false && options.canSeparate?.() !== false && (!this.exploding || this.reassembling),
+      detachable: () => options.allowSeparation !== false && options.canSeparate?.() !== false && !!this.viewer?.can_move_structures(),
       detach: id => this.setMoving(id) && this.operate(viewer => viewer.detach_structure(id)), onHold: options.onHold,
       beginGroup: id => this.setMoving(id) && this.operate(viewer => viewer.begin_selection_drag()),
       hide: options.onHide,
@@ -210,8 +208,6 @@ export class ViewerRuntime implements StudyViewer {
         viewer.configure_explosion(catalog.roots.filter(root => this.loadedModelIds.has(root.id)).map(root => catalog.members(root.id)));
         viewer.apply_scene([...visibleIds], view);
         this.structureIds = catalog.identities();
-        this.exploding = !!view?.explosion;
-        this.reassembling = false;
         this.clearSceneInteraction();
       }
       this.loadAbort = undefined;
@@ -245,10 +241,10 @@ export class ViewerRuntime implements StudyViewer {
     this.options.onState({ error: true, status });
   }
 
-  private operate = (action: (viewer: AnatomyViewer) => void, redraw = true) => {
+  private operate = (action: (viewer: AnatomyViewer) => void | false, redraw = true) => {
     if (!this.viewer || this.failed || this.disposed) return false;
     try {
-      action(this.viewer);
+      if (action(this.viewer) === false) return false;
       this.options.onState({ selected: this.viewer.selected_id() });
       if (redraw) this.scheduleRender();
       return true;
@@ -285,12 +281,8 @@ export class ViewerRuntime implements StudyViewer {
           if (this.viewer!.advance_restoration(now)) this.scheduleRender();
           else this.finishRestoration();
           this.viewer!.render();
-        } else if (this.exploding) {
-          if (this.viewer!.render_explosion(now)) this.scheduleRender();
-          else if (this.reassembling) {
-            this.viewer!.set_explode_mode(false);
-            this.exploding = false; this.reassembling = false;
-          }
+        } else if (this.viewer!.explosion_active()) {
+          if (this.viewer!.render_study_explosion(now)) this.scheduleRender();
         } else this.viewer!.render();
         if (this.options.onOrientation) {
           const axes = this.viewer!.camera_axes();
@@ -409,13 +401,9 @@ export class ViewerRuntime implements StudyViewer {
     if (target !== this.snapTarget) { this.snapTarget = target; this.options.onSnap?.(target); }
   }
 
-  setMoving(id: string) {
-    if (id && this.reassembling) {
-      if (!this.operate(viewer => { viewer.finish_explosion(); viewer.set_explode_mode(false); })) return false;
-      this.exploding = false; this.reassembling = false;
-    }
-    if (id && (this.loading || this.animating || this.exploding || !this.structureIds.includes(id))) return false;
-    if (!this.operate(viewer => viewer.select(id || viewer.selected_id()))) return false;
+  setMoving(id: string, selectedOnly = false) {
+    if (id && (this.loading || this.animating || !this.structureIds.includes(id))) return false;
+    if (!this.operate(viewer => { if (!viewer.select_for_movement(id, selectedOnly)) return false; })) return false;
     if (id) this.autoFitScene = false;
     this.movingId = id;
     this.canvas.dataset.moving = id ? "true" : "false";
@@ -446,10 +434,11 @@ export class ViewerRuntime implements StudyViewer {
   changeVisibility(ids: string[], shown: boolean) {
     this.snapStructure("", false);
     if (!shown && ids.includes(this.movingId)) this.setMoving("");
-    return this.operate(viewer => {
-      viewer.clear_selection();
-      viewer.change_visibility(ids, shown, this.animationTime());
+    let visibility: VisibilityUpdate | undefined;
+    const success = this.operate(viewer => {
+      visibility = viewer.change_study_visibility(ids, shown, this.animationTime());
     });
+    return success ? visibility : undefined;
   }
 
   captureView(): SceneView | undefined {
@@ -460,26 +449,15 @@ export class ViewerRuntime implements StudyViewer {
   }
 
   applyScene(ids: string[], view?: SceneView) {
-    const reassembling = this.exploding && !view?.explosion && !this.motion.matches;
-    const fit = !!this.options.viewportElement && !view && ids.length > 0;
+    const response: { result?: { visibility: VisibilityUpdate; fit: boolean } } = {};
     const success = this.operate(viewer => {
-      const reveal = this.options.background && !viewer.visible_count();
-      if (this.options.viewportElement) viewer.reframe(...this.options.viewport());
-      viewer.apply_scene(ids, view, this.animationTime());
-      if (fit) viewer.fit_scene_frame();
-      else if (this.options.viewportElement) viewer.align_viewport();
-      if (reveal) {
-        viewer.set_visibility([]);
-        viewer.change_visibility(ids, true, this.animationTime());
-      }
+      response.result = viewer.apply_study_scene(ids, view, this.options.viewportElement ? this.options.viewport() : undefined, this.animationTime());
+      if (!response.result) return false;
     });
-    if (success) {
-      this.autoFitScene = fit;
-      this.exploding = !!view?.explosion || reassembling;
-      this.reassembling = reassembling;
-      this.clearSceneInteraction();
-    }
-    return success;
+    if (!success || !response.result) return;
+    this.autoFitScene = response.result.fit;
+    this.clearSceneInteraction();
+    return response.result.visibility;
   }
 
   private clearSceneInteraction() {
@@ -493,49 +471,34 @@ export class ViewerRuntime implements StudyViewer {
     this.publishSeparation();
   }
 
-  focus(ids: string[], folder: boolean, reveal: boolean) {
+  focus(ids: string[], folder: boolean) {
     this.snapStructure("", false);
     if (this.movingId) this.setMoving("");
     const motionTime = this.animationTime();
-    return this.operate(viewer => {
-      viewer.clear_selection();
-      if (folder) {
-        const now = motionTime, focused = new Set(ids);
-        if (reveal) {
-          viewer.change_visibility(ids, false);
-          viewer.change_visibility(ids, true, now);
-        }
-        viewer.change_visibility(this.structureIds.filter(id => !focused.has(id)), false, now);
-      } else if (ids.length === 1) viewer.set_visibility(ids);
-      if (motionTime === undefined) viewer.focus(ids, ...this.options.viewport());
-      else viewer.focus_animated(ids, ...this.options.viewport(), motionTime);
-      viewer.select(!folder && ids.length === 1 ? ids[0]! : "");
+    let visibility: VisibilityUpdate | undefined;
+    const success = this.operate(viewer => {
+      const result: { visibility: VisibilityUpdate } = viewer.focus_scene(ids, folder, this.options.viewport(), motionTime);
+      visibility = result.visibility;
       this.cameraChanged();
     });
+    return success ? visibility : undefined;
   }
 
   setExplosion(value: number, ids: string[]) {
-    if (this.movingId || this.separatedIds.size) return false;
     return this.operate(viewer => {
+      const frame = value > 0 && !viewer.explosion_active() ? this.options.viewport() : undefined;
+      if (!viewer.set_study_explosion(value / 100, ids, frame, performance.now(), !this.motion.matches, !!this.movingId)) return false;
       if (value > 0) this.autoFitScene = false;
-      viewer.clear_selection();
-      if (value > 0 && !this.exploding) {
-        viewer.set_explode_mode(true); this.exploding = true;
-        viewer.reframe(...this.options.viewport());
-      }
-      this.reassembling = value === 0 && this.exploding;
-      if (this.exploding) viewer.set_explode(value / 100, performance.now(),
-        !this.motion.matches, !ids.length, ids);
     });
   }
 
   retargetExplosion(value: number, ids: string[]) {
-    if (this.exploding) this.setExplosion(value, ids);
+    if (this.viewer?.explosion_active()) this.setExplosion(value, ids);
   }
 
   centerReader(expanded: boolean, viewport: Viewport) {
     this.operate(viewer => {
-      if (this.exploding) viewer.reframe(...viewport);
+      if (viewer.explosion_active()) viewer.reframe(...viewport);
       const now = this.animationTime();
       if (expanded) viewer.center(viewport[0] + viewport[2] / 2, viewport[1] + viewport[3] / 2, now);
       else viewer.clear_center(now);
@@ -544,21 +507,19 @@ export class ViewerRuntime implements StudyViewer {
 
   overview() {
     this.snapStructure("", false);
+    let visibility: VisibilityUpdate | undefined;
     const success = this.operate(viewer => {
-      viewer.clear_selection();
-      viewer.clear_center(); viewer.select("");
-      viewer.restore_structure("");
-      if (this.exploding) {
-        viewer.set_explode(0, performance.now(), false, false); viewer.set_explode_mode(false);
-      }
-      const now = this.animationTime();
-      viewer.change_visibility(this.structureIds, true, now); viewer.inspect("reset", now);
+      visibility = viewer.reset_study_scene(this.structureIds, performance.now(), !this.motion.matches);
       this.cameraChanged();
     });
-    if (success) { this.exploding = false; this.reassembling = false;
+    if (success) {
       this.restoration = undefined;
-      this.movingId = ""; this.separatedIds.clear(); this.canvas.dataset.moving = "false"; this.publishSeparation(); }
-    return success;
+      this.movingId = "";
+      this.separatedIds.clear();
+      this.canvas.dataset.moving = "false";
+      this.publishSeparation();
+    }
+    return success ? visibility : undefined;
   }
 
   control(commands: CameraCommand[]) {

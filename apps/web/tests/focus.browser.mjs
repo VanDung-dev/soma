@@ -4,8 +4,7 @@ import { getContent, getWasm } from '../src/core.ts';
 export async function checkFocusTree() {
   const wasm = await getWasm(), { AnatomyViewer } = wasm;
   const catalog = JSON.parse((await getContent()).get_catalog());
-  const proto = AnatomyViewer.prototype, originalFocus = proto.focus, originalRender = proto.render;
-  const originalVisibility = proto.change_visibility;
+  const proto = AnatomyViewer.prototype, originalFocus = proto.focus_scene, originalRender = proto.render;
   const canvas = document.querySelector('.model-canvas canvas'), gl = canvas.getContext('webgl2');
   const assert = (ok, message) => { if (!ok) throw Error(message); };
   assert(document.querySelector('.model-canvas').getAttribute('aria-busy') === 'false' && !document.querySelector('.model-error'),
@@ -20,15 +19,12 @@ export async function checkFocusTree() {
     for (const detail of [1,2]) name.dispatchEvent(new MouseEvent('click', { bubbles: true, detail }));
     name.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, detail: 2 }));
   };
-  let focusCalls = 0, revealCalls = 0, lastHide, lastIds, lastViewer, imageBounds;
-  proto.change_visibility = function(ids, shown, ...args) {
-    if (shown) revealCalls++;
-    else lastHide = { ids: (typeof ids === "string" ? JSON.parse(ids) : ids), now: args[0] };
-    return originalVisibility.call(this,ids,shown,...args);
-  };
-  proto.focus = function(ids, ...frame) {
-    focusCalls++; lastIds = (typeof ids === "string" ? JSON.parse(ids) : ids); lastViewer = this;
-    return originalFocus.call(this, ids, ...frame);
+  let focusCalls = 0, revealCalls = 0, lastTime, lastIds, lastViewer, imageBounds;
+  proto.focus_scene = function(ids, folder, frame, now) {
+    const result = originalFocus.call(this, ids, folder, frame, now);
+    focusCalls++; lastIds = result.visibility.ids; lastViewer = this; lastTime = now;
+    if (result.revealed) revealCalls++;
+    return result;
   };
   proto.render = function() {
     originalRender.call(this);
@@ -61,9 +57,7 @@ export async function checkFocusTree() {
       'Start with all systems checked');
     doubleClick(rootRow);
     const rootIds = new Set(root.model.structure_ids);
-    const otherIds = new Set(catalog.targets.filter(t => t.model).flatMap(t => t.model.structure_ids).filter(id => !rootIds.has(id)));
-    assert(lastHide && Number.isFinite(lastHide.now) && lastHide.ids.length === otherIds.size
-      && lastHide.ids.every(id => otherIds.has(id)) && revealCalls === 0,
+    assert(Number.isFinite(lastTime) && lastIds.length === rootIds.size && lastIds.every(id => rootIds.has(id)) && revealCalls === 0,
       'Focusing a checked folder must animate hiding only the other systems');
     assert(lastViewer.visible_count() === rootIds.size && lastViewer.advance_reconstruction(performance.now()),
       'Outgoing systems must keep fading after focus updates logical visibility');
@@ -166,6 +160,6 @@ export async function checkFocusTree() {
       checkboxSynchronized: true, viewportFits: true, uncheckedFolderReveal: true, checkedFolderSkipsReveal: true,
       selectionDoesNotControlReveal: true, mixedFolderReveal: true, outgoingFolderFade: true };
   } finally {
-    proto.focus = originalFocus; proto.render = originalRender; proto.change_visibility = originalVisibility;
+    proto.focus_scene = originalFocus; proto.render = originalRender;
   }
 }

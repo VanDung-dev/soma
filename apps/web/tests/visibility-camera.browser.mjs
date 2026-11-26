@@ -7,7 +7,7 @@ export async function checkExplosionEntry() {
   const target = data.targets.find(item => item.source_name === 'Axial skeleton');
   const canvas = document.querySelector('.model-canvas canvas'), gl = canvas.getContext('webgl2');
   const slider = document.querySelector('.explode-control input');
-  const original = { visibility: proto.change_visibility, render: proto.render_explosion };
+  const original = { visibility: proto.change_study_visibility, render: proto.render_study_explosion };
   const frames = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   const wait = time => new Promise(resolve => setTimeout(resolve, time));
   const input = value => {
@@ -15,7 +15,7 @@ export async function checkExplosionEntry() {
     slider.dispatchEvent(new Event('input', { bubbles: true }));
   };
   let viewer, previous, maxCenterStep = 0, maxSizeStep = 0, samples = 0;
-  proto.change_visibility = function(...args) { viewer = this; return original.visibility.apply(this, args); };
+  proto.change_study_visibility = function(...args) { viewer = this; return original.visibility.apply(this, args); };
   const snapshot = () => {
     const pixels = new Uint8Array(canvas.width * canvas.height * 4);
     gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
@@ -37,7 +37,7 @@ export async function checkExplosionEntry() {
     document.querySelector(`[data-target-id="${target.id}"] > .tree-row input[type="checkbox"]`).click();
     await wait(400); viewer.finish_reconstruction(); viewer.render();
     const assembled = previous = snapshot();
-    proto.render_explosion = function(...args) {
+    proto.render_study_explosion = function(...args) {
       const moving = original.render.apply(this, args), current = snapshot();
       maxCenterStep = Math.max(maxCenterStep, Math.hypot(current[0] - previous[0], current[1] - previous[1]));
       maxSizeStep = Math.max(maxSizeStep, Math.abs(current[2] - previous[2]), Math.abs(current[3] - previous[3]));
@@ -54,7 +54,7 @@ export async function checkExplosionEntry() {
     const settledSamples = samples;
     await wait(200);
     assert(samples === settledSamples, 'Stop rendering after the return settles');
-    proto.render_explosion = original.render;
+    proto.render_study_explosion = original.render;
     document.querySelector('.tree-actions button').click(); await wait(400);
     viewer.inspect('reset'); viewer.finish_camera_transition();
     const overview = [];
@@ -69,7 +69,7 @@ export async function checkExplosionEntry() {
     assert(gl.getError() === gl.NO_ERROR && !document.querySelector('.model-error'), 'Keep the renderer healthy');
     return { maxCenterStep, maxSizeStep, samples, repeatedZeroCrossings: true, exactReturn: true, overview };
   } finally {
-    proto.change_visibility = original.visibility; proto.render_explosion = original.render;
+    proto.change_study_visibility = original.visibility; proto.render_study_explosion = original.render;
     input(0); document.querySelector('.tree-actions button').click();
     await wait(400);
   }
@@ -82,7 +82,7 @@ export async function checkVisibilityCamera() {
   const target = data.targets.find(item => item.source_name === 'Cranium');
   const canvas = document.querySelector('.model-canvas canvas'), gl = canvas.getContext('webgl2');
   const slider = document.querySelector('.explode-control input');
-  const original = { inspect: proto.inspect, capture: canvas.setPointerCapture, explosion: proto.render_explosion };
+  const original = { inspect: proto.inspect, capture: canvas.setPointerCapture, explosion: proto.render_study_explosion };
   const frames = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   const settle = () => new Promise(resolve => setTimeout(resolve, 500));
   const opened = [];
@@ -145,7 +145,7 @@ export async function checkVisibilityCamera() {
     }
     const states = [];
     let samples = [];
-    proto.render_explosion = function(...args) {
+    proto.render_study_explosion = function(...args) {
       const moving = original.explosion.apply(this, args);
       if (samples.length < 4) {
         const box = snapshot();
@@ -199,6 +199,6 @@ export async function checkVisibilityCamera() {
     canvas.dispatchEvent(new KeyboardEvent('keyup', { key: 'r', bubbles: true }));
     for (const id of opened.reverse()) document.querySelector(`[data-target-id="${id}"] > .tree-row .folder-toggle`)?.click();
     await settle();
-    canvas.setPointerCapture = original.capture; proto.inspect = original.inspect; proto.render_explosion = original.explosion; catalog.free();
+    canvas.setPointerCapture = original.capture; proto.inspect = original.inspect; proto.render_study_explosion = original.explosion; catalog.free();
   }
 }

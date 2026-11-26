@@ -47,10 +47,10 @@ export async function checkLessonPlayerBackground(page) {
     assert(await canvasHost.evaluate(node => node.inert && node.getBoundingClientRect().width === node.parentElement.getBoundingClientRect().width));
     await page.evaluate(async () => {
       const { AnatomyViewer } = await (await import('/src/core.ts')).getWasm();
-      const proto = AnatomyViewer.prototype, apply = proto.apply_scene, reframe = proto.reframe;
-      proto.apply_scene = function(...args) { window.playerViewer = this; return apply.apply(this, args); };
+      const proto = AnatomyViewer.prototype, apply = proto.apply_study_scene, reframe = proto.reframe;
+      proto.apply_study_scene = function(...args) { window.playerViewer = this; if (args[2]) window.playerFrame = args[2]; return apply.apply(this, args); };
       proto.reframe = function(...args) { window.playerFrame = args; return reframe.apply(this, args); };
-      window.restorePlayer = () => { proto.apply_scene = apply; proto.reframe = reframe; };
+      window.restorePlayer = () => { proto.apply_study_scene = apply; proto.reframe = reframe; };
     });
     try {
       await next.click();

@@ -1,5 +1,5 @@
 import type { Catalog } from "../catalog/types";
-import type { CameraCommand, SceneView, StudyViewer, ViewerState } from "./contracts";
+import type { CameraCommand, SceneView, StudyViewer, ViewerState, VisibilityUpdate } from "./contracts";
 
 export interface StudyState extends ViewerState {
   canGoBack: boolean;
@@ -117,12 +117,18 @@ export class StudySession {
   };
 
   changeVisibility = (ids: string[], shown: boolean) => {
-    if (!this.viewer?.changeVisibility(ids, shown)) return false;
-    const visibleIds = new Set(this.state.visibleIds);
-    for (const id of ids) { if (shown) visibleIds.add(id); else visibleIds.delete(id); }
-    this.update({ visibleIds });
+    const visibility = this.viewer?.changeVisibility(ids, shown);
+    if (!visibility) return false;
+    this.update({ visibleIds: this.applyVisibility(visibility) });
     return true;
   };
+
+  private applyVisibility({ change, ids }: VisibilityUpdate): ReadonlySet<string> {
+    if (change === "replace") return new Set(ids);
+    const visibleIds = new Set(this.state.visibleIds);
+    for (const id of ids) { if (change === "show") visibleIds.add(id); else visibleIds.delete(id); }
+    return visibleIds;
+  }
 
   restoreHiddenIds = (ids: string[]) => {
     const hidden = new Set(ids.filter(id => this.state.structureIds.includes(id)));
@@ -134,11 +140,11 @@ export class StudySession {
 
   showScene = (ids: string[]) => {
     if (!ids.every(id => this.state.structureIds.includes(id))) return false;
-    const success = ids.length
-      ? this.viewer?.focus(ids, true, !ids.every(id => this.state.visibleIds.has(id)))
+    const visibility = ids.length
+      ? this.viewer?.focus(ids, true)
       : this.viewer?.changeVisibility(this.state.structureIds, false);
-    if (!success) return false;
-    this.update({ visibleIds: new Set(ids), readingId: "", readerExpanded: false, targetId: undefined, focusedIds: ids });
+    if (!visibility) return false;
+    this.update({ visibleIds: this.applyVisibility(visibility), readingId: "", readerExpanded: false, targetId: undefined, focusedIds: ids });
     this.retargetExplosion();
     return true;
   };
@@ -149,9 +155,9 @@ export class StudySession {
   };
 
   applyScene = (ids: string[], view?: SceneView) => {
-    if (new Set(ids).size !== ids.length || !ids.every(id => this.state.structureIds.includes(id))) return false;
-    if (!this.viewer?.applyScene(ids, view)) return false;
-    this.update({ visibleIds: new Set(ids), readingId: "", readerExpanded: false, targetId: undefined,
+    const visibility = this.viewer?.applyScene(ids, view);
+    if (!visibility) return false;
+    this.update({ visibleIds: this.applyVisibility(visibility), readingId: "", readerExpanded: false, targetId: undefined,
       focusedIds: ids, explosionAmount: view?.explosion ?? 0 });
     return true;
   };
@@ -161,10 +167,11 @@ export class StudySession {
     if (targetId && !target) return false;
     const ids = target ? this.catalog.members(target.id) : requestedIds;
     const folder = !!targetId;
-    const reveal = folder && !ids.every(id => this.state.visibleIds.has(id));
-    if (!ids.length || !this.viewer?.focus(ids, folder, reveal)) return false;
+    if (!ids.length) return false;
+    const visibility = this.viewer?.focus(ids, folder);
+    if (!visibility) return false;
     const readingId = !folder && ids.length === 1 ? ids[0]! : "";
-    this.update({ visibleIds: folder || readingId ? new Set(ids) : new Set([...this.state.visibleIds, ...ids]),
+    this.update({ visibleIds: this.applyVisibility(visibility),
       readerExpanded: false, readingId, targetId, focusedIds: ids,
       ...(targetId ? this.record({ kind: "target", id: targetId, focused: true })
         : readingId ? this.record({ kind: "structure", id: readingId, focused: true }) : {}) });
@@ -176,21 +183,18 @@ export class StudySession {
   toggleReader = () => { this.update({ readerExpanded: !this.state.readerExpanded }); };
 
   changeExplosion = (value: number) => {
-    if (this.state.movingId || this.state.separatedIds.size) return;
     if (this.viewer?.setExplosion(value, this.explosionIds())) this.update({ explosionAmount: value });
   };
 
-  setMoving = (id: string) => {
-    if (id && (id !== this.state.selected || this.state.explosionAmount || !this.state.visibleIds.has(id))) return false;
-    return this.viewer?.setMoving(id) ?? false;
-  };
+  setMoving = (id: string) => this.viewer?.setMoving(id, true) ?? false;
 
   restoreStructure = (id: string) => this.viewer?.restoreStructure(id) ?? false;
 
   overview = () => {
-    if (!this.viewer?.overview()) return false;
+    const visibility = this.viewer?.overview();
+    if (!visibility) return false;
     this.update({ readerExpanded: false, readingId: "", targetId: undefined, focusedIds: [],
-      visibleIds: new Set(this.state.structureIds), explosionAmount: 0, ...this.record({ kind: "overview" }) });
+      visibleIds: this.applyVisibility(visibility), explosionAmount: 0, ...this.record({ kind: "overview" }) });
     return true;
   };
 

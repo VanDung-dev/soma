@@ -10,6 +10,12 @@ pub struct Scene {
     pub selected: String,
 }
 
+pub enum FocusVisibility {
+    Folder { hide: Vec<String>, reveal: bool },
+    Isolate,
+    Add,
+}
+
 impl Scene {
     /// Return incoming primitive indices so GPU draw ranges stay paired after deduplication.
     pub fn append(&mut self, incoming: Self) -> Vec<usize> {
@@ -63,6 +69,42 @@ impl Scene {
             return Err("Unknown or duplicate visible structure ID".into());
         }
         Ok(requested)
+    }
+
+    pub fn has_visibility_ids(&self, ids: &[String]) -> bool {
+        self.visibility_ids(ids).is_ok()
+    }
+
+    pub fn focus_visibility(
+        &self,
+        ids: &[String],
+        folder: bool,
+    ) -> Result<FocusVisibility, String> {
+        let requested = self.visibility_ids(ids)?;
+        if !folder {
+            return Ok(if ids.len() == 1 {
+                FocusVisibility::Isolate
+            } else {
+                FocusVisibility::Add
+            });
+        }
+        let mut hide = Vec::new();
+        let mut seen = HashSet::new();
+        let mut visible = HashSet::new();
+        for part in self.parts.iter().filter(|part| part.active) {
+            let id = part.source_id.as_str();
+            if requested.contains(id) {
+                if part.visible {
+                    visible.insert(id);
+                }
+            } else if seen.insert(id) {
+                hide.push(part.source_id.clone());
+            }
+        }
+        Ok(FocusVisibility::Folder {
+            hide,
+            reveal: !requested.is_subset(&visible),
+        })
     }
 
     pub fn set_visibility(&mut self, ids: &[String]) -> Result<(), String> {
