@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { Catalog } from "../../catalog/types";
 import { translateMessage, useLanguage } from "../../i18n";
 import type { Language } from "../../i18n";
-import { emptyLessonText, LessonValidationError, lessonMode, lessonSceneStep, lessonText, readLesson, updateLessonQuestions } from "../shared/contract";
+import { emptyLessonText, LessonValidationError, lessonMode, lessonSceneFields, lessonSceneStep, lessonSnapshotFields, lessonText, readLesson, updateLessonQuestions } from "../shared/contract";
 import type { Lesson, LessonScene, LessonStep, LessonText } from "../shared/contract";
 import { EditorScene } from "./editor-scene";
 import type { EditorSceneHandle } from "./editor-scene";
@@ -112,7 +112,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
     if ((!sceneDirty && !captureUnchanged) || !showModel || !hasModel) return draft;
     const snapshot = sceneHandle.current?.capture();
     if (!snapshot) { setError(t("lessons.sceneSaveUnavailable")); return; }
-    const patch = { modelIds, targetId: sceneTargetId, visibleIds: snapshot.visibleIds, view: snapshot.view, sceneRef: undefined };
+    const patch = lessonSceneFields({ targetId: sceneTargetId, ...snapshot }, modelIds);
     if (!active) return { ...draft, scene: patch, sceneRef: undefined };
     return { ...draft, steps: draft.steps.map(step => step.id === active.id
       ? { ...step, kind: "observe", ...patch }
@@ -130,12 +130,8 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
 
   function updateActive(value: LessonStep) {
     let nextValue = value;
-    const sceneFields = ["modelIds", "targetId", "visibleIds", "view"] as const;
-    const requested = value as LessonStep & Partial<LessonScene>;
-    const previous = active as (LessonStep & Partial<LessonScene>) | undefined;
-    const sceneChanged = !!previous && (value.showModel !== active?.showModel
-      || sceneFields.some(field => JSON.stringify(requested[field]) !== JSON.stringify(previous[field])));
-    if (sceneDirty && sceneChanged) {
+    const fields = sceneDirty && active ? lessonSnapshotFields(active, value) : undefined;
+    if (fields) {
       const captured = captureSceneDraft();
       if (!captured) return;
       const capturedStep = captured.steps.find(step => step.id === value.id);
@@ -143,9 +139,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
         const capturedScene = capturedStep as LessonStep & Partial<LessonScene>;
         nextValue = {
           ...value,
-          ...Object.fromEntries(sceneFields.filter(field => JSON.stringify(requested[field]) === JSON.stringify(previous?.[field]))
-            .map(field => [field, capturedScene[field]])),
-          kind: value.kind === active?.kind ? capturedStep.kind : value.kind,
+          ...Object.fromEntries(fields.map(field => [field, capturedScene[field]])),
         } as LessonStep;
       }
       setSceneDirty(false);
@@ -157,7 +151,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
   function updateScene(visibleIds: string[], view: SceneView | undefined = scene?.view) {
     const live = sceneDirty ? sceneHandle.current?.capture() : undefined;
     if (sceneDirty && !live) { setError(t("lessons.sceneSaveUnavailable")); return; }
-    const patch = { modelIds, targetId: sceneTargetId, visibleIds, view: live?.view ?? view, sceneRef: undefined };
+    const patch = lessonSceneFields({ targetId: sceneTargetId, visibleIds, view: live?.view ?? view }, modelIds);
     setSceneDirty(false);
     if (!active) return updateDraft({ scene: patch });
     return updateActive({ ...active, kind: "observe", ...patch });
@@ -181,13 +175,12 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
       && !await confirm(t("lessons.confirmSceneReset"), t("lessons.continue"))) return;
     const live = settingsSceneDirty.current && nextModelIds.length ? sceneHandle.current?.capture() : undefined;
     if (settingsSceneDirty.current && nextModelIds.length && !live) { setError(t("lessons.sceneSaveUnavailable")); return; }
-    const patch = {
-      modelIds: nextModelIds,
+    const patch = lessonSceneFields({
       targetId: settingsScene.targetId,
       visibleIds: settingsScene.visibleIds,
       view: live?.view ?? settingsScene.view,
       sceneRef: live ? undefined : settingsScene.sceneRef,
-    };
+    }, nextModelIds);
     setSceneDirty(false);
     updateActive({ ...active, kind: "observe", ...patch });
     closeModelSettings();
@@ -198,14 +191,8 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
     const live = settingsSceneDirty.current ? sceneHandle.current?.capture() : undefined;
     if (settingsSceneDirty.current && !live) { setError(t("lessons.sceneSaveUnavailable")); return false; }
     settingsSceneDirty.current = false;
-    const selectedModels = root?.shown ? [...new Set([...settingsScene.modelIds, root.id])]
-      : settingsScene.modelIds.filter(id => id !== root?.id);
-    const nextModelIds = catalog.lessonSceneModels({ modelIds: selectedModels, modelId: "" },
-      { targetId: settingsScene.targetId, visibleIds: ids });
-    const keepTarget = settingsScene.targetId && (!root || root.shown
-      || catalog.lessonTargetAvailable(nextModelIds, settingsScene.targetId));
-    setSettingsScene({ ...settingsScene, modelIds: nextModelIds,
-      targetId: keepTarget ? settingsScene.targetId : nextModelIds[0] ?? "",
+    const [nextModelIds, targetId] = catalog.editLessonSceneVisibility(settingsScene.modelIds, settingsScene.targetId, ids, root);
+    setSettingsScene({ ...settingsScene, modelIds: nextModelIds, targetId,
       visibleIds: ids, view: live?.view ?? settingsScene.view, sceneRef: undefined });
     return true;
   }

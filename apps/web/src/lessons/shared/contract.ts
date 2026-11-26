@@ -76,6 +76,20 @@ export function updateLessonQuestions(step: LessonStep, mode: LessonMode, questi
   return { ...step, mode, questions, questionRef: undefined };
 }
 
+export function removeLessonChoice(question: LessonQuestion, choiceId: string): LessonQuestion {
+  return content.lesson_remove_choice(question, choiceId);
+}
+
+export function lessonSceneFields(scene: (LessonScene & { sceneRef?: string }) | undefined, modelIds: string[]): LessonScene & { sceneRef?: string } {
+  return content.lesson_scene_fields(scene, modelIds);
+}
+
+export function lessonSnapshotFields(previous: LessonStep, requested: LessonStep): (keyof LessonScene | "kind")[] | undefined {
+  const sceneData = ({ kind, showModel, modelIds, targetId, visibleIds, view }: LessonStep & Partial<LessonScene>) =>
+    JSON.stringify({ kind, showModel, modelIds, targetId, visibleIds, view });
+  return content.lesson_scene_snapshot_fields(sceneData(previous), sceneData(requested));
+}
+
 export function lessonSceneStep(lesson: Lesson, index: number) {
   return lesson.steps[content.lesson_scene_index(JSON.stringify(lesson), index)] as Exclude<LessonStep, { kind: "text" }> | undefined;
 }

@@ -125,7 +125,7 @@ impl CatalogData {
         targets
     }
 
-    pub fn lesson_target_available(&self, model_ids: &[String], target_id: &str) -> bool {
+    fn lesson_target_available(&self, model_ids: &[&str], target_id: &str) -> bool {
         let Some(mut index) = self.targets.get(target_id).copied() else {
             return false;
         };
@@ -135,6 +135,42 @@ impl CatalogData {
         while let Some(parent) = &self.catalog.targets[index].parent_id {
             index = self.targets[parent];
         }
-        model_ids.contains(&self.catalog.targets[index].id)
+        model_ids.contains(&self.catalog.targets[index].id.as_str())
+    }
+
+    pub fn edit_lesson_scene_visibility(
+        &self,
+        mut model_ids: Vec<String>,
+        target_id: &str,
+        visible_ids: Vec<String>,
+        root: Option<(&str, bool)>,
+    ) -> (Vec<String>, String) {
+        if let Some((id, shown)) = root {
+            if shown {
+                model_ids.push(id.into());
+                let mut seen = HashSet::new();
+                model_ids.retain(|id| seen.insert(id.clone()));
+            } else {
+                model_ids.retain(|model| model.as_str() != id);
+            }
+        }
+        let scene = LessonSceneSelection {
+            target_id: target_id.into(),
+            model_ids: None,
+            visible_ids: Some(visible_ids),
+        };
+        let models = self.lesson_scene_models("", &model_ids, Some(&scene));
+        let target = if !target_id.is_empty()
+            && (root.is_none_or(|(_, shown)| shown)
+                || self.lesson_target_available(&models, target_id))
+        {
+            target_id
+        } else {
+            models.first().copied().unwrap_or_default()
+        };
+        (
+            models.into_iter().map(str::to_owned).collect(),
+            target.into(),
+        )
     }
 }

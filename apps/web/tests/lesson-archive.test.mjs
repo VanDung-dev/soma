@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { brotliCompressSync, brotliDecompressSync } from 'node:zlib';
-import { LessonPackage, lesson_image_info, restore_lesson_draft, split_lesson_draft } from './lesson-wasm.fixture.mjs';
+import { LessonPackage, lesson_draft_matches, lesson_image_aliases, lesson_image_info, next_lesson_revision, prepare_browser_lesson_draft, restore_lesson_draft } from './lesson-wasm.fixture.mjs';
 import { packLessonTar, unpackLessonTar } from './lesson-package.fixture.mjs';
 
 const encoder = new TextEncoder();
@@ -58,11 +58,21 @@ test('question table preserves order and isolates damage by section', () => {
     mode: 'content_questions', questions: [question, { ...question, id: 'second-question' }] };
   const lesson = { ...draft, modelId: 'bones', steps: [step, { ...step, id: 'second' },
     { ...step, id: 'observe', kind: 'observe', targetId: 'bones' }, { ...step, id: 'empty', mode: 'content', questions: [] }] };
-  const [stored, records] = split_lesson_draft(JSON.stringify(lesson));
+  const { metadata: stored, contents: records } = prepare_browser_lesson_draft(JSON.stringify(lesson), undefined, []);
   const [first, second, observe] = JSON.parse(stored).steps;
   assert.equal(first.questions, undefined);
   assert.notEqual(first.questionRef, second.questionRef);
   assert.deepEqual(JSON.parse(restore_lesson_draft(stored, records)), lesson);
+  const revised = structuredClone(lesson);
+  revised.steps[0].questions[0].answerId = 'b';
+  const plan = prepare_browser_lesson_draft(JSON.stringify(revised), JSON.stringify(lesson), []);
+  assert.deepEqual(JSON.parse(restore_lesson_draft(stored, plan.contents)), lesson);
+  assert.deepEqual(JSON.parse(restore_lesson_draft(plan.metadata, plan.contents)), revised);
+  assert(plan.compacted.some(([path]) => path === 'questions.jsonl'));
+  assert.equal(lesson_draft_matches(stored, JSON.stringify(JSON.parse(stored), null, 2)), true);
+  assert.equal(lesson_draft_matches(stored, plan.metadata), false);
+  assert.deepEqual(next_lesson_revision(1, { version: 5 }, 10), { version: 6, createdAt: undefined, updatedAt: 10 });
+  assert.deepEqual(lesson_image_aliases([['stored', image]], [['incoming', image]]), [['incoming', 'stored']]);
 
   const pack = new LessonPackage(JSON.stringify(lesson));
   try {

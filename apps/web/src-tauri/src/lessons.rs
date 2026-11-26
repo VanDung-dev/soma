@@ -285,10 +285,7 @@ fn retain_images(dir: &Path, keep: &BTreeSet<String>) -> io::Result<()> {
 
 fn check_previous(path: &Path, expected: Option<&str>) -> Result<(), String> {
     let current = current_lesson(path).map_err(message)?;
-    let parse = |json: &str| serde_json::from_str::<serde_json::Value>(json);
-    if current.as_deref().map(parse).transpose().map_err(message)?
-        != expected.map(parse).transpose().map_err(message)?
-    {
+    if !lesson::draft::same_draft(current.as_deref(), expected).map_err(message)? {
         return Err("The lesson changed since it was opened.".into());
     }
     Ok(())
@@ -351,40 +348,27 @@ pub async fn save_lesson(
     let image_bytes = retained.iter().map(|(_, size)| size).sum::<usize>();
     let paths: HashSet<_> = retained.into_iter().map(|(path, _)| path).collect();
     lesson::validate_resources(&value, &paths)?;
-    let mut stored_lesson = value.clone();
-    let mut previous = expected
+    let previous = expected
         .as_deref()
         .map(|json| lesson::parse(json, true))
         .transpose()
         .map_err(message)?;
-    let (tables, retained) =
-        content::lessons::externalize_lesson_tables(&mut stored_lesson, previous.as_mut())?;
-    let contents = content::lessons::externalize_lesson_content(&mut stored_lesson)?;
-    let resource_bytes = contents
-        .values()
-        .chain(tables.values())
-        .map(Vec::len)
-        .sum::<usize>();
-    if image_bytes + resource_bytes > catalog::lesson::ARCHIVE_LIMIT - 4 * 1024 * 1024 {
-        return Err("Lesson resources exceed 60 MiB".into());
-    }
-    let stored_json = serde_json::to_vec(&stored_lesson).map_err(message)?;
-    if stored_json.len() > JSON_LIMIT {
-        return Err("Lesson metadata exceeds 2 MiB".into());
-    }
+    let content::lessons::DraftFiles {
+        metadata,
+        tables,
+        retained,
+        content: contents,
+    } = content::lessons::prepare_draft(value, previous, image_bytes)?;
     for (content_path, bytes) in &contents {
         write_file(&dir.join(content_path), bytes).map_err(message)?;
     }
     let retained_paths = retained.keys().cloned().collect();
     stage_lesson_tables(&dir, &tables, retained).map_err(message)?;
-    write_file(&path, &stored_json).map_err(message)?;
+    write_file(&path, metadata.as_bytes()).map_err(message)?;
     if let Err(error) = compact_lesson_tables(&dir, &tables, &retained_paths) {
         eprintln!("Could not compact lesson tables: {error}");
     }
-    if let Err(error) = retain_lesson_content(
-        &dir,
-        &content::lessons::lesson_content_paths(&stored_lesson),
-    ) {
+    if let Err(error) = retain_lesson_content(&dir, &contents.keys().cloned().collect()) {
         eprintln!("Could not remove unused lesson text: {error}");
     }
     if let Err(error) = retain_images(&dir, &referenced) {

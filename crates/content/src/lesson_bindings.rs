@@ -27,21 +27,78 @@ fn text_files(files: lessons::Files) -> Result<Vec<(String, String)>, JsValue> {
 }
 
 #[wasm_bindgen]
-pub fn split_lesson_draft(data: &str, previous: Option<String>) -> Result<JsValue, JsValue> {
-    let mut lesson = lesson::parse(data, true).map_err(js_error)?;
-    let mut previous = previous
+pub fn prepare_browser_lesson_draft(
+    data: &str,
+    previous: Option<String>,
+    images: JsValue,
+) -> Result<JsValue, JsValue> {
+    let lesson = lesson::parse(data, true).map_err(js_error)?;
+    let previous = previous
         .as_deref()
         .map(|data| lesson::parse(data, true))
         .transpose()
         .map_err(js_error)?;
-    let (current, retained) =
-        lessons::externalize_lesson_tables(&mut lesson, previous.as_mut()).map_err(js_error)?;
-    let content = lessons::externalize_lesson_content(&mut lesson).map_err(js_error)?;
-    value(&(
-        serde_json::to_string(&lesson).map_err(js_error)?,
-        text_files(current)?,
-        text_files(retained)?,
-        text_files(content)?,
+    let image_paths = lesson::image_paths(&lesson);
+    let images: Vec<(String, usize)> = read(images)?;
+    let image_bytes = images
+        .iter()
+        .filter(|(path, _)| image_paths.contains(path))
+        .try_fold(0usize, |total, (_, bytes)| total.checked_add(*bytes))
+        .ok_or_else(|| js_error("Lesson resources exceed 60 MiB"))?;
+    let lessons::DraftFiles {
+        metadata,
+        tables,
+        retained,
+        mut content,
+    } = lessons::prepare_draft(lesson, previous, image_bytes).map_err(js_error)?;
+    let paths: Vec<_> = content.keys().chain(tables.keys()).cloned().collect();
+    let mut compacted = lessons::Files::new();
+    content.extend(retained);
+    for (path, table) in tables {
+        if let Some(existing) = content.get_mut(&path) {
+            existing.extend_from_slice(&table);
+            compacted.insert(path, table);
+        } else {
+            content.insert(path, table);
+        }
+    }
+    #[derive(serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct BrowserDraft {
+        metadata: String,
+        contents: Vec<(String, String)>,
+        compacted: Vec<(String, String)>,
+        paths: Vec<String>,
+        image_paths: std::collections::BTreeSet<String>,
+    }
+    value(&BrowserDraft {
+        metadata,
+        contents: text_files(content)?,
+        compacted: text_files(compacted)?,
+        paths,
+        image_paths,
+    })
+}
+
+#[wasm_bindgen]
+pub fn lesson_draft_matches(
+    current: Option<String>,
+    expected: Option<String>,
+) -> Result<bool, JsValue> {
+    lesson::draft::same_draft(current.as_deref(), expected.as_deref()).map_err(js_error)
+}
+
+#[wasm_bindgen]
+pub fn next_lesson_revision(
+    version: JsValue,
+    previous: JsValue,
+    now: JsValue,
+) -> Result<JsValue, JsValue> {
+    let previous: Option<lesson::draft::DraftRevision> = read(previous)?;
+    value(&lesson::draft::next_revision(
+        read(version)?,
+        previous,
+        read(now)?,
     ))
 }
 
@@ -96,6 +153,28 @@ pub fn lesson_scene_index(data: &str, index: usize) -> Result<i32, JsValue> {
 }
 
 #[wasm_bindgen]
+pub fn lesson_scene_fields(scene: JsValue, model_ids: Vec<String>) -> Result<JsValue, JsValue> {
+    let scene: Option<Value> = read(scene)?;
+    value(&lesson::editing::scene_fields(
+        &scene.unwrap_or_default(),
+        model_ids,
+    ))
+}
+
+#[wasm_bindgen]
+pub fn lesson_scene_snapshot_fields(previous: &str, requested: &str) -> Result<JsValue, JsValue> {
+    value(&lesson::editing::scene_snapshot_fields(
+        &json(previous)?,
+        &json(requested)?,
+    ))
+}
+
+#[wasm_bindgen]
+pub fn lesson_remove_choice(question: JsValue, choice_id: &str) -> Result<JsValue, JsValue> {
+    value(&lesson::editing::remove_choice(read(question)?, choice_id).map_err(js_error)?)
+}
+
+#[wasm_bindgen]
 pub fn lesson_image_paths(data: &str) -> Result<JsValue, JsValue> {
     value(&lesson::image_paths(&json(data)?))
 }
@@ -136,8 +215,39 @@ pub fn lesson_image_info(bytes: &[u8]) -> Result<JsValue, JsValue> {
 }
 
 #[wasm_bindgen]
-pub fn lesson_image_fingerprint(bytes: &[u8]) -> Result<String, JsValue> {
-    lessons::image_fingerprint(bytes).map_err(js_error)
+pub fn lesson_image_aliases(existing: JsValue, incoming: JsValue) -> Result<JsValue, JsValue> {
+    #[derive(serde::Deserialize)]
+    struct ImageEntry(
+        String,
+        #[serde(with = "serde_wasm_bindgen::preserve")] js_sys::Uint8Array,
+    );
+
+    let existing: Vec<ImageEntry> = read(existing)?;
+    let incoming: Vec<ImageEntry> = read(incoming)?;
+    let into_bytes = |ImageEntry(path, bytes): ImageEntry| (path, bytes.to_vec());
+    value(
+        &lessons::image_aliases(
+            existing.into_iter().map(into_bytes),
+            incoming.into_iter().map(into_bytes),
+        )
+        .map_err(js_error)?,
+    )
+}
+
+#[wasm_bindgen]
+pub fn imported_lesson_image_additions(
+    data: &str,
+    existing: JsValue,
+    incoming: JsValue,
+) -> Result<Vec<String>, JsValue> {
+    let existing: Vec<(String, usize)> = read(existing)?;
+    let incoming: Vec<(String, usize)> = read(incoming)?;
+    lessons::imported_image_additions(
+        &json(data)?,
+        existing.into_iter().collect(),
+        incoming.into_iter().collect(),
+    )
+    .map_err(js_error)
 }
 
 #[wasm_bindgen]

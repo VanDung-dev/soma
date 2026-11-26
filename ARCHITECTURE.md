@@ -72,7 +72,7 @@ dialog.
 - Manual separation and automatic explosion are mutually exclusive; Rust restores moved parts.
 - Reuse the session/runtime for new study screens and provide their viewport geometry.
 - Lessons store authored scenes per step and apply them through `StudySession`; learner controls do not change saved lesson data.
-- Rust owns lesson validation, `.lesson.br` packaging and desktop file storage. TypeScript owns editing, UI sanitization, web storage and browser file interactions.
+- Rust owns lesson validation, scene and question edit rules, draft preparation, `.lesson.br` packaging and desktop file storage. TypeScript owns editor interaction, UI sanitization, web storage and browser file interactions.
 
 ## Validation
 

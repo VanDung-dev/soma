@@ -1,11 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
+import { initCatalogWasm } from './catalog.fixture.mjs';
 
 test('restoring a saved scene preserves the current section content and questions', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
+    await initCatalogWasm(server);
     const { restoreSavedScene } = await server.ssrLoadModule('/src/lessons/editor/saved-scene.ts');
+    const { lessonSnapshotFields, removeLessonChoice } = await server.ssrLoadModule('/src/lessons/shared/contract.ts');
     const current = { id: 'step', kind: 'observe', title: { vi: 'Đã sửa', en: '' }, instruction: { vi: '', en: '' },
       targetId: 'changed', modelIds: ['changed'], visibleIds: ['changed'], view: { explosion: 75 }, questions: [{ id: 'quiz', choices: [{ id: 'a' }, { id: 'b' }], answerId: 'a' }] };
     const saved = { targetId: 'saved', visibleIds: ['a'], view: { explosion: 10 } };
@@ -19,5 +22,9 @@ test('restoring a saved scene preserves the current section content and question
     assert.equal(empty.targetId, '');
     assert.equal(empty.visibleIds, undefined);
     assert.equal(empty.view, undefined);
+    assert.equal(lessonSnapshotFields(current, { ...current, title: saved }), undefined);
+    assert.deepEqual(lessonSnapshotFields(current, { ...current, showModel: false, targetId: 'new' }),
+      ['modelIds', 'visibleIds', 'view', 'kind']);
+    assert.deepEqual(removeLessonChoice(current.questions[0], 'a'), { ...current.questions[0], choices: [{ id: 'b' }], answerId: '' });
   } finally { await server.close(); }
 });

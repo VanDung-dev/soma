@@ -149,3 +149,9 @@ export async function readLessonImage(blob: Blob, onProgress?: (stage: LessonIma
 export function checkImageCollection(images: LessonImages) {
   content.validate_lesson_images([...images].map(([path, blob]) => [path, blob.size]));
 }
+
+export function importedLessonImageAdditions(lesson: Lesson, existing: LessonImages, incoming: LessonImages): LessonImages {
+  const sizes = (images: LessonImages) => [...images].map(([path, blob]) => [path, blob.size]);
+  const paths = content.imported_lesson_image_additions(JSON.stringify(lesson), sizes(existing), sizes(incoming));
+  return new Map(paths.map(path => [path, incoming.get(path)!]));
+}

@@ -1,11 +1,45 @@
 use catalog::lesson::{self, ARCHIVE_LIMIT, IMAGE_LIMIT, JSON_LIMIT};
 use content::lessons::{self, Files, Package, tar};
 use serde_json::{Value, json};
+use std::collections::HashMap;
 use std::io::Write;
 
 fn draft() -> String {
     serde_json::json!({"id":"stable-lesson-id", "version":1, "title":{"vi":"Học giải phẫu", "en":""},
         "summary":{"vi":"", "en":""}, "modelId":"", "steps":[]}).to_string()
+}
+
+#[test]
+fn draft_plan_preserves_previous_tables_and_checks_the_combined_budget() {
+    let text = json!({"vi":"Bài học","en":""});
+    let mut old: Value = serde_json::from_str(&draft()).unwrap();
+    old["steps"] =
+        json!([{"id":"step","kind":"observe","title":text,"instruction":text,"targetId":"bones"}]);
+    let mut next = old.clone();
+    next["steps"][0]["targetId"] = json!("jaw");
+    let plan = lessons::prepare_draft(next.clone(), Some(old), 0).unwrap();
+    assert!(plan.tables.contains_key("scenes.jsonl"));
+    assert!(plan.retained.contains_key("scenes.jsonl"));
+    assert_ne!(plan.tables["scenes.jsonl"], plan.retained["scenes.jsonl"]);
+    assert!(lessons::prepare_draft(next, None, ARCHIVE_LIMIT - 4 * 1024 * 1024).is_err());
+}
+
+#[test]
+fn imported_images_reuse_existing_assets_and_require_referenced_files() {
+    let incoming = format!("images/{}.png", "a".repeat(64));
+    let existing = format!("images/{}.webp", "b".repeat(64));
+    let lesson = json!({"cover":existing,"summary":{"html":["vi"],"vi":format!("<img src=\"{incoming}\">")}});
+    let stored = HashMap::from([(existing, 1)]);
+    assert_eq!(
+        lessons::imported_image_additions(
+            &lesson,
+            stored.clone(),
+            HashMap::from([(incoming.clone(), 1)])
+        )
+        .unwrap(),
+        [incoming]
+    );
+    assert!(lessons::imported_image_additions(&lesson, stored, HashMap::new()).is_err());
 }
 
 fn files() -> Files {

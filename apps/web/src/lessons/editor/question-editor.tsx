@@ -1,6 +1,7 @@
 import type { Language, MessageKey, MessageValues } from "../../i18n";
 import { translateMessage } from "../../i18n";
 import type { LessonQuestion } from "../shared/contract";
+import { removeLessonChoice } from "../shared/contract";
 import { newLessonId } from "../shared/source";
 import { useLessonConfirm } from "../shared/confirm";
 
@@ -33,8 +34,7 @@ export function LessonQuestionEditor({ questions, locale, onChange }: {
           <input value={choice.text[locale]} lang={locale} aria-label={t("lessons.choiceNumber", { number: choiceIndex + 1 })}
             onChange={event => update({ ...question, choices: question.choices.map(value => value.id === choice.id
               ? { ...value, text: { ...value.text, [locale]: event.target.value } } : value) })} />
-          <button className="lesson-button" onClick={() => update({ ...question, choices: question.choices.filter(value => value.id !== choice.id),
-            answerId: question.answerId === choice.id ? "" : question.answerId })}>{t("lessons.removeChoice")}</button>
+          <button className="lesson-button" onClick={() => update(removeLessonChoice(question, choice.id))}>{t("lessons.removeChoice")}</button>
         </div>)}
       </fieldset>
       <button className="lesson-button" onClick={() => update({ ...question,

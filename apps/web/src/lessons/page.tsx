@@ -5,12 +5,12 @@ import { emptyLessonText, LessonValidationError, lessonText, readLesson } from "
 import type { Lesson } from "./shared/contract";
 import { LessonWorkspace } from "./workspace";
 import { lessonEditPath, lessonViewPath } from "./routes";
-import { exportLesson, importLesson, listLessons, newLessonId, removeLesson, saveLesson } from "./shared/source";
+import { exportLesson, importLesson, listLessons, newLessonId, nextLessonRevision, removeLesson, saveLesson } from "./shared/source";
 import "./style.css";
 import "./shared/rich-content.css";
-import { checkImageCollection, loadLessonImages, retainLessonImages, storeLessonImages } from "./shared/images";
+import { importedLessonImageAdditions, loadLessonImages, retainLessonImages, storeLessonImages } from "./shared/images";
 import { lessonJob } from "./shared/archive";
-import { lessonImagePaths } from "./shared/rich-text";
+import { lessonImagePaths, replaceLessonImageSources } from "./shared/rich-text";
 import { LessonImportIcon, LessonLibrary } from "./library/library";
 import { LessonConfirmProvider, useLessonConfirm } from "./shared/confirm";
 
@@ -62,10 +62,11 @@ function LessonsPageContent({ editId, viewId, studyVisible, navigate }: LessonsP
     saveBusy.current = true;
     setSaving(true);
     const previous = lessons.find(lesson => lesson.id === next.id);
-    const revised = previous ? { ...next, version: previous.version + 1 } : next;
-    const updatedAt = Date.now();
-    const saved = { ...revised, createdAt: previous ? previous.createdAt : updatedAt, updatedAt };
+    let revised = next;
     try {
+      const revision = nextLessonRevision(next.version, previous, Date.now());
+      revised = previous ? { ...next, version: revision.version } : next;
+      const saved = { ...revised, ...revision };
       await saveLesson(saved, previous);
       setLessons(current => previous ? current.map(lesson => lesson.id === saved.id ? saved : lesson) : [...current, saved]);
       setPending(current => current === pending ? undefined : current);
@@ -107,15 +108,9 @@ function LessonsPageContent({ editId, viewId, studyVisible, navigate }: LessonsP
         const result = await lessonJob({ operation: "deduplicate",
           incoming: await Promise.all([...images].map(async ([path, blob]): Promise<[string, Uint8Array<ArrayBuffer>]> => [path, new Uint8Array(await blob.arrayBuffer())])),
           existing: await Promise.all(existing.map(async ([path, blob]): Promise<[string, Uint8Array<ArrayBuffer>]> => [path, new Uint8Array(await blob.arrayBuffer())])) });
-        const aliases = new Map(result.aliases ?? []);
-        if (aliases.size) importedLesson = JSON.parse([...aliases].reduce((json, [from, to]) => json.replaceAll(from, to), JSON.stringify(lesson))) as Lesson;
+        importedLesson = replaceLessonImageSources(lesson, new Map(result.aliases ?? []));
       }
-      const available = new Map([...storedImages, ...images]);
-      const paths = lessonImagePaths(importedLesson);
-      const retained = new Map([...paths].map(path => [path, available.get(path)!] as const).filter(([, blob]) => !!blob));
-      if (retained.size !== paths.size) throw new Error("Imported lesson references a missing image.");
-      checkImageCollection(retained);
-      const additions = new Map([...retained].filter(([path]) => !storedImages.has(path)));
+      const additions = importedLessonImageAdditions(importedLesson, storedImages, images);
       if (additions.size) await storeLessonImages(lesson.id, additions);
       try { await saveLesson(importedLesson, previous); }
       catch (error) {

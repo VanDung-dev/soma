@@ -5,10 +5,14 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{Cursor, Read, Write};
 
+mod draft;
+mod import;
 mod questions;
 mod scenes;
 mod tables;
 pub mod tar;
+pub use draft::{DraftFiles, prepare_draft};
+pub use import::{image_aliases, imported_image_additions};
 use scenes::{externalize_lesson_scenes, hydrate_lesson_scenes};
 
 pub type Files = BTreeMap<String, Vec<u8>>;

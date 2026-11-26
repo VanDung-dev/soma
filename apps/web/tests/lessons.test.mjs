@@ -65,9 +65,9 @@ test('lesson models include every system needed by setup and authored scenes wit
     assert.deepEqual(catalog.lessonSceneVisibleIds(), []);
     assert.deepEqual(catalog.lessonTargets(['joints', 'bones', 'head', 'missing']).map(target => target.id),
       ['joints', 'bones', 'head', 'jaw', 'skull']);
-    assert.equal(catalog.lessonTargetAvailable(['joints', 'bones'], 'skull'), true);
-    assert.equal(catalog.lessonTargetAvailable(['bones'], 'empty'), false);
-    assert.equal(catalog.lessonTargetAvailable(['head'], 'skull'), false);
+    assert.deepEqual(catalog.editLessonSceneVisibility(['joints', 'bones'], 'skull', [jaw], { id: 'joints', shown: false }), [['bones'], 'skull']);
+    assert.deepEqual(catalog.editLessonSceneVisibility(['joints', 'bones'], 'skull', [joint], { id: 'bones', shown: false }), [['joints'], 'joints']);
+    assert.deepEqual(catalog.editLessonSceneVisibility(['bones'], 'head', [jaw, masseter], { id: 'bones', shown: true }), [['bones', 'muscles'], 'head']);
   } finally { catalog.free(); }
 });
 

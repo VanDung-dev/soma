@@ -15,6 +15,14 @@ export async function checkLessonLibrary() {
   const key = 'soma.lesson-v1:' + id;
   const lesson = { id, version: 1, author: 'Nguyễn An', title: { vi: 'Kiểm tra kéo thả', en: 'Drop import check' },
     summary: { vi: 'Bài kiểm tra thư viện', en: '' }, modelId: '', steps: [] };
+  const { replaceLessonImageSources } = await import('../src/lessons/shared/rich-text.ts');
+  const from = `images/${'a'.repeat(64)}.png`, to = `images/${'b'.repeat(64)}.webp`;
+  const rewritten = replaceLessonImageSources({ ...lesson, cover: from, author: from,
+    summary: { vi: `<p>${from}<img src="${from}" alt="${from}"><a href="${from}">Link</a></p>`, en: from, html: ['vi'] } },
+  new Map([[from, to]]));
+  assert(rewritten.cover === to && rewritten.author === from && rewritten.summary.en === from
+    && rewritten.summary.vi === `<p>${from}<img src="${to}" alt="${from}"><a href="${from}">Link</a></p>`,
+  'Image deduplication must rewrite only the cover and actual image sources');
   const file = value => {
     const pack = new LessonPackage(JSON.stringify(value));
     try { return new File([pack.export()], 'import.lesson.br', { type: 'application/octet-stream' }); }

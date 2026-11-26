@@ -26,8 +26,9 @@ export class Catalog {
       }) });
   }
   lessonTargets(modelIds: readonly string[]): StudyTarget[] { return this.data.lesson_targets(modelIds); }
-  lessonTargetAvailable(modelIds: readonly string[], targetId: string): boolean {
-    return this.data.lesson_target_available(modelIds, targetId);
+  editLessonSceneVisibility(modelIds: readonly string[], targetId: string, visibleIds: readonly string[],
+    root?: { id: string; shown: boolean }): [string[], string] {
+    return this.data.edit_lesson_scene_visibility(modelIds, targetId, visibleIds, root);
   }
   clearMetadata() { this.data.clear_metadata(); }
   ingestMetadata(root: StudyTarget, json: string): string[] { return this.data.ingest_metadata(root.id, json); }

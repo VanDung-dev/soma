@@ -1,4 +1,4 @@
-import init, { LessonPackage, lesson_image_fingerprint, lesson_image_info } from "../../content/content";
+import init, { LessonPackage, lesson_image_aliases, lesson_image_info } from "../../content/content";
 import type { LessonJob, LessonResult } from "./archive";
 import { compressLessonImage } from "./compress-image";
 
@@ -17,16 +17,7 @@ self.onmessage = async ({ data }: MessageEvent<LessonJob>) => {
       result = { json: pack.lesson_json(), preloadModelIds: pack.preload_model_ids(),
         images: (pack.image_paths() as string[]).map(path => [path, pack!.image_bytes(path) as Uint8Array<ArrayBuffer>, pack!.image_mime(path)]) };
     } else if (data.operation === "deduplicate") {
-      const canonical = new Map<string, string>();
-      for (const [path, bytes] of data.existing) canonical.set(lesson_image_fingerprint(bytes), path);
-      const aliases: [string, string][] = [];
-      for (const [path, bytes] of data.incoming) {
-        const fingerprint = lesson_image_fingerprint(bytes);
-        const existing = canonical.get(fingerprint);
-        if (existing) aliases.push([path, existing]);
-        else canonical.set(fingerprint, path);
-      }
-      result = { aliases };
+      result = { aliases: lesson_image_aliases(data.existing, data.incoming) };
     } else {
       pack = new LessonPackage(data.json);
       for (const [path, bytes] of data.images) pack.add_image(path, bytes);
