@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { LessonPackage } from './lesson-wasm.fixture.mjs';
+import { CatalogData, LessonPackage } from './lesson-wasm.fixture.mjs';
+import { Catalog } from '../src/catalog/index.ts';
 import { lessonLanguageTag, lessonMode, updateLessonQuestions, lessonPreviewIssues, lessonSceneStep, lessonText, readLesson, validateLessonTargets } from '../src/lessons/shared/contract.ts';
-import { lessonModels } from '../src/lessons/shared/targets.ts';
 
 const text = en => ({ vi: '', en });
 const draft = { id: 'lesson-test', version: 1, title: text(''), summary: text(''), modelId: '', steps: [] };
@@ -37,16 +37,38 @@ test('multiple questions validate active modes and preserve inactive drafts', ()
 });
 
 test('lesson models include every system needed by setup and authored scenes without duplicating shared parts', () => {
-  const catalog = { roots: [{ id: 'bones' }, { id: 'muscles' }, { id: 'joints' }],
-    members: id => ({ bones: ['jaw'], muscles: ['masseter'], joints: ['jaw', 'joint'], head: ['jaw', 'masseter'] })[id] ?? [] };
-  const lesson = { ...draft, modelId: 'bones', scene: { targetId: 'head' } };
-  assert.deepEqual(lessonModels(catalog, lesson), ['bones', 'muscles']);
-  assert.deepEqual(lessonModels(catalog, { ...lesson, steps: [{ kind: 'observe', targetId: 'joints', visibleIds: ['joint'] }] }), ['bones', 'muscles', 'joints']);
-  assert.deepEqual(lessonModels(catalog, { ...lesson, scene: { targetId: 'bones', visibleIds: [] } }), ['bones']);
-  assert.deepEqual(lessonModels(catalog, { ...lesson, modelIds: ['bones', 'joints'] }), ['bones', 'joints', 'muscles']);
-  assert.deepEqual(lessonModels(catalog, { ...lesson, preloadModelIds: ['joints', 'bones'] }), ['joints', 'bones', 'muscles']);
-  assert.deepEqual(lessonModels(catalog, { ...lesson, modelId: '', modelIds: [], scene: undefined }), []);
-  assert.deepEqual(lessonModels(catalog, draft), []);
+  const [jaw, masseter, joint] = ['za:0000000000000001', 'za:0000000000000002', 'za:0000000000000003'];
+  const target = (id, group, structure_ids, parent_id) => ({ id, title: id, source_name: id, group_id: `${group}-group`, structure_ids, parent_id });
+  const root = (id, ids, structureIds = ids) => ({ ...target(id, id, structureIds),
+    model: { path: `models/z-anatomy/${id}.glb`, scope: id, structure_ids: ids } });
+  const data = CatalogData.from_json(JSON.stringify({ schema_version: 1,
+    groups: ['bones', 'muscles', 'joints'].map(id => ({ id: `${id}-group`, title: id })),
+    targets: [root('bones', [jaw], [jaw, masseter]), root('muscles', [masseter]), root('joints', [jaw, joint]),
+      target('head', 'bones', [jaw, masseter], 'bones'), target('skull', 'bones', [jaw], 'head'),
+      target('empty', 'bones', [], 'bones'), target('jaw', 'bones', [jaw], 'bones')],
+  }));
+  const catalog = new Catalog(data);
+  try {
+    const lesson = { ...draft, modelId: 'bones', scene: { targetId: 'head' } };
+    assert.deepEqual(catalog.lessonModels(lesson), ['bones', 'muscles']);
+    assert.deepEqual(catalog.lessonModels({ ...lesson, steps: [{ kind: 'observe', targetId: 'joints', visibleIds: [joint] }] }), ['bones', 'muscles', 'joints']);
+    assert.deepEqual(catalog.lessonModels({ ...lesson, scene: { targetId: 'head', visibleIds: [] } }), ['bones']);
+    assert.deepEqual(catalog.lessonModels({ ...lesson, modelIds: ['bones', 'joints'] }), ['bones', 'joints', 'muscles']);
+    assert.deepEqual(catalog.lessonModels({ ...lesson, preloadModelIds: ['joints', 'bones'] }), ['joints', 'bones', 'muscles']);
+    assert.deepEqual(catalog.lessonModels({ ...lesson, modelId: '', modelIds: [], scene: undefined }), []);
+    assert.deepEqual(catalog.lessonModels({ ...draft, steps: [{ kind: 'text', targetId: 'joints', visibleIds: 3 }] }), []);
+    assert.deepEqual(catalog.lessonModels(draft), []);
+    assert.deepEqual(catalog.lessonSceneModels(lesson, { targetId: 'head', modelIds: [] }), []);
+    assert.deepEqual(catalog.lessonSceneModels(lesson, { targetId: 'head', modelIds: ['joints'] }), ['joints']);
+    assert.deepEqual(catalog.lessonSceneVisibleIds(lesson.scene), [jaw, masseter]);
+    assert.deepEqual(catalog.lessonSceneVisibleIds({ targetId: 'head', visibleIds: [] }), []);
+    assert.deepEqual(catalog.lessonSceneVisibleIds(), []);
+    assert.deepEqual(catalog.lessonTargets(['joints', 'bones', 'head', 'missing']).map(target => target.id),
+      ['joints', 'bones', 'head', 'jaw', 'skull']);
+    assert.equal(catalog.lessonTargetAvailable(['joints', 'bones'], 'skull'), true);
+    assert.equal(catalog.lessonTargetAvailable(['bones'], 'empty'), false);
+    assert.equal(catalog.lessonTargetAvailable(['head'], 'skull'), false);
+  } finally { catalog.free(); }
 });
 
 test('lesson setup preserves its scene before any steps exist and validates scene data', () => {

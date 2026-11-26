@@ -11,7 +11,6 @@ import { LessonDetails } from "./details";
 import { LessonStepOptions } from "./step-options";
 import { LessonQuestionEditor } from "./question-editor";
 import { exportLesson, newLessonId } from "../shared/source";
-import { lessonModels, lessonSceneModels, lessonSceneVisibleIds, lessonTargets } from "../shared/targets";
 import { findLessonSection, lessonSectionAt, lessonSectionTitle, resolveLessonSectionScene } from "../shared/sections";
 import { useLessonSceneVisibleIds } from "../shared/viewer";
 import type { SceneView } from "../../viewer/contracts";
@@ -69,11 +68,11 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
   const { step: active, previous: previousStep, next: nextStep, position } = lessonSectionAt(draft.steps, index);
   const primaryModelId = draft.modelIds?.[0] || draft.modelId;
   const scene = useMemo(() => resolveLessonSectionScene(draft, index, "edit"), [draft, index]);
-  const modelIds = lessonSceneModels(catalog, draft, scene);
+  const modelIds = catalog.lessonSceneModels(draft, scene);
   const primarySceneModelId = modelIds[0] ?? primaryModelId;
   const visibleIds = useLessonSceneVisibleIds(catalog, scene);
   const modelKey = modelIds.join(",");
-  const targets = useMemo(() => modelKey.split(",").flatMap(id => lessonTargets(catalog, id)), [catalog, modelKey]);
+  const targets = useMemo(() => catalog.lessonTargets(modelKey.split(",")), [catalog, modelKey]);
   const isDirty = draftDirty || sceneDirty;
   const heading = useRef<HTMLHeadingElement>(null);
   const titleField = useRef<HTMLInputElement>(null);
@@ -201,10 +200,10 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
     settingsSceneDirty.current = false;
     const selectedModels = root?.shown ? [...new Set([...settingsScene.modelIds, root.id])]
       : settingsScene.modelIds.filter(id => id !== root?.id);
-    const nextModelIds = lessonSceneModels(catalog, { ...draft, modelIds: selectedModels, modelId: "" },
+    const nextModelIds = catalog.lessonSceneModels({ modelIds: selectedModels, modelId: "" },
       { targetId: settingsScene.targetId, visibleIds: ids });
-    const keepTarget = settingsScene.targetId && (!root || root.shown || nextModelIds.some(id =>
-      lessonTargets(catalog, id).some(target => target.id === settingsScene.targetId)));
+    const keepTarget = settingsScene.targetId && (!root || root.shown
+      || catalog.lessonTargetAvailable(nextModelIds, settingsScene.targetId));
     setSettingsScene({ ...settingsScene, modelIds: nextModelIds,
       targetId: keepTarget ? settingsScene.targetId : nextModelIds[0] ?? "",
       visibleIds: ids, view: live?.view ?? settingsScene.view, sceneRef: undefined });
@@ -216,7 +215,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
     setError("");
     setRevealPart(undefined);
     setSettingsScene({ modelIds: ids, targetId: source.targetId, view: source.view,
-      visibleIds: lessonSceneVisibleIds(catalog, source), sceneRef });
+      visibleIds: catalog.lessonSceneVisibleIds(source), sceneRef });
     setResetVersion(value => value + 1);
   }
 
@@ -264,7 +263,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
     if (!active || index < 1) return;
     const source = previousScene;
     if (!source) return;
-    const copiedModels = lessonSceneModels(catalog, draft, source);
+    const copiedModels = catalog.lessonSceneModels(draft, source);
     if (!copiedModels.length) return;
     replaceSettingsScene(source, copiedModels);
   }
@@ -346,15 +345,15 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
   const hasModel = displayModelIds.length > 0 && displayModelIds.some(id => catalog.roots.some(model => model.id === id));
   const showModel = !!active && active.showModel !== false;
   const renderScene = showModel && hasModel;
-  const loadedModelIds = [...new Set([...lessonModels(catalog, draft), ...displayModelIds])];
+  const loadedModelIds = [...new Set([...catalog.lessonModels(draft), ...displayModelIds])];
   const previousScene = previousStep?.kind === "text" ? lessonSceneStep(draft, index - 1) : previousStep;
   const savedIndex = findLessonSection(saved.steps, active?.id);
   const savedStep = saved.steps[savedIndex];
   const savedScene = savedStep?.kind === "text" ? lessonSceneStep(saved, savedIndex) : savedStep;
   const savedBaseline = savedStep ? savedScene ?? saved.scene : undefined;
-  const savedModelIds = savedStep ? lessonSceneModels(catalog, saved, savedBaseline) : [];
+  const savedModelIds = savedStep ? catalog.lessonSceneModels(saved, savedBaseline) : [];
   const canCopyPreviousScene = !!previousScene && previousScene.targetId !== ""
-    && lessonSceneModels(catalog, draft, previousScene).length > 0;
+    && catalog.lessonSceneModels(draft, previousScene).length > 0;
   const modelSettingsButton = <button type="button" className="lesson-button lesson-model-settings-trigger"
     aria-controls="lesson-model-settings" aria-expanded={modelSettingsOpen} hidden={modelSettingsOpen}
     onClick={openModelSettings}>{t("lessons.modelSettings")}</button>;

@@ -1,4 +1,7 @@
-use content::data::{CatalogData, SearchRow, normalize, parse_metadata};
+use content::data::{
+    CatalogData, LessonModelSelection, LessonSceneSelection, SearchRow, normalize, parse_metadata,
+};
+use serde_json::json;
 use std::collections::{HashMap, HashSet};
 
 const SOURCE: &str = include_str!("../../../content/catalog.json");
@@ -359,4 +362,82 @@ fn tree_snapshots_keep_display_membership_and_bound_direct_rows() {
     assert!(!path.is_empty());
     assert_eq!(path.last().unwrap().0, root);
     assert!(data.reveal("unknown").is_empty());
+}
+
+#[test]
+fn lesson_targets_keep_the_catalog_tree_order_for_each_requested_root() {
+    let data = CatalogData::from_json(SOURCE).unwrap();
+    let roots: Vec<_> = data
+        .roots()
+        .into_iter()
+        .rev()
+        .map(|root| root.id.to_owned())
+        .collect();
+    let open: HashSet<_> = data
+        .catalog
+        .targets
+        .iter()
+        .map(|target| target.id.clone())
+        .collect();
+    let folders = data.tree(&open, &HashMap::new(), &HashSet::new());
+    let mut expected = Vec::new();
+    for id in &roots {
+        let root = folders
+            .iter()
+            .find(|folder| folder.target.id == id.as_str())
+            .unwrap();
+        let mut breadth_first = std::collections::VecDeque::from([root]);
+        while let Some(folder) = breadth_first.pop_front() {
+            if folder.target.count > 0 {
+                expected.push(folder.target.id);
+            }
+            breadth_first.extend(&folder.children);
+        }
+    }
+    let actual: Vec<_> = data
+        .lesson_targets(&roots)
+        .into_iter()
+        .map(|target| target.id)
+        .collect();
+    assert_eq!(actual, expected);
+    let child = folders
+        .iter()
+        .find_map(|folder| folder.children.first())
+        .unwrap();
+    assert!(
+        data.lesson_targets(&[child.target.id.to_owned(), "missing".into()])
+            .is_empty()
+    );
+}
+
+#[test]
+fn lesson_model_selection_preserves_explicit_lists_and_preload_order() {
+    let data = CatalogData::from_json(SOURCE).unwrap();
+    let roots = data.roots();
+    let first = roots[0].id;
+    let second = roots[1].id;
+    let third = roots[2].id;
+    let lesson: LessonModelSelection = serde_json::from_value(json!({
+        "modelId": first,
+        "preloadModelIds": [second, first],
+        "scene": { "targetId": third, "modelIds": [] },
+        "steps": [
+            { "kind": "text", "targetId": third, "visibleIds": 3, "modelIds": [third] },
+            { "kind": "observe", "targetId": second, "modelIds": [second] },
+        ],
+    }))
+    .unwrap();
+    assert_eq!(data.lesson_models(&lesson), [second, first]);
+
+    let scene: LessonSceneSelection = serde_json::from_value(json!({ "targetId": first })).unwrap();
+    assert_eq!(data.lesson_scene_models("", &[], Some(&scene)), [first]);
+    assert_eq!(
+        data.lesson_scene_visible_ids(Some(&scene)),
+        data.members(first).unwrap()
+    );
+
+    let empty: LessonSceneSelection =
+        serde_json::from_value(json!({ "targetId": first, "visibleIds": [] })).unwrap();
+    assert!(data.lesson_scene_visible_ids(Some(&empty)).is_empty());
+    assert!(data.lesson_scene_models("", &[], Some(&empty)).is_empty());
 }

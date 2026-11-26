@@ -8,7 +8,6 @@ import type { Catalog } from "../../catalog/types";
 import { loadBrowserLessonContent, loadLessonImages, removeLessonImages, retainBrowserLessonContent, retainLessonImages, storeBrowserLessonContent } from "./images";
 import type { LessonImages } from "./images";
 import { lessonImagePaths } from "./rich-text";
-import { lessonModels } from "./targets";
 
 function comparableLesson(lesson: Lesson) {
   return JSON.stringify(lesson, (_key, value: unknown) => value && typeof value === "object" && !Array.isArray(value)
@@ -134,7 +133,7 @@ export async function exportLesson(lesson: Lesson, language: string, catalog?: C
   const images = await loadLessonImages(lesson.id, lessonImagePaths(lesson));
   const ownedCatalog = catalog ? undefined : await getCatalog();
   let modelIds: string[];
-  try { modelIds = lessonModels(catalog ?? ownedCatalog!, lesson); }
+  try { modelIds = (catalog ?? ownedCatalog!).lessonModels(lesson); }
   finally { ownedCatalog?.free(); }
   const result = await lessonJob({ operation: "export", json: JSON.stringify(lesson), language, modelIds,
     images: await Promise.all([...images].map(async ([path, blob]): Promise<[string, Uint8Array<ArrayBuffer>]> => [path, new Uint8Array(await blob.arrayBuffer())])) });

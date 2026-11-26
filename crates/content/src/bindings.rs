@@ -1,3 +1,4 @@
+use crate::data::{LessonModelSelection, LessonSceneSelection};
 use serde::{Serialize, de::DeserializeOwned};
 use std::collections::{HashMap, HashSet};
 use wasm_bindgen::prelude::*;
@@ -43,6 +44,36 @@ impl CatalogData {
     }
     pub fn members(&self, id: &str) -> Result<JsValue, JsValue> {
         value(&self.data.members(id))
+    }
+    pub fn lesson_scene_visible_ids(&self, scene: JsValue) -> Result<JsValue, JsValue> {
+        let scene: Option<LessonSceneSelection> = read(scene)?;
+        value(&self.data.lesson_scene_visible_ids(scene.as_ref()))
+    }
+    pub fn lesson_scene_models(
+        &self,
+        model_id: &str,
+        model_ids: JsValue,
+        scene: JsValue,
+    ) -> Result<JsValue, JsValue> {
+        let model_ids: Option<Vec<String>> = read(model_ids)?;
+        let scene: Option<LessonSceneSelection> = read(scene)?;
+        value(&self.data.lesson_scene_models(
+            model_id,
+            model_ids.as_deref().unwrap_or_default(),
+            scene.as_ref(),
+        ))
+    }
+    pub fn lesson_models(&self, lesson: JsValue) -> Result<JsValue, JsValue> {
+        let lesson: LessonModelSelection = read(lesson)?;
+        value(&self.data.lesson_models(&lesson))
+    }
+    pub fn lesson_targets(&self, model_ids: JsValue) -> Result<JsValue, JsValue> {
+        let model_ids: Vec<String> = read(model_ids)?;
+        value(&self.data.lesson_targets(&model_ids))
+    }
+    pub fn lesson_target_available(&self, model_ids: JsValue, target_id: &str) -> Result<bool, JsValue> {
+        let model_ids: Vec<String> = read(model_ids)?;
+        Ok(self.data.lesson_target_available(&model_ids, target_id))
     }
     pub fn clear_metadata(&mut self) {
         self.data.clear_metadata();

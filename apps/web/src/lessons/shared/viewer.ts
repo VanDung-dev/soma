@@ -9,11 +9,10 @@ import { ViewerRuntime } from "../../viewer/runtime";
 import { useGraphicsSettings } from "../../pages/use-graphics-settings";
 import { shortcutAction } from "../../shortcuts";
 import type { LessonScene } from "./contract";
-import { lessonSceneVisibleIds } from "./targets";
 
 export function useLessonSceneVisibleIds(catalog: Catalog, scene?: Pick<LessonScene, "targetId" | "visibleIds">) {
   const { targetId, visibleIds } = scene ?? {};
-  return useMemo(() => lessonSceneVisibleIds(catalog, targetId === undefined ? undefined : { targetId, visibleIds }),
+  return useMemo(() => catalog.lessonSceneVisibleIds(targetId === undefined ? undefined : { targetId, visibleIds }),
     [catalog, targetId, visibleIds]);
 }
 

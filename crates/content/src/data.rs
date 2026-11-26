@@ -15,7 +15,9 @@ use std::{
     sync::{LazyLock, OnceLock},
 };
 
+mod lesson_targets;
 mod tree_search;
+pub use lesson_targets::{LessonModelSelection, LessonSceneSelection};
 pub use tree_search::TreeSearch;
 
 #[derive(Clone, Deserialize, Serialize)]

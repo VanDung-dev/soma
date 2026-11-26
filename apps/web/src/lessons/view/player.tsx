@@ -12,7 +12,6 @@ import { LessonModelCanvas, LessonModelSurface } from "../shared/model-surface";
 import { LessonQuestions } from "./questions";
 import { lessonHtml, plainLessonHtml } from "../shared/rich-text";
 import { useLessonImages } from "../shared/image-context";
-import { lessonModels } from "../shared/targets";
 import { LessonContentPanel, LessonHeader, LessonOutlinePanel, LessonSectionList, LessonStepNavigation, LessonWorkspaceLayout } from "../shared/workspace";
 import { useLessonProgress } from "./progress";
 import { READING_DURATION_MS, useReadingTimer } from "./reading-timer";
@@ -33,7 +32,7 @@ export function LessonPlayer({ lesson, catalog, mode, onBack, onEdit, previewLoc
   const readText = (value: LessonText) => lessonText(value, contentLanguage, previewLocale === undefined);
   const images = useLessonImages();
   const usesModel = lesson.steps.some(step => step.kind !== "text") && lesson.steps.some(step => step.showModel !== false);
-  const modelIds = useMemo(() => lessonModels(catalog, lesson), [catalog, lesson]);
+  const modelIds = useMemo(() => catalog.lessonModels(lesson), [catalog, lesson]);
   const modelMembers = useMemo(() => [...new Set(modelIds.flatMap(id => catalog.members(id)))], [catalog, modelIds]);
   const heading = useRef<HTMLHeadingElement>(null);
   const reader = useRef<HTMLDivElement>(null);
