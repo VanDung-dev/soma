@@ -1,11 +1,43 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { CatalogData, LessonPackage } from './lesson-wasm.fixture.mjs';
+import { CatalogData, initialize_lesson_progress, lesson_playback, LessonPackage, update_lesson_progress } from './lesson-wasm.fixture.mjs';
 import { Catalog } from '../src/catalog/index.ts';
 import { lessonLanguageTag, lessonMode, updateLessonQuestions, lessonPreviewIssues, lessonSceneStep, lessonText, readLesson, validateLessonTargets } from '../src/lessons/shared/contract.ts';
 
 const text = en => ({ vi: '', en });
 const draft = { id: 'lesson-test', version: 1, title: text(''), summary: text(''), modelId: '', steps: [] };
+
+test('progress WASM restores legacy progress, merges saved answers and isolates preview', () => {
+  const steps = [{ id: 'intro', questions: [] }, { id: 'quiz', mode: 'questions', questions: [{ id: 'q', answerId: 'correct' }] }];
+  const saved = JSON.stringify({ position: 'removed', read: ['intro', 'quiz'], answers: {} });
+  const current = initialize_lesson_progress(saved, false, undefined);
+  const awaiting = lesson_playback(current, steps, [], false);
+  assert.equal(awaiting.index, 1);
+  assert.equal(awaiting.questionsOnly, true);
+  assert.equal(awaiting.readingDurationMs, 15000);
+  assert.equal(awaiting.awaitingAnswers, true);
+  assert.equal(awaiting.nextLocked, true);
+  const answer = { kind: 'answer', stepId: 'quiz', questionId: 'q', answerId: 'correct', choiceId: 'wrong' };
+  assert.equal(update_lesson_progress(current, saved, answer), undefined);
+
+  const elsewhere = JSON.stringify({ position: 'intro', read: ['intro'], answers: { 'quiz/q': 'correct' } });
+  const resumed = update_lesson_progress(current, elsewhere, { kind: 'jump', stepId: 'quiz' });
+  assert.deepEqual(lesson_playback(resumed, steps, [], false).correctQuestions, ['q']);
+  const finished = update_lesson_progress(resumed, elsewhere, { kind: 'finish' });
+  assert.equal(JSON.parse(finished).position, null);
+  assert.equal(lesson_playback(finished, steps, [], false).complete, true);
+  assert.equal(JSON.parse(update_lesson_progress(finished, undefined, { kind: 'jump', stepId: undefined })).position, undefined);
+
+  const preview = initialize_lesson_progress(finished, true, 'quiz');
+  assert.deepEqual(JSON.parse(preview), { position: 'quiz', read: ['intro', 'quiz'], answers: {} });
+  const draftState = lesson_playback(preview, steps, ['quiz'], true);
+  assert.equal(draftState.index, 1);
+  assert.equal(draftState.nextLocked, false);
+  assert.equal(draftState.reading, false);
+  assert.deepEqual(draftState.correctQuestions, []);
+  const answered = update_lesson_progress(preview, undefined, { ...answer, choiceId: 'correct' });
+  assert.deepEqual(lesson_playback(answered, steps, [], true).correctQuestions, ['q']);
+});
 
 test('multiple questions validate active modes and preserve inactive drafts', () => {
   const question = { id: 'question-one', prompt: text('Which part?'), choices: [

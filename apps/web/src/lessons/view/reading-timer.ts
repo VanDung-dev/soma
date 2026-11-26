@@ -1,15 +1,13 @@
 import { useEffect, useEffectEvent, useState } from "react";
 
-export const READING_DURATION_MS = 15_000;
-
-export function useReadingTimer(stepId: string, enabled: boolean, onRead: (stepId: string) => void) {
+export function useReadingTimer(stepId: string, enabled: boolean, duration: number, onRead: (stepId: string) => void) {
   const [restart, setRestart] = useState(0);
   const complete = useEffectEvent(onRead);
 
   useEffect(() => {
     if (!enabled) return;
     function start() {
-      return window.setTimeout(() => complete(stepId), READING_DURATION_MS);
+      return window.setTimeout(() => complete(stepId), duration);
     }
     let timeout = start();
     const stop = () => window.clearTimeout(timeout);
@@ -27,7 +25,7 @@ export function useReadingTimer(stepId: string, enabled: boolean, onRead: (stepI
       window.removeEventListener("pagehide", stop);
       window.removeEventListener("pageshow", restore);
     };
-  }, [enabled, stepId]);
+  }, [enabled, stepId, duration]);
 
   return restart;
 }

@@ -6,6 +6,7 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 
 pub mod draft;
 pub mod editing;
+pub mod progress;
 
 pub const ARCHIVE_LIMIT: usize = 64 * 1024 * 1024;
 pub const JSON_LIMIT: usize = 2 * 1024 * 1024;

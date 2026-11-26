@@ -4,8 +4,8 @@ import { useLanguage } from "../../i18n";
 import type { Language } from "../../i18n";
 import { LineIcon } from "../../icons";
 import type { Lesson, LessonStep, LessonText } from "../shared/contract";
-import { emptyLessonText, lessonMode, lessonPreviewIssues, lessonText, validateLessonTargets } from "../shared/contract";
-import { findLessonSection, lessonSectionAt, lessonSectionTitle, resolveLessonSectionScene } from "../shared/sections";
+import { emptyLessonText, lessonPreviewIssues, lessonText, validateLessonTargets } from "../shared/contract";
+import { lessonSectionAt, lessonSectionTitle, resolveLessonSectionScene } from "../shared/sections";
 import type { LessonReaderMode } from "../shared/sections";
 import { useLessonViewer } from "../shared/viewer";
 import { LessonModelCanvas, LessonModelSurface } from "../shared/model-surface";
@@ -14,7 +14,7 @@ import { lessonHtml, plainLessonHtml } from "../shared/rich-text";
 import { useLessonImages } from "../shared/image-context";
 import { LessonContentPanel, LessonHeader, LessonOutlinePanel, LessonSectionList, LessonStepNavigation, LessonWorkspaceLayout } from "../shared/workspace";
 import { useLessonProgress } from "./progress";
-import { READING_DURATION_MS, useReadingTimer } from "./reading-timer";
+import { useReadingTimer } from "./reading-timer";
 
 export function LessonPlayer({ lesson, catalog, mode, onBack, onEdit, previewLocale, initialStepId, studyVisible = true }: {
   lesson: Lesson;
@@ -40,27 +40,19 @@ export function LessonPlayer({ lesson, catalog, mode, onBack, onEdit, previewLoc
   const modelId = useId();
   const [modelCollapsed, setModelCollapsed] = useState(false);
   const [compact, setCompact] = useState(false);
-  const [progress, updateProgress, progressUnsaved] = useLessonProgress(lesson.id, mode, initialStepId);
   const issues = useMemo(() => lessonPreviewIssues(lesson, modelMembers, id => catalog.members(id)), [catalog, lesson, modelMembers]);
-  const stepQuestions = (item: LessonStep) => item.questionRef || lessonMode(item) === "content" ? [] : item.questions ?? [];
-  const awaitingAnswers = (item: LessonStep) => stepQuestions(item).some(question => progress.answers[`${item.id}/${question.id}`] !== question.answerId);
-  const boundary = preview ? -1 : lesson.steps.findIndex(item => issues.has(item.id) || !progress.read.includes(item.id) || awaitingAnswers(item));
-  const complete = progress.position === null && boundary === -1 && lesson.steps.length > 0;
-  const savedIndex = findLessonSection(lesson.steps, progress.position);
-  const resumeIndex = savedIndex < 0 && progress.position !== undefined && boundary >= 0 ? boundary : Math.max(0, savedIndex);
-  const index = complete ? lesson.steps.length - 1 : boundary < 0 ? resumeIndex : Math.min(resumeIndex, boundary);
+  const [playback, updateProgress, progressUnsaved] = useLessonProgress(lesson.id, mode, lesson.steps, issues, initialStepId);
+  const { complete, index, read, reading, readingDurationMs, rows, nextLocked, questionsOnly, showQuestions, correctQuestions, awaitingAnswers } = playback;
   const section = lessonSectionAt(lesson.steps, index);
   const step: LessonStep = section.step ?? { id: "preview-empty", kind: "text", title: emptyLessonText, instruction: emptyLessonText };
   const issue = issues.get(step.id);
-  const read = !preview && progress.read.includes(step.id);
-  const reading = !preview && !complete && lesson.steps.length > 0 && !issue && !read;
   const readingActive = reading && studyVisible;
-  const readingRestart = useReadingTimer(step.id, readingActive, id => {
+  const readingRestart = useReadingTimer(step.id, readingActive, readingDurationMs, id => {
     if (id !== step.id || !readingActive) return;
-    updateProgress(current => ({ ...current, position: id, read: [...new Set([...current.read, id])] }));
+    updateProgress({ kind: "read", stepId: id });
   });
   const nextDescription = reading ? t("lessons.readingRequired")
-    : !preview && !issue && awaitingAnswers(step) ? t("lessons.answersRequired") : undefined;
+    : awaitingAnswers ? t("lessons.answersRequired") : undefined;
   const scene = useMemo(() => resolveLessonSectionScene(lesson, complete ? 0 : index, mode), [complete, index, lesson, mode]);
   const showStepModel = usesModel && !!scene;
   const modelVisible = showStepModel && (!compact || !modelCollapsed);
@@ -71,8 +63,7 @@ export function LessonPlayer({ lesson, catalog, mode, onBack, onEdit, previewLoc
       return true;
     } catch { return false; }
   }, [catalog, lesson, scene, modelMembers]);
-  const sectionMode = step.questionRef ? "content" : lessonMode(step);
-  const questions = stepQuestions(step);
+  const questions = showQuestions ? step.questions ?? [] : [];
   const instruction = lessonHtml(step.instruction, contentLanguage, images.urls, previewLocale === undefined);
   const viewer = useLessonViewer({ catalog, modelIds: usesModel ? modelIds : [], scene,
     sectionId: complete ? null : step.id, visible: modelVisible, sceneUsable });
@@ -94,13 +85,9 @@ export function LessonPlayer({ lesson, catalog, mode, onBack, onEdit, previewLoc
     heading.current?.focus({ preventScroll: true });
   }, [index, complete]);
 
-  function stepLocked(next: number) {
-    return boundary >= 0 && next > boundary;
-  }
-
   function move(next: number) {
-    if (stepLocked(next)) return;
-    updateProgress(current => ({ ...current, position: lesson.steps[next]?.id }));
+    if (rows[next]?.locked) return;
+    updateProgress({ kind: "jump", stepId: lesson.steps[next]?.id });
   }
 
   const hasStep = lesson.steps.length > 0 && !complete;
@@ -124,9 +111,9 @@ export function LessonPlayer({ lesson, catalog, mode, onBack, onEdit, previewLoc
       </>} />}
     outline={<LessonOutlinePanel>
       <LessonSectionList steps={lesson.steps} selected={complete ? undefined : section.step?.id} language={contentLanguage}
-        fallback={previewLocale === undefined} onSelect={(_, i) => move(i)} configureRow={(item, i) => {
-          const itemRead = progress.read.includes(item.id);
-          return { button: { "aria-description": t(itemRead ? "lessons.sectionRead" : "lessons.sectionUnread"), disabled: stepLocked(i) },
+        fallback={previewLocale === undefined} onSelect={(_, i) => move(i)} configureRow={(_, i) => {
+          const itemRead = rows[i]?.read;
+          return { button: { "aria-description": t(itemRead ? "lessons.sectionRead" : "lessons.sectionUnread"), disabled: rows[i]?.locked },
             indicator: <span className="lesson-outline-status" data-read={itemRead || undefined} aria-hidden="true" /> };
         }} />
     </LessonOutlinePanel>}
@@ -144,12 +131,12 @@ export function LessonPlayer({ lesson, catalog, mode, onBack, onEdit, previewLoc
           onPrevious={complete ? undefined : () => move(index - 1)} previousDisabled={!section.previous}
           actions={complete
               ? <button className="lesson-button" onClick={() => move(0)}>{t("lessons.review")}</button>
-              : <button key={readingRestart} className="lesson-button lesson-primary" disabled={stepLocked(index + 1)}
+              : <button key={readingRestart} className="lesson-button lesson-primary" disabled={nextLocked}
                 data-reading={readingActive || undefined} data-read={read || undefined}
-                style={readingActive ? { animationDuration: `${READING_DURATION_MS}ms` } : undefined}
+                style={readingActive ? { animationDuration: `${readingDurationMs}ms` } : undefined}
                 title={nextDescription} aria-description={nextDescription} onClick={() => {
                 if (section.next) move(index + 1);
-                else updateProgress(current => ({ ...current, position: null }));
+                else updateProgress({ kind: "finish" });
               }}>{t(section.next ? "lessons.next" : "lessons.finish")}</button>}
           />}
         {progressUnsaved && <p className="model-status" role="status">{t("lessons.progressUnsaved")}</p>}
@@ -163,14 +150,14 @@ export function LessonPlayer({ lesson, catalog, mode, onBack, onEdit, previewLoc
         {step.sceneRef && <p className="model-status" role="status">{t("lessons.sceneFileUnavailable")}</p>}
         {step.questionRef && <p className="model-status" role="status">{t("lessons.questionFileUnavailable")}</p>}
         {issue && <p className="model-status lesson-preview-issue" role="status">{t(`lessons.validation.${issue.reason}`, { step: issue.step })}</p>}
-        {sectionMode !== "questions" && (plainLessonHtml(instruction) || /<(?:img|iframe|video|audio)\b/i.test(instruction)
+        {!questionsOnly && (plainLessonHtml(instruction) || /<(?:img|iframe|video|audio)\b/i.test(instruction)
           ? <div className="lesson-instructions lesson-rich-content lesson-content-sheet" lang={previewLocale} dangerouslySetInnerHTML={{ __html: instruction }} />
           : !step.questionRef && <p className="lesson-instructions lesson-rich-content lesson-content-sheet">{t("lessons.previewNoContent")}</p>)}
         {!lesson.steps.length && <button className="lesson-button lesson-primary" onClick={() => (onEdit ?? onBack)()}>{t("lessons.continueEditing")}</button>}
         </>}
         <div className="lesson-reader-questions" hidden={complete || !questions.length}>
-          <LessonQuestions stepId={step.id} questions={questions} previewLocale={previewLocale} disabled={!preview && !!issue} correctAnswers={progress.answers}
-            onCorrect={(key, choice) => updateProgress(current => ({ ...current, position: step.id, answers: { ...current.answers, [key]: choice } }))} />
+          <LessonQuestions stepId={step.id} questions={questions} previewLocale={previewLocale} disabled={!preview && !!issue} correctQuestions={correctQuestions}
+            onAnswer={(questionId, answerId, choiceId) => updateProgress({ kind: "answer", stepId: step.id, questionId, answerId, choiceId })} />
         </div>
         </div>
       </LessonContentPanel>}

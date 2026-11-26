@@ -148,6 +148,50 @@ pub fn lesson_preview_issues(
 }
 
 #[wasm_bindgen]
+pub fn initialize_lesson_progress(
+    stored: Option<String>,
+    preview: bool,
+    initial_step_id: Option<String>,
+) -> Result<String, JsValue> {
+    let progress = lesson::progress::Progress::from_storage(stored.as_deref());
+    let progress = if preview {
+        progress.preview(initial_step_id)
+    } else {
+        progress
+    };
+    serde_json::to_string(&progress).map_err(js_error)
+}
+
+#[wasm_bindgen]
+pub fn update_lesson_progress(
+    current: &str,
+    stored: Option<String>,
+    action: JsValue,
+) -> Result<Option<String>, JsValue> {
+    let current = lesson::progress::Progress::from_storage(Some(current));
+    let stored = stored
+        .as_deref()
+        .map(|data| lesson::progress::Progress::from_storage(Some(data)));
+    current
+        .update(stored, read(action)?)
+        .map(|progress| serde_json::to_string(&progress).map_err(js_error))
+        .transpose()
+}
+
+#[wasm_bindgen]
+pub fn lesson_playback(
+    current: &str,
+    steps: JsValue,
+    issues: JsValue,
+    preview: bool,
+) -> Result<JsValue, JsValue> {
+    let current = lesson::progress::Progress::from_storage(Some(current));
+    let steps: Vec<lesson::progress::Step> = read(steps)?;
+    let issues = read(issues)?;
+    value(&current.playback(&steps, &issues, preview))
+}
+
+#[wasm_bindgen]
 pub fn lesson_scene_index(data: &str, index: usize) -> Result<i32, JsValue> {
     Ok(lesson::scene_index(&json(data)?, index).map_or(-1, |index| index as i32))
 }
