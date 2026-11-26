@@ -12,7 +12,7 @@ mod scenes;
 mod tables;
 pub mod tar;
 pub use draft::{DraftFiles, prepare_draft};
-pub use import::{image_aliases, imported_image_additions};
+pub use import::{image_aliases, imported_image_additions, prepare_image_import};
 use scenes::{externalize_lesson_scenes, hydrate_lesson_scenes};
 
 pub type Files = BTreeMap<String, Vec<u8>>;

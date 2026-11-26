@@ -5,6 +5,7 @@ import { lessonJob } from "./archive";
 import type { LessonImageStage } from "./archive";
 import { LESSON_STORAGE_PREFIX } from "./contract";
 import type { Lesson } from "./contract";
+import { lessonImagePaths } from "./rich-text";
 
 export type LessonImages = Map<string, Blob>;
 
@@ -150,8 +151,21 @@ export function checkImageCollection(images: LessonImages) {
   content.validate_lesson_images([...images].map(([path, blob]) => [path, blob.size]));
 }
 
-export function importedLessonImageAdditions(lesson: Lesson, existing: LessonImages, incoming: LessonImages): LessonImages {
-  const sizes = (images: LessonImages) => [...images].map(([path, blob]) => [path, blob.size]);
-  const paths = content.imported_lesson_image_additions(JSON.stringify(lesson), sizes(existing), sizes(incoming));
-  return new Map(paths.map(path => [path, incoming.get(path)!]));
+export async function prepareImportedLesson(lesson: Lesson, previous: Lesson | undefined, stored: LessonImages, incoming: LessonImages) {
+  const json = JSON.stringify(lesson);
+  const sizes: [string, number][] = [...stored].map(([path, blob]) => [path, blob.size]);
+  if (!incoming.size) {
+    content.imported_lesson_image_additions(json, sizes, []);
+    return { importedLesson: lesson, additions: new Map<string, Blob>() };
+  }
+  const referenced = previous && lessonImagePaths(previous);
+  const existing = [...stored].filter(([path]) => referenced?.has(path));
+  const readImageBytes = (entries: Iterable<[string, Blob]>) => Promise.all(Array.from(entries, async ([path, blob]): Promise<[string, Uint8Array<ArrayBuffer>]> =>
+    [path, new Uint8Array(await blob.arrayBuffer())]));
+  const [existingBytes, incomingBytes] = await Promise.all([readImageBytes(existing), readImageBytes(incoming)]);
+  const result = await lessonJob({ operation: "prepare-import", json, stored: sizes, existing: existingBytes, incoming: incomingBytes });
+  return {
+    importedLesson: JSON.parse(result.json!) as Lesson,
+    additions: new Map(result.additions!.map(path => [path, incoming.get(path)!])),
+  };
 }

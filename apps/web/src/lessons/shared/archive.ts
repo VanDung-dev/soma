@@ -1,7 +1,7 @@
 export type LessonJob =
   | { operation: "open"; name: string; bytes: Uint8Array<ArrayBuffer> }
   | { operation: "export"; json: string; language: string; modelIds: string[]; images: [string, Uint8Array<ArrayBuffer>][] }
-  | { operation: "deduplicate"; incoming: [string, Uint8Array<ArrayBuffer>][]; existing: [string, Uint8Array<ArrayBuffer>][] }
+  | { operation: "prepare-import"; json: string; stored: [string, number][]; incoming: [string, Uint8Array<ArrayBuffer>][]; existing: [string, Uint8Array<ArrayBuffer>][] }
   | { operation: "image"; bytes: Uint8Array<ArrayBuffer> };
 
 export type LessonResult = {
@@ -10,7 +10,7 @@ export type LessonResult = {
   name?: string;
   preloadModelIds?: string[];
   images?: [string, Uint8Array<ArrayBuffer>, string][];
-  aliases?: [string, string][];
+  additions?: string[];
   image?: { path: string; mime: string };
 };
 
@@ -31,7 +31,7 @@ export function lessonJob(job: LessonJob, onProgress?: (stage: LessonImageStage)
     worker.onmessageerror = () => { finish(); reject(new Error("Cannot transfer lesson data")); };
     const buffers = "bytes" in job ? [job.bytes.buffer]
       : job.operation === "export" ? job.images.map(([, bytes]) => bytes.buffer)
-      : job.operation === "deduplicate" ? [...job.incoming, ...job.existing].map(([, bytes]) => bytes.buffer)
+      : job.operation === "prepare-import" ? [...job.incoming, ...job.existing].map(([, bytes]) => bytes.buffer)
       : [];
     worker.postMessage(job, buffers);
   });

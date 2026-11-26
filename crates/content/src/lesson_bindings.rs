@@ -258,24 +258,58 @@ pub fn lesson_image_info(bytes: &[u8]) -> Result<JsValue, JsValue> {
     value(&lessons::image_info(bytes).map_err(js_error)?)
 }
 
+#[derive(serde::Deserialize)]
+struct ImageEntry(
+    String,
+    #[serde(with = "serde_wasm_bindgen::preserve")] js_sys::Uint8Array,
+);
+
+impl ImageEntry {
+    fn into_bytes(self) -> (String, Vec<u8>) {
+        (self.0, self.1.to_vec())
+    }
+}
+
 #[wasm_bindgen]
 pub fn lesson_image_aliases(existing: JsValue, incoming: JsValue) -> Result<JsValue, JsValue> {
-    #[derive(serde::Deserialize)]
-    struct ImageEntry(
-        String,
-        #[serde(with = "serde_wasm_bindgen::preserve")] js_sys::Uint8Array,
-    );
-
     let existing: Vec<ImageEntry> = read(existing)?;
     let incoming: Vec<ImageEntry> = read(incoming)?;
-    let into_bytes = |ImageEntry(path, bytes): ImageEntry| (path, bytes.to_vec());
     value(
         &lessons::image_aliases(
-            existing.into_iter().map(into_bytes),
-            incoming.into_iter().map(into_bytes),
+            existing.into_iter().map(ImageEntry::into_bytes),
+            incoming.into_iter().map(ImageEntry::into_bytes),
         )
         .map_err(js_error)?,
     )
+}
+
+#[wasm_bindgen]
+pub fn prepare_lesson_import(
+    data: &str,
+    stored: JsValue,
+    existing: JsValue,
+    incoming: JsValue,
+) -> Result<JsValue, JsValue> {
+    #[derive(serde::Serialize)]
+    struct PreparedImport {
+        json: String,
+        additions: Vec<String>,
+    }
+
+    let stored: Vec<(String, usize)> = read(stored)?;
+    let existing: Vec<ImageEntry> = read(existing)?;
+    let incoming: Vec<ImageEntry> = read(incoming)?;
+    let (lesson, additions) = lessons::prepare_image_import(
+        json(data)?,
+        stored.into_iter().collect(),
+        existing.into_iter().map(ImageEntry::into_bytes),
+        incoming.into_iter().map(ImageEntry::into_bytes),
+    )
+    .map_err(js_error)?;
+    value(&PreparedImport {
+        json: serde_json::to_string(&lesson).map_err(js_error)?,
+        additions,
+    })
 }
 
 #[wasm_bindgen]

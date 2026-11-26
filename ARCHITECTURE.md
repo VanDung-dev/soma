@@ -67,8 +67,9 @@ the draft format, with HTML references based on content hashes and JSONL tables
 for scenes and questions.
 
 A worker calls the content WASM module to import and export `.lesson.br`
-packages. Web exports through a browser download. Desktop uses a native save
-dialog.
+packages. During import, Rust deduplicates images, updates their references,
+and identifies the files to write. Web exports through a browser download.
+Desktop uses a native save dialog.
 
 ## Contracts
 

@@ -1,4 +1,4 @@
-import init, { LessonPackage, lesson_image_aliases, lesson_image_info } from "../../content/content";
+import init, { LessonPackage, lesson_image_info, prepare_lesson_import } from "../../content/content";
 import type { LessonJob, LessonResult } from "./archive";
 import { compressLessonImage } from "./compress-image";
 
@@ -16,8 +16,8 @@ self.onmessage = async ({ data }: MessageEvent<LessonJob>) => {
       pack = LessonPackage.open(data.name, data.bytes);
       result = { json: pack.lesson_json(), preloadModelIds: pack.preload_model_ids(),
         images: (pack.image_paths() as string[]).map(path => [path, pack!.image_bytes(path) as Uint8Array<ArrayBuffer>, pack!.image_mime(path)]) };
-    } else if (data.operation === "deduplicate") {
-      result = { aliases: lesson_image_aliases(data.existing, data.incoming) };
+    } else if (data.operation === "prepare-import") {
+      result = prepare_lesson_import(data.json, data.stored, data.existing, data.incoming);
     } else {
       pack = new LessonPackage(data.json);
       for (const [path, bytes] of data.images) pack.add_image(path, bytes);

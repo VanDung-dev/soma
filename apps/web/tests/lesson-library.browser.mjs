@@ -15,13 +15,14 @@ export async function checkLessonLibrary() {
   const key = 'soma.lesson-v1:' + id;
   const lesson = { id, version: 1, author: 'Nguyễn An', title: { vi: 'Kiểm tra kéo thả', en: 'Drop import check' },
     summary: { vi: 'Bài kiểm tra thư viện', en: '' }, modelId: '', steps: [] };
-  const { replaceLessonImageSources } = await import('../src/lessons/shared/rich-text.ts');
+  const { prepareImportedLesson } = await import('../src/lessons/shared/images.ts');
   const from = `images/${'a'.repeat(64)}.png`, to = `images/${'b'.repeat(64)}.webp`;
-  const rewritten = replaceLessonImageSources({ ...lesson, cover: from, author: from,
+  const image = await (await fetch('/home/anatomy.png')).blob();
+  const { importedLesson: rewritten, additions } = await prepareImportedLesson({ ...lesson, cover: from, author: from,
     summary: { vi: `<p>${from}<img src="${from}" alt="${from}"><a href="${from}">Link</a></p>`, en: from, html: ['vi'] } },
-  new Map([[from, to]]));
+  { ...lesson, cover: to }, new Map([[to, image]]), new Map([[from, image]]));
   assert(rewritten.cover === to && rewritten.author === from && rewritten.summary.en === from
-    && rewritten.summary.vi === `<p>${from}<img src="${to}" alt="${from}"><a href="${from}">Link</a></p>`,
+    && rewritten.summary.vi === `<p>${from}<img src="${to}" alt="${from}"><a href="${from}">Link</a></p>` && additions.size === 0,
   'Image deduplication must rewrite only the cover and actual image sources');
   const file = value => {
     const pack = new LessonPackage(JSON.stringify(value));

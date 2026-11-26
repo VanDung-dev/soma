@@ -515,6 +515,8 @@ version = "0.1.0-dev2"
 dependencies = [
  "brotli",
  "core",
+ "dom_query",
+ "html5ever",
  "icu_collator",
  "icu_locale_core",
  "icu_normalizer",

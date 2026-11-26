@@ -42,6 +42,64 @@ fn imported_images_reuse_existing_assets_and_require_referenced_files() {
     assert!(lessons::imported_image_additions(&lesson, stored, HashMap::new()).is_err());
 }
 
+#[test]
+fn imported_images_rewrite_rich_text_and_keep_only_new_referenced_files() {
+    let png = |color| {
+        let mut bytes = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgba8(image::RgbaImage::from_pixel(1, 1, image::Rgba(color)))
+            .write_to(&mut bytes, image::ImageFormat::Png)
+            .unwrap();
+        bytes.into_inner()
+    };
+    let stored_png = png([255, 0, 0, 255]);
+    let new_png = png([0, 0, 255, 255]);
+    let path = |digit: &str| format!("images/{}.png", digit.repeat(64));
+    let stored = path("a");
+    let cover = path("b");
+    let new = path("c");
+    let duplicate = path("d");
+    let encoded_cover = cover.replace('/', "&#47;");
+    let original = json!({
+        "author": cover,
+        "cover": cover,
+        "summary": {
+            "vi": format!("<p>{cover}<IMG SRC='{encoded_cover}' alt='{cover}'><a href='{cover}'>Ảnh</a></p><!-- <img src=\"{cover}\"> -->"),
+            "en": format!("<img src=\"{cover}\">"),
+            "html": ["vi"],
+        },
+        "steps": [{"questions": [{"choices": [{"text": {
+            "vi": "", "en": format!("<img src=\"{duplicate}\">"), "html": ["en"]
+        }}]}]}],
+        "preloadModelIds": ["bones"],
+    });
+    let (lesson, additions) = lessons::prepare_image_import(
+        original.clone(),
+        HashMap::from([(stored.clone(), stored_png.len())]),
+        [(stored.clone(), stored_png.as_slice())],
+        [
+            (cover.clone(), stored_png.as_slice()),
+            (new.clone(), new_png.as_slice()),
+            (duplicate, new_png.as_slice()),
+        ],
+    )
+    .unwrap();
+    assert_eq!(lesson["cover"], stored);
+    assert_eq!(lesson["author"], original["author"]);
+    assert_eq!(lesson["summary"]["en"], original["summary"]["en"]);
+    assert_eq!(
+        lesson["summary"]["vi"],
+        format!(
+            "<p>{cover}<img src=\"{stored}\" alt=\"{cover}\"><a href=\"{cover}\">Ảnh</a></p><!-- <img src=\"{cover}\"> -->"
+        )
+    );
+    assert_eq!(
+        lesson["steps"][0]["questions"][0]["choices"][0]["text"]["en"],
+        format!("<img src=\"{new}\">")
+    );
+    assert_eq!(lesson["preloadModelIds"], original["preloadModelIds"]);
+    assert_eq!(additions, [new]);
+}
+
 fn files() -> Files {
     Files::from([
         (

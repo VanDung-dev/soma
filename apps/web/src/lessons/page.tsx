@@ -8,9 +8,7 @@ import { lessonEditPath, lessonViewPath } from "./routes";
 import { exportLesson, importLesson, listLessons, newLessonId, nextLessonRevision, removeLesson, saveLesson } from "./shared/source";
 import "./style.css";
 import "./shared/rich-content.css";
-import { importedLessonImageAdditions, loadLessonImages, retainLessonImages, storeLessonImages } from "./shared/images";
-import { lessonJob } from "./shared/archive";
-import { lessonImagePaths, replaceLessonImageSources } from "./shared/rich-text";
+import { loadLessonImages, prepareImportedLesson, retainLessonImages, storeLessonImages } from "./shared/images";
 import { LessonImportIcon, LessonLibrary } from "./library/library";
 import { LessonConfirmProvider, useLessonConfirm } from "./shared/confirm";
 
@@ -101,16 +99,7 @@ function LessonsPageContent({ editId, viewId, studyVisible, navigate }: LessonsP
       if (previous && !await confirm(t("lessons.confirmReplace", { name: lessonText(previous.title, language) || t("lessons.untitled") }), t("lessons.replace"))) return;
       const storedImages = await loadLessonImages(lesson.id);
       const previousPaths = new Set(storedImages.keys());
-      let importedLesson = lesson;
-      if (images.size) {
-        const referencedExisting = previous ? lessonImagePaths(previous) : new Set<string>();
-        const existing = [...storedImages].filter(([path]) => referencedExisting.has(path));
-        const result = await lessonJob({ operation: "deduplicate",
-          incoming: await Promise.all([...images].map(async ([path, blob]): Promise<[string, Uint8Array<ArrayBuffer>]> => [path, new Uint8Array(await blob.arrayBuffer())])),
-          existing: await Promise.all(existing.map(async ([path, blob]): Promise<[string, Uint8Array<ArrayBuffer>]> => [path, new Uint8Array(await blob.arrayBuffer())])) });
-        importedLesson = replaceLessonImageSources(lesson, new Map(result.aliases ?? []));
-      }
-      const additions = importedLessonImageAdditions(importedLesson, storedImages, images);
+      const { importedLesson, additions } = await prepareImportedLesson(lesson, previous, storedImages, images);
       if (additions.size) await storeLessonImages(lesson.id, additions);
       try { await saveLesson(importedLesson, previous); }
       catch (error) {

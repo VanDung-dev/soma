@@ -9,6 +9,8 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 brotli = "9.1.1"
+dom_query = { version = "=0.28.0", default-features = false }
+html5ever = "=0.39.0"
 image = { version = "=0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
 sha2 = "0.10.9"
 catalog.workspace = true

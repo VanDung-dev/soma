@@ -150,29 +150,3 @@ export function plainLessonHtml(html: string) {
 export function lessonImagePaths(lesson: Lesson) {
   return new Set<string>(lesson_image_paths(JSON.stringify(lesson)));
 }
-
-export function replaceLessonImageSources(lesson: Lesson, aliases: ReadonlyMap<string, string>): Lesson {
-  if (!aliases.size) return lesson;
-  const template = document.createElement("template");
-  const next = JSON.parse(JSON.stringify(lesson), (_key, value: unknown) => {
-    if (!value || typeof value !== "object" || !("html" in value) || !Array.isArray(value.html)) return value;
-    const text = value as LessonText;
-    for (const language of ["vi", "en"] as const) {
-      if (!text.html?.includes(language) || typeof text[language] !== "string" || !/<img[\s/>]/i.test(text[language])) continue;
-      template.innerHTML = text[language];
-      let changed = false;
-      template.content.querySelectorAll("img[src]").forEach(image => {
-        const source = image.getAttribute("src")!;
-        const replacement = aliases.get(source);
-        if (replacement && replacement !== source) {
-          image.setAttribute("src", replacement);
-          changed = true;
-        }
-      });
-      if (changed) text[language] = template.innerHTML;
-    }
-    return value;
-  }) as Lesson;
-  if (next.cover) next.cover = aliases.get(next.cover) ?? next.cover;
-  return next;
-}
