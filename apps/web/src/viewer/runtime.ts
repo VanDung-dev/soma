@@ -1,7 +1,7 @@
-import type { Catalog, StudyTarget } from "../catalog/types";
-import { getContent, getWasm } from "../core";
+import type { Catalog, ModelLoadPlan } from "../catalog/types";
+import { getWasm } from "../core";
 import type { AnatomyViewer } from "../wasm/wasm";
-import type { CameraCommand, PreparedGeometry, SceneView, StudyViewer, ViewerHold, ViewerState, ViewerStatus, Viewport, VisibilityUpdate } from "./contracts";
+import type { CameraCommand, SceneView, StudyViewer, ViewerHold, ViewerState, ViewerStatus, Viewport, VisibilityUpdate } from "./contracts";
 import { bindViewerInput } from "./input";
 import { loadModels } from "./loader";
 import { defaultGraphics, qualityLevels, renderScales } from "./graphics";
@@ -94,17 +94,19 @@ export class ViewerRuntime implements StudyViewer {
     this.canvas.addEventListener("webglcontextlost", this.contextLost);
   }
 
-  async start(catalog: Catalog, roots: StudyTarget[] = catalog.roots) {
+  async start(catalog: Catalog, modelIds?: readonly string[]) {
     this.loadAbort?.abort();
     const request = this.loadAbort = new AbortController();
     this.loading = true;
     this.autoFitScene = false;
     this.options.onState({ building: true, loadedSystems: 0, structureIds: [], selected: "", error: false, status: "loading" });
+    const plan = this.planModels(catalog, modelIds);
+    if (!plan) return;
     try {
       const wasm = await getWasm();
       if (this.disposed || this.loadAbort !== request) return;
       this.initializeBackground(wasm);
-      if (this.options.background && !roots.length) {
+      if (this.options.background && !plan.bundle) {
         this.viewer!.set_visibility([]);
         this.loading = false;
         this.options.onState({ building: false, status: "finishing" });
@@ -112,19 +114,21 @@ export class ViewerRuntime implements StudyViewer {
         return;
       }
       catalog.clearMetadata();
-      const packages = loadModels(roots, request.signal, loadedSystems => {
-        if (this.loadAbort !== request) return;
-        this.options.onState({ loadedSystems, status: "preparing" });
-      }, (root, json) => { request.signal.throwIfAborted(); return catalog.ingestMetadata(root, json); }, this.options.frameOverviewToWindow);
       // Fit every system before the first frame so reconstruction cannot change the scale.
       const started = performance.now();
       const animate = !this.motion.matches && this.options.animateInitialReconstruction !== false;
-      for await (const prepared of packages) {
-        if (this.disposed || this.loadAbort !== request) return;
-        if (this.viewer) this.viewer.appendPrepared(prepared, this.options.background ? performance.now() : started, animate);
-        else {
-          this.viewer = wasm.AnatomyViewer.fromPrepared(this.canvas, prepared);
-          this.viewer.begin_reconstruction(started, animate);
+      if (plan.bundle) {
+        for await (const { geometry, metadata } of loadModels(catalog, plan.bundle, request.signal, loadedSystems => {
+          if (this.loadAbort !== request) return;
+          this.options.onState({ loadedSystems, status: "preparing" });
+        }, this.options.frameOverviewToWindow)) {
+          if (this.disposed || this.loadAbort !== request) return;
+          if (this.viewer) this.viewer.appendPrepared(geometry, this.options.background ? performance.now() : started, animate);
+          else {
+            this.viewer = wasm.AnatomyViewer.fromPrepared(this.canvas, geometry);
+            this.viewer.begin_reconstruction(started, animate);
+          }
+          catalog.ingestModelMetadata(metadata);
         }
       }
       if (this.disposed || this.loadAbort !== request) return;
@@ -132,7 +136,7 @@ export class ViewerRuntime implements StudyViewer {
       this.resizeCanvas();
       this.viewer!.inspect("reset");
       this.setGraphics(this.graphics);
-      this.viewer!.configure_explosion(roots.map(root => catalog.members(root.id)));
+      this.viewer!.configure_explosion(plan.explosionGroups);
       if (this.options.background) this.viewer!.set_visibility([]);
       if (this.failed) throw new Error("Model rendering failed");
       catalog.finish();
@@ -153,67 +157,59 @@ export class ViewerRuntime implements StudyViewer {
     this.viewer.render();
   }
 
-  async updateBackgroundModels(catalog: Catalog, roots: StudyTarget[], getVisibleIds: () => ReadonlySet<string>) {
+  async updateBackgroundModels(catalog: Catalog, modelIds: readonly string[], getVisibleIds: () => ReadonlySet<string>) {
     if (this.disposed || this.failed) return;
-    const missing = roots.filter(root => !this.loadedModelIds.has(root.id));
     this.loadAbort?.abort();
     this.loadAbort = undefined;
-    if (this.viewer && !missing.length) {
+    const plan = this.planModels(catalog, modelIds, [...this.loadedModelIds]);
+    if (!plan) return;
+    const { bundle, loadedCount, requestedCount, explosionGroups } = plan;
+    if (this.viewer && !bundle) {
       if (!this.loading && !this.modelLoadError) return;
       this.loading = false;
       this.modelLoadError = false;
-      this.options.onState({ building: false, loadedSystems: roots.length, error: false, status: "finishing" });
+      this.options.onState({ building: false, loadedSystems: requestedCount, error: false, status: "finishing" });
       this.scheduleRender();
       return;
     }
 
     const request = this.loadAbort = new AbortController();
-    const alreadyLoaded = roots.length - missing.length;
     this.loading = true;
     this.modelLoadError = false;
-    this.options.onState({ building: true, loadedSystems: alreadyLoaded, error: false, status: "loading" });
+    this.options.onState({ building: true, loadedSystems: loadedCount, error: false, status: "loading" });
     let appending = false;
     try {
-      const [wasm, content] = await Promise.all([getWasm(), getContent()]);
+      const wasm = await getWasm();
       if (this.disposed || this.loadAbort !== request) return;
       if (!this.viewer) catalog.clearMetadata();
       this.initializeBackground(wasm);
       const viewer = this.viewer;
       if (!viewer) throw new Error("Background viewer is unavailable");
-      const metadata = new Map<StudyTarget, string>();
-      let geometry: PreparedGeometry | undefined;
-      for await (const prepared of loadModels(missing, request.signal, loaded => {
-        if (this.loadAbort === request) this.options.onState({ loadedSystems: alreadyLoaded + loaded, status: "preparing" });
-      }, (root, json) => {
-        const parts = content.validate_metadata(json, catalog.members(root.id)) as { source_id: string }[];
-        metadata.set(root, json);
-        return parts.map(part => part.source_id);
-      })) {
-        geometry = prepared;
+      let visibleIds: ReadonlySet<string> | undefined;
+      if (bundle) {
+        for await (const { geometry, metadata } of loadModels(catalog, bundle, request.signal, loaded => {
+          if (this.loadAbort === request) this.options.onState({ loadedSystems: loadedCount + loaded, status: "preparing" });
+        })) {
+          if (this.disposed || this.loadAbort !== request) return;
+          visibleIds = getVisibleIds();
+          const view = this.loadedModelIds.size ? viewer.capture_view() as SceneView : undefined;
+          appending = true;
+          viewer.set_explode_mode(false);
+          viewer.appendPrepared(geometry, performance.now(), false);
+          catalog.ingestModelMetadata(metadata);
+          for (const id of bundle.rootIds) this.loadedModelIds.add(id);
+          catalog.finish();
+          viewer.configure_explosion(explosionGroups);
+          viewer.apply_scene([...visibleIds], view);
+          this.structureIds = catalog.identities();
+          this.clearSceneInteraction();
+        }
       }
       if (this.disposed || this.loadAbort !== request) return;
-
-      let visibleIds: ReadonlySet<string> | undefined;
-      if (geometry) {
-        visibleIds = getVisibleIds();
-        const view = this.loadedModelIds.size ? viewer.capture_view() as SceneView : undefined;
-        appending = true;
-        viewer.set_explode_mode(false);
-        viewer.appendPrepared(geometry, performance.now(), false);
-        for (const [root, json] of metadata) {
-          catalog.ingestMetadata(root, json);
-          this.loadedModelIds.add(root.id);
-        }
-        catalog.finish();
-        viewer.configure_explosion(catalog.roots.filter(root => this.loadedModelIds.has(root.id)).map(root => catalog.members(root.id)));
-        viewer.apply_scene([...visibleIds], view);
-        this.structureIds = catalog.identities();
-        this.clearSceneInteraction();
-      }
       this.loadAbort = undefined;
       this.loading = false;
       this.options.onState({
-        building: false, loadedSystems: roots.length, status: "finishing",
+        building: false, loadedSystems: requestedCount, status: "finishing",
         ...(visibleIds && { structureIds: this.structureIds, selected: "" }),
       }, visibleIds);
       this.scheduleRender();
@@ -224,12 +220,25 @@ export class ViewerRuntime implements StudyViewer {
         return;
       }
       this.loadAbort = undefined;
-      this.loading = false;
-      this.modelLoadError = true;
-      console.error(cause);
-      this.options.onState({ building: false, error: true, status: "loadError" });
-      this.scheduleRender();
+      this.reportModelLoadError(cause);
     }
+  }
+
+  private planModels(catalog: Catalog, modelIds?: readonly string[], loaded?: readonly string[]): ModelLoadPlan | undefined {
+    try {
+      return catalog.modelLoadPlan(modelIds, loaded);
+    } catch (cause) {
+      this.loadAbort = undefined;
+      this.reportModelLoadError(cause);
+    }
+  }
+
+  private reportModelLoadError(cause: unknown) {
+    this.loading = false;
+    this.modelLoadError = true;
+    console.error(cause);
+    this.options.onState({ building: false, error: true, status: "loadError" });
+    this.scheduleRender();
   }
 
   private fail(cause: unknown, status: ViewerStatus) {

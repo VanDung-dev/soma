@@ -1,5 +1,5 @@
-import type { CatalogData } from "../content/content";
-import type { FolderView, OpenStaxReference, SearchPage, StructureDetail, StudyTarget, TreeSearchResult } from "./types";
+import type { CatalogData, PreparedModelMetadata } from "../content/content";
+import type { FolderView, ModelLoadPlan, OpenStaxReference, SearchPage, StructureDetail, StudyTarget, TreeSearchResult } from "./types";
 
 type SceneSelection = { targetId: string; modelIds?: readonly string[]; visibleIds?: readonly string[] };
 type ModelSelection = { modelId: string; modelIds?: readonly string[] };
@@ -31,6 +31,13 @@ export class Catalog {
     return this.data.edit_lesson_scene_visibility(modelIds, targetId, visibleIds, root);
   }
   clearMetadata() { this.data.clear_metadata(); }
+  modelLoadPlan(requested?: readonly string[], loaded: readonly string[] = []): ModelLoadPlan {
+    return this.data.model_load_plan(requested, loaded);
+  }
+  prepareModelMetadata(rootIds: readonly string[], json: string): PreparedModelMetadata {
+    return this.data.prepare_model_metadata(rootIds, json);
+  }
+  ingestModelMetadata(metadata: PreparedModelMetadata) { this.data.ingest_model_metadata(metadata); }
   ingestMetadata(root: StudyTarget, json: string): string[] { return this.data.ingest_metadata(root.id, json); }
   finish() { this.data.finish(); }
   identities(): string[] { return this.data.identities(); }

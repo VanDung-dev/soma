@@ -16,8 +16,10 @@ use std::{
 };
 
 mod lesson_targets;
+mod model_loading;
 mod tree_search;
 pub use lesson_targets::{LessonModelSelection, LessonSceneSelection};
+pub use model_loading::{ModelBundlePlan, ModelLoadPlan, PreparedModelMetadata};
 pub use tree_search::TreeSearch;
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -449,14 +451,23 @@ impl CatalogData {
     }
 
     pub fn ingest(&mut self, root: &str, json: &str) -> Result<Vec<String>, String> {
-        let target = self
-            .targets
+        let parts = parse_metadata(json, &self.model(root)?.structure_ids)?;
+        let ids = parts.iter().map(|p| p.source_id.clone()).collect();
+        self.ingest_model_parts(parts);
+        Ok(ids)
+    }
+
+    fn model(&self, root: &str) -> Result<&catalog::Model, String> {
+        self.targets
             .get(root)
             .map(|i| &self.catalog.targets[*i])
-            .ok_or("Unknown model root")?;
-        let model = target.model.as_ref().ok_or("Target has no model")?;
-        let parts = parse_metadata(json, &model.structure_ids)?;
-        let ids = parts.iter().map(|p| p.source_id.clone()).collect();
+            .ok_or("Unknown model root")?
+            .model
+            .as_ref()
+            .ok_or_else(|| "Target has no model".into())
+    }
+
+    fn ingest_model_parts(&mut self, parts: Vec<Structure>) {
         for part in parts {
             if let Some(index) = self.structure_index.get(&part.source_id) {
                 self.structures[*index] = part;
@@ -466,7 +477,6 @@ impl CatalogData {
                 self.structures.push(part);
             }
         }
-        Ok(ids)
     }
 
     pub fn finish(&mut self, host_locale: &str) -> Result<(), String> {

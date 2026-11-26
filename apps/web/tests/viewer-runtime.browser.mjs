@@ -33,7 +33,7 @@ export async function checkViewerRuntime() {
   try {
     const first = await create(), second = await create();
     await Promise.race([
-      Promise.all([first, second].map(async f => { await f.runtime.start(f.catalog, [root]); await f.loaded; })),
+      Promise.all([first, second].map(async f => { await f.runtime.start(f.catalog, [root.id]); await f.loaded; })),
       new Promise((_, reject) => { timeout = setTimeout(() => reject(Error('Independent viewer startup timed out')), 20000); }),
     ]);
     assert(first.host.querySelectorAll('canvas').length === 1 && second.host.querySelectorAll('canvas').length === 1,
@@ -81,14 +81,14 @@ export async function checkViewerRuntime() {
       'Disposed runtimes must release their canvas and reject commands');
     assert(second.session.control([{ kind: 'reset' }]), 'The other runtime must remain usable');
     const cancelled = await create();
-    const start = cancelled.runtime.start(cancelled.catalog, [root]);
+    const start = cancelled.runtime.start(cancelled.catalog, [root.id]);
     cancelled.runtime.dispose();
     const updates = cancelled.updates();
     await start;
     assert(!cancelled.host.querySelector('canvas') && cancelled.updates() === updates,
       'Unmount during initialization must not publish late state or recreate the canvas');
     const preparing = await create(true);
-    await preparing.runtime.start(preparing.catalog, [root, catalog.roots.find(t => t !== root)]);
+    await preparing.runtime.start(preparing.catalog, [root.id, catalog.roots.find(t => t !== root).id]);
     assert(preparing.updatesAtCancellation() !== undefined && preparing.updates() === preparing.updatesAtCancellation()
       && !preparing.host.querySelector('canvas'), 'Cancellation between worker batches must stop preparation and late updates');
     return { independentHosts: true, independentSessions: true, authoredViews: true, rapidScenes: true, manualCameraInterrupt: true,

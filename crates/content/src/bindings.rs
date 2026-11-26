@@ -21,6 +21,22 @@ pub struct CatalogData {
 }
 
 #[wasm_bindgen]
+pub struct PreparedModelMetadata {
+    data: Option<crate::data::PreparedModelMetadata>,
+}
+
+#[wasm_bindgen]
+impl PreparedModelMetadata {
+    pub fn geometry_ids(&self) -> Result<JsValue, JsValue> {
+        let prepared = self
+            .data
+            .as_ref()
+            .ok_or_else(|| JsValue::from_str("Model metadata already applied"))?;
+        value(&prepared.geometry_ids())
+    }
+}
+
+#[wasm_bindgen]
 impl CatalogData {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Result<CatalogData, JsValue> {
@@ -94,6 +110,39 @@ impl CatalogData {
     }
     pub fn clear_metadata(&mut self) {
         self.data.clear_metadata();
+    }
+    pub fn model_load_plan(&self, requested: JsValue, loaded: JsValue) -> Result<JsValue, JsValue> {
+        let requested: Option<Vec<String>> = read(requested)?;
+        let loaded: Vec<String> = read(loaded)?;
+        value(
+            &self
+                .data
+                .model_load_plan(requested.as_deref(), &loaded)
+                .map_err(|error| JsValue::from_str(&error))?,
+        )
+    }
+    pub fn prepare_model_metadata(
+        &self,
+        roots: JsValue,
+        json: &str,
+    ) -> Result<PreparedModelMetadata, JsValue> {
+        let roots: Vec<String> = read(roots)?;
+        let data = self
+            .data
+            .prepare_model_metadata(&roots, json)
+            .map_err(|error| JsValue::from_str(&error))?;
+        Ok(PreparedModelMetadata { data: Some(data) })
+    }
+    pub fn ingest_model_metadata(
+        &mut self,
+        prepared: &mut PreparedModelMetadata,
+    ) -> Result<(), JsValue> {
+        let data = prepared
+            .data
+            .take()
+            .ok_or_else(|| JsValue::from_str("Model metadata already applied"))?;
+        self.data.ingest_model_metadata(data);
+        Ok(())
     }
     pub fn ingest_metadata(&mut self, root: &str, json: &str) -> Result<JsValue, JsValue> {
         value(

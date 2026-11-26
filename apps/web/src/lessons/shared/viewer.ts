@@ -92,13 +92,8 @@ export function useLessonViewer({ catalog, modelIds, scene, visible, sceneUsable
     const viewer = runtime.current;
     if (!viewer) return;
     const requestedIds = modelKey ? modelKey.split(",") : [];
-    const roots = catalog.roots.filter(root => requestedIds.includes(root.id));
-    if (roots.length !== requestedIds.length) {
-      session.updateViewer({ error: true, building: false, status: "loadError" });
-      return;
-    }
-    if (editing) void viewer.updateBackgroundModels(catalog, roots, () => session.getSnapshot().visibleIds);
-    else void viewer.start(catalog, roots);
+    if (editing) void viewer.updateBackgroundModels(catalog, requestedIds, () => session.getSnapshot().visibleIds);
+    else void viewer.start(catalog, requestedIds);
   }, [catalog, editing, modelKey, session]);
   useEffect(() => { runtime.current?.setGraphics(graphics); }, [graphics, session]);
 

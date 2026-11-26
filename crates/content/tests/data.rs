@@ -35,6 +35,112 @@ fn structure_id<'a>(row: &SearchRow<'a>) -> &'a str {
 }
 
 #[test]
+fn model_load_plan_preserves_source_order_and_skips_loaded_geometry() {
+    let mut data = CatalogData::from_json(SOURCE).unwrap();
+    let ids: Vec<_> = data
+        .roots()
+        .iter()
+        .take(3)
+        .map(|root| root.id.to_owned())
+        .collect();
+    let requested = [ids[1].clone(), ids[0].clone()];
+    let initial = data.model_load_plan(Some(&requested), &[]).unwrap();
+    let bundle = initial.bundle.unwrap();
+    assert_eq!(bundle.root_ids, [ids[0].as_str(), ids[1].as_str()]);
+    assert_eq!(bundle.metadata_path, "models/z-anatomy/z-anatomy.json");
+    assert_eq!(bundle.path, "models/z-anatomy/z-anatomy.glb.br");
+    assert_eq!(initial.requested_count, 2);
+    assert_eq!(initial.loaded_count, 0);
+
+    let incremental = data.model_load_plan(Some(&requested), &ids[1..]).unwrap();
+    assert_eq!(incremental.bundle.unwrap().root_ids, [ids[0].as_str()]);
+    assert_eq!(incremental.loaded_count, 1);
+    assert_eq!(
+        incremental.explosion_groups,
+        ids.iter()
+            .map(|id| data.members(id).unwrap())
+            .collect::<Vec<_>>(),
+    );
+    let cached = data.model_load_plan(Some(&requested), &ids).unwrap();
+    assert!(cached.bundle.is_none());
+    assert_eq!(cached.loaded_count, cached.requested_count);
+    assert!(
+        data.model_load_plan(Some(&[]), &ids)
+            .unwrap()
+            .bundle
+            .is_none()
+    );
+    assert_eq!(
+        data.model_load_plan(None, &[]).unwrap().requested_count,
+        data.roots().len()
+    );
+    assert!(
+        data.model_load_plan(Some(&["missing".into()]), &[])
+            .is_err()
+    );
+    assert!(
+        data.model_load_plan(Some(&[ids[0].clone(), ids[0].clone()]), &[])
+            .is_err()
+    );
+
+    let model = data
+        .catalog
+        .targets
+        .iter_mut()
+        .find(|root| root.id == ids[1])
+        .unwrap()
+        .model
+        .as_mut()
+        .unwrap();
+    model.sha256 = "different".into();
+    assert_eq!(
+        data.model_load_plan(Some(&requested), &[]).unwrap_err(),
+        "Model roots must share one bundle"
+    );
+}
+
+#[test]
+fn prepared_model_metadata_leaves_the_catalog_untouched_until_commit() {
+    let mut data = CatalogData::from_json(SOURCE).unwrap();
+    let roots: Vec<_> = data
+        .roots()
+        .iter()
+        .take(2)
+        .map(|root| root.id.to_owned())
+        .collect();
+    let expected: Vec<_> = roots
+        .iter()
+        .flat_map(|root| {
+            bundle()["metadata"][root]["structures"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|part| part["source_id"].as_str().unwrap())
+        })
+        .collect();
+    let json = bundle().to_string();
+    let staged = data.prepare_model_metadata(&roots, &json).unwrap();
+    let (ids, selected) = staged.geometry_ids();
+    let manifest_count: usize = bundle()["manifest"]["models"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|model| model["source_ids"].as_array().unwrap().len())
+        .sum();
+    assert_eq!(ids.len(), manifest_count);
+    assert_eq!(selected, expected);
+    assert!(data.detail(selected[0]).is_none());
+    assert!(
+        data.prepare_model_metadata(&roots, r#"{"manifest":{"models":[]},"metadata":{}}"#)
+            .is_err()
+    );
+    assert!(data.detail(selected[0]).is_none());
+    data.ingest_model_metadata(staged);
+    assert!(data.detail(expected[0]).is_some());
+    assert!(data.detail(expected[expected.len() - 1]).is_some());
+}
+
+#[test]
 fn skull_search_returns_the_linked_group_without_midword_noise() {
     let mut data = CatalogData::from_json(SOURCE).unwrap();
     let packages: Vec<_> = data

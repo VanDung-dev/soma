@@ -49,6 +49,10 @@ both on unmount. A new mount gets a new runtime.
 The Rust viewer runs focus, authored-scene and overview commands and returns
 visibility updates for the session. The browser host supplies viewport geometry
 and frame timing.
+The Rust catalog plans model loads and validates bundle metadata before the
+geometry worker runs. The browser host fetches and caches the bundle, handles
+cancellation, and commits the prepared metadata after the viewer accepts the
+geometry.
 
 ## Lesson storage and sharing
 

@@ -20,7 +20,7 @@ export async function checkRestoration() {
   session.connect(runtime);
   const frames = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   try {
-    await runtime.start(catalog, [root]); await frames();
+    await runtime.start(catalog, [root.id]); await frames();
     assert(!session.getSnapshot().error, 'The restoration fixture must load real WASM geometry');
     const viewer = runtime.viewer, [a, b] = catalog.members(root.id);
     const structureOffset = viewer.structure_offset;

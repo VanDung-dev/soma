@@ -13,6 +13,14 @@ export interface StudyTarget {
 
 export interface Model { path: string; scope: string; sha256: string }
 
+export interface ModelBundlePlan { path: string; sha256: string; metadataPath: string; rootIds: string[] }
+export interface ModelLoadPlan {
+  bundle?: ModelBundlePlan;
+  requestedCount: number;
+  loadedCount: number;
+  explosionGroups: string[][];
+}
+
 export interface Structure {
   source_id: string;
   source_name: string;

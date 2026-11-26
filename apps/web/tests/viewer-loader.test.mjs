@@ -1,22 +1,31 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { createServer } from 'vite';
+import { initCatalogWasm } from './catalog.fixture.mjs';
 
 test('one GLB and one JSON supply ordered metadata and clean up cancellation and worker failure', async () => {
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
-  const original = { fetch: globalThis.fetch, Worker: globalThis.Worker };
+  const original = { fetch: globalThis.fetch, Worker: globalThis.Worker, indexedDB: globalThis.indexedDB };
   const requests = [], signals = [], workers = [], posted = [];
-  const roots = Array.from({ length: 5 }, (_, id) => ({
-    id: String(id), model: { path: 'models/z-anatomy/z-anatomy.glb.br' },
-  }));
   let workerFailure = false, badMetadata = false;
+  let catalog;
   try {
     const { loadModels } = await server.ssrLoadModule('/src/viewer/loader.ts');
+    const wasm = await initCatalogWasm(server);
+    const { Catalog } = await server.ssrLoadModule('/src/catalog/index.ts');
+    catalog = new Catalog(new wasm.CatalogData());
+    const roots = catalog.roots.slice(0, 5);
+    const { bundle } = catalog.modelLoadPlan(roots.map(root => root.id).reverse());
+    const payload = JSON.parse(await readFile(new URL('../public/models/z-anatomy/z-anatomy.json', import.meta.url), 'utf8'));
+    const expected = roots.flatMap(root => payload.metadata[root.id].structures.map(part => part.source_id));
+    assert.deepEqual(bundle.rootIds, roots.map(root => root.id));
+    globalThis.indexedDB = undefined;
     globalThis.fetch = async (url, { signal }) => {
       requests.push(url); signals.push(signal);
       if (url.endsWith('.json')) return Response.json({
-        manifest: { models: roots.map(root => ({ source_ids: [root.id] })) },
-        metadata: badMetadata ? {} : Object.fromEntries(roots.map(root => [root.id, { structures: [{ source_id: root.id }] }])),
+        manifest: payload.manifest,
+        metadata: badMetadata ? {} : payload.metadata,
       });
       return new Response(new Uint8Array([5]));
     };
@@ -24,6 +33,7 @@ test('one GLB and one JSON supply ordered metadata and clean up cancellation and
       constructor() { this.terminated = false; workers.push(this); }
       postMessage(data, transfers) {
         posted.push(data.selected);
+        assert.deepEqual(data.ids, payload.manifest.models.flatMap(model => model.source_ids));
         assert.equal(transfers[0], data.bytes.buffer);
         queueMicrotask(() => {
           if (workerFailure) this.onerror({ message: 'Preparation failed' });
@@ -34,37 +44,41 @@ test('one GLB and one JSON supply ordered metadata and clean up cancellation and
       }
       terminate() { this.terminated = true; }
     };
-    const controller = new AbortController(), progress = [], ingested = [], completed = [];
-    for await (const prepared of loadModels(roots, controller.signal, count => progress.push(count), (root, json) => {
-      const ids = JSON.parse(json).structures.map(part => part.source_id);
-      assert.deepEqual(ids, [root.id]); ingested.push(root.id); return ids;
-    })) completed.push(prepared[0][0]);
+    const controller = new AbortController(), progress = [], completed = [];
+    for await (const { geometry, metadata } of loadModels(catalog, bundle, controller.signal, count => progress.push(count))) {
+      assert.equal(catalog.detail(expected[0]), undefined, 'Keep metadata staged until the geometry can be accepted');
+      catalog.ingestModelMetadata(metadata);
+      assert.equal(catalog.detail(expected[0]).source_id, expected[0]);
+      completed.push(geometry[0][0]);
+    }
     assert.deepEqual(completed, [5]);
     assert.equal(requests.length, 2, 'Download one GLB and one JSON');
-    assert.deepEqual(posted, [roots.map(root => root.id)]);
-    assert.deepEqual(ingested, roots.map(root => root.id));
+    assert.deepEqual(posted, [expected]);
     assert.deepEqual(progress, [1, 2, 3, 4, 5]);
     assert(workers[0].terminated);
     assert(signals.every(signal => signal.aborted));
     assert(!controller.signal.aborted);
 
+    catalog.clearMetadata();
     const cancelled = new AbortController();
-    const cancelling = loadModels(roots, cancelled.signal, () => cancelled.abort(), () => []);
+    const cancelling = loadModels(catalog, bundle, cancelled.signal, () => cancelled.abort());
     await assert.rejects(cancelling.next(), { name: 'AbortError' });
     assert(workers[1].terminated);
     assert(signals.every(signal => signal.aborted));
+    assert.equal(catalog.detail(expected[0]), undefined);
 
     workerFailure = true;
-    await assert.rejects(loadModels(roots, controller.signal, () => {}, () => []).next(), /Preparation failed/);
+    await assert.rejects(loadModels(catalog, bundle, controller.signal, () => {}).next(), /Preparation failed/);
     assert(workers[2].terminated);
     workerFailure = false; badMetadata = true;
-    await assert.rejects(loadModels(roots, controller.signal, () => {}, () => []).next(), /Missing system metadata/);
+    await assert.rejects(loadModels(catalog, bundle, controller.signal, () => {}).next(), /Missing system metadata/);
     assert(workers[3].terminated);
 
     globalThis.fetch = async () => new Response('', { status: 503 });
-    await assert.rejects(loadModels(roots, controller.signal, () => {}, () => []).next(), /HTTP 503/);
+    await assert.rejects(loadModels(catalog, bundle, controller.signal, () => {}).next(), /HTTP 503/);
     assert(workers[4].terminated);
   } finally {
+    catalog?.free();
     for (const [name, value] of Object.entries(original)) {
       if (value === undefined) delete globalThis[name]; else globalThis[name] = value;
     }
@@ -120,17 +134,18 @@ test('model cache reuses unchanged files, replaces changed versions and tolerate
       }
       terminate() {}
     };
-    const roots = [{ id: 'test', model: { path: 'models/z-anatomy/z-anatomy.glb.br', sha256: version } }];
+    const bundle = { path: 'models/z-anatomy/z-anatomy.glb.br', metadataPath: 'models/z-anatomy/z-anatomy.json', rootIds: ['test'], sha256: version };
+    const catalog = { prepareModelMetadata: () => ({ geometry_ids: () => [['test'], ['test']], free() {} }) };
     const load = async () => {
-      roots[0].model.sha256 = version;
+      bundle.sha256 = version;
       const result = [];
-      for await (const prepared of loadModels(roots, new AbortController().signal, () => {}, () => [])) result.push(prepared[0][0]);
+      for await (const { geometry } of loadModels(catalog, bundle, new AbortController().signal, () => {})) result.push(geometry[0][0]);
       return result;
     };
     assert.deepEqual(await load(), [1]);
     assert.deepEqual(await load(), [1]);
     assert.equal(modelRequests, 1);
-    assert(entries.get(roots[0].model.path).bytes instanceof Blob, 'Large models must use Blob storage to avoid IndexedDB value-size limits');
+    assert(entries.get(bundle.path).bytes instanceof Blob, 'Large models must use Blob storage to avoid IndexedDB value-size limits');
     version = 'second';
     assert.deepEqual(await load(), [2]);
     assert.equal(modelRequests, 2);
