@@ -1,4 +1,10 @@
 export type { Catalog } from "./index";
+export type LessonSceneVisibilityEdit =
+  | { kind: "toggle"; ids: string[]; shown: boolean; target?: string }
+  | { kind: "hide"; ids: string[] }
+  | { kind: "showAll" }
+  | { kind: "hideAll" }
+  | { kind: "focus"; ids: string[]; target?: string };
 export interface AnatomyNames { vi: string; en: string }
 export interface OpenStaxReference { url: string; names: AnatomyNames }
 

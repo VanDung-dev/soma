@@ -92,20 +92,13 @@ impl CatalogData {
         model_ids: JsValue,
         target_id: &str,
         visible_ids: JsValue,
-        root: JsValue,
+        edit: JsValue,
     ) -> Result<JsValue, JsValue> {
-        #[derive(serde::Deserialize)]
-        struct RootVisibility {
-            id: String,
-            shown: bool,
-        }
-
-        let root: Option<RootVisibility> = read(root)?;
         value(&self.data.edit_lesson_scene_visibility(
             read(model_ids)?,
             target_id,
             read(visible_ids)?,
-            root.as_ref().map(|root| (root.id.as_str(), root.shown)),
+            read(edit)?,
         ))
     }
     pub fn clear_metadata(&mut self) {

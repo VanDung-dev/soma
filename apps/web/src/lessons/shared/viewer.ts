@@ -24,7 +24,7 @@ export function useLessonViewer({ catalog, modelIds, scene, visible, sceneUsable
   sceneUsable?: boolean;
   sectionId?: string | null;
   resetVersion?: number;
-  authoring?: { onVisibilityChange: (visibleIds: string[]) => void; onCameraChange?: () => void };
+  authoring?: { onHide: (ids: string[]) => void; onCameraChange?: () => void };
 }) {
   const [graphics] = useGraphicsSettings();
   const host = useRef<HTMLDivElement>(null);
@@ -48,8 +48,7 @@ export function useLessonViewer({ catalog, modelIds, scene, visible, sceneUsable
   useCameraKeys(!modelKey || state.building || state.error, session.control, host);
   const hide = useEffectEvent((hiddenIds: string[]) => {
     if (!authoring || !visible || !session.changeVisibility(hiddenIds, false)) return false;
-    const hidden = new Set(hiddenIds);
-    authoring.onVisibilityChange(ids.filter(id => !hidden.has(id)));
+    authoring.onHide(hiddenIds);
     return true;
   });
 

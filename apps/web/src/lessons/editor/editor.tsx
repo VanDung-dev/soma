@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import type { Catalog } from "../../catalog/types";
+import type { Catalog, LessonSceneVisibilityEdit } from "../../catalog/types";
 import { translateMessage, useLanguage } from "../../i18n";
 import type { Language } from "../../i18n";
 import { emptyLessonText, LessonValidationError, lessonMode, lessonSceneFields, lessonSceneStep, lessonSnapshotFields, lessonText, readLesson, updateLessonQuestions } from "../shared/contract";
@@ -13,7 +13,6 @@ import { LessonQuestionEditor } from "./question-editor";
 import { exportLesson, newLessonId } from "../shared/source";
 import { findLessonSection, lessonSectionAt, lessonSectionTitle, resolveLessonSectionScene } from "../shared/sections";
 import { useLessonSceneVisibleIds } from "../shared/viewer";
-import type { SceneView } from "../../viewer/contracts";
 import { LessonOutline } from "./outline";
 import { LessonContentPanel, LessonHeader, LessonOutlinePanel, LessonStepNavigation, LessonWorkspaceLayout } from "../shared/workspace";
 import { useLessonConfirm } from "../shared/confirm";
@@ -148,10 +147,11 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
     return stage(next);
   }
 
-  function updateScene(visibleIds: string[], view: SceneView | undefined = scene?.view) {
+  function hideSceneStructures(ids: string[]) {
     const live = sceneDirty ? sceneHandle.current?.capture() : undefined;
     if (sceneDirty && !live) { setError(t("lessons.sceneSaveUnavailable")); return; }
-    const patch = lessonSceneFields({ targetId: sceneTargetId, visibleIds, view: live?.view ?? view }, modelIds);
+    const [, , nextVisibleIds] = catalog.editLessonSceneVisibility(modelIds, sceneTargetId, visibleIds, { kind: "hide", ids });
+    const patch = lessonSceneFields({ targetId: sceneTargetId, visibleIds: nextVisibleIds, view: live?.view ?? scene?.view }, modelIds);
     setSceneDirty(false);
     if (!active) return updateDraft({ scene: patch });
     return updateActive({ ...active, kind: "observe", ...patch });
@@ -186,14 +186,15 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
     closeModelSettings();
   }
 
-  function updateSettingsVisibility(ids: string[], root?: { id: string; shown: boolean }) {
+  function updateSettingsVisibility(edit: LessonSceneVisibilityEdit) {
     if (!settingsScene) return false;
     const live = settingsSceneDirty.current ? sceneHandle.current?.capture() : undefined;
     if (settingsSceneDirty.current && !live) { setError(t("lessons.sceneSaveUnavailable")); return false; }
+    const [nextModelIds, targetId, nextVisibleIds] = catalog.editLessonSceneVisibility(settingsScene.modelIds, settingsScene.targetId,
+      settingsScene.visibleIds, edit);
     settingsSceneDirty.current = false;
-    const [nextModelIds, targetId] = catalog.editLessonSceneVisibility(settingsScene.modelIds, settingsScene.targetId, ids, root);
     setSettingsScene({ ...settingsScene, modelIds: nextModelIds, targetId,
-      visibleIds: ids, view: live?.view ?? settingsScene.view, sceneRef: undefined });
+      visibleIds: nextVisibleIds, view: live?.view ?? settingsScene.view, sceneRef: undefined });
     return true;
   }
 
@@ -351,7 +352,7 @@ export function LessonEditor({ catalog, lesson, saved, selected, saving, saveFai
       scene={{ targetId: displayTargetId, visibleIds: displayVisibleIds, view: settingsScene ? settingsScene.view : scene?.view }}
       sectionId={active?.id ?? draft.id} sceneRef={sceneHandle}
       revealPart={revealPart}
-      onChangeScene={ids => modelSettingsOpen ? updateSettingsVisibility(ids) : updateScene(ids)}
+      onHideStructures={ids => modelSettingsOpen ? updateSettingsVisibility({ kind: "hide", ids }) : hideSceneStructures(ids)}
       onSceneChange={() => { if (modelSettingsOpen) settingsSceneDirty.current = true;
         else { editRevision.current++; setSceneDirty(true); setSaveNotice(""); } }}
       onReloadModel={reloadModel} reloadVersion={modelReloadVersion} resetVersion={resetVersion}

@@ -1,5 +1,6 @@
 use content::data::{
-    CatalogData, LessonModelSelection, LessonSceneSelection, SearchRow, normalize, parse_metadata,
+    CatalogData, LessonModelSelection, LessonSceneSelection, LessonSceneVisibilityEdit, SearchRow,
+    normalize, parse_metadata,
 };
 use serde_json::json;
 use std::collections::{HashMap, HashSet};
@@ -600,4 +601,86 @@ fn lesson_model_selection_preserves_explicit_lists_and_preload_order() {
         serde_json::from_value(json!({ "targetId": first, "visibleIds": [] })).unwrap();
     assert!(data.lesson_scene_visible_ids(Some(&empty)).is_empty());
     assert!(data.lesson_scene_models("", &[], Some(&empty)).is_empty());
+}
+
+#[test]
+fn lesson_scene_visibility_edits_preserve_order_and_update_root_selection() {
+    let data = CatalogData::from_json(SOURCE).unwrap();
+    let roots = data.roots();
+    let first = roots[0].id;
+    let second = roots[1].id;
+    let parts = data.members(first).unwrap();
+    let edit = serde_json::from_value(json!({
+        "kind": "toggle",
+        "ids": [parts[0], parts[1]],
+        "shown": true,
+        "target": first,
+    }))
+    .unwrap();
+    let (models, target, visible) = data.edit_lesson_scene_visibility(
+        vec![second.into()],
+        first,
+        vec![parts[1].clone(), parts[1].clone()],
+        edit,
+    );
+    assert_eq!(models, [second, first]);
+    assert_eq!(target, first);
+    assert_eq!(visible, [parts[1].clone(), parts[0].clone()]);
+
+    let (models, target, visible) = data.edit_lesson_scene_visibility(
+        models,
+        &target,
+        visible,
+        LessonSceneVisibilityEdit::Toggle {
+            ids: parts.to_vec(),
+            shown: false,
+            target: Some(first.into()),
+        },
+    );
+    assert_eq!(models, [second]);
+    assert_eq!(target, second);
+    assert!(visible.is_empty());
+
+    let (_, _, visible) = data.edit_lesson_scene_visibility(
+        vec![first.into()],
+        first,
+        vec![parts[1].clone(), parts[0].clone(), parts[1].clone()],
+        LessonSceneVisibilityEdit::Hide {
+            ids: vec![parts[0].clone()],
+        },
+    );
+    assert_eq!(visible, [parts[1].clone(), parts[1].clone()]);
+
+    let (_, _, visible) = data.edit_lesson_scene_visibility(
+        vec![first.into()],
+        first,
+        visible,
+        LessonSceneVisibilityEdit::Focus {
+            ids: Vec::new(),
+            target: Some(first.into()),
+        },
+    );
+    assert_eq!(visible.as_slice(), parts);
+
+    let (models, target, visible) = data.edit_lesson_scene_visibility(
+        vec![],
+        first,
+        vec![],
+        serde_json::from_value(json!({ "kind": "showAll" })).unwrap(),
+    );
+    let mut seen = HashSet::new();
+    let expected: Vec<_> = roots
+        .iter()
+        .flat_map(|root| data.members(root.id).unwrap())
+        .filter(|id| seen.insert(*id))
+        .cloned()
+        .collect();
+    assert_eq!(visible, expected);
+    let (_, _, visible) = data.edit_lesson_scene_visibility(
+        models,
+        &target,
+        visible,
+        LessonSceneVisibilityEdit::HideAll,
+    );
+    assert!(visible.is_empty());
 }

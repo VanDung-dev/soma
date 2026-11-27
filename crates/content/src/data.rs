@@ -18,7 +18,7 @@ use std::{
 mod lesson_targets;
 mod model_loading;
 mod tree_search;
-pub use lesson_targets::{LessonModelSelection, LessonSceneSelection};
+pub use lesson_targets::{LessonModelSelection, LessonSceneSelection, LessonSceneVisibilityEdit};
 pub use model_loading::{ModelBundlePlan, ModelLoadPlan, PreparedModelMetadata};
 pub use tree_search::TreeSearch;
 

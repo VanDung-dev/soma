@@ -11,6 +11,25 @@ pub struct LessonSceneSelection {
 }
 
 #[derive(Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum LessonSceneVisibilityEdit {
+    Toggle {
+        ids: Vec<String>,
+        shown: bool,
+        target: Option<String>,
+    },
+    Hide {
+        ids: Vec<String>,
+    },
+    ShowAll,
+    HideAll,
+    Focus {
+        ids: Vec<String>,
+        target: Option<String>,
+    },
+}
+
+#[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum LessonStepSelection {
     Text,
@@ -142,9 +161,53 @@ impl CatalogData {
         &self,
         mut model_ids: Vec<String>,
         target_id: &str,
-        visible_ids: Vec<String>,
-        root: Option<(&str, bool)>,
-    ) -> (Vec<String>, String) {
+        mut visible_ids: Vec<String>,
+        edit: LessonSceneVisibilityEdit,
+    ) -> (Vec<String>, String, Vec<String>) {
+        let mut root = None;
+        match edit {
+            LessonSceneVisibilityEdit::Toggle { ids, shown, target } => {
+                if shown {
+                    visible_ids.extend(ids);
+                } else {
+                    let hidden: HashSet<_> = ids.into_iter().collect();
+                    visible_ids.retain(|id| !hidden.contains(id));
+                }
+                let mut seen = HashSet::new();
+                visible_ids.retain(|id| seen.insert(id.clone()));
+                root = target
+                    .filter(|id| {
+                        self.targets
+                            .get(id)
+                            .is_some_and(|index| self.catalog.targets[*index].model.is_some())
+                    })
+                    .map(|id| (id, shown));
+            }
+            LessonSceneVisibilityEdit::Hide { ids } => {
+                let hidden: HashSet<_> = ids.into_iter().collect();
+                visible_ids.retain(|id| !hidden.contains(id));
+            }
+            LessonSceneVisibilityEdit::ShowAll => {
+                let mut seen = HashSet::new();
+                visible_ids = self
+                    .catalog
+                    .targets
+                    .iter()
+                    .filter(|target| target.model.is_some())
+                    .flat_map(Self::ids)
+                    .filter(|id| seen.insert(*id))
+                    .cloned()
+                    .collect();
+            }
+            LessonSceneVisibilityEdit::HideAll => visible_ids.clear(),
+            LessonSceneVisibilityEdit::Focus { ids, target } => {
+                visible_ids = match target.as_deref().filter(|id| !id.is_empty()) {
+                    Some(id) => self.members(id).unwrap_or_default().to_vec(),
+                    None => ids,
+                };
+            }
+        }
+        let root = root.as_ref().map(|(id, shown)| (id.as_str(), *shown));
         if let Some((id, shown)) = root {
             if shown {
                 model_ids.push(id.into());
@@ -171,6 +234,7 @@ impl CatalogData {
         (
             models.into_iter().map(str::to_owned).collect(),
             target.into(),
+            scene.visible_ids.unwrap_or_default(),
         )
     }
 }

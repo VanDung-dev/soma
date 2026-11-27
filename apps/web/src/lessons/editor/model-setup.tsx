@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import type { Catalog } from "../../catalog/types";
+import type { Catalog, LessonSceneVisibilityEdit } from "../../catalog/types";
 import { StructureSearch, useStructureSearch } from "../../anatomy/structure-search";
 import { StructureTree } from "../../anatomy/structure-tree";
 import { useLanguage } from "../../i18n";
@@ -15,7 +15,7 @@ export function LessonModelSetup({ catalog, targetId, visibleIds, selectedPart, 
   controls: ReactNode;
   onCloseSettings: () => void;
   onApply: () => void;
-  onChangeScene: (ids: string[], root?: { id: string; shown: boolean }) => boolean;
+  onChangeScene: (edit: LessonSceneVisibilityEdit) => boolean;
   onSelectPart: (id: string, target?: boolean) => void;
 }) {
   const { t } = useLanguage();
@@ -66,16 +66,6 @@ export function LessonModelSetup({ catalog, targetId, visibleIds, selectedPart, 
   const reveal = useMemo(() => selectedPart || targetId ? { id: selectedPart || targetId } : undefined, [selectedPart, targetId]);
   const search = useStructureSearch(catalog, query, settingsOpen && ready);
 
-  function changeVisibility(members: string[], visible: boolean, target?: string) {
-    const next = new Set(visibleIds);
-    for (const id of members) {
-      if (visible) next.add(id);
-      else next.delete(id);
-    }
-    const root = target && catalog.roots.some(root => root.id === target) ? { id: target, shown: visible } : undefined;
-    return onChangeScene([...next], root);
-  }
-
   return <>
     <header className="guide-heading"><h2 id="lesson-model-settings-title">{t("lessons.modelSettings")}</h2>
       <div className="lesson-model-settings-actions">
@@ -86,9 +76,9 @@ export function LessonModelSetup({ catalog, targetId, visibleIds, selectedPart, 
     <div className="catalog-tree lesson-scene-tree">
       <div className="lesson-inspector-actions">
         <button className="lesson-button" disabled={!ready}
-          onClick={() => onChangeScene([...new Set(catalog.roots.flatMap(root => catalog.members(root.id)))])}>{t("catalog.showAll")}</button>
-        <button className="lesson-button" disabled={!ready || !visibleIds.length} onClick={() => onChangeScene([])}>{t("catalog.hideAll")}</button>
-        <button className="lesson-button" disabled={!ready || !targetId} onClick={() => onChangeScene(catalog.members(targetId))}>{t("lessons.resetScene")}</button>
+          onClick={() => onChangeScene({ kind: "showAll" })}>{t("catalog.showAll")}</button>
+        <button className="lesson-button" disabled={!ready || !visibleIds.length} onClick={() => onChangeScene({ kind: "hideAll" })}>{t("catalog.hideAll")}</button>
+        <button className="lesson-button" disabled={!ready || !targetId} onClick={() => onChangeScene({ kind: "focus", ids: [], target: targetId })}>{t("lessons.resetScene")}</button>
       </div>
       <StructureSearch query={query} onChange={setQuery} disabled={!ready} empty={!!search && !search.bestId} />
       {!ready && !failed && <p aria-live="polite">{t("lessons.loadingStructures")}</p>}
@@ -96,8 +86,9 @@ export function LessonModelSetup({ catalog, targetId, visibleIds, selectedPart, 
       {ready && <StructureTree catalog={catalog} visibleIds={shown} selected={selectedPart ?? ""}
         targetId={catalog.target(selectedPart ?? "") ? selectedPart : targetId} reveal={reveal} disabled={false}
         search={search}
-        onVisibility={changeVisibility} onSelect={onSelectPart} onTarget={id => onSelectPart(id, true)}
-        onFocus={(members, target) => onChangeScene(target ? catalog.members(target) : members)} />}
+        onVisibility={(ids, shown, target) => onChangeScene({ kind: "toggle", ids, shown, target })}
+        onSelect={onSelectPart} onTarget={id => onSelectPart(id, true)}
+        onFocus={(ids, target) => onChangeScene({ kind: "focus", ids, target })} />}
     </div>
     <div className="lesson-model-settings-controls">{controls}</div>
   </>;

@@ -18,7 +18,7 @@ type SceneProps = {
   settingsButton: ReactNode;
   settingsControlsHost: HTMLElement | null;
   settingsActionsHost: HTMLElement | null;
-  onChangeScene: (ids: string[]) => void;
+  onHideStructures: (ids: string[]) => void;
   sceneRef?: Ref<EditorSceneHandle>;
   revealPart?: { id: string; target?: boolean };
   onSceneChange?: () => void;
@@ -40,10 +40,10 @@ export function EditorScene(props: SceneProps) {
     </p>} />, props.frame);
 }
 
-function Scene({ catalog, modelIds, scene, sectionId, frame, inactive, settingsButton, settingsControlsHost, settingsActionsHost, onChangeScene, sceneRef, revealPart, onSceneChange, onReloadModel, resetVersion }: SceneProps & { catalog: Catalog }) {
+function Scene({ catalog, modelIds, scene, sectionId, frame, inactive, settingsButton, settingsControlsHost, settingsActionsHost, onHideStructures, sceneRef, revealPart, onSceneChange, onReloadModel, resetVersion }: SceneProps & { catalog: Catalog }) {
   const { language, t } = useLanguage();
   const viewer = useLessonViewer({ catalog, modelIds, scene, visible: !inactive, sectionId, resetVersion,
-    authoring: { onVisibilityChange: onChangeScene, onCameraChange: onSceneChange } });
+    authoring: { onHide: onHideStructures, onCameraChange: onSceneChange } });
   const { ids, ready, session, state, hold, snapTarget, resize } = viewer;
   const hudState = useMemo(() => {
     const requested = new Set(modelIds.flatMap(id => catalog.members(id)));
