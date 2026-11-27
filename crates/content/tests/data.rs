@@ -145,7 +145,10 @@ fn prepared_model_metadata_leaves_the_catalog_untouched_until_commit() {
 fn editor_metadata_ingest_requires_valid_metadata_for_every_planned_system() {
     let mut data = CatalogData::from_json(SOURCE).unwrap();
     let bundled_path = "models/z-anatomy/z-anatomy.json".to_owned();
-    assert_eq!(data.model_metadata_paths().unwrap(), [bundled_path.clone()]);
+    assert_eq!(
+        data.model_metadata_paths().unwrap().as_slice(),
+        std::slice::from_ref(&bundled_path)
+    );
     let roots: Vec<_> = data.roots().iter().map(|root| root.id.to_owned()).collect();
     let first_part = bundle()["metadata"][&roots[0]]["structures"][0]["source_id"]
         .as_str()
