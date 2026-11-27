@@ -8,10 +8,11 @@ export async function checkLessonModelRemoval(page) {
     const key = 'soma.lesson-v1:' + id;
     const lesson = JSON.parse(localStorage.getItem(key));
     const text = value => ({ vi: value, en: value });
-    const step = (name, modelId) => ({ id: crypto.randomUUID().replaceAll('-', ''), kind: 'observe',
-      title: text(name), instruction: text(name), showModel: true, modelIds: [modelId], targetId: modelId });
+    const step = (name, modelId, view) => ({ id: crypto.randomUUID().replaceAll('-', ''), kind: 'observe',
+      title: text(name), instruction: text(name), showModel: true, modelIds: [modelId], targetId: modelId, view });
+    const view = { camera: { target: [0, 0, 0], yaw: 0.6, pitch: 0.17, distance: 4, pan: [0.04, -0.02] }, explosion: 35 };
     localStorage.setItem(key, JSON.stringify({ ...lesson, title: text('Model removal regression'), modelId: bones,
-      modelIds: [bones], steps: [step('Bones', bones), step('Joints', joints)] }));
+      modelIds: [bones], steps: [step('Bones', bones, view), step('Joints', joints)] }));
   }, { id, bones: 'collection:baf3076d0495a617', joints: 'collection:df6cf17f3715fcc8' });
   await page.reload();
   const readyCanvas = page.locator('.lesson-editor > .model-canvas[aria-busy="false"]');
@@ -21,12 +22,16 @@ export async function checkLessonModelRemoval(page) {
   await page.evaluate(async () => {
     const { getWasm } = await import('/src/core.ts');
     const { AnatomyViewer } = await getWasm();
-    const append = AnatomyViewer.prototype.appendPrepared;
+    const append = AnatomyViewer.prototype.appendPreparedKeepingScene;
     const canvas = document.querySelector('.lesson-editor > .model-canvas canvas');
-    window.lessonModelCheck = { appends: 0, canvas, restore: () => { AnatomyViewer.prototype.appendPrepared = append; } };
-    AnatomyViewer.prototype.appendPrepared = function (...args) {
+    window.lessonModelCheck = { appends: 0, canvas, restore: () => { AnatomyViewer.prototype.appendPreparedKeepingScene = append; } };
+    AnatomyViewer.prototype.appendPreparedKeepingScene = function (...args) {
+      const { camera: previousCamera } = this.capture_view();
+      const previousVisible = this.visible_count();
+      const result = append.apply(this, args);
       window.lessonModelCheck.appends++;
-      return append.apply(this, args);
+      window.lessonModelCheck.scene = { previousCamera, previousVisible, view: this.capture_view(), visible: this.visible_count() };
+      return result;
     };
   });
   try {
@@ -36,6 +41,13 @@ export async function checkLessonModelRemoval(page) {
     await nerves.check();
     await page.waitForFunction(() => window.lessonModelCheck.appends === 1);
     await readyCanvas.waitFor();
+    const { previousCamera, previousVisible, view, visible } = await page.evaluate(() => window.lessonModelCheck.scene);
+    assert(previousVisible > 0 && visible === previousVisible, 'Appending preserves the current visibility until the new selection is applied');
+    const poseValues = ({ target, yaw, pitch, distance, pan }) => [...target, yaw, pitch, distance, ...pan];
+    const before = poseValues(previousCamera);
+    assert(poseValues(view.camera).every((value, index) => Math.abs(value - before[index]) < 1e-4),
+      'Appending preserves camera target, orientation, zoom and pan');
+    assert(Math.abs(view.explosion - 35) < 1e-4, 'Appending preserves the authored explosion amount');
     assert(await page.evaluate(() => window.lessonModelCheck.canvas === document.querySelector('.lesson-editor > .model-canvas canvas')));
     await nerves.uncheck();
     await nerves.check();

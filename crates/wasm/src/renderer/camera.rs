@@ -74,13 +74,7 @@ impl AnatomyViewer {
     }
 
     pub fn capture_view(&mut self) -> Result<JsValue, JsValue> {
-        self.finish_explosion()?;
-        self.finish_camera_transition();
-        let view = SceneView {
-            camera: self.camera.pose(),
-            explosion: self.explosion.amount() * 100.0,
-        };
-        serde_wasm_bindgen::to_value(&view).map_err(js_error)
+        serde_wasm_bindgen::to_value(&self.capture_scene_view()?).map_err(js_error)
     }
 
     pub fn apply_scene(
@@ -395,6 +389,15 @@ impl AnatomyViewer {
 }
 
 impl AnatomyViewer {
+    pub(super) fn capture_scene_view(&mut self) -> Result<SceneView, JsValue> {
+        self.finish_explosion()?;
+        self.finish_camera_transition();
+        Ok(SceneView {
+            camera: self.camera.pose(),
+            explosion: self.explosion.amount() * 100.0,
+        })
+    }
+
     pub(super) fn apply_scene_view(
         &mut self,
         ids: &[String],

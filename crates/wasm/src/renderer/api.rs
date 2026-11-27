@@ -6,7 +6,7 @@ use web_sys::HtmlCanvasElement;
 use super::AnatomyViewer;
 use super::background_bounds;
 use super::io::{load_packages, prepared_buffers};
-use super::util::js_error;
+use super::util::{js_error, read};
 
 #[wasm_bindgen]
 impl AnatomyViewer {
@@ -105,6 +105,35 @@ impl AnatomyViewer {
         self.camera
             .resize(self.canvas.width(), self.canvas.height());
         Ok(())
+    }
+
+    #[wasm_bindgen(js_name = appendPreparedKeepingScene)]
+    pub fn append_prepared_keeping_scene(
+        &mut self,
+        prepared: js_sys::Array,
+        now: f64,
+        visible_ids: JsValue,
+        explosion_groups: JsValue,
+    ) -> Result<Option<String>, JsValue> {
+        let view = if self.scene.parts.is_empty() {
+            None
+        } else {
+            match self.capture_scene_view() {
+                Ok(view) => Some(view),
+                Err(error) => {
+                    let message = error
+                        .as_string()
+                        .unwrap_or_else(|| "Could not capture the existing scene".into());
+                    return Ok(Some(message));
+                }
+            }
+        };
+        let visible_ids: Vec<String> = read(visible_ids)?;
+        self.set_explode_mode(false)?;
+        self.append_prepared(prepared, now, false)?;
+        self.configure_explosion(explosion_groups)?;
+        self.apply_scene_view(&visible_ids, view, None)?;
+        Ok(None)
     }
 
     pub fn render(&self) {

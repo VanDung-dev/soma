@@ -191,15 +191,15 @@ export class ViewerRuntime implements StudyViewer {
         })) {
           if (this.disposed || this.loadAbort !== request) return;
           visibleIds = getVisibleIds();
-          const view = this.loadedModelIds.size ? viewer.capture_view() as SceneView : undefined;
           appending = true;
-          viewer.set_explode_mode(false);
-          viewer.appendPrepared(geometry, performance.now(), false);
+          const captureError = viewer.appendPreparedKeepingScene(geometry, performance.now(), [...visibleIds], explosionGroups);
+          if (captureError !== undefined) {
+            appending = false;
+            throw captureError;
+          }
           catalog.ingestModelMetadata(metadata);
           for (const id of bundle.rootIds) this.loadedModelIds.add(id);
           catalog.finish();
-          viewer.configure_explosion(explosionGroups);
-          viewer.apply_scene([...visibleIds], view);
           this.structureIds = catalog.identities();
           this.clearSceneInteraction();
         }
