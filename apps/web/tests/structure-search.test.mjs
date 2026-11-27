@@ -12,7 +12,7 @@ test('structure search matches names, Latin and laterality, and reveals the sele
   try {
     const wasm = await initCatalogWasm(server);
     const { Catalog } = await server.ssrLoadModule('/src/catalog/index.ts');
-    const { StructureSearch, useStructureSearch } = await server.ssrLoadModule('/src/anatomy/structure-search.tsx');
+    const { StructureSearch, useStructureSearch } = await server.ssrLoadModule('/src/catalog/structure-search.tsx');
     const fixture = parts => {
       const ids = parts.map((_, i) => 'za:' + i.toString(16).padStart(16, '0'));
       const targets = parts.length ? [{ id: 'fixture', title: 'Fixture', source_name: 'Fixture', group_id: 'g', structure_ids: ids,
@@ -24,7 +24,7 @@ test('structure search matches names, Latin and laterality, and reveals the sele
       return { store, ids, search: query => store.search(query, 'vi', 100).items.map(row => ({ ...row, source_id: parts[ids.indexOf(row.source_id)].source_id })) };
     };
     const searchStructures = (parts, query) => { const f = fixture(parts); try { return f.search(query); } finally { f.store.free(); } };
-    const { StructureTree } = await server.ssrLoadModule('/src/anatomy/structure-tree.tsx');
+    const { StructureTree } = await server.ssrLoadModule('/src/catalog/structure-tree.tsx');
     const part = (id, name, latin, laterality = '') => ({ source_id: id, source_name: name,
       source_object: name, latin, laterality, collections: [] });
     const parts = [part('head', 'Head of femur', 'Caput femoris'),

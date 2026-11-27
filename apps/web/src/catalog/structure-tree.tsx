@@ -1,8 +1,9 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import type { Catalog, FolderView } from "../catalog/types";
+import type { Catalog, FolderView } from "./types";
 import { useLanguage } from "../i18n";
 import { LineIcon } from "../icons";
+import "./structure.css";
 
 interface TreeSearch {
   bestId?: string;

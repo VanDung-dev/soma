@@ -1,7 +1,7 @@
 import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { Catalog } from "../catalog/types";
-import { StructureTree } from "./structure-tree";
-import { StructureSearch, useStructureSearch } from "./structure-search";
+import { StructureTree } from "../catalog/structure-tree";
+import { StructureSearch, useStructureSearch } from "../catalog/structure-search";
 import { useCameraKeys } from "../viewer/use-camera-keys";
 import { MenuBar } from "./menu-bar";
 import { ViewerOrientation } from "../viewer/orientation-axes";

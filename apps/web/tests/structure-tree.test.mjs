@@ -10,7 +10,7 @@ test('each system checkbox covers only its Blender display collection', async ()
   const catalog = JSON.parse(await readFile(new URL('../../../content/catalog.json', import.meta.url)));
   const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false, ws: false }, appType: 'custom' });
   try {
-    const { StructureTree } = await server.ssrLoadModule('/src/anatomy/structure-tree.tsx');
+    const { StructureTree } = await server.ssrLoadModule('/src/catalog/structure-tree.tsx');
     const data = await createCatalogFixture(server, catalog);
     const roots = catalog.targets.filter(target => target.model);
     for (const root of roots) {

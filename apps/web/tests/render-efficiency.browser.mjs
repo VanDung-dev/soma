@@ -1,8 +1,8 @@
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
-import { StructureTree } from '../src/anatomy/structure-tree.tsx';
-import { StructureSearch } from '../src/anatomy/structure-search.tsx';
+import { StructureTree } from '../src/catalog/structure-tree.tsx';
+import { StructureSearch } from '../src/catalog/structure-search.tsx';
 
 export function checkRenderEfficiency({ verify = true } = {}) {
   const assert = (ok, message) => { if (verify && !ok) throw Error(message); };

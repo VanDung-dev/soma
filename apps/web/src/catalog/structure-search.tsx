@@ -1,6 +1,7 @@
 import { memo, useMemo } from "react";
-import type { Catalog } from "../catalog/types";
+import type { Catalog } from "./types";
 import { useLanguage } from "../i18n";
+import "./structure.css";
 
 export function useStructureSearch(catalog: Catalog, query: string, enabled: boolean) {
   const { language } = useLanguage();

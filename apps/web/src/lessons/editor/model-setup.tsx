@@ -1,8 +1,8 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { Catalog, LessonSceneVisibilityEdit } from "../../catalog/types";
-import { StructureSearch, useStructureSearch } from "../../anatomy/structure-search";
-import { StructureTree } from "../../anatomy/structure-tree";
+import { StructureSearch, useStructureSearch } from "../../catalog/structure-search";
+import { StructureTree } from "../../catalog/structure-tree";
 import { useLanguage } from "../../i18n";
 import { loadModelMetadata } from "../../model-assets";
 
