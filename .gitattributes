@@ -3,3 +3,5 @@ apps/web/tests/** linguist-vendored
 scripts/tests/** linguist-vendored
 crates/renderer/tests/** linguist-vendored
 crates/content/tests/** linguist-vendored
+crates/core/tests/** linguist-vendored
+crates/wasm/tests/** linguist-vendored
