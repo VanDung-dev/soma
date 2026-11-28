@@ -97,9 +97,15 @@ test('lesson models include every system needed by setup and authored scenes wit
     assert.deepEqual(catalog.lessonSceneVisibleIds(), []);
     assert.deepEqual(catalog.lessonTargets(['joints', 'bones', 'head', 'missing']).map(target => target.id),
       ['joints', 'bones', 'head', 'jaw', 'skull']);
-    assert.deepEqual(catalog.editLessonSceneVisibility(['joints', 'bones'], 'skull', [jaw], { id: 'joints', shown: false }), [['bones'], 'skull']);
-    assert.deepEqual(catalog.editLessonSceneVisibility(['joints', 'bones'], 'skull', [joint], { id: 'bones', shown: false }), [['joints'], 'joints']);
-    assert.deepEqual(catalog.editLessonSceneVisibility(['bones'], 'head', [jaw, masseter], { id: 'bones', shown: true }), [['bones', 'muscles'], 'head']);
+    assert.deepEqual(catalog.editLessonSceneVisibility(['joints', 'bones'], 'skull', [jaw], {
+      kind: 'toggle', ids: catalog.members('joints'), shown: false, target: 'joints',
+    }), [['bones'], 'skull', []]);
+    assert.deepEqual(catalog.editLessonSceneVisibility(['joints', 'bones'], 'skull', [joint], {
+      kind: 'toggle', ids: catalog.members('bones'), shown: false, target: 'bones',
+    }), [['joints'], 'joints', [joint]]);
+    assert.deepEqual(catalog.editLessonSceneVisibility(['bones'], 'head', [jaw, masseter], {
+      kind: 'toggle', ids: catalog.members('bones'), shown: true, target: 'bones',
+    }), [['bones', 'muscles'], 'head', [jaw, masseter]]);
   } finally { catalog.free(); }
 });
 

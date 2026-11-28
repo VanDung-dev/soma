@@ -216,7 +216,7 @@ test('Back and Forward follow anatomy navigation without recording hover or manu
     assert.equal(session.getSnapshot().reveal.id, roots[0].id, 'Back must replace the structure path with the target path');
     assert(session.forward());
     assert.deepEqual(session.getSnapshot().focusedIds, [id], 'Forward must replay the structure focus');
-    assert.deepEqual(calls.findLast(call => call[0] === 'focus'), ['focus', [id], false, false]);
+    assert.deepEqual(calls.findLast(call => call[0] === 'focus'), ['focus', [id], false]);
     assert.equal(session.getSnapshot().reveal.id, id);
     assert(session.focus([], roots[1].id));
     assert(session.back());

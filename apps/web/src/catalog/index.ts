@@ -10,9 +10,14 @@ type LessonModelSelection = ModelSelection & {
 };
 
 export class Catalog {
+  private readonly data: CatalogData;
   readonly roots: StudyTarget[];
   readonly groupCount: number;
-  constructor(private data: CatalogData) { this.roots = data.roots(); this.groupCount = data.group_count(); }
+  constructor(data: CatalogData) {
+    this.data = data;
+    this.roots = data.roots();
+    this.groupCount = data.group_count();
+  }
   target(id: string): StudyTarget | undefined { return this.data.target(id); }
   members(id: string): string[] { return this.data.members(id) ?? []; }
   lessonSceneVisibleIds(scene?: SceneSelection): string[] { return this.data.lesson_scene_visible_ids(scene); }
